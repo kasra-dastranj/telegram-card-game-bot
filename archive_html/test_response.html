@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مدیریت کارت‌های بازی</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+</head>
+<body class="bg-gray-100 font-sans">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        function App() {
+            const [cards, setCards] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [error, setError] = useState(null);
+            const [selectedCard, setSelectedCard] = useState(null);
+            const [isEditing, setIsEditing] = useState(false);
+            const [showForm, setShowForm] = useState(false);
+            const [formData, setFormData] = useState({
+                name: '',
+                rarity: 'normal',
+                power: 50,
+                speed: 50,
+                iq: 50,
+                popularity: 50,
+                abilities: [],
+                biography: '',
+                dialogs: []
+            });
+            const [newAbility, setNewAbility] = useState('');
+            const [stats, setStats] = useState(null);
+            const [imageFile, setImageFile] = useState(null);
+            const [imagePreview, setImagePreview] = useState(null);
+            const [newDialog, setNewDialog] = useState('');
+            // Dual upload additions
+            const [stickerFile, setStickerFile] = useState(null);
+            const [uploadStatus, setUploadStatus] = useState({ type: '', message: '' });
+            const [stickerBadge, setStickerBadge] = useState(false);
+            
+            // Cooldown management states
+            const [cooldownSettings, setCooldownSettings] = useState({});
+            const [showCooldownPanel, setShowCooldownPanel] = useState(false);
+            const [cooldownLoading, setCooldownLoading] = useState(false);
+
+            const handleAddDialog = () => {
+                if (newDialog.trim()) {
+                    setFormData({
+                        ...formData,
+                        dialogs: [...formData.dialogs, newDialog.trim()]
+                    });
+                    setNewDialog('');
+                }
+            };
+
+            const handleRemoveDialog = (index) => {
+                const updatedDialogs = [...formData.dialogs];
+                updatedDialogs.splice(index, 1);
+                setFormData({
+                    ...formData,
+                    dialogs: updatedDialogs
+                });
+            };
+
+            // دریافت لیست کارت‌ها
+            const fetchCards = async () => {
+                try {
+                    setLoading(true);
+                    const response = await fetch('/api/cards');
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        setCards(data.cards);
+                    } else {
+                        throw new Error(data.error || 'خطا در دریافت کارت‌ها');
+                    }
+                } catch (err) {
+                    setError(err.message);
+                    console.error('Error fetching cards:', err);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            // دریافت آمار
+            const fetchStats = async () => {
+                try {
+                    const response = await fetch('/api/stats');
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        setStats(data.stats);
+                    }
+                } catch (err) {
+                    console.error('Error fetching stats:', err);
+                }
+            };
+
+            // دریافت تنظیمات Cooldown
+            const fetchCooldownSettings = async () => {
+                try {
+                    setCooldownLoading(true);
+                    const response = await fetch('/api/cards/cooldown-settings');
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        setCooldownSettings(data.cards);
+                    } else {
+                        throw new Error(data.error || 'خطا در دریافت تنظیمات cooldown');
+                    }
+                } catch (err) {
+                    console.error('Error fetching cooldown settings:', err);
+                    alert('خطا در دریافت تنظیمات cooldown: ' + err.message);
+                } finally {
+                    setCooldownLoading(false);
+                }
+            };
+
+            // بروزرسانی Cooldown کارت
+            const updateCardCooldown = async (cardId, settings) => {
+                try {
+                    const response = await fetch(`/api/cards/${cardId}/cooldown`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(settings)
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        alert(data.message);
+                        fetchCooldownSettings(); // بروزرسانی لیست
+                    } else {
+                        throw new Error(data.error || 'خطا در بروزرسانی');
+                    }
+                } catch (err) {
+                    console.error('Error updating cooldown:', err);
+                    alert('خطا در بروزرسانی: ' + err.message);
+                }
+            };
+
+            // ریست همه Cooldown ها
+            const resetAllCooldowns = async () => {
+                if (!confirm('آیا مطمئنید که می‌خواهید همه cooldown های فعال را ریست کنید؟')) {
+                    return;
+                }
+                
+                try {
+                    const response = await fetch('/api/cards/cooldown-settings/reset', {
+                        method: 'POST'
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        alert(data.message);
+                        fetchCooldownSettings();
+                    } else {
+                        throw new Error(data.error || 'خطا در ریست');
+                    }
+                } catch (err) {
+                    console.error('Error resetting cooldowns:', err);
+                    alert('خطا در ریست: ' + err.message);
+                }
+            };
+
+            // اجرای اولیه
+            useEffect(() => {
+                fetchCards();
+                fetchStats();
+                fetchCooldownSettings();
+            }, []);
+
+            // تغییر فرم
+            const handleInputChange = (e) => {
+                const { name, value } = e.target;
+                let processedValue = value;
+                
+                if (name === 'power' || name === 'speed' || name === 'iq' || name === 'popularity') {
+                    processedValue = Math.max(1, Math.min(100, parseInt(value || 0)));
+                }
+                
+                setFormData({
+                    ...formData,
+                    [name]: processedValue
+                });
+            };
+
+            // اضافه کردن ابیلیتی
+            const handleAddAbility = () => {
+                if (newAbility.trim()) {
+                    setFormData({
+                        ...formData,
+                        abilities: [...formData.abilities, newAbility.trim()]
+                    });
+                    setNewAbility('');
+                }
+            };
+
+            // حذف ابیلیتی
+            const handleRemoveAbility = (index) => {
+                const updatedAbilities = [...formData.abilities];
+                updatedAbilities.splice(index, 1);
+                setFormData({
+                    ...formData,
+                    abilities: updatedAbilities
+                });
+            };
+
+            // تغییر تصویر
+            const handleImageChange = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    setImageFile(file);
+                    
+                    // نمایش پیش‌نمایش
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        setImagePreview(e.target.result);
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
+
+            // تغییر استیکر WebP
+            const handleStickerChange = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    setStickerFile(file);
+                }
+            };
+
+            // آپلود فوری تصویر
+            const uploadImageNow = async () => {
+                if (!imageFile || !formData.name) {
+                    setUploadStatus({ type: 'error', message: 'Please choose an image and enter a card name first.' });
+                    return;
+                }
+                const uploadData = new FormData();
+                uploadData.append('image', imageFile);
+                uploadData.append('card_name', formData.name);
+                try {
+                    const response = await fetch('/api/upload_image', { method: 'POST', body: uploadData });
+                    const data = await response.json();
+                    if (data.success) {
+                        setUploadStatus({ type: 'success', message: data.message || 'Image uploaded successfully.' });
+                    } else {
+                        setUploadStatus({ type: 'error', message: data.error || 'Image upload failed.' });
+                    }
+                } catch (err) {
+                    setUploadStatus({ type: 'error', message: 'Network error while uploading image.' });
+                }
+            };
+
+            // آپلود فوری استیکر
+            const uploadStickerNow = async () => {
+                if (!stickerFile || !formData.name) {
+                    setUploadStatus({ type: 'error', message: 'Please choose a WebP file and enter a card name first.' });
+                    return;
+                }
+                const uploadData = new FormData();
+                uploadData.append('sticker', stickerFile);
+                uploadData.append('card_name', formData.name);
+                try {
+                    const response = await fetch('/api/upload_sticker', { method: 'POST', body: uploadData });
+                    const data = await response.json();
+                    if (data.success) {
+                        setStickerBadge(true);
+                        setUploadStatus({ type: 'success', message: data.message || 'WebP sticker uploaded successfully.' });
+                    } else {
+                        setStickerBadge(false);
+                        setUploadStatus({ type: 'error', message: data.error || 'Sticker upload failed.' });
+                    }
+                } catch (err) {
+                    setStickerBadge(false);
+                    setUploadStatus({ type: 'error', message: 'Network error while uploading sticker.' });
+                }
+            };
+
+            // آپلود تصویر
+            const uploadImage = async () => {
+                if (!imageFile || !formData.name) return true; // اگر تصویری انتخاب نشده، ادامه بده
+                
+                const uploadData = new FormData();
+                uploadData.append('image', imageFile);
+                uploadData.append('card_name', formData.name);
+                
+                try {
+                    const response = await fetch('/api/upload_image', {
+                        method: 'POST',
+                        body: uploadData
+                    });
+                    
+                    const data = await response.json();
+                    return data.success;
+                } catch (err) {
+                    console.error('Error uploading image:', err);
+                    return false;
+                }
+            };
+
+            // ارسال فرم
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                
+                try {
+                    // آپلود تصویر اگر انتخاب شده باشد
+                    if (imageFile) {
+                        const imageUploaded = await uploadImage();
+                        if (!imageUploaded) {
+                            throw new Error('خطا در آپلود تصویر');
+                        }
+                    }
+                    
+                    // ارسال اطلاعات کارت
+                    const url = isEditing 
+                        ? `/api/cards/${selectedCard.id}`
+                        : '/api/cards';
+                    
+                    const method = isEditing ? 'PUT' : 'POST';
+                    
+                    const response = await fetch(url, {
+                        method,
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(formData)
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        alert(isEditing ? 'کارت با موفقیت بروزرسانی شد' : 'کارت با موفقیت اضافه شد');
+                        setShowForm(false);
+                        setIsEditing(false);
+                        setSelectedCard(null);
+                        setImageFile(null);
+                        setImagePreview(null);
+                        fetchCards();
+                        fetchStats();
+                    } else {
+                        throw new Error(data.error || 'خطا در ذخیره کارت');
+                    }
+                } catch (err) {
+                    alert(err.message);
+                    console.error('Error saving card:', err);
+                }
+            };
+
+            // شروع ویرایش
+            const handleEditCard = (card) => {
+                setFormData({
+                    name: card.name,
+                    rarity: card.rarity,
+                    power: card.power,
+                    speed: card.speed,
+                    iq: card.iq,
+                    popularity: card.popularity,
+                    abilities: card.abilities || [],
+                    biography: card.biography || '',
+                    dialogs: card.dialogs || []
+                });
+                setSelectedCard(card);
+                setIsEditing(true);
+                setShowForm(true);
+                
+                // تلاش برای نمایش تصویر فعلی
+                setImagePreview(`/card_images/${card.name.toLowerCase().replace(' ', '_')}.png`);
+            };
+
+            // حذف کارت
+            const handleDeleteCard = async (cardId, cardName) => {
+                if (!confirm(`آیا مطمئنید که می‌خواهید کارت "${cardName}" را حذف کنید؟`)) {
+                    return;
+                }
+                
+                try {
+                    const response = await fetch(`/api/cards/${cardId}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        alert('کارت با موفقیت حذف شد');
+                        fetchCards();
+                        fetchStats();
+                    } else {
+                        throw new Error(data.error || 'خطا در حذف کارت');
+                    }
+                } catch (err) {
+                    alert(err.message);
+                    console.error('Error deleting card:', err);
+                }
+            };
+
+            // ریست فرم
+            const resetForm = () => {
+                setFormData({
+                    name: '',
+                    rarity: 'normal',
+                    power: 50,
+                    speed: 50,
+                    iq: 50,
+                    popularity: 50,
+                    abilities: [],
+                    biography: '',
+                    dialogs: []
+                });
+                setNewAbility('');
+                setNewDialog('');
+                setSelectedCard(null);
+                setIsEditing(false);
+                setImageFile(null);
+                setImagePreview(null);
+            };
+
+            // رنگ کمیابی
+            const getRarityColor = (rarity) => {
+                switch(rarity) {
+                    case 'normal': return 'bg-green-100 text-green-800';
+                    case 'epic': return 'bg-purple-100 text-purple-800';
+                    case 'legend': return 'bg-yellow-100 text-yellow-800';
+                    default: return 'bg-gray-100 text-gray-800';
+                }
+            };
+
+            return (
+                <div className="container mx-auto px-4 py-8">
+                    <div className="flex justify-between items-center mb-8">
+                        <h1 className="text-3xl font-bold text-gray-800">مدیریت کارت‌های بازی</h1>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setShowCooldownPanel(!showCooldownPanel)}
+                                className={`font-bold py-2 px-4 rounded ${
+                                    showCooldownPanel 
+                                        ? 'bg-purple-500 hover:bg-purple-700 text-white' 
+                                        : 'bg-gray-200 hover:bg-gray-300 text-gray-800'
+                                }`}
+                            >
+                                ❄️ مدیریت Cooldown
+                            </button>
+                            <button 
+                                onClick={() => {resetForm(); setShowForm(true);}}
+                                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+                            >
+                                افزودن کارت جدید
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* آمار */}
+                    {stats && (
+                        <div className="bg-white shadow rounded-lg p-6 mb-8">
+                            <h2 className="text-xl font-semibold mb-4">آمار کلی سیستم</h2>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="bg-blue-50 p-4 rounded">
+                                    <h3 className="font-semibold">کارت‌ها</h3>
+                                    <p className="text-2xl">{stats.total_cards}</p>
+                                    <div className="mt-2 text-sm">
+                                        <span className="text-green-600">معمولی: {stats.rarity_distribution.normal}</span> | 
+                                        <span className="text-purple-600"> حماسی: {stats.rarity_distribution.epic}</span> | 
+                                        <span className="text-yellow-600"> افسانه‌ای: {stats.rarity_distribution.legend}</span>
+                                    </div>
+                                </div>
+                                <div className="bg-green-50 p-4 rounded">
+                                    <h3 className="font-semibold">بازیکنان</h3>
+                                    <p className="text-2xl">{stats.total_players}</p>
+                                </div>
+                                <div className="bg-yellow-50 p-4 rounded">
+                                    <h3 className="font-semibold">میانگین ویژگی‌ها</h3>
+                                    {stats.avg_stats && (
+                                        <div className="text-sm mt-2">
+                                            <p>قدرت: {stats.avg_stats.avg_power}</p>
+                                            <p>سرعت: {stats.avg_stats.avg_speed}</p>
+                                            <p>آی‌کیو: {stats.avg_stats.avg_iq}</p>
+                                            <p>محبوبیت: {stats.avg_stats.avg_popularity}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* پنل مدیریت Cooldown */}
+                    {showCooldownPanel && (
+                        <div className="bg-white shadow rounded-lg p-6 mb-8">
+                            <div className="flex justify-between items-center mb-6">
+                                <h2 className="text-xl font-semibold">❄️ مدیریت Cooldown کارت‌ها</h2>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={fetchCooldownSettings}
+                                        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+                                        disabled={cooldownLoading}
+                                    >
+                                        {cooldownLoading ? 'در حال بارگیری...' : '🔄 بروزرسانی'}
+                                    </button>
+                                    <button
+                                        onClick={resetAllCooldowns}
+                                        className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+                                    >
+                                        🗑️ ریست همه
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            {cooldownLoading ? (
+                                <p className="text-center py-4">در حال بارگیری تنظیمات...</p>
+                            ) : Object.keys(cooldownSettings).length === 0 ? (
+                                <p className="text-center py-4">هیچ کارت Epic/Legend یافت نشد.</p>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="min-w-full bg-white">
+                                        <thead>
+                                            <tr className="bg-gray-100">
+                                                <th className="py-2 px-4 border-b text-right">کارت</th>
+                                                <th className="py-2 px-4 border-b text-right">کمیابی</th>
+                                                <th className="py-2 px-4 border-b text-right">حد مجاز برد</th>
+                                                <th className="py-2 px-4 border-b text-right">مدت Cooldown (ساعت)</th>
+                                                <th className="py-2 px-4 border-b text-right">وضعیت</th>
+                                                <th className="py-2 px-4 border-b text-right">عملیات</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {Object.entries(cooldownSettings).map(([cardId, settings]) => (
+                                                <CooldownRow 
+                                                    key={cardId} 
+                                                    cardId={cardId} 
+                                                    settings={settings}
+                                                    onUpdate={updateCardCooldown}
+                                                />
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* فرم افزودن/ویرایش کارت */}
+                    {showForm && (
+                        <div className="bg-white shadow rounded-lg p-6 mb-8">
+                            <h2 className="text-xl font-semibold mb-4">
+                                {isEditing ? 'ویرایش کارت' : 'افزودن کارت جدید'}
+                            </h2>
+                            <form onSubmit={handleSubmit}>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label className="block text-gray-700 mb-2">نام کارت</label>
+                                        <input
+                                            type="text"
+                                            name="name"
+                                            value={formData.name}
+                                            onChange={handleInputChange}
+                                            className="w-full p-2 border rounded"
+                                            required
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-gray-700 mb-2">کمیابی</label>
+                                        <select
+                                            name="rarity"
+                                            value={formData.rarity}
+                                            onChange={handleInputChange}
+                                            className="w-full p-2 border rounded"
+                                        >
+                                            <option value="normal">معمولی</option>
+                                            <option value="epic">حماسی</option>
+                                            <option value="legend">افسانه‌ای</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-gray-700 mb-2">قدرت ({formData.power})</label>
+                                        <input
+                                            type="range"
+                                            name="power"
+                                            min="1"
+                                            max="100"
+                                            value={formData.power}
+                                            onChange={handleInputChange}
+                                            className="w-full"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-gray-700 mb-2">سرعت ({formData.speed})</label>
+                                        <input
+                                            type="range"
+                                            name="speed"
+                                            min="1"
+                                            max="100"
+                                            value={formData.speed}
+                                            onChange={handleInputChange}
+                                            className="w-full"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-gray-700 mb-2">آی‌کیو ({formData.iq})</label>
+                                        <input
+                                            type="range"
+                                            name="iq"
+                                            min="1"
+                                            max="100"
+                                            value={formData.iq}
+                                            onChange={handleInputChange}
+                                            className="w-full"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-gray-700 mb-2">محبوبیت ({formData.popularity})</label>
+                                        <input
+                                            type="range"
+                                            name="popularity"
+                                            min="1"
+                                            max="100"
+                                            value={formData.popularity}
+                                            onChange={handleInputChange}
+                                            className="w-full"
+                                        />
+                                    </div>
+                                    
+                                    {/* بخش آپلود تصویر و استیکر */}
+                                    <div className="md:col-span-2">
+                                        <label className="block text-gray-700 mb-2 font-semibold">🖼️ Image / Sticker Upload</label>
+                                        <div className="flex flex-col gap-4 p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                                            {/* پیش‌نمایش */}
+                                            {imagePreview && (
+                                                <div className="mb-2 inline-block relative">
+                                                    <img 
+                                                        src={imagePreview} 
+                                                        alt="Preview" 
+                                                        className="max-w-xs max-h-40 rounded border"
+                                                        onError={(e) => e.target.style.display = 'none'} 
+                                                    />
+                                                    {stickerBadge && (
+                                                        <span className="absolute -top-2 -right-2 bg-purple-600 text-white text-xs px-2 py-1 rounded-full shadow">
+                                                            🎭 WebP Sticker
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {/* آپلود تصویر */}
+                                            <div className="bg-white p-3 rounded-lg border border-gray-200">
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">📷 Card Image (PNG/JPG)</label>
+                                                <div className="flex gap-2 items-center">
+                                                    <input
+                                                        type="file"
+                                                        accept="image/png,image/jpeg"
+                                                        onChange={handleImageChange}
+                                                        className="flex-1 text-sm"
+                                                    />
+                                                    <button type="button" onClick={uploadImageNow} className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1 rounded">
+                                                        Upload Image
+                                                    </button>
+                                                </div>
+                                                <small className="text-gray-500 mt-1 block">Used for card display in panel</small>
+                                            </div>
+
+                                            {/* آپلود استیکر */}
+                                            <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-3 rounded-lg border-2 border-purple-200">
+                                                <label className="block text-sm font-medium text-purple-700 mb-2">🎭 WebP Sticker (recommended)</label>
+                                                <div className="flex gap-2 items-center">
+                                                    <input
+                                                        type="file"
+                                                        accept=".webp"
+                                                        onChange={handleStickerChange}
+                                                        className="flex-1 text-sm"
+                                                    />
+                                                    <button type="button" onClick={uploadStickerNow} className="bg-purple-600 hover:bg-purple-700 text-white text-sm px-3 py-1 rounded">
+                                                        Upload Sticker
+                                                    </button>
+                                                </div>
+                                                <small className="text-purple-600 mt-1 block font-medium">⚡ Recommended size: 512×512px, max 500KB</small>
+                                            </div>
+
+                                            {/* وضعیت آپلود */}
+                                            {uploadStatus.message && (
+                                                <div className={`p-3 rounded-lg text-sm font-medium ${uploadStatus.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                                    {uploadStatus.message}
+                                                </div>
+                                            )}
+
+                                            {/* راهنما */}
+                                            <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                                                <p className="text-xs text-blue-800">
+                                                    <strong>💡 Tip:</strong> WebP stickers look cleaner and load faster in Telegram.
+                                                    You can convert PNG to WebP using <a href="https://ezgif.com/png-to-webp" target="_blank" className="underline font-semibold">ezgif.com</a>.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="md:col-span-2">
+                                        <label className="block text-gray-700 mb-2">ابیلیتی‌ها</label>
+                                        <div className="flex mb-2">
+                                            <input
+                                                type="text"
+                                                value={newAbility}
+                                                onChange={(e) => setNewAbility(e.target.value)}
+                                                className="flex-grow p-2 border rounded-r-none rounded-l"
+                                                placeholder="ابیلیتی جدید"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={handleAddAbility}
+                                                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-l-none rounded-r"
+                                            >
+                                                +
+                                            </button>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2 mt-2">
+                                            {formData.abilities.map((ability, index) => (
+                                                <span 
+                                                    key={index}
+                                                    className="bg-gray-200 px-3 py-1 rounded-full flex items-center"
+                                                >
+                                                    {ability}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleRemoveAbility(index)}
+                                                        className="ml-2 text-red-500 font-bold"
+                                                    >
+                                                        ×
+                                                    </button>
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <label className="block text-gray-700 mb-2">Biography</label>
+                                        <textarea
+                                            name="biography"
+                                            value={formData.biography}
+                                            onChange={handleInputChange}
+                                            className="w-full p-2 border rounded h-24"
+                                            placeholder="Write a short description or story about this character..."
+                                        ></textarea>
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <label className="block text-gray-700 mb-2">Victory Dialogs</label>
+                                        <div className="flex mb-2">
+                                            <input
+                                                type="text"
+                                                value={newDialog}
+                                                onChange={(e) => setNewDialog(e.target.value)}
+                                                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddDialog(); } }}
+                                                className="flex-grow p-2 border rounded-r-none rounded-l"
+                                                placeholder="Enter new dialog and press Enter or click +"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={handleAddDialog}
+                                                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-l-none rounded-r"
+                                            >
+                                                +
+                                            </button>
+                                        </div>
+                                        <div className="flex flex-col gap-2 mt-2">
+                                            {formData.dialogs.map((dialog, index) => (
+                                                <div 
+                                                    key={index}
+                                                    className="bg-gray-100 px-3 py-1 rounded-full flex items-center justify-between"
+                                                >
+                                                    <span>{dialog}</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleRemoveDialog(index)}
+                                                        className="ml-2 text-red-500 font-bold"
+                                                    >
+                                                        ×
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex justify-end mt-6 gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowForm(false)}
+                                        className="bg-gray-300 hover:bg-gray-400 text-black font-bold py-2 px-4 rounded"
+                                    >
+                                        انصراف
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
+                                    >
+                                        {isEditing ? 'بروزرسانی کارت' : 'افزودن کارت'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    )}
+
+                    {/* نمایش کارت‌ها */}
+                    <div className="bg-white shadow rounded-lg p-6">
+                        <h2 className="text-xl font-semibold mb-4">لیست کارت‌ها</h2>
+                        
+                        {loading ? (
+                            <p className="text-center py-4">در حال بارگیری...</p>
+                        ) : error ? (
+                            <div className="text-center py-4 text-red-500">
+                                <p>{error}</p>
+                                <button 
+                                    onClick={fetchCards}
+                                    className="mt-2 bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-4 rounded"
+                                >
+                                    تلاش مجدد
+                                </button>
+                            </div>
+                        ) : cards.length === 0 ? (
+                            <p className="text-center py-4">هنوز کارتی اضافه نشده است.</p>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full bg-white">
+                                    <thead>
+                                        <tr className="bg-gray-100">
+                                            <th className="py-2 px-4 border-b text-right">تصویر</th>
+                                            <th className="py-2 px-4 border-b text-right">نام</th>
+                                            <th className="py-2 px-4 border-b text-right">کمیابی</th>
+                                            <th className="py-2 px-4 border-b text-right">قدرت</th>
+                                            <th className="py-2 px-4 border-b text-right">سرعت</th>
+                                            <th className="py-2 px-4 border-b text-right">آی‌کیو</th>
+                                            <th className="py-2 px-4 border-b text-right">محبوبیت</th>
+                                            <th className="py-2 px-4 border-b text-right">بیوگرافی</th>
+                                            <th className="py-2 px-4 border-b text-right">عملیات</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {cards.map((card) => (
+                                            <tr key={card.id} className="hover:bg-gray-50">
+                                                <td className="py-2 px-4 border-b">
+                                                    <img 
+                                                        src={`/card_images/${card.name.toLowerCase().replace(/ /g, '_')}.png`}
+                                                        alt={card.name}
+                                                        className="h-12 w-12 object-cover rounded"
+                                                        onError={(e) => e.target.src = 'https://via.placeholder.com/50?text=No+Image'}
+                                                    />
+                                                </td>
+                                                <td className="py-2 px-4 border-b">{card.name}</td>
+                                                <td className="py-2 px-4 border-b">
+                                                    <span className={`px-2 py-1 rounded text-xs ${getRarityColor(card.rarity)}`}>
+                                                        {card.rarity === 'normal' ? 'معمولی' : 
+                                                         card.rarity === 'epic' ? 'حماسی' : 'افسانه‌ای'}
+                                                    </span>
+                                                </td>
+                                                <td className="py-2 px-4 border-b">{card.power}</td>
+                                                <td className="py-2 px-4 border-b">{card.speed}</td>
+                                                <td className="py-2 px-4 border-b">{card.iq}</td>
+                                                <td className="py-2 px-4 border-b">{card.popularity}</td>
+                                                <td className="py-2 px-4 border-b">
+                                                    <div className="max-w-xs truncate" title={card.biography}>
+                                                        {card.biography || 'بدون بیوگرافی'}
+                                                    </div>
+                                                </td>
+                                                <td className="py-2 px-4 border-b">
+                                                    <div className="flex space-x-2">
+                                                        <button 
+                                                            onClick={() => handleEditCard(card)}
+                                                            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded text-xs ml-2"
+                                                        >
+                                                            ویرایش
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => handleDeleteCard(card.id, card.name)}
+                                                            className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-xs"
+                                                        >
+                                                            حذف
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        // کامپوننت ردیف Cooldown
+        const CooldownRow = ({ cardId, settings, onUpdate }) => {
+            const [editing, setEditing] = useState(false);
+            const [formData, setFormData] = useState({
+                win_limit: settings.win_limit,
+                cooldown_hours: settings.cooldown_hours,
+                enabled: settings.enabled
+            });
+            
+            const handleSave = async () => {
+                await onUpdate(cardId, formData);
+                setEditing(false);
+            };
+            
+            const handleCancel = () => {
+                setFormData({
+                    win_limit: settings.win_limit,
+                    cooldown_hours: settings.cooldown_hours,
+                    enabled: settings.enabled
+                });
+                setEditing(false);
+            };
+            
+            const getRarityColor = (rarity) => {
+                switch(rarity) {
+                    case 'epic': return 'bg-purple-100 text-purple-800';
+                    case 'legend': return 'bg-yellow-100 text-yellow-800';
+                    default: return 'bg-gray-100 text-gray-800';
+                }
+            };
+            
+            return (
+                <tr className="hover:bg-gray-50">
+                    <td className="py-2 px-4 border-b font-medium">{settings.name}</td>
+                    <td className="py-2 px-4 border-b">
+                        <span className={`px-2 py-1 rounded text-xs ${getRarityColor(settings.rarity)}`}>
+                            {settings.rarity === 'epic' ? '🟣 Epic' : '🟡 Legend'}
+                        </span>
+                    </td>
+                    <td className="py-2 px-4 border-b">
+                        {editing ? (
+                            <input
+                                type="number"
+                                min="1"
+                                max="100"
+                                value={formData.win_limit}
+                                onChange={(e) => setFormData({...formData, win_limit: parseInt(e.target.value)})}
+                                className="w-20 p-1 border rounded text-center"
+                            />
+                        ) : (
+                            settings.win_limit
+                        )}
+                    </td>
+                    <td className="py-2 px-4 border-b">
+                        {editing ? (
+                            <input
+                                type="number"
+                                min="1"
+                                max="168"
+                                value={formData.cooldown_hours}
+                                onChange={(e) => setFormData({...formData, cooldown_hours: parseInt(e.target.value)})}
+                                className="w-20 p-1 border rounded text-center"
+                            />
+                        ) : (
+                            settings.cooldown_hours
+                        )}
+                    </td>
+                    <td className="py-2 px-4 border-b">
+                        {editing ? (
+                            <label className="flex items-center">
+                                <input
+                                    type="checkbox"
+                                    checked={formData.enabled}
+                                    onChange={(e) => setFormData({...formData, enabled: e.target.checked})}
+                                    className="mr-2"
+                                />
+                                <span>{formData.enabled ? '✅ فعال' : '❌ غیرفعال'}</span>
+                            </label>
+                        ) : (
+                            <span className={settings.enabled ? 'text-green-600' : 'text-red-600'}>
+                                {settings.enabled ? '✅ فعال' : '❌ غیرفعال'}
+                            </span>
+                        )}
+                    </td>
+                    <td className="py-2 px-4 border-b">
+                        {editing ? (
+                            <div className="flex gap-1">
+                                <button
+                                    onClick={handleSave}
+                                    className="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded text-xs"
+                                >
+                                    ✅ ذخیره
+                                </button>
+                                <button
+                                    onClick={handleCancel}
+                                    className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-1 px-2 rounded text-xs"
+                                >
+                                    ❌ لغو
+                                </button>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={() => setEditing(true)}
+                                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded text-xs"
+                            >
+                                ✏️ ویرایش
+                            </button>
+                        )}
+                    </td>
+                </tr>
+            );
+        };
+
+        ReactDOM.render(
+            <App />,
+            document.getElementById('root')
+        );
+    </script>
+
+</body>
+</html>

@@ -1,0 +1,280 @@
+<!-- بخش مدیریت Cooldown جداگانه کارت‌ها -->
+<!-- این بخش باید به card_management.html اضافه شود -->
+
+<script type="text/babel">
+// اضافه کردن state های جدید به کامپوننت App:
+
+const [cooldownSettings, setCooldownSettings] = useState({});
+const [showCooldownPanel, setShowCooldownPanel] = useState(false);
+const [cooldownLoading, setCooldownLoading] = useState(false);
+
+// توابع مدیریت Cooldown:
+
+const fetchCooldownSettings = async () => {
+    try {
+        setCooldownLoading(true);
+        const response = await fetch('/api/cards/cooldown-settings');
+        const data = await response.json();
+        
+        if (data.success) {
+            setCooldownSettings(data.cards);
+        } else {
+            throw new Error(data.error || 'خطا در دریافت تنظیمات cooldown');
+        }
+    } catch (err) {
+        console.error('Error fetching cooldown settings:', err);
+        alert('خطا در دریافت تنظیمات cooldown: ' + err.message);
+    } finally {
+        setCooldownLoading(false);
+    }
+};
+
+const updateCardCooldown = async (cardId, settings) => {
+    try {
+        const response = await fetch(`/api/cards/${cardId}/cooldown`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(settings)
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(data.message);
+            fetchCooldownSettings(); // بروزرسانی لیست
+        } else {
+            throw new Error(data.error || 'خطا در بروزرسانی');
+        }
+    } catch (err) {
+        console.error('Error updating cooldown:', err);
+        alert('خطا در بروزرسانی: ' + err.message);
+    }
+};
+
+const resetAllCooldowns = async () => {
+    if (!confirm('آیا مطمئنید که می‌خواهید همه cooldown های فعال را ریست کنید؟')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/cards/cooldown-settings/reset', {
+            method: 'POST'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(data.message);
+            fetchCooldownSettings();
+        } else {
+            throw new Error(data.error || 'خطا در ریست');
+        }
+    } catch (err) {
+        console.error('Error resetting cooldowns:', err);
+        alert('خطا در ریست: ' + err.message);
+    }
+};
+
+// اضافه کردن useEffect برای بارگیری اولیه:
+useEffect(() => {
+    fetchCards();
+    fetchStats();
+    fetchCooldownSettings(); // اضافه کردن این خط
+}, []);
+
+// کامپوننت پنل Cooldown:
+const CooldownPanel = () => (
+    <div className="bg-white shadow rounded-lg p-6 mb-8">
+        <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-semibold">❄️ مدیریت Cooldown کارت‌ها</h2>
+            <div className="flex gap-2">
+                <button
+                    onClick={fetchCooldownSettings}
+                    className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+                    disabled={cooldownLoading}
+                >
+                    {cooldownLoading ? 'در حال بارگیری...' : '🔄 بروزرسانی'}
+                </button>
+                <button
+                    onClick={resetAllCooldowns}
+                    className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+                >
+                    🗑️ ریست همه
+                </button>
+            </div>
+        </div>
+        
+        {cooldownLoading ? (
+            <p className="text-center py-4">در حال بارگیری تنظیمات...</p>
+        ) : Object.keys(cooldownSettings).length === 0 ? (
+            <p className="text-center py-4">هیچ کارت Epic/Legend یافت نشد.</p>
+        ) : (
+            <div className="overflow-x-auto">
+                <table className="min-w-full bg-white">
+                    <thead>
+                        <tr className="bg-gray-100">
+                            <th className="py-2 px-4 border-b text-right">کارت</th>
+                            <th className="py-2 px-4 border-b text-right">کمیابی</th>
+                            <th className="py-2 px-4 border-b text-right">حد مجاز برد</th>
+                            <th className="py-2 px-4 border-b text-right">مدت Cooldown (ساعت)</th>
+                            <th className="py-2 px-4 border-b text-right">وضعیت</th>
+                            <th className="py-2 px-4 border-b text-right">عملیات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {Object.entries(cooldownSettings).map(([cardId, settings]) => (
+                            <CooldownRow 
+                                key={cardId} 
+                                cardId={cardId} 
+                                settings={settings}
+                                onUpdate={updateCardCooldown}
+                            />
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        )}
+    </div>
+);
+
+// کامپوننت ردیف Cooldown:
+const CooldownRow = ({ cardId, settings, onUpdate }) => {
+    const [editing, setEditing] = useState(false);
+    const [formData, setFormData] = useState({
+        win_limit: settings.win_limit,
+        cooldown_hours: settings.cooldown_hours,
+        enabled: settings.enabled
+    });
+    
+    const handleSave = async () => {
+        await onUpdate(cardId, formData);
+        setEditing(false);
+    };
+    
+    const handleCancel = () => {
+        setFormData({
+            win_limit: settings.win_limit,
+            cooldown_hours: settings.cooldown_hours,
+            enabled: settings.enabled
+        });
+        setEditing(false);
+    };
+    
+    const getRarityColor = (rarity) => {
+        switch(rarity) {
+            case 'epic': return 'bg-purple-100 text-purple-800';
+            case 'legend': return 'bg-yellow-100 text-yellow-800';
+            default: return 'bg-gray-100 text-gray-800';
+        }
+    };
+    
+    return (
+        <tr className="hover:bg-gray-50">
+            <td className="py-2 px-4 border-b font-medium">{settings.name}</td>
+            <td className="py-2 px-4 border-b">
+                <span className={`px-2 py-1 rounded text-xs ${getRarityColor(settings.rarity)}`}>
+                    {settings.rarity === 'epic' ? '🟣 Epic' : '🟡 Legend'}
+                </span>
+            </td>
+            <td className="py-2 px-4 border-b">
+                {editing ? (
+                    <input
+                        type="number"
+                        min="1"
+                        max="100"
+                        value={formData.win_limit}
+                        onChange={(e) => setFormData({...formData, win_limit: parseInt(e.target.value)})}
+                        className="w-20 p-1 border rounded text-center"
+                    />
+                ) : (
+                    settings.win_limit
+                )}
+            </td>
+            <td className="py-2 px-4 border-b">
+                {editing ? (
+                    <input
+                        type="number"
+                        min="1"
+                        max="168"
+                        value={formData.cooldown_hours}
+                        onChange={(e) => setFormData({...formData, cooldown_hours: parseInt(e.target.value)})}
+                        className="w-20 p-1 border rounded text-center"
+                    />
+                ) : (
+                    settings.cooldown_hours
+                )}
+            </td>
+            <td className="py-2 px-4 border-b">
+                {editing ? (
+                    <label className="flex items-center">
+                        <input
+                            type="checkbox"
+                            checked={formData.enabled}
+                            onChange={(e) => setFormData({...formData, enabled: e.target.checked})}
+                            className="mr-2"
+                        />
+                        <span>{formData.enabled ? '✅ فعال' : '❌ غیرفعال'}</span>
+                    </label>
+                ) : (
+                    <span className={settings.enabled ? 'text-green-600' : 'text-red-600'}>
+                        {settings.enabled ? '✅ فعال' : '❌ غیرفعال'}
+                    </span>
+                )}
+            </td>
+            <td className="py-2 px-4 border-b">
+                {editing ? (
+                    <div className="flex gap-1">
+                        <button
+                            onClick={handleSave}
+                            className="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded text-xs"
+                        >
+                            ✅ ذخیره
+                        </button>
+                        <button
+                            onClick={handleCancel}
+                            className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-1 px-2 rounded text-xs"
+                        >
+                            ❌ لغو
+                        </button>
+                    </div>
+                ) : (
+                    <button
+                        onClick={() => setEditing(true)}
+                        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded text-xs"
+                    >
+                        ✏️ ویرایش
+                    </button>
+                )}
+            </td>
+        </tr>
+    );
+};
+
+// اضافه کردن دکمه Cooldown به منوی اصلی:
+// در بخش header، بعد از دکمه "افزودن کارت جدید":
+
+<button
+    onClick={() => setShowCooldownPanel(!showCooldownPanel)}
+    className={`font-bold py-2 px-4 rounded ml-2 ${
+        showCooldownPanel 
+            ? 'bg-purple-500 hover:bg-purple-700 text-white' 
+            : 'bg-gray-200 hover:bg-gray-300 text-gray-800'
+    }`}
+>
+    ❄️ مدیریت Cooldown
+</button>
+
+// اضافه کردن پنل Cooldown به render:
+// بعد از بخش آمار و قبل از فرم:
+
+{showCooldownPanel && <CooldownPanel />}
+
+</script>
+
+<!-- نکات مهم برای اضافه کردن:
+1. state های جدید را به useState اضافه کنید
+2. توابع مدیریت را اضافه کنید  
+3. useEffect را بروزرسانی کنید
+4. کامپوننت‌های جدید را اضافه کنید
+5. دکمه و پنل را به render اضافه کنید
+-->

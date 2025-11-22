@@ -1,0 +1,1616 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+🤖 Telegram Card Game Bot with PvP Support - فاز ۱ (Enhanced & Fixed)
+ربات تلگرام کامل بازی کارت با قابلیت PvP اصلاح شده + بررسی عضویت کانال
+"""
+
+import json
+import os
+import logging
+import random
+from datetime import datetime, timedelta
+from typing import Optional, List, Dict, Any
+
+import telegram
+import telegram.error
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, Bot, BotCommand, BotCommandScope, BotCommandScopeDefault, BotCommandScopeAllGroupChats
+from telegram.ext import (
+    Application, 
+    CommandHandler, 
+    CallbackQueryHandler, 
+    MessageHandler, 
+    filters, 
+    ContextTypes
+)
+
+# وارد کردن سیستم‌های پایه
+from game_core import DatabaseManager, GameLogic, CardManager, StatType, Card, CardRarity, Player, PvPFight, FightStatus
+
+# تنظیم لاگینگ  
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO,
+    handlers=[
+        logging.FileHandler('bot.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
+# ==================== CONFIG ====================
+
+# Required channel for bot usage
+REQUIRED_CHANNEL = '@KhasteNews'
+
+# Panel expiration timeout (15 minutes)
+PANEL_TIMEOUT = 15 * 60
+
+# Command scope definitions
+PRIVATE_CHAT_COMMANDS = [
+    BotCommand("start", "شروع بازی و نمایش منوی اصلی"),
+    BotCommand("profile", "نمایش پروفایل و آمار شخصی"),
+    BotCommand("cards", "مشاهده کارت‌های جمع‌آوری شده"),
+    BotCommand("claim", "دریافت کارت روزانه رایگان"),
+    BotCommand("leaderboard", "مشاهده لیست برترین بازیکنان"),
+    BotCommand("help", "راهنمای بازی و دستورات")
+]
+
+GROUP_CHAT_COMMANDS = [
+    BotCommand("fight", "شروع چالش PvP در گروه"),
+    BotCommand("claim", "دریافت کارت روزانه رایگان"),
+    BotCommand("leaderboard", "مشاهده لیست برترین بازیکنان"),
+    BotCommand("help", "راهنمای بازی")
+]
+
+DEFAULT_CONFIG = {
+    "bot_settings": {
+        "token": "8494533147:AAGKuMEg0gyIEiInzBqU9pSwIUyE_Lum6h4",
+        "admin_user_ids": [5735941901, 1431545583],
+        "webhook_url": None,
+        "webhook_port": 8443
+    },
+    "game_settings": {
+        "daily_hearts": 5,
+        "heart_reset_hours": 24,
+        "claim_cooldown_hours": 24,
+        "ability_cooldown_hours": 24,
+        "max_cards_per_page": 8
+    },
+    "image_settings": {
+        "card_images_path": "/root/card game/card_images/",
+        "default_card_image": "/root/card game/card_images/default.png",
+        "enable_images": True
+    },
+    "texts": {
+        "help": None  # قابل پیکربندی؛ اگر None باشد از متن پیش‌فرض استفاده می‌شود
+    }
+}
+
+# ==================== UTILITY FUNCTIONS ====================
+
+def ensure_text_content(text: str, fallback: str = "📱 پیام بدون محتوا") -> str:
+    """اطمینان از وجود محتوای متنی برای تلگرام"""
+    if not text or text.strip() == "":
+        return fallback
+    return text.strip()
+
+def get_card_image_path(card_name: str, config: Dict) -> Optional[str]:
+    """دریافت مسیر تصویر کارت با بررسی دقیق‌تر"""
+    if not config.get('image_settings', {}).get('enable_images', False):
+        logger.debug(f"Images disabled in config for card: {card_name}")
+        return None
+    
+    images_path = config.get('image_settings', {}).get('card_images_path', '/root/card game/card_images/')
+    default_image = config.get('image_settings', {}).get('default_card_image', '/root/card game/card_images/default.png')
+    
+    # اطمینان از وجود پوشه
+    os.makedirs(images_path, exist_ok=True)
+    os.makedirs(os.path.dirname(default_image), exist_ok=True)
+    
+    # جستجو برای تصویر کارت با چندین فرمت
+    card_filename = card_name.lower().replace(' ', '_').replace('-', '_')
+    possible_extensions = ['.png', '.jpg', '.jpeg', '.webp']
+    
+    for ext in possible_extensions:
+        card_image = os.path.join(images_path, f"{card_filename}{ext}")
+        if os.path.exists(card_image):
+            logger.debug(f"Found card image: {card_image}")
+            return card_image
+    
+    # اگر تصویر کارت پیدا نشد، از تصویر پیش‌فرض استفاده کن
+    if os.path.exists(default_image):
+        logger.debug(f"Using default image: {default_image}")
+        return default_image
+    
+    logger.warning(f"No image found for card: {card_name}, checked: {images_path}")
+    return None
+
+def get_victory_dialog(card_name: str) -> str:
+    """Gets a random victory dialog for a card. Supports both old and new formats."""
+    dialogs_file = "card_dialogs.json"
+    
+    # Try to read from the json file
+    if os.path.exists(dialogs_file):
+        try:
+            with open(dialogs_file, 'r', encoding='utf-8') as f:
+                all_dialogs = json.load(f)
+                entry = all_dialogs.get(card_name)
+                lines: List[str] = []
+                if isinstance(entry, list):
+                    # Old format: list of lines
+                    lines = entry
+                elif isinstance(entry, dict):
+                    # New format: { biography: str, victory_lines: list }
+                    vl = entry.get('victory_lines', [])
+                    if isinstance(vl, list):
+                        lines = vl
+                    elif isinstance(vl, str) and vl:
+                        lines = [vl]
+                if lines:
+                    return random.choice(lines)
+        except Exception:
+            pass  # Fallback to generic
+    
+    # Generic dialogs as a fallback
+    generic = [
+        "Another victory!",
+        "No one can defeat me!",
+        "This was just the beginning!",
+        "True power is here!"
+    ]
+    return random.choice(generic)
+
+async def send_card_image_safely(message, card_name: str, config: Dict, caption: str = None) -> bool:
+    """ارسال ایمن تصویر کارت"""
+    try:
+        image_path = get_card_image_path(card_name, config)
+        if not image_path:
+            logger.warning(f"No image path returned for {card_name}")
+            return False
+            
+        if not os.path.exists(image_path):
+            logger.warning(f"Image file not found: {image_path}")
+            return False
+            
+        with open(image_path, 'rb') as photo:
+            await message.reply_photo(
+                photo=photo,
+                caption=caption
+            )
+            logger.info(f"Successfully sent image for {card_name}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send image for {card_name}: {e}")
+        return False
+
+# ==================== PANEL EXPIRATION FUNCTIONS ====================
+
+def ensure_not_expired(query, db: DatabaseManager = None, context: ContextTypes.DEFAULT_TYPE = None) -> bool:
+    """Check if a callback query is from an expired panel. Auto-expires after 15 minutes in any chat.
+    Also cancels ghost fights in DB and notifies group if possible.
+    """
+    try:
+        if not query.message or not query.message.date:
+            return True
+        message_age = datetime.now().timestamp() - query.message.date.timestamp()
+        if message_age > PANEL_TIMEOUT:
+            # پاکسازی فایت‌های منقضی و لغو آن‌ها
+            try:
+                (db or DatabaseManager()).cleanup_expired_fights(15)
+            except Exception as e:
+                logger.warning(f"Cleanup on expiration failed: {e}")
+            
+            # تلاش برای استخراج fight_id از callback برای اطلاع‌رسانی
+            try:
+                data = query.data or ""
+                fight_id = None
+                for prefix in ["accept_pvp_", "accept_pvp_random_", "pvp_card_", "pvp_stat_"]:
+                    if data.startswith(prefix):
+                        parts = data.split("_")
+                        fight_id = parts[2] if prefix in ["pvp_card_", "pvp_stat_"] else parts[-1]
+                        break
+                
+                # Schedule notification as a background task
+                if fight_id and context:
+                    try:
+                        import asyncio
+                        loop = asyncio.get_event_loop()
+                        loop.create_task(
+                            context.bot.send_message(
+                                chat_id=query.message.chat_id, 
+                                text="⏰ چالش منقضی شد"
+                            )
+                        )
+                        logger.info(f"Scheduled expiration notification for chat {query.message.chat_id}")
+                    except Exception as e:
+                        logger.warning(f"Failed to schedule expiration notification: {e}")
+
+            except Exception as e:
+                logger.error(f"Error during expiration notification logic: {e}")
+
+            return False
+        return True
+    except Exception as e:
+        logger.error(f"Error checking panel expiration: {e}")
+        return True
+
+# ==================== MAIN BOT CLASS ====================
+
+class TelegramCardBot:
+    def __init__(self, config_path: str = "game_config.json"):
+        # بارگیری تنظیمات
+        self.config = self._load_config(config_path)
+        
+        # راه‌اندازی سیستم‌های پایه
+        self.db = DatabaseManager()
+        self.game = GameLogic(self.db)
+        self.card_manager = CardManager(self.db)
+        
+        # تنظیمات ربات
+        self.bot_token = self.config['bot_settings']['token']
+        self.admin_ids = self.config['bot_settings']['admin_user_ids']
+        
+        if self.bot_token == "YOUR_BOT_TOKEN_HERE":
+            raise ValueError("⚠ لطفاً توکن ربات را در game_config.json تنظیم کنید!")
+        
+        print(f"✅ ربات آماده شد با {len(self.admin_ids)} ادمین")
+    
+    def _load_config(self, config_path: str) -> Dict:
+        """بارگیری یا ایجاد فایل تنظیمات"""
+        if os.path.exists(config_path):
+            with open(config_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        else:
+            # ایجاد فایل تنظیمات پیش‌فرض
+            with open(config_path, 'w', encoding='utf-8') as f:
+                json.dump(DEFAULT_CONFIG, f, indent=4, ensure_ascii=False)
+            return DEFAULT_CONFIG
+
+    # ==================== COMMAND SETUP ====================
+    
+    async def setup_bot_commands(self, application: Application):
+        """تنظیم دستورات ربات برای محدوده‌های مختلف"""
+        try:
+            # تنظیم دستورات برای چت‌های خصوصی
+            await application.bot.set_my_commands(
+                commands=PRIVATE_CHAT_COMMANDS,
+                scope=BotCommandScopeDefault()
+            )
+            logger.info(f"Set {len(PRIVATE_CHAT_COMMANDS)} commands for private chats")
+            
+            # تنظیم دستورات برای گروه‌ها
+            await application.bot.set_my_commands(
+                commands=GROUP_CHAT_COMMANDS,
+                scope=BotCommandScopeAllGroupChats()
+            )
+            logger.info(f"Set {len(GROUP_CHAT_COMMANDS)} commands for group chats")
+            
+        except Exception as e:
+            logger.error(f"Failed to set bot commands: {e}")
+    
+    def _is_command_allowed_in_chat(self, command: str, chat_type: str) -> bool:
+        """بررسی اینکه آیا دستور در نوع چت مجاز است"""
+        if chat_type == 'private':
+            allowed_commands = [cmd.command for cmd in PRIVATE_CHAT_COMMANDS]
+        elif chat_type in ['group', 'supergroup']:
+            allowed_commands = [cmd.command for cmd in GROUP_CHAT_COMMANDS]
+        else:
+            return False
+        
+        return command in allowed_commands
+
+    # ==================== CHANNEL MEMBERSHIP CHECK ====================
+
+    async def is_user_in_channel(self, user_id: int, context: ContextTypes.DEFAULT_TYPE) -> bool:
+        """بررسی عضویت کاربر در کانال الزامی"""
+        try:
+            if not REQUIRED_CHANNEL:
+                return True
+            member = await context.bot.get_chat_member(REQUIRED_CHANNEL, user_id)
+            if member.status in ["member", "administrator", "creator"]:
+                return True
+            return False
+        except telegram.error.BadRequest as e:
+            logger.error(f"Error checking membership for user {user_id}: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error checking channel membership: {e}")
+            return False
+    
+    async def send_channel_join_message(self, update: Update) -> None:
+        """ارسال پیام درخواست عضویت در کانال"""
+        text = (
+            f"📢 **عضویت در کانال الزامی است!**\n\n"
+            f"برای استفاده از ربات، ابتدا باید در کانال رسمی ما عضو شوید:\n"
+            f"👆 **{REQUIRED_CHANNEL}**\n\n"
+            f"🔹 روی لینک بالا کلیک کنید\n"
+            f"🔹 در کانال عضو شوید\n"
+            f"🔹 سپس دوباره /start بزنید\n\n"
+            f"✨ با عضویت در کانال از آخرین اخبار و به‌روزرسانی‌های بازی باخبر خواهید شد!"
+        )
+        
+        keyboard = [
+            [InlineKeyboardButton("📢 عضویت در کانال", url=f"https://t.me/{REQUIRED_CHANNEL[1:]}")],
+            [InlineKeyboardButton("🔄 بررسی عضویت", callback_data="check_membership")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    # ==================== COMMAND HANDLERS ====================
+
+    async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """دستور شروع بازی"""
+        user = update.effective_user
+        
+        # Check channel membership
+        if not await self.is_user_in_channel(user.id, context):
+            await self.send_channel_join_message(update)
+            return
+        
+        # گروه‌ها: عدم نمایش منو؛ فقط اطلاع‌رسانی یا استفاده از پنل‌های فایت فعال
+        if update.effective_chat.type in ['group', 'supergroup']:
+            active = self.db.get_active_fight_for_group(update.effective_chat.id)
+            if active:
+                await update.message.reply_text("🥊 یک چالش فعال در این گروه جریان دارد. از پنل موجود استفاده کنید.")
+            else:
+                await update.message.reply_text("ℹ️ برای شروع بازی از پیوی استفاده کن.")
+            return
+
+        # خصوصی: نمایش منوی ساده‌شده (بدون AI)
+        player = self.db.get_or_create_player(
+            user_id=user.id,
+            username=user.username,
+            first_name=user.first_name
+        )
+        player = self.game.check_and_reset_hearts(player)
+        card_count = len(self.db.get_player_cards(user.id))
+
+        welcome_text = (
+            f"🎮 **سلام {user.first_name}!**\n\n"
+            f"به بازی کارت‌های شخصیت‌ها خوش آمدید!\n\n"
+            f"📊 **وضعیت فعلی:**\n"
+            f"❤️ قلب: {player.hearts}/{self.game.DAILY_HEARTS}\n"
+            f"🎴 کارت‌ها: {card_count}\n"
+            f"🏆 امتیاز: {player.total_score}\n\n"
+            f"گزینه‌ موردنظر را انتخاب کنید:"
+        )
+
+        keyboard = [
+            [InlineKeyboardButton("🎴 کارت‌های من", callback_data="my_cards")],
+            [InlineKeyboardButton("⚔️ چالش PvP", callback_data="request_pvp_fight")],
+            [InlineKeyboardButton("🎁 کلیم روزانه", callback_data="daily_claim")],
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.message.reply_text(welcome_text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """راهنمای بازی"""
+        cfg_help = self.config.get('texts', {}).get('help')
+        if cfg_help and isinstance(cfg_help, str) and cfg_help.strip():
+            help_text = cfg_help
+        else:
+            help_text = (
+                "📖 **راهنمای بازی کارت‌ها**\n\n"
+                "🎯 کارت جمع کن، مبارزه کن، امتیاز بگیر!\n\n"
+                "🃏 رریتی‌ها: 🟢 Normal • 🟣 Epic • 🟡 Legend\n"
+                f"🎁 کارت روزانه هر {self.game.CLAIM_COOLDOWN_HOURS} ساعت\n"
+                "🥊 PvP در گروه‌ها: چالش بده یا قبول کن\n"
+                "⚙️ در مساوی امتیاز/قلبی کم یا زیاد نمی‌شود\n"
+            )
+        
+        if update.callback_query:
+            keyboard = [[InlineKeyboardButton("🔙 بازگشت", callback_data="back_to_main")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await update.callback_query.edit_message_text(
+                help_text, reply_markup=reply_markup, parse_mode='Markdown'
+            )
+        else:
+            await update.message.reply_text(help_text, parse_mode='Markdown')
+
+    async def check_membership_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """بررسی عضویت کاربر بعد از کلیک دکمه"""
+        query = update.callback_query
+        await query.answer()
+        
+        user = query.from_user
+        
+        if await self.is_user_in_channel(user.id, context):
+            # کاربر عضو شده - شروع بازی
+            text = (
+                f"✅ **عالی! شما باموفقیت در کانال عضو شدید.**\n\n"
+                f"🎉 خوش آمدید {user.first_name}!\n"
+                f"🎮 حالا می‌توانید از ربات استفاده کنید.\n\n"
+                f"برای شروع دوباره /start بزنید."
+            )
+            keyboard = [[InlineKeyboardButton("🎮 شروع بازی", callback_data="start_game")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+        else:
+            # هنوز عضو نشده
+            await query.answer("❌ هنوز در کانال عضو نشده‌اید. لطفاً ابتدا عضو شوید.", show_alert=True)
+
+    async def profile_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """نمایش پروفایل کاربر"""
+        # بررسی مجوز دستور
+        if not self._is_command_allowed_in_chat("profile", update.effective_chat.type):
+            await update.message.reply_text(
+                "🚫 این دستور فقط در چت خصوصی قابل استفاده است.\n"
+                "📱 برای مشاهده پروفایل خود، از پیوی ربات استفاده کنید."
+            )
+            return
+            
+        user = update.effective_user
+        
+        # بررسی عضویت کانال
+        if not await self.is_user_in_channel(user.id, context):
+            await self.send_channel_join_message(update)
+            return
+
+        player = self.db.get_or_create_player(user.id, user.username, user.first_name)
+        player = self.game.check_and_reset_hearts(player)
+        card_count = len(self.db.get_player_cards(user.id))
+        stats = self.db.get_player_stats(user.id)
+
+        text = (
+            f"👤 **پروفایل شما: {user.first_name}**\n\n"
+            f"📊 **آمار کلی:**\n"
+            f"🏆 امتیاز کل: {player.total_score}\n"
+            f"❤️ قلب باقی‌مانده: {player.hearts}/{self.game.DAILY_HEARTS}\n"
+            f"🎴 تعداد کارت‌ها: {card_count}\n\n"
+            f"⚔️ **آمار فایت:**\n"
+            f"  - کل بازی‌ها: {stats['games_played']}\n"
+            f"  - برد: {stats['wins']}\n"
+            f"  - باخت: {stats['losses']}\n"
+            f"  - مساوی: {stats['ties']}\n"
+            f"  - نرخ برد: {int(stats['win_rate'])}%"
+        )
+        await update.message.reply_text(text, parse_mode='Markdown')
+
+    async def cards_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """نمایش کارت‌های کاربر از طریق دستور"""
+        # بررسی مجوز دستور
+        if not self._is_command_allowed_in_chat("cards", update.effective_chat.type):
+            await update.message.reply_text(
+                "🚫 این دستور فقط در چت خصوصی قابل استفاده است.\n"
+                "🃏 برای مشاهده کارت‌های خود، از پیوی ربات استفاده کنید."
+            )
+            return
+        
+        user = update.effective_user
+        
+        # بررسی عضویت کانال
+        if not await self.is_user_in_channel(user.id, context):
+            await self.send_channel_join_message(update)
+            return
+        
+        user_id = update.effective_user.id
+        cards = self.db.get_player_cards(user_id)
+        
+        if not cards:
+            text = "🔭 هنوز کارتی ندارید! برای شروع، با دستور /claim اولین کارت خود را رایگان دریافت کنید."
+            await update.message.reply_text(text)
+        else:
+            cards_by_rarity = {"legend": [], "epic": [], "normal": []}
+            for card in cards:
+                cards_by_rarity[card.rarity.value].append(card)
+            
+            text = f"🎴 **کارت‌های شما ({len(cards)} کارت):**\n\n"
+            rarity_info = {
+                "legend": ("🟡 **LEGEND**", CardRarity.LEGEND),
+                "epic": ("🟣 **EPIC**", CardRarity.EPIC),
+                "normal": ("🟢 **NORMAL**", CardRarity.NORMAL)
+            }
+            
+            for rarity_key, (rarity_text, rarity_enum) in rarity_info.items():
+                cards_list = cards_by_rarity[rarity_key]
+                if cards_list:
+                    text += f"{rarity_text} ({len(cards_list)}):\n"
+                    for card in cards_list:
+                        stats = f"💪{card.power} ⚡{card.speed} 🧠{card.iq} ❤️{card.popularity}"
+                        text += f"• {card.name} ({stats})\n"
+                    text += "\n"
+            
+            await update.message.reply_text(text, parse_mode='Markdown')
+
+    async def claim_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """مدیریت دستور /claim"""
+        user = update.effective_user
+        
+        # بررسی عضویت کانال
+        if not await self.is_user_in_channel(user.id, context):
+            await self.send_channel_join_message(update)
+            return
+            
+        user_id = user.id
+        success, card, error = self.game.claim_daily_card(user_id)
+        
+        if success and card:
+            rarity_colors = {
+                CardRarity.NORMAL: "🟢",
+                CardRarity.EPIC: "🟣",
+                CardRarity.LEGEND: "🟡"
+            }
+            color = rarity_colors[card.rarity]
+            
+            text = (
+                f"🎉 **کارت روزانه دریافت شد!**\n\n"
+                f"{color} **{card.name}** ({card.rarity.value.title()})\n\n"
+                f"📊 **آمار کارت:**\n"
+                f"💪 قدرت: {card.power}\n"
+                f"⚡ سرعت: {card.speed}\n"
+                f"🧠 آی‌کیو: {card.iq}\n"
+                f"❤️ محبوبیت: {card.popularity}\n"
+            )
+            await update.message.reply_text(text, parse_mode='Markdown')
+            await send_card_image_safely(update.message, card.name, self.config, f"🎉 {card.name}")
+        else:
+            text = f"⚠️ **خطا در دریافت کارت**\n\n{error if error else 'خطای نامشخص!'}"
+            await update.message.reply_text(text, parse_mode='Markdown')
+
+    async def leaderboard_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """مدیریت دستور /leaderboard"""
+        leaderboard = self.db.get_leaderboard(10)
+        
+        if not leaderboard:
+            text = "🏆 **لیدربورد خالی است!**"
+        else:
+            text = "🏆 **لیدربورد بازیکنان برتر**\n\n"
+            medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
+            
+            for i, player_info in enumerate(leaderboard):
+                medal = medals[i] if i < len(medals) else f"{i+1}."
+                name = player_info.get('first_name', 'بازیکن')
+                score = player_info.get('total_score', 0)
+                text += f"{medal} **{name}** - {score} امتیاز\n"
+        
+        await update.message.reply_text(text, parse_mode='Markdown')
+
+    async def fight_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """دستور شروع چالش PvP در گروه"""
+        # بررسی مجوز دستور
+        if not self._is_command_allowed_in_chat("fight", update.effective_chat.type):
+            await update.message.reply_text(
+                "🚫 این دستور فقط در گروه‌ها قابل استفاده است.\n"
+                "🥊 برای چالش PvP، ربات را به گروه اضافه کنید."
+            )
+            return
+
+        challenger_id = update.effective_user.id
+        chat_id = update.effective_chat.id
+
+        player_cards = self.db.get_player_cards(challenger_id)
+        if not player_cards:
+            await update.message.reply_text("🎴 ابتدا باید کارتی داشته باشید! در چت خصوصی ربات /start بزنید.")
+            return
+
+        active_fights = self.db.get_user_active_fights(challenger_id)
+        if active_fights:
+            await update.message.reply_text("⚠️ شما قبلاً یک چالش فعال دارید.")
+            return
+
+        fight_id = self.db.create_fight(challenger_id, 0, chat_id)
+        challenger_name = update.effective_user.first_name
+        text = (
+            f"🥊 **چالش PvP!**\n\n"
+            f"🔥 {challenger_name} همه را به مبارزه دعوت می‌کند!\n\n"
+            f"آیا جرئت قبول این چالش را دارید؟\n"
+            f"🏆 برنده: +15 امتیاز\n"
+            f"⚡ بازنده: +1 امتیاز تسلی"
+        )
+        keyboard = [
+            [InlineKeyboardButton("✊ قبول (نرمال)", callback_data=f"accept_pvp_{fight_id}")],
+            [InlineKeyboardButton("🎲 قبول (تصادفی)", callback_data=f"accept_pvp_random_{fight_id}")],
+            [InlineKeyboardButton("👀 لیدربورد", callback_data="leaderboard")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=text,
+            reply_markup=reply_markup,
+            parse_mode='Markdown'
+        )
+
+    # ==================== PVP HANDLERS - FIXED ====================
+
+    async def request_pvp_fight_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """درخواست فایت PvP"""
+        query = update.callback_query
+        await query.answer()
+        
+        if not ensure_not_expired(query, self.db, context):
+            await query.answer("⏰ این پنل منقضی شده است. لطفاً دوباره /start بزنید.", show_alert=True)
+            return
+        
+        challenger_id = query.from_user.id
+        chat_id = query.message.chat_id
+        
+        # بررسی نوع چت - باید گروه باشد
+        if query.message.chat.type == 'private':
+            text = "🚫 فایت PvP فقط در گروه‌ها امکان‌پذیر است!\n\nلطفاً این ربات را به گروه اضافه کنید."
+            keyboard = [[InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await query.edit_message_text(text, reply_markup=reply_markup)
+            return
+        
+        # بررسی داشتن کارت
+        player_cards = self.db.get_player_cards(challenger_id)
+        if not player_cards:
+            text = "🎴 **ابتدا باید کارتی داشته باشید!**\n\nلطفاً اول کارت رایگان دریافت کنید."
+            keyboard = [
+                [InlineKeyboardButton("🎁 دریافت کارت اول", callback_data="daily_claim")],
+                [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+            return
+        
+        # بررسی فایت‌های فعال
+        active_fights = self.db.get_user_active_fights(challenger_id)
+        if active_fights:
+            text = (
+                "⚠️ **شما قبلاً چالش فعالی دارید!**\n\n"
+                "لطفاً فایت فعلی را کامل کنید یا منتظر انقضای آن باشید."
+            )
+            keyboard = [[InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+            return
+        
+        # ایجاد فایت جدید - ابتدا فقط challenger_id
+        fight_id = self.db.create_fight(challenger_id, 0, chat_id)  # opponent_id موقتاً 0
+        
+        challenger_name = query.from_user.first_name
+        text = (
+            f"🥊 **چالش PvP!**\n\n"
+            f"🔥 {challenger_name} همه را به مبارزه دعوت می‌کند!\n\n"
+            f"آیا جرئت قبول این چالش را دارید؟\n"
+            f"🏆 برنده: +15 امتیاز\n"
+            f"⚡ بازنده: +1 امتیاز تسلی"
+        )
+        
+        keyboard = [
+            [InlineKeyboardButton("✊ قبول (نرمال)", callback_data=f"accept_pvp_{fight_id}")],
+            [InlineKeyboardButton("🎲 قبول (تصادفی)", callback_data=f"accept_pvp_random_{fight_id}")],
+            [InlineKeyboardButton("👀 لیدربورد", callback_data="leaderboard")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        # ارسال پیام در گروه
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=text,
+            reply_markup=reply_markup,
+            parse_mode='Markdown'
+        )
+        
+        # تایید برای چلنجر
+        await query.edit_message_text(
+            "✅ **چالش شما ارسال شد!**\n\nمنتظر قبول چالش در گروه باشید...",
+            parse_mode='Markdown'
+        )
+
+    async def accept_pvp_fight_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """قبول چالش PvP - FIXED"""
+        query = update.callback_query
+        await query.answer()
+        
+        
+        fight_id = query.data.split("_")[-1]
+        opponent_id = query.from_user.id
+        
+        logger.info(f"Accept PvP - Data: {query.data}, User: {opponent_id}")
+        
+        # دریافت فایت
+        fight = self.db.get_fight_by_id(fight_id)
+        if not fight:
+            await query.answer("❌ چالش یافت نشد یا منقضی شده!", show_alert=True)
+            return
+        
+        # بررسی اینکه challenger خودش نپذیرد
+        if fight.challenger_id == opponent_id:
+            await query.answer("❌ نمی‌توانید چالش خودتان را بپذیرید!", show_alert=True)
+            return
+        
+        # بررسی داشتن کارت
+        opponent_cards = self.db.get_player_cards(opponent_id)
+        if not opponent_cards:
+            await query.answer("❌ ابتدا کارتی باید داشته باشید! در خصوصی /start بزنید.", show_alert=True)
+            return
+        
+        # بررسی وضعیت فایت
+        if fight.status != FightStatus.WAITING_FOR_OPPONENT:
+            await query.answer("❌ این چالش دیگر قابل قبول نیست!", show_alert=True)
+            return
+        
+        # بروزرسانی اتمی جهت جلوگیری از شرایط رقابتی
+        claimed = self.db.claim_opponent_if_waiting(fight_id, opponent_id)
+        if not claimed:
+            await query.answer("❌ Someone already joined or fight is no longer valid.", show_alert=True)
+            return
+        # تمدید مهلت فایت به مدت 15 دقیقه پس از پذیرش
+        try:
+            new_expiry = datetime.now() + timedelta(minutes=15)
+            self.db.update_fight(fight_id, expires_at=new_expiry.isoformat())
+        except Exception as e:
+            logger.warning(f"Failed to extend fight {fight_id} expiry: {e}")
+        
+        # دریافت نام بازیکنان
+        challenger = self.db.get_or_create_player(fight.challenger_id)
+        opponent = self.db.get_or_create_player(opponent_id)
+        
+        # لینک پیوی ربات
+        bot_link = "@TelBattleBot"
+        
+        # ارسال پیام قبولی در گروه
+        text = (
+            f"⚔️ **فایت تایید شد!**\n\n"
+            f"🔥 {challenger.first_name} 🆚 {opponent.first_name}\n\n"
+            f"هر دو بازیکن در پیام خصوصی کارت و ویژگی خود را انتخاب کنید.\n"
+            f"👆 **برای انتخاب کارت:** {bot_link}\n"
+            f"⏰ مهلت: 15 دقیقه"
+        )
+        
+        keyboard = [[InlineKeyboardButton("🏆 مشاهده لیدربورد", callback_data="leaderboard")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+        
+        # ارسال پیام خصوصی به challenger
+        try:
+            await context.bot.send_message(
+                chat_id=fight.challenger_id,
+                text=f"✅ **{opponent.first_name} چالش شما را پذیرفت!**\n\nلطفاً کارت خود را انتخاب کنید:",
+                reply_markup=self._create_pvp_card_selection_keyboard(fight_id, fight.challenger_id),
+                parse_mode='Markdown'
+            )
+        except Exception as e:
+            logger.warning(f"Could not send private message to challenger {fight.challenger_id}: {e}")
+        
+        # ارسال پیام خصوصی به opponent
+        try:
+            await context.bot.send_message(
+                chat_id=opponent_id,
+                text=f"✅ **شما چالش {challenger.first_name} را پذیرفتید!**\n\nلطفاً کارت خود را انتخاب کنید:",
+                reply_markup=self._create_pvp_card_selection_keyboard(fight_id, opponent_id),
+                parse_mode='Markdown'
+            )
+        except Exception as e:
+            logger.warning(f"Could not send private message to opponent {opponent_id}: {e}")
+
+    async def accept_pvp_random_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """قبول چالش PvP به صورت تصادفی (انتخاب خودکار کارت‌ها)"""
+        query = update.callback_query
+        await query.answer()
+
+        fight_id = query.data.split("_")[-1]
+        opponent_id = query.from_user.id
+
+        fight = self.db.get_fight_by_id(fight_id)
+        if not fight or fight.status != FightStatus.WAITING_FOR_OPPONENT:
+            await query.answer("❌ این چالش معتبر نیست!", show_alert=True)
+            return
+        if fight.challenger_id == opponent_id:
+            await query.answer("❌ نمی‌توانید چالش خودتان را بپذیرید!", show_alert=True)
+            return
+
+        # تنظیم حریف به صورت اتمی
+        claimed = self.db.claim_opponent_if_waiting(fight_id, opponent_id)
+        if not claimed:
+            await query.answer("❌ Someone already joined or fight is no longer valid.", show_alert=True)
+            return
+
+        # انتخاب کارت تصادفی برای هر بازیکن از دک
+        challenger_cards = self.db.get_player_cards(fight.challenger_id)
+        opponent_cards = self.db.get_player_cards(opponent_id)
+        if not challenger_cards or not opponent_cards:
+            await query.answer("❌ هر دو بازیکن باید کارت داشته باشند!", show_alert=True)
+            return
+        ch_card = random.choice(challenger_cards)
+        op_card = random.choice(opponent_cards)
+
+        self.db.update_fight(fight_id, challenger_card_id=ch_card.card_id, opponent_card_id=op_card.card_id)
+
+        # ارسال پیام خصوصی برای انتخاب ویژگی‌ها
+        try:
+            await context.bot.send_message(
+                chat_id=fight.challenger_id,
+                text=f"🎲 کارت شما به صورت تصادفی انتخاب شد: {ch_card.name}\nویژگی را انتخاب کنید:",
+                reply_markup=self._create_stat_selection_keyboard(fight_id, ch_card)
+            )
+        except Exception as e:
+            logger.warning(f"PM to challenger failed: {e}")
+        try:
+            await context.bot.send_message(
+                chat_id=opponent_id,
+                text=f"🎲 کارت شما به صورت تصادفی انتخاب شد: {op_card.name}\nویژگی را انتخاب کنید:",
+                reply_markup=self._create_stat_selection_keyboard(fight_id, op_card)
+            )
+        except Exception as e:
+            logger.warning(f"PM to opponent failed: {e}")
+
+        # اطلاع در گروه
+        try:
+            await query.edit_message_text(
+                "✅ فایت تصادفی تایید شد! بازیکنان در خصوصی ویژگی را انتخاب کنند.",
+                parse_mode='Markdown'
+            )
+        except Exception:
+            pass
+
+    def _create_pvp_card_selection_keyboard(self, fight_id: str, user_id: int) -> InlineKeyboardMarkup:
+        """ایجاد کیبورد انتخاب کارت برای PvP"""
+        cards = self.db.get_player_cards(user_id)
+        keyboard = []
+        
+        max_cards = min(len(cards), self.config['game_settings']['max_cards_per_page'])
+        
+        for card in cards[:max_cards]:
+            rarity_colors = {
+                CardRarity.NORMAL: "🟢",
+                CardRarity.EPIC: "🟣", 
+                CardRarity.LEGEND: "🟡"
+            }
+            color = rarity_colors[card.rarity]
+            stats = f"💪{card.power} ⚡{card.speed} 🧠{card.iq} ❤️{card.popularity}"
+            
+            keyboard.append([
+                InlineKeyboardButton(
+                    f"{color} {card.name} ({stats})",
+                    callback_data=f"pvp_card_{fight_id}_{card.card_id}"
+                )
+            ])
+        
+        return InlineKeyboardMarkup(keyboard)
+
+    def _create_stat_selection_keyboard(self, fight_id: str, card: Card) -> InlineKeyboardMarkup:
+        keyboard = [
+            [InlineKeyboardButton(f"💪 قدرت ({card.power})", callback_data=f"pvp_stat_{fight_id}_power")],
+            [InlineKeyboardButton(f"⚡ سرعت ({card.speed})", callback_data=f"pvp_stat_{fight_id}_speed")],
+            [InlineKeyboardButton(f"🧠 آی‌کیو ({card.iq})", callback_data=f"pvp_stat_{fight_id}_iq")],
+            [InlineKeyboardButton(f"❤️ محبوبیت ({card.popularity})", callback_data=f"pvp_stat_{fight_id}_popularity")]
+        ]
+        return InlineKeyboardMarkup(keyboard)
+
+    async def pvp_card_select_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """انتخاب کارت در فایت PvP - FIXED"""
+        query = update.callback_query
+        await query.answer()
+
+        
+        parts = query.data.split("_")
+        fight_id = parts[2]
+        card_id = parts[3]
+        user_id = query.from_user.id
+        
+        # دریافت فایت
+        fight = self.db.get_fight_by_id(fight_id)
+        logger.info(f"PvP Card Select - Data: {query.data}, User: {user_id}")
+        if fight:
+            logger.info(f"Fight before update: challenger={fight.challenger_id}, opponent={fight.opponent_id}")
+        else:
+            logger.warning(f"Fight {fight_id} not found at card select!")    
+            
+        if not fight:
+            text = "❌ فایت یافت نشد!"
+            await query.edit_message_text(text)
+            return
+        
+        # تعیین اینکه کاربر challenger است یا opponent
+        if user_id == fight.challenger_id:
+            field_name = "challenger_card_id"
+        elif user_id == fight.opponent_id:
+            field_name = "opponent_card_id"
+        else:
+            await query.answer("❌ شما بخشی از این فایت نیستید!", show_alert=True)
+            return
+        
+        # بروزرسانی انتخاب کارت
+        update_data = {field_name: card_id}
+        
+        # دریافت وضعیت فعلی فایت برای تعیین وضعیت میانی یا نهایی
+        current_fight = self.db.get_fight_by_id(fight_id)
+        
+        # اگر اولین انتخاب کارت توسط چلنجر است و حریف هنوز کارت ندارد
+        if user_id == fight.challenger_id and not current_fight.opponent_card_id:
+            update_data["status"] = FightStatus.CHALLENGER_CARD_SELECTED
+        # اگر اولین انتخاب کارت توسط حریف است و چلنجر هنوز کارت ندارد
+        if user_id == fight.opponent_id and not current_fight.challenger_card_id:
+            update_data["status"] = FightStatus.OPPONENT_CARD_SELECTED
+        
+        # اگر با این انتخاب هر دو کارت موجود می‌شوند، وضعیت را به BOTH_CARDS_SELECTED ارتقا بده
+        if user_id == fight.challenger_id and current_fight.opponent_card_id:
+            update_data["status"] = FightStatus.BOTH_CARDS_SELECTED
+        elif user_id == fight.opponent_id and current_fight.challenger_card_id:
+            update_data["status"] = FightStatus.BOTH_CARDS_SELECTED
+        
+        self.db.update_fight(fight_id, **update_data)
+        
+        # دریافت کارت انتخاب شده
+        selected_card = self.db.get_card_by_id(card_id)
+        # بازخورد سریع برای کاربر
+        try:
+            await query.answer("✅ Card selected!")
+        except Exception:
+            pass
+        
+        text = (
+            f"✅ **کارت انتخاب شد!**\n\n"
+            f"🎴 {selected_card.name}\n\n"
+            f"حالا ویژگی مورد نظر برای فایت را انتخاب کنید:"
+        )
+        
+        keyboard = [
+            [InlineKeyboardButton(f"💪 قدرت ({selected_card.power})", callback_data=f"pvp_stat_{fight_id}_power")],
+            [InlineKeyboardButton(f"⚡ سرعت ({selected_card.speed})", callback_data=f"pvp_stat_{fight_id}_speed")],
+            [InlineKeyboardButton(f"🧠 آی‌کیو ({selected_card.iq})", callback_data=f"pvp_stat_{fight_id}_iq")],
+            [InlineKeyboardButton(f"❤️ محبوبیت ({selected_card.popularity})", callback_data=f"pvp_stat_{fight_id}_popularity")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def pvp_stat_select_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """انتخاب ویژگی در فایت PvP - COMPLETELY FIXED"""
+        query = update.callback_query
+        await query.answer()
+        
+        parts = query.data.split("_")
+        fight_id = parts[2]
+        stat = parts[3]
+        user_id = query.from_user.id
+        
+        logger.info(f"PvP Stat Select - Fight: {fight_id}, User: {user_id}, Stat: {stat}")
+        
+        # دریافت فایت
+        fight = self.db.get_fight_by_id(fight_id)
+        if not fight:
+            text = "❌ فایت یافت نشد!"
+            await query.edit_message_text(text)
+            logger.error(f"Fight {fight_id} not found")
+            return
+        
+        # بررسی اولیه opponent_id
+        if self.db.is_unclaimed(fight):
+            logger.error(f"Fight {fight_id} has invalid opponent_id=0")
+            await query.answer("❌ خطا: حریف معتبر نیست!", show_alert=True)
+            return
+        
+        # تعیین اینکه کاربر challenger است یا opponent
+        if user_id == fight.challenger_id:
+            field_name = "challenger_stat"
+            user_role = "challenger"
+        elif user_id == fight.opponent_id:
+            field_name = "opponent_stat"
+            user_role = "opponent"
+        else:
+            await query.answer("❌ شما بخشی از این فایت نیستید!", show_alert=True)
+            logger.warning(f"User {user_id} tried to select stat for fight {fight_id} but is not participant")
+            return
+        
+        logger.info(f"User {user_id} is {user_role} selecting stat {stat}")
+        
+        # بروزرسانی انتخاب ویژگی
+        update_data = {field_name: stat}
+        success = self.db.update_fight(fight_id, **update_data)
+        
+        if not success:
+            logger.error(f"Failed to update fight {fight_id} with {field_name}={stat}")
+            await query.answer("❌ خطا در ذخیره انتخاب!", show_alert=True)
+            return
+        
+        # دریافت وضعیت به‌روزشده
+        updated_fight = self.db.get_fight_by_id(fight_id)
+        if not updated_fight:
+            logger.error(f"Fight {fight_id} disappeared after update")
+            await query.answer("❌ خطای سیستمی!", show_alert=True)
+            return
+        
+        # نام‌های ویژگی برای نمایش
+        stat_names = {
+            "power": "💪 قدرت",
+            "speed": "⚡ سرعت",
+            "iq": "🧠 آی‌کیو",
+            "popularity": "❤️ محبوبیت"
+        }
+        
+        selected_stat_name = stat_names.get(stat, f"ویژگی {stat}")
+        
+        logger.info(f"Fight {fight_id} status after update: "
+                    f"challenger_stat={updated_fight.challenger_stat}, "
+                    f"opponent_stat={updated_fight.opponent_stat}")
+        
+        # بررسی اینکه آیا هر دو بازیکن انتخاب کرده‌اند
+        if updated_fight.challenger_stat and updated_fight.opponent_stat:
+            # بازخورد سریع
+            try:
+                await query.answer("⚔️ Both stats selected! Resolving fight...")
+            except Exception:
+                pass
+            # هر دو انتخاب کرده‌اند - باید فایت حل شود
+            logger.info(f"Both players selected stats for fight {fight_id} - resolving")
+            
+            # اعلام شروع محاسبه
+            text = f"✅ **{selected_stat_name} انتخاب شد!**\n\n⚔️ درحال محاسبه نتیجه فایت..."
+            await query.edit_message_text(text, parse_mode='Markdown')
+            
+            # حل فایت
+            try:
+                result = self.game.resolve_pvp_fight(fight_id)
+                
+                if result.get("success"):
+                    logger.info(f"Fight {fight_id} resolved successfully")
+                    await self._announce_pvp_result(context, result)
+                else:
+                    error_msg = result.get("error", "خطای نامشخص در حل فایت")
+                    logger.error(f"Fight {fight_id} resolution failed: {error_msg}")
+                    
+                    # اطلاع به کاربران در صورت خطا
+                    if updated_fight.chat_id:
+                        error_text = (
+                            f"❌ **خطا در فایت!**\n\n"
+                            f"متاسفانه فایت به دلیل خطای زیر لغو شد:\n"
+                            f"`{error_msg}`\n\n"
+                            f"لطفاً دوباره تلاش کنید."
+                        )
+                        try:
+                            await context.bot.send_message(
+                                chat_id=updated_fight.chat_id,
+                                text=error_text,
+                                parse_mode='Markdown'
+                            )
+                        except Exception as e:
+                            logger.error(f"Failed to send error message to chat {updated_fight.chat_id}: {e}")
+                    
+                    # حذف فایت ناقص از دیتابیس
+                    self.db.delete_fight(fight_id)
+                    
+            except Exception as e:
+                logger.error(f"Exception in fight {fight_id} resolution: {e}", exc_info=True)
+                
+                # اطلاع به کاربران در صورت خطای سیستمی
+                if updated_fight.chat_id:
+                    system_error_text = (
+                        f"💥 **خطای سیستمی!**\n\n"
+                        f"متاسفانه فایت به دلیل خطای سیستمی لغو شد.\n"
+                        f"لطفاً چند دقیقه دیگر دوباره تلاش کنید."
+                    )
+                    try:
+                        await context.bot.send_message(
+                            chat_id=updated_fight.chat_id,
+                            text=system_error_text,
+                            parse_mode='Markdown'
+                        )
+                    except Exception as send_error:
+                        logger.error(f"Failed to send system error message: {send_error}")
+                
+                # حذف فایت از دیتابیس
+                self.db.delete_fight(fight_id)
+        
+        else:
+            # فقط یکی انتخاب کرده - منتظر دیگری
+            logger.info(f"Fight {fight_id}: Only {user_role} selected stat, waiting for other player")
+            
+            try:
+                await query.answer("✅ Stat selected! Waiting for opponent ⏳")
+            except Exception:
+                pass
+
+            text = (
+                f"✅ **{selected_stat_name} انتخاب شد!**\n\n"
+                f"⏳ منتظر انتخاب حریف...\n\n"
+                f"نتیجه فایت در گروه اعلام خواهد شد."
+            )
+            await query.edit_message_text(text, parse_mode='Markdown')
+
+    async def _announce_pvp_result(self, context: ContextTypes.DEFAULT_TYPE, result: Dict):
+        """اعلام نتیجه فایت PvP در گروه"""
+        try:
+            fight_id = result["fight_id"]
+            fight = self.db.get_fight_by_id(fight_id)
+            
+            if not fight or not fight.chat_id:
+                logger.error(f"Cannot announce PvP result: fight {fight_id} not found or no chat_id")
+                return
+            
+            challenger_data = result["challenger"]
+            opponent_data = result["opponent"]
+            result_type = result["result_type"]
+            
+            # دریافت نام‌های بازیکنان
+            challenger = self.db.get_or_create_player(challenger_data["user_id"])
+            opponent = self.db.get_or_create_player(opponent_data["user_id"])
+            
+            # ایموجی‌های کمیابی
+            rarity_colors = {
+                CardRarity.NORMAL: "🟢",
+                CardRarity.EPIC: "🟣",
+                CardRarity.LEGEND: "🟡"
+            }
+            
+            challenger_color = rarity_colors[challenger_data["card"].rarity]
+            opponent_color = rarity_colors[opponent_data["card"].rarity]
+            
+            # نام‌های ویژگی
+            stat_names = {
+                "power": "قدرت 💪",
+                "speed": "سرعت ⚡",
+                "iq": "آی‌کیو 🧠",
+                "popularity": "محبوبیت ❤️"
+            }
+            
+            # عنوان نتیجه
+            if result_type == "challenger_wins":
+                result_text = f"🏆 **{challenger.first_name} پیروز شد!**"
+                result_emoji = "🎉"
+            elif result_type == "opponent_wins":
+                result_text = f"🏆 **{opponent.first_name} پیروز شد!**"
+                result_emoji = "🎉"
+            else:
+                result_text = "🤝 **مساوی!**"
+                result_emoji = "🤝"
+            
+            # ساخت متن نتیجه
+            text = (
+                f"⚔️ **نتیجه فایت PvP**\n\n"
+                f"{result_text}\n\n"
+                f"📊 **جزئیات مبارزه:**\n"
+                f"{challenger_color} **{challenger.first_name}:**\n"
+                f"   🎴 {challenger_data['card'].name}\n"
+                f"   📈 {stat_names[challenger_data['stat_type']]}: {challenger_data['stat_value']}\n"
+                f"   🏆 +{challenger_data['score_gained']} امتیاز (کل: {challenger_data['total_score']})\n\n"
+                f"🆚\n\n"
+                f"{opponent_color} **{opponent.first_name}:**\n"
+                f"   🎴 {opponent_data['card'].name}\n"
+                f"   📈 {stat_names[opponent_data['stat_type']]}: {opponent_data['stat_value']}\n"
+                f"   🏆 +{opponent_data['score_gained']} امتیاز (کل: {opponent_data['total_score']})\n"
+            )
+            
+            # دیالوگ برنده
+            dialog = get_victory_dialog(result["winner"]["card"].name)
+            if dialog:
+                winner_name = result["winner"]["card"].name
+                text += f'\n\n{result_emoji} **{winner_name}:** "{dialog}"'
+            
+            keyboard = [
+                [InlineKeyboardButton("🥊 چالش جدید", callback_data="request_pvp_fight")],
+                [InlineKeyboardButton("🏆 لیدربورد", callback_data="leaderboard")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await context.bot.send_message(
+                chat_id=fight.chat_id,
+                text=text,
+                reply_markup=reply_markup,
+                parse_mode='Markdown'
+            )
+            # در صورت برد، تصویر کارت برنده + دیالوگ
+            if result_type in ["challenger_wins", "opponent_wins"] and result.get("winner"):
+                winner_card = result["winner"]["card"]
+                dialog = result.get("dialog") or get_victory_dialog(winner_card.name)
+                await send_card_image_safely(
+                    message=type("obj", (), {"reply_photo": lambda *args, **kwargs: context.bot.send_photo(chat_id=fight.chat_id, *args, **kwargs)})(),
+                    card_name=winner_card.name,
+                    config=self.config,
+                    caption=dialog
+                )
+            
+            # حذف فایت از دیتابیس
+            self.db.delete_fight(fight_id)
+            
+        except Exception as e:
+            logger.error(f"Error announcing PvP result: {e}", exc_info=True)
+
+    # ==================== EXISTING CALLBACK HANDLERS ====================
+
+    async def daily_claim_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """مدیریت دریافت کارت روزانه"""
+        query = update.callback_query
+        await query.answer()
+        
+        # Check panel expiration
+        if not ensure_not_expired(query, self.db, context):
+            await query.answer("⏰ این پنل منقضی شده است. لطفاً دوباره /start بزنید.", show_alert=True)
+            return
+        
+        user_id = query.from_user.id
+        success, card, error = self.game.claim_daily_card(user_id)
+        
+        if success and card:
+            rarity_colors = {
+                CardRarity.NORMAL: "🟢",
+                CardRarity.EPIC: "🟣",
+                CardRarity.LEGEND: "🟡"
+            }
+            color = rarity_colors[card.rarity]
+            
+            # ارسال تصویر کارت با یک دیالوگ کوتاه
+            claim_dialog = get_victory_dialog(card.name)
+            image_sent = await send_card_image_safely(query.message, card.name, self.config, f"🎉 {card.name}\n\n“{claim_dialog}”")
+            
+            # متن اطلاعات کارت
+            text = (
+                f"🎉 **کارت روزانه دریافت شد!**\n\n"
+                f"{color} **{card.name}** ({card.rarity.value.title()})\n\n"
+                f"📊 **آمار کارت:**\n"
+                f"💪 قدرت: {card.power}\n"
+                f"⚡ سرعت: {card.speed}\n"
+                f"🧠 آی‌کیو: {card.iq}\n"
+                f"❤️ محبوبیت: {card.popularity}\n"
+                f"🎯 مجموع: {card.get_total_stats()}\n\n"
+                f"✨ **ابیلیتی‌ها:**\n"
+            )
+            
+            for ability in card.abilities:
+                text += f"• {ability}\n"
+            
+            text += f"\n🕐 کلیم بعدی: {self.game.CLAIM_COOLDOWN_HOURS} ساعت دیگر"
+            
+            if not image_sent:
+                text = f"🎴 (تصویر در دسترس نیست)\n\n" + text
+            
+            keyboard = [
+                [InlineKeyboardButton("🎴 مشاهده کارت‌ها", callback_data="my_cards")],
+                [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await query.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+            
+        else:
+            text = f"⚠ **خطا در دریافت کارت**\n\n{error if error else 'خطای نامشخص!'}"
+            
+            keyboard = [
+                [InlineKeyboardButton("🎴 مشاهده کارت‌ها", callback_data="my_cards")],
+                [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def my_cards_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """نمایش کارت‌های کاربر"""
+        query = update.callback_query
+        await query.answer()
+        
+        # Check panel expiration
+        if not ensure_not_expired(query, self.db, context):
+            await query.answer("⏰ این پنل منقضی شده است. لطفاً دوباره /start بزنید.", show_alert=True)
+            return
+        
+        user_id = query.from_user.id
+        cards = self.db.get_player_cards(user_id)
+        
+        if not cards:
+            text = (
+                "🔭 **هنوز کارتی ندارید!**\n\n"
+                "برای شروع، اولین کارت خود را رایگان دریافت کنید."
+            )
+            keyboard = [
+                [InlineKeyboardButton("🎁 دریافت کارت اول", callback_data="daily_claim")],
+                [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main")]
+            ]
+        else:
+            # گروه‌بندی بر اساس کمیابی
+            cards_by_rarity = {"legend": [], "epic": [], "normal": []}
+            for card in cards:
+                cards_by_rarity[card.rarity.value].append(card)
+            
+            text = f"🎴 **کارت‌های شما ({len(cards)} کارت):**\n\n"
+            
+            rarity_info = {
+                "legend": ("🟡 **LEGEND**", CardRarity.LEGEND),
+                "epic": ("🟣 **EPIC**", CardRarity.EPIC),
+                "normal": ("🟢 **NORMAL**", CardRarity.NORMAL)
+            }
+            
+            for rarity_key, (rarity_text, rarity_enum) in rarity_info.items():
+                cards_list = cards_by_rarity[rarity_key]
+                if cards_list:
+                    text += f"{rarity_text} ({len(cards_list)}):\n"
+                    for card in cards_list:
+                        stats = f"💪{card.power} ⚡{card.speed} 🧠{card.iq} ❤️{card.popularity}"
+                        text += f"• {card.name} ({stats})\n"
+                    text += "\n"
+            
+            # ساخت کیبورد برای مشاهده جزئیات کارت‌ها (تا حداکثر) + بازگشت
+            keyboard = []
+            max_cards = self.config['game_settings']['max_cards_per_page']
+            for card in cards[:max_cards]:
+                keyboard.append([InlineKeyboardButton(f"🔎 جزئیات — {card.name}", callback_data=f"card_view_{card.card_id}")])
+            keyboard.append([InlineKeyboardButton("🔙 بازگشت", callback_data="back_to_main")])
+            
+            # اضافه کردن دکمه PvP اگر در گروه هستیم
+            if update.effective_chat.type != 'private':
+                keyboard.insert(1, [InlineKeyboardButton("🥊 چالش PvP", callback_data="request_pvp_fight")])
+            
+            keyboard.append([InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main")])
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    def _get_card_bio(self, name: str) -> str:
+        bios = {
+            "Heisenberg": "شیمیدان نابغه که به مسیر تاریک قدم گذاشت.",
+            "Spongebob": "اسفنج پرانرژی از زیر آب که همیشه آماده است.",
+            "Kangfupanda": "پاندای رزمی‌کار با قلب بزرگ.",
+            "Homelander": "قهرمان قدرتمند با چهره‌ای پیچیده.",
+            "Thanos": "تایتان مجنون در جستجوی تعادل کائنات."
+        }
+        return bios.get(name, "بیوگرافی در دسترس نیست.")
+
+    def _get_card_stats_summary(self, user_id: int, card_id: str) -> Dict[str, Any]:
+        import sqlite3
+        wins = losses = ties = 0
+        try:
+            conn = sqlite3.connect(self.db.db_path)
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT result, COUNT(*) FROM fight_history WHERE user_id=? AND user_card_id=? GROUP BY result",
+                (user_id, card_id)
+            )
+            for res, cnt in cursor.fetchall():
+                if res == 'win':
+                    wins = cnt
+                elif res == 'lose':
+                    losses = cnt
+                elif res == 'tie':
+                    ties = cnt
+            conn.close()
+        except Exception:
+            pass
+        total = wins + losses + ties
+        wp = round((wins / total) * 100) if total else 0
+        lp = round((losses / total) * 100) if total else 0
+        tp = round((ties / total) * 100) if total else 0
+        return {"wins": wins, "losses": losses, "ties": ties, "total": total, "wp": wp, "lp": lp, "tp": tp}
+
+    async def card_view_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        query = update.callback_query
+        await query.answer()
+        if not ensure_not_expired(query, self.db, context):
+            await query.answer("⏰ این پنل منقضی شده است.", show_alert=True)
+            return
+        parts = query.data.split("_")
+        card_id = parts[-1]
+        card = self.db.get_card_by_id(card_id)
+        if not card:
+            await query.edit_message_text("❌ کارت یافت نشد!")
+            return
+        user_id = query.from_user.id
+        stats = self.db.get_card_stats(card_id, user_id)
+        rarity_map = {
+            CardRarity.NORMAL: "🟢 Normal",
+            CardRarity.EPIC: "🟣 Epic",
+            CardRarity.LEGEND: "🟡 Legend"
+        }
+        header = f"{rarity_map.get(card.rarity, '🔶 Card')} — {card.name}"
+        text = (
+            f"{header}\n"
+            f"💪 {card.power} ⚡ {card.speed} 🧠 {card.iq} ❤️ {card.popularity}\n"
+            f"📊 بازی‌ها: {stats['games_played']}\n"
+            f"🏆 برد: {stats['wins']} | ❌ باخت: {stats['losses']} | 🤝 مساوی: {stats['ties']}\n"
+            f"📈 Win Rate: {int(stats['win_rate'])}%\n\n"
+            f"📝 **Biography:**\n{card.biography}"
+        )
+        # ارسال تصویر
+        await send_card_image_safely(query.message, card.name, self.config)
+        keyboard = [
+            [InlineKeyboardButton("🔙 بازگشت", callback_data="my_cards")]
+        ]
+        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
+
+    # AI fight handler removed - AI fights are no longer supported
+
+    # ai_select_card_handler removed - AI fights are no longer supported
+
+    # ai_show_abilities_handler removed - AI fights are no longer supported
+
+    # ai_fight_handler and _show_ai_fight_result removed - AI fights are no longer supported
+
+    async def leaderboard_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """نمایش لیدربورد"""
+        query = update.callback_query
+        await query.answer()
+        
+        # Check panel expiration
+        if not ensure_not_expired(query):
+            await query.answer("⏰ این پنل منقضی شده است. لطفاً دوباره /start بزنید.", show_alert=True)
+            return
+        
+        leaderboard = self.db.get_leaderboard(10)
+        
+        if not leaderboard:
+            text = "🏆 **لیدربورد خالی است!**\n\nهنوز کسی بازی نکرده!"
+        else:
+            text = "🏆 **لیدربورد بازیکنان برتر**\n\n"
+            
+            medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
+            
+            for i, player_info in enumerate(leaderboard):
+                medal = medals[i] if i < len(medals) else f"{i+1}."
+                name = player_info.get('first_name', 'بازیکن')
+                score = player_info.get('total_score', 0)
+                card_count = player_info.get('card_count', 0)
+                
+                text += f"{medal} **{name}**\n"
+                text += f"   🏆 {score} امتیاز • 🎴 {card_count} کارت\n\n"
+        
+        keyboard = [
+            [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main")]
+        ]
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def back_to_main_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """بازگشت به منوی اصلی"""
+        query = update.callback_query
+        await query.answer()
+        
+        # No expiration check needed for back_to_main as it should always work
+        
+        user = query.from_user
+        user_id = user.id
+        
+        # دریافت وضعیت فعلی
+        player = self.db.get_or_create_player(user_id)
+        player = self.game.check_and_reset_hearts(player)
+        
+        card_count = len(self.db.get_player_cards(user_id))
+        
+        text = (
+            f"🎮 **منوی اصلی**\n\n"
+            f"سلام {user.first_name}! 👋\n\n"
+            f"📊 **وضعیت شما:**\n"
+            f"❤️ قلب: {player.hearts}/{self.game.DAILY_HEARTS}\n"
+            f"🎴 کارت‌ها: {card_count}\n"
+            f"🏆 امتیاز: {player.total_score}\n\n"
+            f"عملیات مورد نظر را انتخاب کنید:"
+        )
+        
+        keyboard = [
+            [InlineKeyboardButton("🎴 کارت‌های من", callback_data="my_cards")],
+            [InlineKeyboardButton("⚔️ چالش PvP", callback_data="request_pvp_fight")],
+            [InlineKeyboardButton("🎁 کلیم روزانه", callback_data="daily_claim")],
+        ]
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    # ==================== SETUP METHODS ====================
+
+    def setup_handlers(self, app: Application):
+        """تنظیم هندلرهای ربات"""
+        # دستورات اصلی
+        app.add_handler(CommandHandler("start", self.start_command))
+        app.add_handler(CommandHandler("help", self.help_command))
+        app.add_handler(CommandHandler("profile", self.profile_command))
+        app.add_handler(CommandHandler("cards", self.cards_command))
+        app.add_handler(CommandHandler("claim", self.claim_command))
+        app.add_handler(CommandHandler("leaderboard", self.leaderboard_command))
+        app.add_handler(CommandHandler("fight", self.fight_command))
+        
+        # کالبک‌های اصلی
+        app.add_handler(CallbackQueryHandler(self.daily_claim_handler, pattern="^daily_claim$"))
+        app.add_handler(CallbackQueryHandler(self.my_cards_handler, pattern="^my_cards$"))
+        
+        # AI fight handlers removed - AI fights are no longer supported
+        
+        # فایت PvP
+        app.add_handler(CallbackQueryHandler(self.request_pvp_fight_handler, pattern="^request_pvp_fight$"))
+        app.add_handler(CallbackQueryHandler(self.accept_pvp_fight_handler, pattern="^accept_pvp_"))
+        app.add_handler(CallbackQueryHandler(self.accept_pvp_random_handler, pattern="^accept_pvp_random_"))
+        app.add_handler(CallbackQueryHandler(self.pvp_card_select_handler, pattern="^pvp_card_"))
+        app.add_handler(CallbackQueryHandler(self.pvp_stat_select_handler, pattern="^pvp_stat_"))
+        
+        # عضویت کانال
+        app.add_handler(CallbackQueryHandler(self.check_membership_handler, pattern="^check_membership$"))
+        
+        # سایر کالبک‌ها
+        app.add_handler(CallbackQueryHandler(self.leaderboard_handler, pattern="^leaderboard$"))
+        app.add_handler(CallbackQueryHandler(self.help_command, pattern="^help$"))
+        app.add_handler(CallbackQueryHandler(self.card_view_handler, pattern="^card_view_"))
+        app.add_handler(CallbackQueryHandler(self.back_to_main_handler, pattern="^back_to_main$"))
+        
+
+    async def error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE):
+        """هندلر خطاها"""
+        logger.error(f"Exception while handling an update: {context.error}", exc_info=context.error)
+
+    async def cleanup_task(self, context: ContextTypes.DEFAULT_TYPE):
+        """تسک تمیزکردن فایت‌های منقضی"""
+        deleted_count = self.db.cleanup_expired_fights()
+        if deleted_count > 0:
+            logger.info(f"Cleaned up {deleted_count} expired PvP fights")
+
+# ==================== IMAGE SETUP HELPER ====================
+
+def setup_image_directories(config: Dict):
+    """ایجاد پوشه‌های مورد نیاز برای تصاویر"""
+    image_settings = config.get('image_settings', {})
+    
+    if not image_settings.get('enable_images', False):
+        return
+    
+    # ایجاد پوشه‌های مورد نیاز
+    cards_path = image_settings.get('card_images_path', '/root/card game/card_images/')
+    os.makedirs(cards_path, exist_ok=True)
+    os.makedirs(os.path.dirname(cards_path), exist_ok=True)
+    
+    print(f"🖼 پوشه‌های تصاویر آماده شد:")
+    print(f"   🎴 کارت‌ها: {cards_path}")
+
+# ==================== MAIN FUNCTION ====================
+
+def main():
+    """اجرای ربات - ورژن کامل و اصلاح شده با PvP + بررسی کانال"""
+    # print("🤖 شروع راه‌اندازی ربات...")
+    
+    try:
+        # ایجاد ربات
+        bot = TelegramCardBot()
+        
+        # تنظیم پوشه‌های تصاویر
+        setup_image_directories(bot.config)
+        
+        # بررسی وجود کارت‌ها
+        cards = bot.db.get_all_cards()
+        if not cards:
+            print("📦 ایجاد کارت‌های نمونه...")
+            added = bot.card_manager.create_sample_cards()
+            print(f"✅ {added} کارت اضافه شد!")
+        else:
+            print(f"✅ {len(cards)} کارت در دیتابیس موجود است")
+        
+        # ایجاد اپلیکیشن
+        application = Application.builder().token(bot.bot_token).build()
+        
+        # تنظیم هندلرها
+        bot.setup_handlers(application)
+        application.add_error_handler(bot.error_handler)
+        
+        # تنظیم تسک تمیزکردن (اگر JobQueue در دسترس باشد)
+        if application.job_queue:
+            application.job_queue.run_repeating(bot.cleanup_task, interval=3600, first=10)
+            print("✅ تسک تمیزکاری فعال شد")
+        else:
+            print("⚠️ JobQueue در دسترس نیست - تمیزکاری خودکار غیرفعال")
+        
+        # اطلاعات راه‌اندازی
+        print("🎮 ربات بازی کارت تلگرام با قابلیت PvP اصلاح شده")
+        print("=" * 50)
+        print(f"✅ ربات آماده است!")
+        print(f"🎴 تعداد کارت‌ها: {len(bot.db.get_all_cards())}")
+        print(f"👥 تعداد ادمین‌ها: {len(bot.admin_ids)}")
+        print(f"🖼️ پشتیبانی از تصاویر: {'✅' if bot.config.get('image_settings', {}).get('enable_images', False) else '❌'}")
+        print(f"🥊 قابلیت PvP: ✅ فعال و اصلاح شده")
+        print(f"⏰ پنل‌ها منقضی می‌شوند بعد از: {PANEL_TIMEOUT // 60} دقیقه")
+        print(f"🔧 مشکل انتخاب کارت در PvP: ✅ برطرف شده")
+        print(f"📢 کانال الزامی: {REQUIRED_CHANNEL}")
+        print(f"🔒 بررسی عضویت: ✅ فعال")
+        print(f"🔥 برای شروع در تلگرام /start بزنید!")
+        print("=" * 50)
+        
+        # تنظیم رویداد بعد از راه‌اندازی برای تنظیم دستورات
+        async def post_init(app):
+            await bot.setup_bot_commands(app)
+            print("✅ دستورات ربات برای محدوده‌های مختلف تنظیم شد")
+        
+        application.post_init = post_init
+        
+        # شروع ربات
+        print("🚀 ربات در حال اجرا...")
+        application.run_polling(drop_pending_updates=True)
+        
+    except KeyboardInterrupt:
+        print("\n👋 ربات متوقف شد!")
+    except Exception as e:
+        print(f"\n⚠ خطای کلی: {e}")
+        logger.error(f"Critical error: {e}", exc_info=True)
+
+if __name__ == "__main__":
+    # اجرای ربات
+    main()

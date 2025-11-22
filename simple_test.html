@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>تست ساده</title>
+    <script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        function TestApp() {
+            const [settings, setSettings] = useState({});
+            const [loading, setLoading] = useState(false);
+
+            const fetchSettings = async () => {
+                try {
+                    setLoading(true);
+                    const response = await fetch('/api/game-settings');
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        setSettings(data.settings);
+                        console.log('Settings loaded:', data.settings);
+                    } else {
+                        console.error('API Error:', data.error);
+                    }
+                } catch (err) {
+                    console.error('Fetch Error:', err);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            useEffect(() => {
+                fetchSettings();
+            }, []);
+
+            return (
+                <div style={{padding: '20px'}}>
+                    <h1>تست تنظیمات بازی</h1>
+                    <button onClick={fetchSettings}>بارگیری مجدد</button>
+                    
+                    {loading ? (
+                        <p>در حال بارگیری...</p>
+                    ) : (
+                        <div>
+                            <h2>تنظیمات فعلی:</h2>
+                            <pre>{JSON.stringify(settings, null, 2)}</pre>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        ReactDOM.render(<TestApp />, document.getElementById('root'));
+    </script>
+</body>
+</html>

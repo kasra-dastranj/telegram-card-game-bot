@@ -1,0 +1,59 @@
+# Sensitive Configuration Files
+game_config.json
+.env
+
+# Database Files
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Log Files
+*.log
+bot.log
+nohup.out
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDE Settings
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Backup Files
+*.backup
+*.bak
+backups/
+
+# Temporary Files
+*.tmp
+temp/
+tmp/
+
+# Build Files
+build/
+dist/
+*.egg-info/
+
+# Test Coverage
+.coverage
+htmlcov/
+.pytest_cache/
