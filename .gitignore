@@ -41,7 +41,63 @@ desktop.ini
 # Backup Files
 *.backup
 *.bak
+*.backup_*
 backups/
+
+# Test and Development Files
+*test*.py
+*test*.html
+*check*.py
+*fix*.py
+*fix*.bat
+*deploy*.bat
+*migration*.py
+*complete*.py
+*update*.py
+*complete*.html
+*enhanced*.html
+*final*.html
+*offline*.html
+simple_test.html
+test_api.html
+
+# Archive and Old Files
+archive_html/
+نسخه قدیمی/
+frontend/
+
+# Documentation Drafts
+*COMPLETE*.md
+*FIX*.md
+*FINAL*.md
+*SUMMARY*.md
+*STATUS*.md
+*DEPLOY*.md
+*OPTIMIZATION*.md
+*SCALE*.md
+*OFFLINE*.md
+*SINGLE*.md
+SERVER_SEARCH_PROMPT.*
+complete_setup_guide.txt
+installation_guide.md
+run_guide.md
+admin_panel_guide.md
+open_admin_panel.md
+deployment_status.md
+
+# Utility Scripts
+admin_setup.py
+final_utilities.py
+schema_check.py
+quick_check_update.py
+migrate_*.py
+files_to_keep.txt
+
+# Shell Scripts
+*.sh
+
+# Resume Analyzer (separate project)
+resume-analyzer-*/
 
 # Temporary Files
 *.tmp
