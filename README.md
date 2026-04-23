@@ -1,255 +1,54 @@
-# 🎴 TelBattle - Telegram Card Game Bot
+# TelBattle - بازی کارت تلگرامی
 
-یک بات تلگرام حرفه‌ای برای بازی کارت‌های جمع‌آوری با قابلیت مبارزه PvP در گروه‌ها
+بازی کارت PvP برای تلگرام با پشتیبانی از گروه‌ها.
 
-![Python Version](https://img.shields.io/badge/python-3.9+-blue.svg)
-![License](https://img.shields.io/badge/license-MIT-green.svg)
-![Telegram](https://img.shields.io/badge/Telegram-Bot-blue.svg?logo=telegram)
-![Stars](https://img.shields.io/github/stars/kasra-dastranj/telegram-card-game-bot)
-![Issues](https://img.shields.io/github/issues/kasra-dastranj/telegram-card-game-bot)
+## ساختار پروژه
 
----
+```
+├── telegram_bot.py        # ربات اصلی تلگرام
+├── game_core.py           # هسته بازی و دیتابیس
+├── web_api.py             # REST API پنل ادمین
+├── web_admin_panel.py     # پنل مدیریت وب (ساده)
+├── admin_panel_full.html  # رابط کاربری پنل ادمین
+├── card_management.html   # مدیریت کارت‌ها
+│
+├── claim_system.py        # سیستم کلیم روزانه
+├── arena_system.py        # زمین‌های بازی
+├── battle_system_3rounds.py  # مبارزه ۳ راوندی
+├── economy_system.py      # سیستم سکه و اقتصاد
+├── fusion_system.py       # ادغام کارت‌ها
+├── phase2_systems.py      # Level/XP/Tier
+├── risk_mode_system.py    # حالت ریسک
+├── skins_system.py        # اسکین کارت‌ها
+├── rare_cards_system.py   # کارت‌های نادر
+├── card_missions_system.py # ماموریت‌ها
+├── tier_decay_system.py   # سیستم Decay
+│
+├── game_config.json       # تنظیمات اصلی
+├── card_dialogs.json      # دیالوگ‌های کارت‌ها
+├── game_bot.db            # دیتابیس
+│
+├── card_images/           # تصاویر PNG کارت‌ها
+└── stickers/              # استیکرهای WebP تلگرام
+```
 
-## ✨ ویژگی‌ها
-
-### 🎴 سیستم کارت‌ها
-- **3 سطح کمیابی**: Normal 🟢 | Epic 🟣 | Legend 🟡
-- **آمار کامل**: قدرت، سرعت، آی‌کیو، محبوبیت
-- **کارت‌های مورد علاقه**: نشان‌گذاری و مدیریت
-- **تصاویر اختصاصی**: هر کارت تصویر منحصر به فرد داره
-
-### ⚔️ سیستم PvP
-- **مبارزه در گروه**: چالش دادن به اعضای گروه
-- **دو حالت بازی**: نرمال (انتخاب کارت) و تصادفی
-- **انتخاب استراتژیک**: انتخاب ویژگی برای مبارزه
-- **امتیازدهی هوشمند**: بر اساس قدرت کارت‌ها
-
-### 🏆 لیدربورد
-- **جهانی**: رتبه‌بندی تمام بازیکنان
-- **گروهی**: رتبه‌بندی اعضای هر گروه
-- **بازه زمانی**: هفتگی، ماهانه، کل زمان‌ها
-
-### 💖 سیستم جان و کولدان
-- **10 جان روزانه**: محدودیت بازی برای تعادل
-- **ریست خودکار**: هر 24 ساعت
-- **کولدان کارت‌ها**: جلوگیری از استفاده بیش از حد از کارت‌های قوی
-
-### 🎁 کلیم روزانه
-- **کارت رایگان**: هر 24 ساعت یکبار
-- **شانس متفاوت**: احتمال دریافت کارت‌های نادر
-
-### 🌐 پنل مدیریت وب
-- **مدیریت کارت‌ها**: اضافه، حذف، ویرایش
-- **مدیریت بازیکنان**: مشاهده آمار، ریست جان
-- **تنظیمات بازی**: تغییر پارامترهای بازی
-- **آمار لحظه‌ای**: تعداد بازیکنان، مبارزات، کارت‌ها
-
----
-
-## 🚀 نصب سریع
-
-### پیش‌نیازها
-- Python 3.9+
-- یک بات تلگرام از [@BotFather](https://t.me/BotFather)
-
-### مراحل نصب
+## راه‌اندازی
 
 ```bash
-# 1. کلون کردن پروژه
-git clone https://github.com/kasra-dastranj/telegram-card-game-bot.git
-cd telegram-card-game-bot
-
-# 2. ساخت محیط مجازی
-python -m venv .venv
-source .venv/bin/activate  # Linux/Mac
-.venv\Scripts\activate     # Windows
-
-# 3. نصب وابستگی‌ها
 pip install -r requirements.txt
-
-# 4. تنظیمات
-cp config.example.json game_config.json
-nano game_config.json  # توکن بات رو وارد کن
-
-# 5. اجرا
 python telegram_bot.py
 ```
 
-📖 **راهنمای کامل نصب**: [docs/SETUP.md](docs/SETUP.md)
-
----
-
-## 🎮 نحوه استفاده
-
-### دستورات اصلی
-
-#### در چت خصوصی:
-- `/start` - شروع بازی و نمایش منو
-- `/profile` - مشاهده پروفایل و آمار
-- `/cards` - مشاهده کارت‌های جمع‌آوری شده
-- `/claim` - دریافت کارت روزانه
-- `/leaderboard` - لیدربورد جهانی
-- `/help` - راهنمای کامل
-- `/story` - داستان بازی
-
-#### در گروه‌ها:
-- `/fight` - شروع چالش PvP
-- `/claim` - دریافت کارت روزانه
-- `/leaderboard` - لیدربورد گروه
-- `/help` - راهنما
-
-### نحوه بازی PvP
-
-1. **شروع چالش**: یکی از اعضا `/fight` می‌زنه
-2. **قبول چالش**: عضو دیگه روی دکمه "قبول" کلیک می‌کنه
-3. **انتخاب کارت**: هر دو نفر در پیوی بات کارت خودشون رو انتخاب می‌کنن
-4. **انتخاب ویژگی**: هر دو نفر یکی از ویژگی‌های کارتشون رو انتخاب می‌کنن
-5. **نتیجه**: برنده در گروه اعلام می‌شه و امتیاز می‌گیره
-
----
-
-## 📁 ساختار پروژه
-
-```
-telegram-card-game-bot/
-├── telegram_bot.py          # فایل اصلی بات
-├── game_core.py            # منطق بازی و دیتابیس
-├── web_api.py              # پنل مدیریت وب
-├── game_config.json        # تنظیمات (ایجاد کن از example)
-├── config.example.json     # نمونه تنظیمات
-├── requirements.txt        # وابستگی‌های Python
-├── .gitignore             # فایل‌های نادیده گرفته شده
-├── README.md              # این فایل
-├── LICENSE                # مجوز MIT
-├── CONTRIBUTING.md        # راهنمای مشارکت
-├── GITHUB_SETUP.md        # راهنمای آپلود به GitHub
-├── card_images/           # تصاویر کارت‌ها
-├── docs/
-│   └── SETUP.md          # راهنمای نصب کامل
-└── game_bot.db           # دیتابیس (خودکار ساخته می‌شه)
-```
-
----
-
-## ⚙️ تنظیمات
-
-### تنظیمات اصلی در `game_config.json`:
-
-```json
-{
-    "bot_settings": {
-        "token": "توکن_بات_تلگرام",
-        "admin_user_ids": [123456789]
-    },
-    "game_settings": {
-        "daily_hearts": 10,
-        "claim_cooldown_hours": 24,
-        "card_drop_rates": {
-            "normal": 65,
-            "epic": 25,
-            "legend": 10
-        }
-    }
-}
-```
-
----
-
-## 🌐 پنل مدیریت
+## پنل ادمین
 
 ```bash
-# اجرای پنل مدیریت
 python web_api.py
+# http://localhost:5000
 ```
 
-پنل روی `http://localhost:5000` در دسترسه.
+## تنظیمات
 
-### قابلیت‌های پنل:
-- ✅ مدیریت کارت‌ها (اضافه، حذف، ویرایش)
-- ✅ مشاهده لیست بازیکنان
-- ✅ مشاهده آمار و گزارشات
-- ✅ تنظیمات کولدان هر کارت
-- ✅ ریست جان بازیکنان
-- ✅ مدیریت مبارزات فعال
-
----
-
-## 🤝 مشارکت
-
-ما از مشارکت شما استقبال می‌کنیم! 
-
-### چطور مشارکت کنم؟
-
-1. Fork کن
-2. Branch جدید بساز (`git checkout -b feature/amazing-feature`)
-3. تغییراتت رو Commit کن (`git commit -m 'feat: add amazing feature'`)
-4. Push کن (`git push origin feature/amazing-feature`)
-5. Pull Request بساز
-
-📖 **راهنمای کامل**: [CONTRIBUTING.md](CONTRIBUTING.md)
-
----
-
-## 📊 آمار پروژه
-
-- **زبان**: Python 3.9+
-- **فریمورک بات**: python-telegram-bot 20.7
-- **دیتابیس**: SQLite
-- **وب فریمورک**: Flask
-- **خطوط کد**: ~3000+
-
----
-
-## 🐛 گزارش باگ
-
-اگه باگی پیدا کردی:
-1. بررسی کن که قبلاً گزارش نشده باشه
-2. [Issue جدید](https://github.com/kasra-dastranj/telegram-card-game-bot/issues/new) بساز
-3. جزئیات کامل بده (مراحل بازتولید، اسکرین‌شات، لاگ‌ها)
-
----
-
-## 💡 ایده‌های آینده
-
-- [ ] سیستم تجارت کارت بین بازیکنان
-- [ ] تورنومنت‌های گروهی
-- [ ] کارت‌های ویژه با توانایی‌های خاص
-- [ ] سیستم لول و تجربه
-- [ ] ماموریت‌های روزانه
-- [ ] فروشگاه داخل بازی
-- [ ] پشتیبانی از چند زبان
-
----
-
-## 📄 مجوز
-
-این پروژه تحت مجوز MIT منتشر شده. برای جزئیات بیشتر [LICENSE](LICENSE) رو ببین.
-
----
-
-## 🙏 تشکر
-
-از همه کسانی که در توسعه این پروژه کمک کردن، ممنونیم! ❤️
-
-### کتابخانه‌های استفاده شده:
-- [python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot)
-- [Flask](https://flask.palletsprojects.com/)
-- [SQLite](https://www.sqlite.org/)
-
----
-
-## 📞 ارتباط
-
-- **Issues**: [GitHub Issues](https://github.com/kasra-dastranj/telegram-card-game-bot/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/kasra-dastranj/telegram-card-game-bot/discussions)
-- **Email**: kasra.dastranj80@gmail.com
-
----
-
-<div align="center">
-
-**ساخته شده با ❤️ برای جامعه تلگرام ایران**
-
-⭐ اگه این پروژه بهت کمک کرد، یه ستاره بهش بده!
-
-</div>
+فایل `game_config.json` را ویرایش کنید:
+- `bot_settings.token` — توکن ربات از BotFather
+- `bot_settings.admin_user_ids` — آیدی عددی ادمین‌ها
+- `channel_settings.required_channel` — کانال اجباری برای استفاده از ربات

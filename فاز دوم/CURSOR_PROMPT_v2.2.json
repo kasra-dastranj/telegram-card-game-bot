@@ -1,0 +1,779 @@
+{
+  "project": "TelBattle Phase 2",
+  "version": "2.2.0",
+  "target_timeline": "30 days",
+  "team_size": 2,
+
+  "core_philosophy": {
+    "transformation": "از بازی PvP ساده به اکوسیستم کلکسیونی کامل",
+    "priorities": [
+      "حس ارزش واقعی برای کارت‌ها",
+      "پیشرفت بلندمدت (Level & Tier)",
+      "اقتصاد متوازن",
+      "عمق استراتژیک"
+    ],
+    "design_principles": [
+      "بدون تصادف ناعادلانه در پیشرفت — Fusion کاملاً قطعی است",
+      "بدون Claim Burn — کلیم هرگز ناموفق نمی‌شود",
+      "Fusion انتخابی — بازیکن کنترل کامل دارد",
+      "لیگ فعالیت‌محور — Decay برای همه Tier ها اعمال می‌شود",
+      "منصفانه و مهارت‌محور — تمام مسیرهای پیشرفت عادلانه است"
+    ]
+  },
+
+  "implementation_phases": {
+    "week_1": {
+      "focus": "Core Systems & Database",
+      "tasks": [
+        "تغییر schema دیتابیس",
+        "سیستم Level & XP",
+        "سیستم Tier & TP",
+        "کلیم جدید (احتمال برابر + pool management)",
+        "بازی 3 راوندی"
+      ]
+    },
+    "week_2": {
+      "focus": "Game Mechanics & Economy",
+      "tasks": [
+        "زمین‌های بازی",
+        "تایپ کارت‌ها",
+        "Fusion System (انتخابی، قطعی، ۳ کارت)",
+        "اقتصاد سکه",
+        "شاپ"
+      ]
+    },
+    "week_3": {
+      "focus": "Advanced Features & Polish",
+      "tasks": [
+        "Risk Mode (ساده)",
+        "اسکین‌ها",
+        "Tier Decay روزانه (با Protection Days)",
+        "بهینه‌سازی",
+        "تست"
+      ]
+    },
+    "week_4": {
+      "focus": "Launch & Monitor",
+      "tasks": [
+        "پیام همگانی",
+        "راه‌اندازی کانال",
+        "مانیتور اقتصاد",
+        "Balance tuning"
+      ]
+    }
+  },
+
+  "database_changes": {
+    "new_tables": [
+      {
+        "name": "player_progression",
+        "columns": {
+          "user_id": "INTEGER PRIMARY KEY",
+          "level": "INTEGER DEFAULT 1",
+          "total_xp": "INTEGER DEFAULT 0",
+          "tier_points": "INTEGER DEFAULT 0",
+          "last_played_at": "DATETIME",
+          "current_tier": "TEXT DEFAULT 'Bronze'"
+        },
+        "purpose": "ذخیره Level، Tier، و آخرین زمان بازی بازیکن. last_played_at برای محاسبه Decay استفاده می‌شود."
+      },
+      {
+        "name": "card_missions",
+        "columns": {
+          "user_id": "INTEGER",
+          "card_id": "TEXT",
+          "mission_type": "TEXT",
+          "current_progress": "INTEGER DEFAULT 0",
+          "target": "INTEGER",
+          "completed": "BOOLEAN DEFAULT 0"
+        },
+        "purpose": "پیگیری ماموریت‌های کارت برای Legend"
+      },
+      {
+        "name": "player_skins",
+        "columns": {
+          "user_id": "INTEGER",
+          "card_id": "TEXT",
+          "skin_id": "TEXT",
+          "unlocked": "BOOLEAN DEFAULT 1"
+        },
+        "purpose": "اسکین‌های unlock شده"
+      },
+      {
+        "name": "active_skins",
+        "columns": {
+          "user_id": "INTEGER",
+          "card_id": "TEXT",
+          "skin_id": "TEXT"
+        },
+        "purpose": "اسکین فعال هر کارت"
+      },
+      {
+        "name": "fusion_log",
+        "columns": {
+          "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+          "user_id": "INTEGER NOT NULL",
+          "fusion_type": "TEXT NOT NULL",
+          "consumed_card_1": "TEXT NOT NULL",
+          "consumed_card_2": "TEXT NOT NULL",
+          "consumed_card_3": "TEXT NOT NULL",
+          "upgraded_card_id": "TEXT NOT NULL",
+          "result_rarity": "TEXT NOT NULL",
+          "timestamp": "DATETIME DEFAULT CURRENT_TIMESTAMP"
+        },
+        "purpose": "لاگ کامل Fusion برای شفافیت. هر سه کارت مصرفی و کارت انتخاب‌شده ثبت می‌شوند."
+      },
+      {
+        "name": "risk_battles",
+        "columns": {
+          "fight_id": "TEXT PRIMARY KEY",
+          "table_size": "INTEGER",
+          "current_pot": "INTEGER",
+          "max_pot": "INTEGER",
+          "challenger_cards": "TEXT",
+          "opponent_cards": "TEXT",
+          "bluff_history": "TEXT"
+        },
+        "purpose": "اطلاعات بازی‌های Risk"
+      }
+    ],
+
+    "modified_tables": [
+      {
+        "name": "cards",
+        "new_columns": {
+          "card_type": "TEXT DEFAULT 'POWER_TYPE'",
+          "mission_for_legend": "TEXT"
+        },
+        "modified_columns": {
+          "power": "INTEGER (0-10) not (1-100)",
+          "speed": "INTEGER (0-10)",
+          "iq": "INTEGER (0-10)",
+          "popularity": "INTEGER (0-10)"
+        }
+      },
+      {
+        "name": "players",
+        "new_columns": {
+          "max_hearts": "INTEGER DEFAULT 10",
+          "coins": "INTEGER DEFAULT 0",
+          "weekly_score": "INTEGER DEFAULT 0",
+          "last_mining_claim": "DATETIME"
+        }
+      },
+      {
+        "name": "active_fights",
+        "new_columns": {
+          "arena_type": "TEXT",
+          "round_1_winner": "INTEGER",
+          "round_2_winner": "INTEGER",
+          "round_3_winner": "INTEGER",
+          "round_1_stat": "TEXT",
+          "round_2_stat": "TEXT",
+          "round_3_stat": "TEXT",
+          "challenger_card_stats_reduced": "TEXT",
+          "opponent_card_stats_reduced": "TEXT"
+        }
+      }
+    ]
+  },
+
+  "game_mechanics": {
+    "card_system": {
+      "rarities": {
+        "NORMAL": {
+          "stat_sum_range": [15, 30],
+          "claim_source": "روزانه از pool با احتمال برابر",
+          "upgrade_to": "EPIC",
+          "upgrade_methods": [
+            "Fusion: انتخاب 3 Normal، بازیکن تصمیم می‌گیرد کدام Epic شود",
+            "100 سکه (خرید مستقیم)"
+          ]
+        },
+        "EPIC": {
+          "stat_sum_range": [20, 30],
+          "upgrade_to": "LEGEND",
+          "upgrade_methods": [
+            "Fusion: انتخاب 3 Epic، بازیکن تصمیم می‌گیرد کدام Legend شود",
+            "500 سکه (خرید مستقیم)",
+            "ماموریت خاص کارت"
+          ]
+        },
+        "LEGEND": {
+          "stat_sum_range": [25, 35],
+          "upgrade_to": null,
+          "special": "نهایی"
+        },
+        "RARE": {
+          "stat_sum_range": "دستی",
+          "source": "رتبه 1 هفتگی، خرید محدود",
+          "upgrade_to": null,
+          "special": "تکی و محدود"
+        }
+      },
+
+      "card_types": [
+        "POWER_TYPE (متخصص قدرت)",
+        "SPEED_TYPE (متخصص سرعت)",
+        "IQ_TYPE (متخصص هوش)",
+        "POPULARITY_TYPE (متخصص محبوبیت)"
+      ],
+
+      "claim_rules": {
+        "CRITICAL_NOTE": "این سیستم کاملاً با نسخه قبل متفاوت است. وزن‌دهی حذف شده و احتمال کاملاً برابر است.",
+        "frequency": "روزانه (24 ساعت)",
+        "guaranteed_rarity": "NORMAL",
+        "guaranteed_success": true,
+        "can_fail": false,
+        "can_give_nothing": false,
+        "probability_system": "احتمال برابر برای همه کارت‌های موجود در pool",
+        "hidden_weighting": false,
+        "pool_management": {
+          "included_in_pool": "همه کارت‌های Normal که بازیکن در حالت Epic یا Legend ندارد",
+          "excluded_from_pool": "کارت‌هایی که بازیکن در حالت EPIC یا LEGEND دارد",
+          "pool_refresh_after_fusion": "بعد از Fusion، 2 کارت مصرف‌شده (که انتخاب نشدند) به global pool بازمی‌گردند",
+          "fallback_if_pool_empty": "در صورت خالی بودن pool، کارت‌هایی که بازیکن Normal دارد نیز وارد pool می‌شوند"
+        },
+        "algorithm": "random.choice(claimable_pool) — بدون وزن‌دهی"
+      },
+
+      "fusion_rules": {
+        "CRITICAL_NOTE": "این سیستم کاملاً با نسخه قبل متفاوت است. رندوم حذف شده و بازیکن کنترل کامل دارد.",
+        "normal_to_epic": {
+          "required_count": 3,
+          "required_rarity": "NORMAL",
+          "card_types_allowed": "هر ترکیبی از کارت‌های Normal (مختلف یا یکسان)",
+          "player_control": "بازیکن انتخاب می‌کند کدام 1 از 3 کارت Epic شود",
+          "process": [
+            "1. بازیکن 3 کارت Normal انتخاب می‌کند",
+            "2. سیستم می‌پرسد کدام یک Epic شود",
+            "3. بازیکن 1 کارت از 3 انتخاب می‌کند",
+            "4. تأیید نهایی نشان داده می‌شود",
+            "5. هر 3 کارت Normal مصرف می‌شوند",
+            "6. کارت انتخاب‌شده Epic می‌شود",
+            "7. 2 کارت دیگر به global pool بازمی‌گردند"
+          ],
+          "result": "1 کارت EPIC — همانی که بازیکن انتخاب کرد",
+          "success_rate": "100% — همیشه موفق",
+          "failure_chance": "0% — هیچ شانس شکستی وجود ندارد",
+          "randomness": "صفر — کاملاً قطعی و تحت کنترل بازیکن"
+        },
+        "epic_to_legend": {
+          "required_count": 3,
+          "required_rarity": "EPIC",
+          "card_types_allowed": "هر ترکیبی از کارت‌های Epic (مختلف یا یکسان)",
+          "player_control": "بازیکن انتخاب می‌کند کدام 1 از 3 کارت Legend شود",
+          "process": [
+            "1. بازیکن 3 کارت Epic انتخاب می‌کند",
+            "2. سیستم می‌پرسد کدام یک Legend شود",
+            "3. بازیکن 1 کارت از 3 انتخاب می‌کند",
+            "4. تأیید نهایی نشان داده می‌شود",
+            "5. هر 3 کارت Epic مصرف می‌شوند",
+            "6. کارت انتخاب‌شده Legend می‌شود"
+          ],
+          "result": "1 کارت LEGEND — همانی که بازیکن انتخاب کرد",
+          "success_rate": "100% — همیشه موفق",
+          "failure_chance": "0% — هیچ شانس شکستی وجود ندارد — Legend همیشه تضمین است",
+          "randomness": "صفر — کاملاً قطعی و تحت کنترل بازیکن",
+          "on_failure": "N/A — شکست وجود ندارد"
+        }
+      }
+    },
+
+    "battle_system": {
+      "normal_battle": {
+        "structure": "Best of 3 rounds",
+        "flow": [
+          "1. شروع چالش در گروه (/fight)",
+          "2. قبول چالش توسط حریف",
+          "3. انتخاب کارت (هر دو در PV)",
+          "4. تعیین و انتخاب زمین",
+          "5. راوند 1: انتخاب ویژگی + مقایسه",
+          "6. کاهش stat برنده",
+          "7. راوند 2 و 3 (تکرار)",
+          "8. تعیین برنده (2 از 3 راوند)",
+          "9. پاداش‌دهی",
+          "10. اعلام نتیجه در گروه"
+        ],
+
+        "arena_selection": {
+          "rule": "بازیکن با رریتی ضعیف‌تر انتخاب می‌کند",
+          "if_equal_rarity": "RANDOM",
+          "arenas": {
+            "power_arena":   {"boosts": {"power": 1}},
+            "speed_track":   {"boosts": {"speed": 1}},
+            "thinking_room": {"boosts": {"iq": 1}},
+            "stage":         {"boosts": {"popularity": 1}}
+          }
+        },
+
+        "stat_reduction": {
+          "formula": "reduction = 2 if win_margin >= 5 else 1",
+          "min_value": 0
+        },
+
+        "scoring": {
+          "winner_rarity_higher": 5,
+          "equal_rarity": 10,
+          "winner_rarity_lower": 20
+        },
+
+        "rewards": {
+          "winner": {
+            "score": "بر اساس تفاوت رریتی",
+            "xp": 10,
+            "coins": "از تبدیل امتیاز (هر 100 = 1)",
+            "tier_points": "بر اساس فرمول"
+          },
+          "loser": {
+            "hearts": -1,
+            "xp": 3,
+            "tier_points": "بر اساس فرمول (منفی)"
+          }
+        }
+      },
+
+      "risk_battle": {
+        "min_level": 7,
+        "table_sizes": [50, 100, 300],
+        "min_balance_multiplier": 6,
+        "flow": [
+          "1. بررسی Level & Balance",
+          "2. انتخاب میز",
+          "3. قفل ورودیه",
+          "4. دریافت 3 کارت رندوم",
+          "5. فرصت Raise/Call/Fold",
+          "6. resolve راوند",
+          "7. راوند 2 و 3 (تکرار)",
+          "8. پاداش‌دهی"
+        ],
+
+        "pot_rules": {
+          "initial": "2 × table_size",
+          "max": "6 × table_size",
+          "raise_limit": "3x در هر مرحله"
+        },
+
+        "bluff_system": {
+          "raise_timing": [
+            "بعد از دیدن کارت‌ها",
+            "بعد از راوند 1",
+            "بعد از راوند 2"
+          ],
+          "fold_penalty": "باخت فوری، کل pot به حریف",
+          "call_commitment": "ادامه بازی"
+        },
+
+        "rewards": {
+          "winner": {
+            "coins": "کل pot",
+            "xp": 25,
+            "score": 30,
+            "tier_points": "بیشتر از Normal"
+          },
+          "loser": {
+            "coins": "-pot",
+            "hearts": -1,
+            "xp": 5,
+            "tier_points": "منفی"
+          }
+        }
+      }
+    },
+
+    "progression_system": {
+      "level": {
+        "range": [1, 30],
+        "xp_formula": "100 + (level - 1) × 50",
+        "permanent": true,
+        "decay": false,
+
+        "xp_sources": {
+          "normal_win": 10,
+          "normal_loss": 3,
+          "risk_win": 25,
+          "risk_loss": 5,
+          "card_upgrade_epic": 15,
+          "card_upgrade_legend": 30,
+          "daily_quest": 20,
+          "weekly_rank_1": 100,
+          "weekly_rank_2": 50,
+          "weekly_rank_3": 30
+        },
+
+        "milestones": {
+          "level_7": "Risk Mode باز می‌شود",
+          "level_10": "میز 100 سکه باز می‌شود",
+          "level_15": "میز 300 سکه باز می‌شود"
+        }
+      },
+
+      "tier": {
+        "CRITICAL_NOTE": "این سیستم کاملاً با نسخه قبل متفاوت است. همه Tier ها Decay دارند. Elite و Diamond دیگر معاف نیستند.",
+        "tiers": {
+          "Bronze":  [0, 499],
+          "Silver":  [500, 999],
+          "Gold":    [1000, 1499],
+          "Diamond": [1500, 1999],
+          "Elite":   [2000, 999999]
+        },
+
+        "tp_change_formula": {
+          "base_gain_normal": 15,
+          "base_gain_risk": 25,
+          "base_loss_normal": 10,
+          "base_loss_risk": 15,
+          "tier_diff_multiplier": 5,
+          "description": "تفاوت tier تاثیر زیادی دارد"
+        },
+
+        "decay": {
+          "CRITICAL_NOTE": "همه Tier ها بدون استثنا Decay دارند. Elite و Diamond نیز شامل می‌شوند.",
+          "enabled": true,
+          "applies_to_all_tiers": true,
+          "daily_decay_amount": 30,
+          "max_decay_percent": 50,
+          "decay_trigger": "بی‌فعالیت — بازی کردن (حتی باخت) دوره حفاظت را تجدید می‌کند",
+          "decay_is_separate_from_match_loss": true,
+
+          "protection_days": {
+            "Elite":   7,
+            "Diamond": 5,
+            "Gold":    3,
+            "Silver":  2,
+            "Bronze":  1
+          },
+
+          "protection_description": "روزهای بی‌فعالیت بدون از دست دادن TP. بعد از پایان حفاظت، Decay روزانه شروع می‌شود.",
+
+          "algorithm": {
+            "step_1": "محاسبه days_inactive = امروز - last_played_at",
+            "step_2": "دریافت protection = PROTECTION_DAYS[current_tier]",
+            "step_3": "اگر days_inactive <= protection: بازگشت بدون تغییر",
+            "step_4": "decay_days = days_inactive - protection",
+            "step_5": "raw_decay = decay_days × 30",
+            "step_6": "max_decay = current_tp × 0.50",
+            "step_7": "actual_decay = min(raw_decay, max_decay)",
+            "step_8": "new_tp = max(0, current_tp - actual_decay)",
+            "step_9": "به‌روزرسانی Tier بر اساس TP جدید"
+          },
+
+          "removed_rules": [
+            "حفاظت دائمی Elite (30 روز) — حذف شد",
+            "حفاظت دائمی Diamond (21 روز) — حذف شد",
+            "Decay هفتگی (50 TP هر 7 روز) — حذف شد",
+            "معافیت Elite و Diamond از Decay — حذف شد"
+          ]
+        }
+      }
+    },
+
+    "economy": {
+      "coin_sources": {
+        "score_conversion": {
+          "rate": "هر 100 امتیاز = 1 سکه",
+          "cumulative": true
+        },
+        "daily_mining": {
+          "CRITICAL_NOTE": "سیستم ماینینگ در v2.2 کاملاً بازنویسی شد. قانون قدیمی (10 کارت منحصربفرد = 1 سکه، سقف 5) حذف شد.",
+          "rate": "هر 5 کارت (Normal/Epic/Legend) = 1 سکه در روز",
+          "rare_contribution": 0,
+          "rare_excluded": true,
+          "based_on": "تعداد کل کارت‌ها در موجودی بدون Rare (نه منحصربفرد)",
+          "cap": null,
+          "cap_reason": "inventory بازیکن محدود است، بنابراین ماینینگ نمی‌تواند بی‌نهایت رشد کند",
+          "reset": "روزانه",
+          "formula": "floor(total_non_rare_card_count / 5)",
+          "examples": [
+            "49 کارت Non-Rare → 49 // 5 = 9 سکه/روز",
+            "100 کارت Non-Rare → 100 // 5 = 20 سکه/روز",
+            "10 کارت Non-Rare + 5 Rare → 10 // 5 = 2 سکه/روز"
+          ],
+          "future_rare_mining": "در فاز 3 ممکن است Rare قوانین درآمد جداگانه‌ای داشته باشد، اما در سیستم فعلی اعمال نمی‌شود"
+        },
+        "risk_wins": {
+          "amount": "بر اساس pot"
+        },
+        "weekly_leaderboard": {
+          "rank_1": 100,
+          "rank_2": 50,
+          "rank_3": 30,
+          "rank_4_10": 10
+        },
+        "events": "دستی توسط ادمین",
+        "purchase": "از طریق ادمین"
+      },
+
+      "coin_sinks": {
+        "card_upgrade": {
+          "normal_to_epic": 100,
+          "epic_to_legend": 500
+        },
+        "rare_cards": [800, 2000],
+        "heart_increase": 200,
+        "skins": {
+          "normal": 50,
+          "special": 150,
+          "seasonal": 100
+        },
+        "group_custom_card": 500
+      },
+
+      "balance_target": {
+        "daily_income_active_player": 4,
+        "weekly_expense_average": 150,
+        "deficit": "محرک برای Risk یا خرید"
+      }
+    }
+  },
+
+  "formulas": {
+    "xp_to_level": "یافتن level بر اساس total_xp تجمعی",
+    "score_to_coins": "floor(total_score / 100)",
+    "mining_coins": "floor(total_non_rare_card_count / 5) — بدون سقف — Rare حذف می‌شود",
+    "tp_change": "بر اساس tier_diff و match_type",
+    "stat_reduction": "2 if win_margin >= 5 else 1",
+    "arena_boost": "+1 اگر card_type با arena match کند و stat متناظر انتخاب شده باشد (نه +2)",
+    "tier_decay": {
+      "formula": "actual_decay = min(decay_days × 30, current_tp × 0.50)",
+      "protection_days_by_tier": {
+        "Elite": 7,
+        "Diamond": 5,
+        "Gold": 3,
+        "Silver": 2,
+        "Bronze": 1
+      },
+      "daily_decay_rate": 30,
+      "max_decay_cap_percent": 50
+    }
+  },
+
+  "ui_flows": {
+    "start": [
+      "بررسی عضویت کانال",
+      "ایجاد/بازیابی Player",
+      "اعطای 3 کارت Normal",
+      "نمایش منوی اصلی"
+    ],
+
+    "claim": {
+      "CRITICAL_NOTE": "سیستم وزن‌دهی قدیمی حذف شده. این flow جدید است.",
+      "steps": [
+        "بررسی 24 ساعت",
+        "محاسبه pool: همه کارت‌های Normal که بازیکن در EPIC یا LEGEND ندارد",
+        "انتخاب رندوم با احتمال برابر از pool",
+        "اضافه کردن کارت Normal به موجودی",
+        "نمایش نتیجه — کلیم همیشه موفق است"
+      ]
+    },
+
+    "profile": [
+      "نمایش Level, XP bar",
+      "نمایش Tier badge, TP",
+      "نمایش Score, Hearts, Coins",
+      "دکمه‌های جزئیات"
+    ],
+
+    "cards": [
+      "منوی دسته‌بندی (Favorite/Legend/Epic/Normal/Rare)",
+      "pagination اگر > 8",
+      "کلیک → جزئیات کارت",
+      "دکمه‌های علاقه‌مندی/ارتقا/اسکین"
+    ],
+
+    "fight_normal": [
+      "شروع چالش در گروه",
+      "قبول چالش",
+      "انتخاب کارت (PV)",
+      "انتخاب زمین",
+      "3 راوند (انتخاب ویژگی + resolve)",
+      "پاداش‌دهی",
+      "اعلام نتیجه در گروه"
+    ],
+
+    "fight_risk": [
+      "بررسی Level & Balance",
+      "انتخاب میز",
+      "قفل ورودیه",
+      "دریافت 3 کارت رندوم",
+      "3 راوند با Raise/Call/Fold",
+      "پاداش‌دهی"
+    ],
+
+    "fusion": {
+      "CRITICAL_NOTE": "این flow کاملاً با نسخه قبل متفاوت است. رندوم حذف شده. بازیکن انتخاب می‌کند.",
+      "normal_to_epic": [
+        "بررسی موجودی (حداقل 3 Normal)",
+        "نمایش لیست کارت‌های Normal",
+        "بازیکن دقیقاً 3 کارت انتخاب می‌کند",
+        "سیستم می‌پرسد: کدام 1 از 3 Epic شود؟",
+        "بازیکن 1 کارت انتخاب می‌کند",
+        "تأیید نهایی با هشدار مصرف 3 کارت",
+        "حذف هر 3 کارت Normal از موجودی",
+        "اضافه کردن 1 کارت Epic انتخاب‌شده",
+        "بازگرداندن 2 کارت دیگر به global pool",
+        "نمایش نتیجه — همیشه موفق"
+      ],
+      "epic_to_legend": [
+        "بررسی موجودی (حداقل 3 Epic)",
+        "نمایش لیست کارت‌های Epic",
+        "بازیکن دقیقاً 3 کارت انتخاب می‌کند",
+        "سیستم می‌پرسد: کدام 1 از 3 Legend شود؟",
+        "بازیکن 1 کارت انتخاب می‌کند",
+        "تأیید نهایی با هشدار مصرف 3 کارت Epic",
+        "حذف هر 3 کارت Epic از موجودی",
+        "اضافه کردن 1 کارت Legend انتخاب‌شده",
+        "نمایش نتیجه — همیشه موفق — Legend همیشه تضمین است"
+      ]
+    },
+
+    "shop": [
+      "منوی بخش‌ها",
+      "انتخاب آیتم",
+      "تایید خرید",
+      "کسر سکه",
+      "اعمال تغییرات"
+    ]
+  },
+
+  "technical_considerations": {
+    "database": {
+      "orm": "SQLite3 با Python",
+      "migrations": "دستی با ALTER TABLE",
+      "indexes": [
+        "user_id در همه جداول",
+        "fight_id در active_fights",
+        "card_id در player_cards",
+        "last_played_at در player_progression (برای Decay query)"
+      ],
+      "transactions": "برای عملیات حساس (coins، fusion، Risk، claim)"
+    },
+
+    "caching": {
+      "player_data": "TTL 60 ثانیه",
+      "card_data": "TTL 300 ثانیه",
+      "leaderboard": "TTL 120 ثانیه",
+      "claim_pool": "TTL 30 ثانیه (برای به‌روز بودن pool)"
+    },
+
+    "async_operations": [
+      "تمام telegram bot handlers",
+      "cleanup منقضی‌ها (هر 2 دقیقه)",
+      "reset روزانه قلب‌ها (cron)",
+      "tier decay روزانه (cron) — اجرا برای همه بازیکنان بدون استثنا"
+    ],
+
+    "decay_cron": {
+      "frequency": "روزانه (یک بار در روز)",
+      "query": "SELECT * FROM player_progression WHERE JULIANDAY('now') - JULIANDAY(last_played_at) > 1",
+      "logic": "برای هر بازیکن، محاسبه decay بر اساس tier و روزهای بی‌فعالیت و به‌روزرسانی tier_points و current_tier"
+    },
+
+    "claim_pool_logic": {
+      "function": "get_claimable_cards(user_id)",
+      "description": "لیست card_id های تمام کارت‌های Normal که بازیکن در EPIC یا LEGEND ندارد",
+      "selection": "random.choice(pool) — بدون وزن‌دهی",
+      "post_fusion_update": "بعد از Fusion، 2 کارت مصرف‌شده باید از موجودی بازیکن حذف شوند تا دوباره در pool ظاهر شوند"
+    },
+
+    "error_handling": {
+      "insufficient_balance": "پیام واضح + راهنمایی",
+      "timeout": "مجازات منطقی + توضیح",
+      "duplicate_action": "جلوگیری با atomic operations",
+      "database_errors": "retry 3 بار + لاگ",
+      "fusion_insufficient_cards": "پیام: حداقل 3 کارت [Normal/Epic] نیاز است",
+      "claim_empty_pool": "fallback به کارت‌های Normal موجود در موجودی بازیکن"
+    },
+
+    "logging": {
+      "levels": "INFO برای game events، ERROR برای مشکلات",
+      "rotation": "روزانه",
+      "format": "timestamp + user_id + action + result",
+      "fusion_logging": "هر Fusion باید در fusion_log ثبت شود با تمام جزئیات (3 کارت مصرفی + کارت انتخاب‌شده)"
+    }
+  },
+
+  "testing_checklist": [
+    "کلیم با احتمال برابر — بدون وزن‌دهی",
+    "pool management: حذف کارت‌های Epic/Legend از pool",
+    "pool refresh بعد از Fusion",
+    "Fusion Normal→Epic: بازیکن انتخاب می‌کند، همیشه موفق",
+    "Fusion Epic→Legend: بازیکن انتخاب می‌کند، همیشه موفق، Legend تضمین است",
+    "Decay برای Bronze بعد از 1 روز",
+    "Decay برای Silver بعد از 2 روز",
+    "Decay برای Gold بعد از 3 روز",
+    "Decay برای Diamond بعد از 5 روز",
+    "Decay برای Elite بعد از 7 روز",
+    "بررسی سقف 50% برای Decay",
+    "سقوط Tier بعد از Decay",
+    "بازی کردن → تجدید last_played_at → توقف Decay",
+    "بازی Normal 3 راوندی با زمین‌های مختلف",
+    "بازی Risk با Raise/Fold",
+    "محاسبه XP و Level Up",
+    "محاسبه TP و تغییر Tier",
+    "ماینینگ روزانه",
+    "تبدیل امتیاز به سکه",
+    "خرید از شاپ",
+    "Cleanup منقضی‌ها",
+    "Race condition در claim_opponent"
+  ],
+
+  "deployment_steps": [
+    "1. Backup دیتابیس فعلی",
+    "2. Migration schema — اضافه کردن last_played_at به player_progression",
+    "3. Migration schema — اضافه کردن current_tier به player_progression",
+    "4. Migration schema — بازنویسی fusion_log با ستون‌های جدید",
+    "5. Migrate کارت‌های موجود (stats از 100 به 10)",
+    "6. Initialize Level/Tier برای بازیکنان موجود",
+    "7. Deploy کد جدید",
+    "8. تست claim pool با کاربران واقعی",
+    "9. تست Fusion با کاربران واقعی",
+    "10. تست Decay cron با داده‌های آزمایشی",
+    "11. پیام همگانی اعلام فاز 2",
+    "12. راه‌اندازی کانال TelBattle",
+    "13. مانیتور اقتصاد",
+    "14. تنظیم balance در صورت نیاز"
+  ],
+
+  "removed_old_rules": {
+    "claim": [
+      "90% شانس به کارت جدید، 10% شانس تکراری — حذف شد",
+      "ارتقای اتوماتیک به Epic از کلیم تکراری — حذف شد",
+      "رد کلیم اگر بازیکن Epic داشته باشد — حذف شد",
+      "امکان عدم دریافت از کلیم — حذف شد"
+    ],
+    "fusion": [
+      "5 کارت Normal → 1 Epic رندوم — حذف شد",
+      "5 کارت Epic → 1 Legend با 60% شانس — حذف شد",
+      "انتخاب رندوم کارت ارتقایافته — حذف شد",
+      "شانس شکست در Fusion — حذف شد",
+      "از دست رفتن کارت‌ها بدون دریافت Legend در شکست — حذف شد"
+    ],
+    "decay": [
+      "حفاظت دائمی Elite (30 روز بدون Decay) — حذف شد",
+      "حفاظت دائمی Diamond (21 روز بدون Decay) — حذف شد",
+      "Decay هفتگی (50 TP هر 7 روز) — حذف شد",
+      "معافیت برخی Tier ها از Decay — حذف شد"
+    ],
+    "mining": [
+      "هر 10 کارت منحصربفرد = 1 سکه — حذف شد",
+      "سقف 5 سکه در روز — حذف شد",
+      "Rare در محاسبه ماینینگ دخیل بود — اصلاح شد (Rare اکنون کاملاً خارج است)"
+    ],
+    "arena_boost": [
+      "بوست +2 برای تطابق تایپ کارت با زمین — تغییر یافت به +1"
+    ]
+  },
+
+  "phase_3_ideas": [
+    "ماموریت‌های کارت برای Legend",
+    "Bluff System پیشرفته",
+    "کارت‌های گروه سفارشی",
+    "کارت‌های پویا (Dynamic)",
+    "Tournament Mode",
+    "Trading System",
+    "Special Abilities",
+    "Daily Missions",
+    "Multi-Language"
+  ]
+}

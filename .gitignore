@@ -1,6 +1,7 @@
 # Sensitive Configuration Files
 game_config.json
 .env
+.env.test
 
 # Database Files
 *.db
@@ -92,6 +93,7 @@ schema_check.py
 quick_check_update.py
 migrate_*.py
 files_to_keep.txt
+import_cards.py
 
 # Shell Scripts
 *.sh

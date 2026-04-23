@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-🎮 Telegram Card Game - Core System with Individual Card Cooldown
-سیستم‌های پایه بازی کارت تلگرام - فاز ۱ + PvP + Cooldown جداگانه
+🎮 TelBattle - Core System
+فاز ۲: سیستم پایه کامل با پشتیبانی از Level/XP/Tier/Coins/Fusion/Arena
 """
 
 import sqlite3
@@ -52,8 +52,9 @@ class SimpleCache:
 
 class CardRarity(Enum):
     NORMAL = "normal"
-    EPIC = "epic" 
+    EPIC = "epic"
     LEGEND = "legend"
+    RARE = "rare"
 
 class StatType(Enum):
     POWER = "power"
@@ -86,6 +87,7 @@ class Card:
     dialogs: List[str] = None
     biography: str = "Biography not available."
     image_path: str = ""
+    card_type: str = "POWER_TYPE"   # POWER_TYPE / SPEED_TYPE / IQ_TYPE / POPULARITY_TYPE
     created_at: datetime = None
     
     def __post_init__(self):
@@ -99,6 +101,8 @@ class Card:
         self.popularity = max(1, min(100, self.popularity))
         if self.dialogs is None:
             self.dialogs = []
+        if not self.card_type:
+            self.card_type = "POWER_TYPE"
     
     def get_ability_count(self) -> int:
         """تعداد ابیلیتی مجاز بر اساس کمیابی"""
@@ -131,6 +135,7 @@ class Card:
             'dialogs': json.dumps(self.dialogs or [], ensure_ascii=False),
             'biography': self.biography,
             'image_path': self.image_path,
+            'card_type': self.card_type,
             'created_at': self.created_at.isoformat()
         }
     
@@ -169,6 +174,7 @@ class Card:
             dialogs=dialogs_list,
             biography=data.get('biography', 'Biography not available.'),
             image_path=data.get('image_path', ''),
+            card_type=data.get('card_type', 'POWER_TYPE'),
             created_at=datetime.fromisoformat(data['created_at'])
         )
 
@@ -177,13 +183,17 @@ class Player:
     user_id: int
     username: str
     first_name: str
-    hearts: int = 10  # تغییر از 5 به 10
+    hearts: int = 10
     lives: int = 10
     total_score: int = 0
     last_heart_reset: datetime = None
     last_lives_reset: Optional[datetime] = None
     last_claim: Optional[datetime] = None
     created_at: datetime = None
+    # فاز ۲
+    coins: int = 0
+    max_hearts: int = 10
+    last_mining_claim: Optional[datetime] = None
 
     def __post_init__(self):
         if self.created_at is None:
@@ -239,6 +249,7 @@ class DatabaseManager:
                 dialogs TEXT,
                 biography TEXT,
                 image_path TEXT,
+                card_type TEXT DEFAULT 'POWER_TYPE',
                 created_at TEXT NOT NULL
             )
         ''')
@@ -255,7 +266,10 @@ class DatabaseManager:
                 last_heart_reset TEXT,
                 last_lives_reset TEXT,
                 last_claim TEXT,
-                created_at TEXT NOT NULL
+                created_at TEXT NOT NULL,
+                coins INTEGER DEFAULT 0,
+                max_hearts INTEGER DEFAULT 10,
+                last_mining_claim TEXT
             )
         ''')
         
@@ -274,16 +288,6 @@ class DatabaseManager:
             )
         ''')
         
-        # اضافه کردن ستون‌های جدید اگر وجود ندارند (برای دیتابیس‌های قدیمی)
-        try:
-            cursor.execute('ALTER TABLE player_cards ADD COLUMN usage_count INTEGER DEFAULT 0')
-        except sqlite3.OperationalError:
-            pass
-        try:
-            cursor.execute('ALTER TABLE player_cards ADD COLUMN is_favorite INTEGER DEFAULT 0')
-        except sqlite3.OperationalError:
-            pass
-        
         # جدول فایت‌های فعال PvP
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS active_fights (
@@ -298,6 +302,7 @@ class DatabaseManager:
                 chat_id INTEGER,
                 created_at TEXT NOT NULL,
                 expires_at TEXT NOT NULL,
+                arena_type TEXT,
                 FOREIGN KEY (challenger_id) REFERENCES players (user_id),
                 FOREIGN KEY (opponent_id) REFERENCES players (user_id)
             )
@@ -317,18 +322,12 @@ class DatabaseManager:
                 fought_at TEXT,
                 fight_type TEXT DEFAULT 'pvp',
                 opponent_user_id INTEGER,
-                chat_id INTEGER,
+                xp_gained INTEGER DEFAULT 0,
                 FOREIGN KEY (user_id) REFERENCES players (user_id)
             )
         ''')
         
-        # اضافه کردن ستون chat_id اگر وجود نداره (برای دیتابیس‌های قدیمی)
-        try:
-            cursor.execute('ALTER TABLE fight_history ADD COLUMN chat_id INTEGER')
-        except sqlite3.OperationalError:
-            pass  # ستون از قبل وجود داره
-        
-        # جدول کولدان کارت‌ها (سیستم قدیمی)
+        # جدول کولدان کارت‌ها
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS card_cooldowns (
                 user_id INTEGER,
@@ -343,7 +342,7 @@ class DatabaseManager:
             )
         ''')
         
-        # جدول تنظیمات Cooldown هر کارت - NEW
+        # جدول تنظیمات Cooldown هر کارت
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS card_cooldown_settings (
                 card_id TEXT PRIMARY KEY,
@@ -354,37 +353,218 @@ class DatabaseManager:
             )
         ''')
         
-        # ==================== INDEXES FOR PERFORMANCE ====================
-        # Index برای جستجوی سریع‌تر
+        # ==================== جداول فاز ۲ ====================
         
+        # جدول پیشرفت بازیکن (Level, XP, Tier)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS player_progression (
+                user_id INTEGER PRIMARY KEY,
+                level INTEGER DEFAULT 1,
+                total_xp INTEGER DEFAULT 0,
+                tier_points INTEGER DEFAULT 0,
+                current_tier TEXT DEFAULT 'Bronze',
+                last_played_at TEXT,
+                FOREIGN KEY (user_id) REFERENCES players (user_id)
+            )
+        ''')
+        
+        # جدول لاگ Fusion
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS fusion_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                fusion_type TEXT NOT NULL,
+                consumed_card_1 TEXT NOT NULL,
+                consumed_card_2 TEXT NOT NULL,
+                consumed_card_3 TEXT NOT NULL,
+                upgraded_card_id TEXT NOT NULL,
+                result_rarity TEXT NOT NULL,
+                timestamp TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES players (user_id)
+            )
+        ''')
+        
+        # جدول وضعیت بازی‌های ۳ راوندی
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS battle_states (
+                fight_id TEXT PRIMARY KEY,
+                challenger_id INTEGER NOT NULL,
+                opponent_id INTEGER NOT NULL,
+                challenger_card_id TEXT NOT NULL,
+                opponent_card_id TEXT NOT NULL,
+                arena TEXT NOT NULL,
+                current_round INTEGER NOT NULL DEFAULT 1,
+                challenger_rounds_won INTEGER NOT NULL DEFAULT 0,
+                opponent_rounds_won INTEGER NOT NULL DEFAULT 0,
+                challenger_used_stats TEXT NOT NULL DEFAULT '[]',
+                opponent_used_stats TEXT NOT NULL DEFAULT '[]',
+                challenger_current_stats TEXT NOT NULL,
+                opponent_current_stats TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'round_1',
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (fight_id) REFERENCES active_fights (fight_id)
+            )
+        ''')
+        
+        # جدول تاریخچه راوندها
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS round_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                fight_id TEXT NOT NULL,
+                round_number INTEGER NOT NULL,
+                challenger_stat TEXT NOT NULL,
+                opponent_stat TEXT NOT NULL,
+                challenger_value INTEGER NOT NULL,
+                opponent_value INTEGER NOT NULL,
+                challenger_boost INTEGER NOT NULL DEFAULT 0,
+                opponent_boost INTEGER NOT NULL DEFAULT 0,
+                challenger_total INTEGER NOT NULL,
+                opponent_total INTEGER NOT NULL,
+                winner TEXT,
+                timestamp TEXT NOT NULL,
+                FOREIGN KEY (fight_id) REFERENCES active_fights (fight_id)
+            )
+        ''')
+        
+        # جدول ماموریت‌های کارت
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS card_missions (
+                card_id TEXT PRIMARY KEY,
+                mission_type TEXT NOT NULL,
+                target INTEGER NOT NULL,
+                target_card TEXT,
+                created_at TEXT NOT NULL
+            )
+        ''')
+        
+        # جدول پیشرفت ماموریت بازیکنان
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS player_card_missions (
+                user_id INTEGER NOT NULL,
+                card_id TEXT NOT NULL,
+                current_progress INTEGER DEFAULT 0,
+                completed INTEGER DEFAULT 0,
+                completed_at TEXT,
+                reward_claimed INTEGER DEFAULT 0,
+                reward_claimed_at TEXT,
+                PRIMARY KEY (user_id, card_id)
+            )
+        ''')
+        
+        # جدول اسکین‌ها
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS skins (
+                skin_id TEXT PRIMARY KEY,
+                card_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                skin_type TEXT NOT NULL,
+                image_path TEXT,
+                price INTEGER DEFAULT 50,
+                is_seasonal INTEGER DEFAULT 0,
+                season_end TEXT,
+                description TEXT,
+                created_at TEXT NOT NULL
+            )
+        ''')
+        
+        # جدول اسکین‌های باز شده بازیکنان
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS player_skins (
+                user_id INTEGER NOT NULL,
+                skin_id TEXT NOT NULL,
+                unlocked_at TEXT NOT NULL,
+                PRIMARY KEY (user_id, skin_id)
+            )
+        ''')
+        
+        # جدول اسکین فعال هر کارت
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS active_skins (
+                user_id INTEGER NOT NULL,
+                card_id TEXT NOT NULL,
+                skin_id TEXT NOT NULL,
+                PRIMARY KEY (user_id, card_id)
+            )
+        ''')
+        
+        # جدول بازی‌های Risk
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS risk_matches (
+                match_id TEXT PRIMARY KEY,
+                challenger_id INTEGER NOT NULL,
+                opponent_id INTEGER NOT NULL,
+                table_value INTEGER NOT NULL,
+                chat_id INTEGER,
+                challenger_cards TEXT,
+                opponent_cards TEXT,
+                challenger_selected_card TEXT,
+                opponent_selected_card TEXT,
+                current_pot INTEGER DEFAULT 0,
+                current_round INTEGER DEFAULT 1,
+                challenger_rounds_won INTEGER DEFAULT 0,
+                opponent_rounds_won INTEGER DEFAULT 0,
+                winner_id INTEGER,
+                status TEXT DEFAULT 'card_selection',
+                bluff_phase TEXT DEFAULT 'none',
+                challenger_bluff_action TEXT,
+                opponent_bluff_action TEXT,
+                raise_amount INTEGER DEFAULT 0,
+                raise_by INTEGER,
+                created_at TEXT NOT NULL
+            )
+        ''')
+        
+        # ==================== Migration: اضافه کردن ستون‌های جدید به جداول قدیمی ====================
+        
+        migrations = [
+            ('player_cards', 'usage_count', 'INTEGER DEFAULT 0'),
+            ('player_cards', 'is_favorite', 'INTEGER DEFAULT 0'),
+            ('player_cards', 'rarity_override', 'TEXT'),
+            ('cards', 'card_type', "TEXT DEFAULT 'POWER_TYPE'"),
+            ('players', 'coins', 'INTEGER DEFAULT 0'),
+            ('players', 'max_hearts', 'INTEGER DEFAULT 10'),
+            ('players', 'last_mining_claim', 'TEXT'),
+            ('players', 'lives', 'INTEGER DEFAULT 10'),
+            ('players', 'last_lives_reset', 'TEXT'),
+            ('active_fights', 'arena_type', 'TEXT'),
+            ('fight_history', 'xp_gained', 'INTEGER DEFAULT 0'),
+            ('risk_matches', 'bluff_phase', "TEXT DEFAULT 'none'"),
+            ('risk_matches', 'challenger_bluff_action', 'TEXT'),
+            ('risk_matches', 'opponent_bluff_action', 'TEXT'),
+            ('risk_matches', 'raise_amount', 'INTEGER DEFAULT 0'),
+            ('risk_matches', 'raise_by', 'INTEGER'),
+        ]
+        for table, column, col_def in migrations:
+            try:
+                cursor.execute(f'ALTER TABLE {table} ADD COLUMN {column} {col_def}')
+            except sqlite3.OperationalError:
+                pass  # ستون قبلاً وجود دارد
+        
+        # ==================== Indexes ====================
         try:
-            # Index برای player_cards
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_player_cards_user ON player_cards(user_id)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_player_cards_card ON player_cards(card_id)')
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_player_cards_favorite ON player_cards(user_id, is_favorite)')
-            
-            # Index برای fight_history
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_fight_history_user ON fight_history(user_id)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_fight_history_date ON fight_history(fought_at)')
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_fight_history_user_date ON fight_history(user_id, fought_at)')
-            
-            # Index برای active_fights
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_active_fights_challenger ON active_fights(challenger_id)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_active_fights_opponent ON active_fights(opponent_id)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_active_fights_status ON active_fights(status)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_active_fights_expires ON active_fights(expires_at)')
-            
-            # Index برای players (leaderboard)
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_players_score ON players(total_score DESC)')
-            
-            logger.info("Database indexes created successfully")
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_progression_user ON player_progression(user_id)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_progression_last_played ON player_progression(last_played_at)')
         except Exception as e:
-            logger.warning(f"Error creating indexes (may already exist): {e}")
+            logger.warning(f"Index creation warning: {e}")
         
         conn.commit()
         conn.close()
+        logger.info("Database initialized successfully")
 
 # ==================== CARD OPERATIONS ====================
+    
+    def _get_connection(self) -> sqlite3.Connection:
+        """دریافت connection به دیتابیس"""
+        return sqlite3.connect(self.db_path)
     
     def add_card(self, card: Card) -> bool:
         """اضافه کردن کارت جدید"""
@@ -394,26 +574,28 @@ class DatabaseManager:
             
             card_data = card.to_dict()
             cursor.execute('''
-            INSERT INTO cards (card_id, name, rarity, power, speed, iq, popularity, abilities, dialogs, biography, image_path, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO cards (card_id, name, rarity, power, speed, iq, popularity, abilities, dialogs, biography, image_path, card_type, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 card_data['card_id'], card_data['name'], card_data['rarity'],
                 card_data['power'], card_data['speed'], card_data['iq'], card_data['popularity'],
-                card_data['abilities'], card_data['dialogs'], card_data['biography'], 
-                card_data['image_path'], card_data['created_at']
+                card_data['abilities'], card_data['dialogs'], card_data['biography'],
+                card_data['image_path'], card_data['card_type'], card_data['created_at']
             ))
             
             conn.commit()
             conn.close()
+            self.card_cache.invalidate(f"card_{card.card_id}")
             return True
         except sqlite3.IntegrityError:
-            if conn:
+            try:
                 conn.close()
+            except Exception:
+                pass
             return False
     
     def get_card_by_id(self, card_id: str) -> Optional[Card]:
         """دریافت کارت بر اساس ID با cache"""
-        # چک کردن cache
         cached = self.card_cache.get(f"card_{card_id}")
         if cached:
             return cached
@@ -422,39 +604,50 @@ class DatabaseManager:
         cursor = conn.cursor()
         
         cursor.execute('''
-            SELECT card_id, name, rarity, power, speed, iq, popularity, abilities, dialogs, biography, image_path, created_at
-            FROM cards
-            WHERE card_id = ?
+            SELECT card_id, name, rarity, power, speed, iq, popularity, abilities, dialogs, biography, image_path, card_type, created_at
+            FROM cards WHERE card_id = ?
         ''', (card_id,))
         result = cursor.fetchone()
         conn.close()
         
         if result:
-            columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'dialogs', 'biography', 'image_path', 'created_at']
-            card_data = dict(zip(columns, result))
-            card = Card.from_dict(card_data)
-            # ذخیره در cache
+            columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at']
+            card = Card.from_dict(dict(zip(columns, result)))
             self.card_cache.set(f"card_{card_id}", card)
             return card
         return None
     
-    def get_card_by_name(self, name: str) -> Optional[Card]:
+    def get_card_by_id_for_player(self, card_id: str, user_id: int) -> Optional[Card]:
+        """دریافت کارت با احتساب rarity_override بازیکن"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT c.card_id, c.name, COALESCE(pc.rarity_override, c.rarity),
+                   c.power, c.speed, c.iq, c.popularity,
+                   c.abilities, c.dialogs, c.biography, c.image_path, c.card_type, c.created_at
+            FROM cards c
+            JOIN player_cards pc ON c.card_id = pc.card_id
+            WHERE c.card_id = ? AND pc.user_id = ?
+        ''', (card_id, user_id))
+        result = cursor.fetchone()
+        conn.close()
+        if result:
+            columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at']
+            return Card.from_dict(dict(zip(columns, result)))
+        return None
         """دریافت کارت بر اساس نام"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute('''
-            SELECT card_id, name, rarity, power, speed, iq, popularity, abilities, dialogs, biography, image_path, created_at
-            FROM cards
-            WHERE lower(name) = lower(?)
-            LIMIT 1
+            SELECT card_id, name, rarity, power, speed, iq, popularity, abilities, dialogs, biography, image_path, card_type, created_at
+            FROM cards WHERE lower(name) = lower(?) LIMIT 1
         ''', (name,))
         result = cursor.fetchone()
         conn.close()
         
         if result:
-            columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'dialogs', 'biography', 'image_path', 'created_at']
-            card_data = dict(zip(columns, result))
-            return Card.from_dict(card_data)
+            columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at']
+            return Card.from_dict(dict(zip(columns, result)))
         return None
     
     def get_all_cards(self) -> List[Card]:
@@ -463,20 +656,14 @@ class DatabaseManager:
         cursor = conn.cursor()
         
         cursor.execute('''
-            SELECT card_id, name, rarity, power, speed, iq, popularity, abilities, dialogs, biography, image_path, created_at
-            FROM cards
-            ORDER BY created_at DESC
+            SELECT card_id, name, rarity, power, speed, iq, popularity, abilities, dialogs, biography, image_path, card_type, created_at
+            FROM cards ORDER BY created_at DESC
         ''')
         results = cursor.fetchall()
         conn.close()
         
-        cards = []
-        columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'dialogs', 'biography', 'image_path', 'created_at']
-        for result in results:
-            card_data = dict(zip(columns, result))
-            cards.append(Card.from_dict(card_data))
-        
-        return cards
+        columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at']
+        return [Card.from_dict(dict(zip(columns, r))) for r in results]
     
     def delete_card(self, card_id: str) -> bool:
         """حذف کارت"""
@@ -497,81 +684,63 @@ class DatabaseManager:
         cursor = conn.cursor()
         
         cursor.execute('''
-            SELECT user_id, username, first_name, hearts, lives, total_score, 
-                   last_heart_reset, last_lives_reset, last_claim, created_at
+            SELECT user_id, username, first_name, hearts, COALESCE(lives, hearts, 10), total_score,
+                   last_heart_reset, last_lives_reset, last_claim, created_at,
+                   COALESCE(coins, 0), COALESCE(max_hearts, 10), last_mining_claim
             FROM players WHERE user_id = ?
         ''', (user_id,))
         result = cursor.fetchone()
         
+        def _to_dt(value, default=None):
+            if value is None:
+                return default
+            if isinstance(value, datetime):
+                return value
+            try:
+                return datetime.fromisoformat(str(value))
+            except Exception:
+                return default
+        
         if result:
-            columns = ['user_id', 'username', 'first_name', 'hearts', 'lives', 'total_score', 'last_heart_reset', 'last_lives_reset', 'last_claim', 'created_at']
-            player_data = dict(zip(columns, result))
-            
-            # تبدیل تاریخ‌ها
-            def _to_dt(value, default=None):
-                if value is None:
-                    return default
-                if isinstance(value, datetime):
-                    return value
-                try:
-                    if not isinstance(value, str):
-                        value = str(value)
-                    try:
-                        return datetime.fromisoformat(value)
-                    except Exception:
-                        try:
-                            ts = float(value)
-                            return datetime.fromtimestamp(ts)
-                        except Exception:
-                            try:
-                                if value.endswith('Z'):
-                                    return datetime.fromisoformat(value.replace('Z', '+00:00'))
-                            except Exception:
-                                pass
-                            return default
-                except Exception:
-                    return default
-
-            player_data['last_heart_reset'] = _to_dt(player_data.get('last_heart_reset'), datetime.now())
-            player_data['last_lives_reset'] = _to_dt(player_data.get('last_lives_reset'), datetime.now())
-            
-            # Debug last_claim
-            import logging
-            logger = logging.getLogger(__name__)
-            raw_last_claim = player_data.get('last_claim')
-            logger.info(f"Raw last_claim from DB for user {user_id}: {raw_last_claim} (type: {type(raw_last_claim)})")
-            player_data['last_claim'] = _to_dt(raw_last_claim, None)
-            logger.info(f"Parsed last_claim for user {user_id}: {player_data['last_claim']}")
-            
-            player_data['created_at'] = _to_dt(player_data.get('created_at'), datetime.now())
-
-            # اطمینان از عددی بودن فیلدها
-            for num_field in ['hearts', 'lives', 'total_score']:
-                try:
-                    player_data[num_field] = int(player_data.get(num_field) or 0)
-                except Exception:
-                    player_data[num_field] = 0
-
-            player = Player(**player_data)
+            player = Player(
+                user_id=result[0],
+                username=result[1] or "",
+                first_name=result[2] or "بازیکن",
+                hearts=int(result[3] or 10),
+                lives=int(result[4] or 10),
+                total_score=int(result[5] or 0),
+                last_heart_reset=_to_dt(result[6], datetime.now()),
+                last_lives_reset=_to_dt(result[7], datetime.now()),
+                last_claim=_to_dt(result[8], None),
+                created_at=_to_dt(result[9], datetime.now()),
+                coins=int(result[10] or 0),
+                max_hearts=int(result[11] or 10),
+                last_mining_claim=_to_dt(result[12], None),
+            )
         else:
-            # ایجاد بازیکن جدید
             player = Player(
                 user_id=user_id,
                 username=username or "",
                 first_name=first_name or "بازیکن"
             )
-            
             cursor.execute('''
-                INSERT INTO players (user_id, username, first_name, hearts, lives, total_score, last_heart_reset, last_lives_reset, last_claim, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO players (user_id, username, first_name, hearts, lives, total_score,
+                                     last_heart_reset, last_lives_reset, last_claim, created_at,
+                                     coins, max_hearts)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 player.user_id, player.username, player.first_name,
                 player.hearts, player.lives, player.total_score,
                 player.last_heart_reset.isoformat(), player.last_lives_reset.isoformat(),
-                player.last_claim.isoformat() if player.last_claim else None,
-                player.created_at.isoformat()
+                None, player.created_at.isoformat(), 0, 10
             ))
+            conn.commit()
             
+            # ایجاد رکورد progression برای بازیکن جدید
+            cursor.execute('''
+                INSERT OR IGNORE INTO player_progression (user_id, level, total_xp, tier_points, current_tier, last_played_at)
+                VALUES (?, 1, 0, 0, 'Bronze', ?)
+            ''', (user_id, datetime.now().isoformat()))
             conn.commit()
         
         conn.close()
@@ -584,14 +753,18 @@ class DatabaseManager:
         
         cursor.execute('''
             UPDATE players 
-            SET username = ?, first_name = ?, hearts = ?, lives = ?, total_score = ?, 
-                last_heart_reset = ?, last_lives_reset = ?, last_claim = ?
+            SET username = ?, first_name = ?, hearts = ?, lives = ?, total_score = ?,
+                last_heart_reset = ?, last_lives_reset = ?, last_claim = ?,
+                coins = ?, max_hearts = ?, last_mining_claim = ?
             WHERE user_id = ?
         ''', (
             player.username, player.first_name, player.hearts, player.lives, player.total_score,
             player.last_heart_reset.isoformat(),
             player.last_lives_reset.isoformat() if player.last_lives_reset else None,
             player.last_claim.isoformat() if player.last_claim else None,
+            getattr(player, 'coins', 0),
+            getattr(player, 'max_hearts', 10),
+            player.last_mining_claim.isoformat() if getattr(player, 'last_mining_claim', None) else None,
             player.user_id
         ))
         
@@ -599,12 +772,15 @@ class DatabaseManager:
         conn.close()
     
     def get_player_cards(self, user_id: int) -> List[Card]:
-        """دریافت کارت‌های بازیکن"""
+        """دریافت کارت‌های بازیکن — با احتساب rarity_override از Fusion"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
         cursor.execute('''
-            SELECT c.card_id, c.name, c.rarity, c.power, c.speed, c.iq, c.popularity, c.abilities, c.dialogs, c.biography, c.image_path, c.created_at
+            SELECT c.card_id, c.name,
+                   COALESCE(pc.rarity_override, c.rarity) as rarity,
+                   c.power, c.speed, c.iq, c.popularity,
+                   c.abilities, c.dialogs, c.biography, c.image_path, c.card_type, c.created_at
             FROM cards c
             JOIN player_cards pc ON c.card_id = pc.card_id
             WHERE pc.user_id = ?
@@ -614,103 +790,73 @@ class DatabaseManager:
         results = cursor.fetchall()
         conn.close()
         
-        cards = []
-        columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'dialogs', 'biography', 'image_path', 'created_at']
-        for result in results:
-            card_data = dict(zip(columns, result))
-            cards.append(Card.from_dict(card_data))
-        
-        return cards
+        columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at']
+        return [Card.from_dict(dict(zip(columns, r))) for r in results]
     
     def get_player_cards_by_rarity(self, user_id: int, rarity: CardRarity = None, page: int = 1, per_page: int = 6) -> Tuple[List[Card], int]:
         """دریافت کارت‌های بازیکن با فیلتر rarity و pagination"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        
-        # محاسبه offset
         offset = (page - 1) * per_page
+        columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at']
         
         if rarity:
-            # فیلتر بر اساس rarity
             cursor.execute('''
-                SELECT c.card_id, c.name, c.rarity, c.power, c.speed, c.iq, c.popularity, c.abilities, c.dialogs, c.biography, c.image_path, c.created_at
-                FROM cards c
-                JOIN player_cards pc ON c.card_id = pc.card_id
-                WHERE pc.user_id = ? AND c.rarity = ?
+                SELECT c.card_id, c.name, COALESCE(pc.rarity_override, c.rarity),
+                       c.power, c.speed, c.iq, c.popularity,
+                       c.abilities, c.dialogs, c.biography, c.image_path, c.card_type, c.created_at
+                FROM cards c JOIN player_cards pc ON c.card_id = pc.card_id
+                WHERE pc.user_id = ? AND COALESCE(pc.rarity_override, c.rarity) = ?
                 ORDER BY pc.usage_count DESC, pc.obtained_at DESC
                 LIMIT ? OFFSET ?
             ''', (user_id, rarity.value, per_page, offset))
-            
             results = cursor.fetchall()
-            
-            # تعداد کل کارت‌ها
             cursor.execute('''
-                SELECT COUNT(*)
-                FROM cards c
-                JOIN player_cards pc ON c.card_id = pc.card_id
-                WHERE pc.user_id = ? AND c.rarity = ?
+                SELECT COUNT(*) FROM cards c JOIN player_cards pc ON c.card_id = pc.card_id
+                WHERE pc.user_id = ? AND COALESCE(pc.rarity_override, c.rarity) = ?
             ''', (user_id, rarity.value))
-            
-            total_count = cursor.fetchone()[0]
         else:
-            # همه کارت‌ها
             cursor.execute('''
-                SELECT c.card_id, c.name, c.rarity, c.power, c.speed, c.iq, c.popularity, c.abilities, c.dialogs, c.biography, c.image_path, c.created_at
-                FROM cards c
-                JOIN player_cards pc ON c.card_id = pc.card_id
+                SELECT c.card_id, c.name, COALESCE(pc.rarity_override, c.rarity),
+                       c.power, c.speed, c.iq, c.popularity,
+                       c.abilities, c.dialogs, c.biography, c.image_path, c.card_type, c.created_at
+                FROM cards c JOIN player_cards pc ON c.card_id = pc.card_id
                 WHERE pc.user_id = ?
                 ORDER BY pc.usage_count DESC, pc.obtained_at DESC
                 LIMIT ? OFFSET ?
             ''', (user_id, per_page, offset))
-            
             results = cursor.fetchall()
-            
             cursor.execute('SELECT COUNT(*) FROM player_cards WHERE user_id = ?', (user_id,))
-            total_count = cursor.fetchone()[0]
+        
+        total_count = cursor.fetchone()[0]
         conn.close()
-        
-        cards = []
-        columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'dialogs', 'biography', 'image_path', 'created_at']
-        for result in results:
-            card_data = dict(zip(columns, result))
-            cards.append(Card.from_dict(card_data))
-        
-        return cards, total_count
+        return [Card.from_dict(dict(zip(columns, r))) for r in results], total_count
     
     def get_favorite_cards(self, user_id: int, page: int = 1, per_page: int = 6) -> Tuple[List[Card], int]:
         """دریافت کارت‌های مورد علاقه"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        
         offset = (page - 1) * per_page
+        columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at']
         
         cursor.execute('''
-            SELECT c.card_id, c.name, c.rarity, c.power, c.speed, c.iq, c.popularity, c.abilities, c.dialogs, c.biography, c.image_path, c.created_at
-            FROM cards c
-            JOIN player_cards pc ON c.card_id = pc.card_id
+            SELECT c.card_id, c.name, c.rarity, c.power, c.speed, c.iq, c.popularity,
+                   c.abilities, c.dialogs, c.biography, c.image_path, c.card_type, c.created_at
+            FROM cards c JOIN player_cards pc ON c.card_id = pc.card_id
             WHERE pc.user_id = ? AND (pc.is_favorite = 1 OR pc.usage_count >= 5)
             ORDER BY pc.is_favorite DESC, pc.usage_count DESC
             LIMIT ? OFFSET ?
         ''', (user_id, per_page, offset))
-        
         results = cursor.fetchall()
         
         cursor.execute('''
-            SELECT COUNT(*)
-            FROM player_cards
+            SELECT COUNT(*) FROM player_cards
             WHERE user_id = ? AND (is_favorite = 1 OR usage_count >= 5)
         ''', (user_id,))
         total_count = cursor.fetchone()[0]
-        
         conn.close()
         
-        cards = []
-        columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'dialogs', 'biography', 'image_path', 'created_at']
-        for result in results:
-            card_data = dict(zip(columns, result))
-            cards.append(Card.from_dict(card_data))
-        
-        return cards, total_count
+        return [Card.from_dict(dict(zip(columns, r))) for r in results], total_count
     
     def toggle_favorite_card(self, user_id: int, card_id: str) -> bool:
         """تغییر وضعیت favorite کارت"""
@@ -768,7 +914,111 @@ class DatabaseManager:
             counts[rarity] = count
         
         return counts
-   # ==================== CARD COOLDOWN SETTINGS - NEW ====================
+    # ==================== PHASE 2: PROGRESSION ====================
+    
+    def get_or_create_progression(self, user_id: int) -> Dict:
+        """دریافت یا ایجاد رکورد progression بازیکن"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT level, total_xp, tier_points, current_tier, last_played_at
+            FROM player_progression WHERE user_id = ?
+        ''', (user_id,))
+        result = cursor.fetchone()
+        
+        if not result:
+            cursor.execute('''
+                INSERT INTO player_progression (user_id, level, total_xp, tier_points, current_tier, last_played_at)
+                VALUES (?, 1, 0, 0, 'Bronze', ?)
+            ''', (user_id, datetime.now().isoformat()))
+            conn.commit()
+            conn.close()
+            return {'level': 1, 'total_xp': 0, 'tier_points': 0, 'current_tier': 'Bronze', 'last_played_at': datetime.now()}
+        
+        conn.close()
+        return {
+            'level': result[0],
+            'total_xp': result[1],
+            'tier_points': result[2],
+            'current_tier': result[3],
+            'last_played_at': datetime.fromisoformat(result[4]) if result[4] else datetime.now()
+        }
+    
+    def update_progression(self, user_id: int, level: int = None, total_xp: int = None,
+                           tier_points: int = None, current_tier: str = None) -> bool:
+        """بروزرسانی progression بازیکن"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        updates = ['last_played_at = ?']
+        values = [datetime.now().isoformat()]
+        
+        if level is not None:
+            updates.append('level = ?')
+            values.append(level)
+        if total_xp is not None:
+            updates.append('total_xp = ?')
+            values.append(total_xp)
+        if tier_points is not None:
+            updates.append('tier_points = ?')
+            values.append(max(0, tier_points))
+        if current_tier is not None:
+            updates.append('current_tier = ?')
+            values.append(current_tier)
+        
+        values.append(user_id)
+        cursor.execute(f"UPDATE player_progression SET {', '.join(updates)} WHERE user_id = ?", values)
+        conn.commit()
+        conn.close()
+        return True
+    
+    def add_xp(self, user_id: int, amount: int) -> Tuple[int, int]:
+        """اضافه کردن XP و برگرداندن (old_level, new_level)"""
+        from phase2_systems import LevelSystem
+        prog = self.get_or_create_progression(user_id)
+        old_level = prog['level']
+        new_xp = prog['total_xp'] + amount
+        new_level = LevelSystem.get_level_from_xp(new_xp)
+        self.update_progression(user_id, level=new_level, total_xp=new_xp)
+        return old_level, new_level
+    
+    def add_tier_points(self, user_id: int, amount: int) -> Tuple[str, str]:
+        """اضافه/کم کردن TP و برگرداندن (old_tier, new_tier)"""
+        from phase2_systems import TierSystem
+        prog = self.get_or_create_progression(user_id)
+        old_tier = prog['current_tier']
+        new_tp = max(0, prog['tier_points'] + amount)
+        new_tier = TierSystem.get_tier_from_tp(new_tp)
+        self.update_progression(user_id, tier_points=new_tp, current_tier=new_tier)
+        return old_tier, new_tier
+    
+    # ==================== PHASE 2: COINS ====================
+    
+    def add_coins(self, user_id: int, amount: int) -> bool:
+        """اضافه کردن سکه به بازیکن"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('UPDATE players SET coins = coins + ? WHERE user_id = ?', (amount, user_id))
+        conn.commit()
+        conn.close()
+        return True
+    
+    def spend_coins(self, user_id: int, amount: int) -> Tuple[bool, str]:
+        """خرج کردن سکه — برمی‌گرداند (success, error_msg)"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('SELECT COALESCE(coins, 0) FROM players WHERE user_id = ?', (user_id,))
+        row = cursor.fetchone()
+        if not row or row[0] < amount:
+            conn.close()
+            return False, f"سکه کافی نیست (موجودی: {row[0] if row else 0}، نیاز: {amount})"
+        cursor.execute('UPDATE players SET coins = coins - ? WHERE user_id = ?', (amount, user_id))
+        conn.commit()
+        conn.close()
+        return True, ""
+    
+    # ==================== CARD COOLDOWN SETTINGS ====================
     
     def get_card_cooldown_settings(self, card_id: str) -> Dict:
         """دریافت تنظیمات cooldown کارت خاص"""
@@ -1288,7 +1538,8 @@ class DatabaseManager:
             start_date = "1970-01-01"
         
         if chat_id:
-            # لیدربورد گروه - فقط کسانی که در این گروه بازی کردن
+            # لیدربورد گروه - ساده‌تر: همه بازیکنان که امتیاز دارن
+            # (فعلا group-specific tracking نداریم، پس همه رو نشون میدیم)
             if timeframe == "all":
                 cursor.execute('''
                     SELECT 
@@ -1297,17 +1548,15 @@ class DatabaseManager:
                         p.first_name,
                         p.total_score,
                         COUNT(DISTINCT pc.card_id) as card_count,
-                        COALESCE(SUM(fh.score_gained), 0) as period_score
+                        p.total_score as period_score
                     FROM players p
                     LEFT JOIN player_cards pc ON p.user_id = pc.user_id
-                    LEFT JOIN fight_history fh ON p.user_id = fh.user_id AND fh.chat_id = ?
-                    WHERE p.user_id IN (SELECT DISTINCT user_id FROM fight_history WHERE chat_id = ?)
+                    WHERE p.total_score > 0
                     GROUP BY p.user_id
-                    HAVING period_score > 0
-                    ORDER BY period_score DESC
-                ''', (chat_id, chat_id))
+                    ORDER BY p.total_score DESC
+                ''')
             else:
-                # برای گروه: محاسبه امتیاز دوره‌ای از fight_history این گروه
+                # برای گروه: محاسبه امتیاز دوره‌ای از fight_history
                 cursor.execute('''
                     SELECT 
                         p.user_id,
@@ -1315,14 +1564,12 @@ class DatabaseManager:
                         p.first_name,
                         p.total_score,
                         (SELECT COUNT(DISTINCT pc.card_id) FROM player_cards pc WHERE pc.user_id = p.user_id) as card_count,
-                        COALESCE(SUM(fh.score_gained), 0) as period_score
+                        (SELECT COALESCE(SUM(fh.score_gained), 0) FROM fight_history fh WHERE fh.user_id = p.user_id AND fh.fought_at >= ?) as period_score
                     FROM players p
-                    LEFT JOIN fight_history fh ON p.user_id = fh.user_id AND fh.chat_id = ? AND fh.fought_at >= ?
-                    WHERE p.user_id IN (SELECT DISTINCT user_id FROM fight_history WHERE chat_id = ? AND fought_at >= ?)
-                    GROUP BY p.user_id
-                    HAVING period_score > 0
+                    WHERE p.user_id IN (SELECT DISTINCT user_id FROM fight_history WHERE fought_at >= ?)
+                    AND (SELECT COALESCE(SUM(fh.score_gained), 0) FROM fight_history fh WHERE fh.user_id = p.user_id AND fh.fought_at >= ?) > 0
                     ORDER BY period_score DESC
-                ''', (chat_id, start_date, chat_id, start_date))
+                ''', (start_date, start_date, start_date))
         else:
             # لیدربورد جهانی
             if timeframe == "all":
@@ -1427,14 +1674,22 @@ class DatabaseManager:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        # دریافت user_id هایی که در این گروه fight کردن (از fight_history)
+        # دریافت user_id هایی که در این گروه fight شروع کردن یا قبول کردن
         cursor.execute('''
             SELECT DISTINCT p.user_id, p.username, p.first_name
             FROM players p
             WHERE p.user_id IN (
-                SELECT DISTINCT user_id FROM fight_history WHERE chat_id = ?
+                SELECT DISTINCT challenger_id FROM active_fights WHERE chat_id = ?
+                UNION
+                SELECT DISTINCT opponent_id FROM active_fights WHERE chat_id = ? AND opponent_id != 0
             )
-        ''', (chat_id,))
+            OR p.user_id IN (
+                SELECT DISTINCT fh.user_id 
+                FROM fight_history fh
+                JOIN active_fights af ON (fh.user_id = af.challenger_id OR fh.user_id = af.opponent_id)
+                WHERE af.chat_id = ?
+            )
+        ''', (chat_id, chat_id, chat_id))
         
         results = cursor.fetchall()
         conn.close()
@@ -1614,86 +1869,53 @@ class GameLogic:
             conn.close()
     
     def claim_daily_card(self, user_id: int) -> Tuple[bool, Optional[Card], Optional[str]]:
-        """دریافت کارت روزانه - یک بار در روز (ریست در ساعت 00:00)"""
-        import logging
-        from zoneinfo import ZoneInfo
-        logger = logging.getLogger(__name__)
-        
+        """دریافت کارت روزانه — سیستم pool فاز ۲ (احتمال برابر، همیشه Normal)"""
         player = self.db.get_or_create_player(user_id)
         
-        # استفاده از timezone ایران
-        iran_tz = ZoneInfo("Asia/Tehran")
+        # بررسی cooldown (ریست در ساعت 00:00 ایران)
+        if player.last_claim and player.last_claim.year > 2000:
+            try:
+                from zoneinfo import ZoneInfo
+                iran_tz = ZoneInfo("Asia/Tehran")
+                now = datetime.now(iran_tz)
+                lc = player.last_claim
+                if lc.tzinfo is None:
+                    lc = lc.replace(tzinfo=ZoneInfo("UTC")).astimezone(iran_tz)
+                else:
+                    lc = lc.astimezone(iran_tz)
+                
+                if lc.date() == now.date():
+                    midnight = datetime.combine(now.date() + timedelta(days=1), datetime.min.time()).replace(tzinfo=iran_tz)
+                    remaining = midnight - now
+                    h = int(remaining.total_seconds() // 3600)
+                    m = int((remaining.total_seconds() % 3600) // 60)
+                    return False, None, f"شما امروز کارت دریافت کرده‌اید. کارت بعدی در {h} ساعت و {m} دقیقه دیگر (ساعت 00:00)"
+            except Exception:
+                # fallback به روش ساده
+                if (datetime.now() - player.last_claim).total_seconds() < self.CLAIM_COOLDOWN_HOURS * 3600:
+                    return False, None, "هنوز زمان کلیم نرسیده"
         
-        # بررسی آیا امروز قبلا claim کرده یا نه
-        if player.last_claim and player.last_claim.year > 2000:  # اگه سال معتبر باشه (نه 1970)
-            now = datetime.now(iran_tz)
-            # تبدیل last_claim به timezone ایران
-            if player.last_claim.tzinfo is None:
-                last_claim_iran = player.last_claim.replace(tzinfo=ZoneInfo("UTC")).astimezone(iran_tz)
-            else:
-                last_claim_iran = player.last_claim.astimezone(iran_tz)
-            
-            last_claim_date = last_claim_iran.date()
-            today = now.date()
-            
-            logger.info(f"User {user_id} - Last claim: {last_claim_iran}, Last claim date: {last_claim_date}, Today: {today}")
-            
-            # اگه امروز claim کرده، نمیتونه دوباره بگیره
-            if last_claim_date == today:
-                # محاسبه زمان تا نیمه شب ایران
-                midnight = datetime.combine(today + timedelta(days=1), datetime.min.time()).replace(tzinfo=iran_tz)
-                remaining = midnight - now
-                hours = int(remaining.total_seconds() // 3600)
-                minutes = int((remaining.total_seconds() % 3600) // 60)
-                logger.info(f"User {user_id} already claimed today. Next claim in {hours}h {minutes}m")
-                return False, None, f"شما امروز کارت دریافت کرده‌اید. کارت بعدی در {hours} ساعت و {minutes} دقیقه دیگر (ساعت 00:00)"
-        
-        logger.info(f"User {user_id} can claim card now")
-        
-        # انتخاب کارت تصادفی
+        # محاسبه pool: همه Normal هایی که بازیکن در Epic یا Legend ندارد
         all_cards = self.db.get_all_cards()
-        if not all_cards:
-            return False, None, "هیچ کارتی در دیتابیس موجود نیست"
+        normal_cards = [c for c in all_cards if c.rarity == CardRarity.NORMAL]
         
-        # دریافت کارت‌های فعلی بازیکن
+        if not normal_cards:
+            return False, None, "هیچ کارت Normal در دیتابیس موجود نیست"
+        
         player_cards = self.db.get_player_cards(user_id)
-        player_card_ids = {c.card_id for c in player_cards}
+        excluded_ids = {c.card_id for c in player_cards if c.rarity in [CardRarity.EPIC, CardRarity.LEGEND, CardRarity.RARE]}
         
-        # فیلتر کارت‌هایی که بازیکن نداره
-        available_cards = [c for c in all_cards if c.card_id not in player_card_ids]
+        pool = [c for c in normal_cards if c.card_id not in excluded_ids]
         
-        # اگه همه کارت‌ها رو داره، از همه کارت‌ها انتخاب کن (duplicate)
-        if not available_cards:
-            logger.warning(f"User {user_id} has all cards! Allowing duplicate.")
-            available_cards = all_cards
+        # fallback اگر pool خالی شد
+        if not pool:
+            pool = normal_cards
         
-        # انتخاب بر اساس rarity
-        rarity_roll = random.randint(1, 100)
-        if rarity_roll <= self.CARD_DROP_RATES[CardRarity.LEGEND]:
-            target_rarity = CardRarity.LEGEND
-        elif rarity_roll <= self.CARD_DROP_RATES[CardRarity.LEGEND] + self.CARD_DROP_RATES[CardRarity.EPIC]:
-            target_rarity = CardRarity.EPIC
-        else:
-            target_rarity = CardRarity.NORMAL
+        card = random.choice(pool)
+        self.db.add_card_to_player(user_id, card.card_id)
         
-        # فیلتر کارت‌های موجود بر اساس rarity
-        filtered_cards = [c for c in available_cards if c.rarity == target_rarity]
-        if not filtered_cards:
-            # اگه کارتی با این rarity موجود نیست، از همه کارت‌های موجود انتخاب کن
-            filtered_cards = available_cards
-        
-        card = random.choice(filtered_cards)
-        
-        # اضافه کردن کارت به بازیکن
-        added = self.db.add_card_to_player(user_id, card.card_id)
-        if not added:
-            logger.warning(f"Failed to add card {card.card_id} to user {user_id} (duplicate)")
-        
-        # بروزرسانی last_claim
         player.last_claim = datetime.now()
-        logger.info(f"Updating last_claim for user {user_id} to {player.last_claim}")
         self.db.update_player(player)
-        logger.info(f"Player updated successfully for user {user_id}")
         
         return True, card, None
     
@@ -1908,24 +2130,24 @@ class GameLogic:
         # ثبت برای challenger
         cursor.execute('''
             INSERT INTO fight_history 
-            (user_id, user_card_id, opponent_card_id, stat_used, result, score_gained, hearts_lost, fought_at, fight_type, opponent_user_id, chat_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pvp', ?, ?)
+            (user_id, user_card_id, opponent_card_id, stat_used, result, score_gained, hearts_lost, fought_at, fight_type, opponent_user_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pvp', ?)
         ''', (
             fight.challenger_id, fight.challenger_card_id, fight.opponent_card_id,
             fight.challenger_stat, result, challenger_score,
-            challenger_hearts_lost, now, fight.opponent_id, fight.chat_id
+            challenger_hearts_lost, now, fight.opponent_id
         ))
         
         # ثبت برای opponent
         opp_result = "win" if result == "loss" else ("loss" if result == "win" else "tie")
         cursor.execute('''
             INSERT INTO fight_history 
-            (user_id, user_card_id, opponent_card_id, stat_used, result, score_gained, hearts_lost, fought_at, fight_type, opponent_user_id, chat_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pvp', ?, ?)
+            (user_id, user_card_id, opponent_card_id, stat_used, result, score_gained, hearts_lost, fought_at, fight_type, opponent_user_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pvp', ?)
         ''', (
             fight.opponent_id, fight.opponent_card_id, fight.challenger_card_id,
             fight.opponent_stat, opp_result, opponent_score,
-            opponent_hearts_lost, now, fight.challenger_id, fight.chat_id
+            opponent_hearts_lost, now, fight.challenger_id
         ))
         
         conn.commit()
@@ -2062,6 +2284,63 @@ class GameLogic:
             "hearts_lost": opponent_hearts_lost
         }
         
+        # ==================== XP و Tier Points ====================
+        from phase2_systems import LevelSystem, TierSystem, XP_SOURCES
+        
+        xp_sources = XP_SOURCES
+        
+        # XP برای challenger
+        if result == "win":
+            ch_xp = xp_sources.get("normal_win", 10)
+            op_xp = xp_sources.get("normal_loss", 3)
+        elif result == "loss":
+            ch_xp = xp_sources.get("normal_loss", 3)
+            op_xp = xp_sources.get("normal_win", 10)
+        else:  # tie
+            ch_xp = xp_sources.get("normal_loss", 3)
+            op_xp = xp_sources.get("normal_loss", 3)
+        
+        ch_old_level, ch_new_level = self.db.add_xp(fight.challenger_id, ch_xp)
+        op_old_level, op_new_level = self.db.add_xp(fight.opponent_id, op_xp)
+        
+        # TP برای challenger و opponent
+        ch_prog = self.db.get_or_create_progression(fight.challenger_id)
+        op_prog = self.db.get_or_create_progression(fight.opponent_id)
+        
+        if result != "tie":
+            tp_gain, tp_loss = TierSystem.calculate_tp_change(
+                ch_prog['current_tier'] if result == "win" else op_prog['current_tier'],
+                op_prog['current_tier'] if result == "win" else ch_prog['current_tier']
+            )
+            if result == "win":
+                ch_old_tier, ch_new_tier = self.db.add_tier_points(fight.challenger_id, tp_gain)
+                op_old_tier, op_new_tier = self.db.add_tier_points(fight.opponent_id, -tp_loss)
+            else:
+                op_old_tier, op_new_tier = self.db.add_tier_points(fight.opponent_id, tp_gain)
+                ch_old_tier, ch_new_tier = self.db.add_tier_points(fight.challenger_id, -tp_loss)
+        else:
+            ch_old_tier = ch_new_tier = ch_prog['current_tier']
+            op_old_tier = op_new_tier = op_prog['current_tier']
+            tp_gain = tp_loss = 0
+        
+        # اضافه کردن اطلاعات XP/Level به challenger_data و opponent_data
+        challenger_data['xp_gained'] = ch_xp
+        challenger_data['level_up'] = ch_new_level > ch_old_level
+        challenger_data['new_level'] = ch_new_level
+        challenger_data['tier_changed'] = ch_new_tier != ch_old_tier
+        challenger_data['new_tier'] = ch_new_tier
+        
+        opponent_data['xp_gained'] = op_xp
+        opponent_data['level_up'] = op_new_level > op_old_level
+        opponent_data['new_level'] = op_new_level
+        opponent_data['tier_changed'] = op_new_tier != op_old_tier
+        opponent_data['new_tier'] = op_new_tier
+        
+        if winner_data:
+            winner_data['xp_gained'] = ch_xp if result == "win" else op_xp
+        if loser_data:
+            loser_data['xp_gained'] = op_xp if result == "win" else ch_xp
+
         return {
             "success": True,
             "fight_id": fight_id,
