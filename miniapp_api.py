@@ -86,11 +86,15 @@ def require_auth(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         auth_header = request.headers.get("Authorization", "")
+
+        # Debug mode یا FLASK_DEBUG=1 → بدون auth
+        if app.debug or os.environ.get("FLASK_DEBUG", "0") == "1":
+            debug_user = request.headers.get("X-Debug-User-Id", "1")
+            g.user_id = int(debug_user)
+            db.get_or_create_player(user_id=g.user_id)
+            return f(*args, **kwargs)
+
         if not auth_header.startswith("tma "):
-            # در حالت dev، اجازه mock user
-            if app.debug:
-                g.user_id = int(request.headers.get("X-Debug-User-Id", "1"))
-                return f(*args, **kwargs)
             return jsonify({"error": "Unauthorized"}), 401
 
         init_data = auth_header[4:]
@@ -600,7 +604,8 @@ def get_leaderboard():
 # ==================== اجرا ====================
 
 def run_miniapp_server(host="0.0.0.0", port=5001, debug=False):
-    app.run(host=host, port=port, debug=debug)
+    debug_mode = debug or os.environ.get("FLASK_DEBUG", "0") == "1"
+    app.run(host=host, port=port, debug=debug_mode)
 
 
 if __name__ == "__main__":
