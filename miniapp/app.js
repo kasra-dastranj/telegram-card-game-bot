@@ -194,7 +194,7 @@ function showError(msg) {
 }
 
 // شروع اپ
-window.addEventListener("DOMContentLoaded", async () => {
+async function initApp() {
   const tg = window.Telegram?.WebApp;
   if (tg) {
     tg.ready();
@@ -213,4 +213,11 @@ window.addEventListener("DOMContentLoaded", async () => {
   }
 
   navigate("mode_select");
-});
+}
+
+// اجرا — هم DOMContentLoaded هم حالتی که DOM قبلاً آماده‌ست
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initApp);
+} else {
+  initApp();
+}
