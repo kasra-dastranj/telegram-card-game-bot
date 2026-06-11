@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html class="dark" dir="rtl" lang="fa">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TelBattle</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700&family=Oswald:wght@500;600;700&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "background-deep": "#0A0A1A",
+            "surface": "#0f102c",
+            "surface-dim": "#0f102c",
+            "surface-card": "#12122A",
+            "surface-container": "#1c1d39",
+            "surface-container-low": "#181934",
+            "surface-container-high": "#262744",
+            "surface-container-highest": "#31324f",
+            "surface-container-lowest": "#0a0b26",
+            "surface-bright": "#363654",
+            "surface-variant": "#31324f",
+            "primary": "#cbbeff",
+            "primary-container": "#7b5eea",
+            "primary-fixed": "#e6deff",
+            "primary-fixed-dim": "#cbbeff",
+            "secondary": "#f0c040",
+            "secondary-container": "#b88d00",
+            "secondary-fixed": "#ffdf97",
+            "secondary-fixed-dim": "#f0c040",
+            "tertiary": "#ffb86e",
+            "tertiary-container": "#ac6600",
+            "tertiary-fixed": "#ffdcbd",
+            "tertiary-fixed-dim": "#ffb86e",
+            "on-primary": "#330098",
+            "on-primary-container": "#ffffff",
+            "on-primary-fixed": "#1d0061",
+            "on-primary-fixed-variant": "#4a25b7",
+            "on-secondary": "#3e2e00",
+            "on-secondary-container": "#392a00",
+            "on-secondary-fixed": "#251a00",
+            "on-secondary-fixed-variant": "#5a4400",
+            "on-tertiary": "#492900",
+            "on-tertiary-container": "#ffffff",
+            "on-tertiary-fixed": "#2c1600",
+            "on-tertiary-fixed-variant": "#693c00",
+            "on-surface": "#e1e0ff",
+            "on-surface-variant": "#cac4d6",
+            "on-background": "#e1e0ff",
+            "on-error": "#690005",
+            "on-error-container": "#ffdad6",
+            "text-primary": "#FFFFFF",
+            "error": "#ffb4ab",
+            "error-container": "#93000a",
+            "outline": "#938ea0",
+            "outline-variant": "#484554",
+            "inverse-primary": "#6343d0",
+            "inverse-surface": "#e1e0ff",
+            "inverse-on-surface": "#2d2e4b",
+            "surface-tint": "#cbbeff",
+            "background": "#0f102c",
+            "rarity-normal": "#4CAF50",
+            "rarity-epic": "#9C27B0",
+            "rarity-legend": "#FF9800",
+            "rarity-rare": "#F44336",
+          },
+          borderRadius: {
+            DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px"
+          },
+          spacing: {
+            "card-gap": "8px", "section-padding": "24px",
+            "gutter": "12px", "unit": "4px", "margin-mobile": "16px"
+          },
+          fontFamily: {
+            "headline-sm": ["Oswald"], "headline-md": ["Oswald"],
+            "headline-lg": ["Oswald"], "button-label": ["Oswald"],
+            "label-caps": ["Rajdhani"], "stat-numeric": ["Rajdhani"],
+            "body-md": ["Vazirmatn"], "body-lg": ["Vazirmatn"],
+          },
+          fontSize: {
+            "headline-sm": ["20px", { lineHeight: "28px", fontWeight: "500" }],
+            "headline-md": ["24px", { lineHeight: "32px", fontWeight: "600" }],
+            "headline-lg": ["32px", { lineHeight: "40px", letterSpacing: "0.02em", fontWeight: "700" }],
+            "button-label": ["16px", { lineHeight: "24px", fontWeight: "600" }],
+            "label-caps": ["12px", { lineHeight: "16px", letterSpacing: "0.1em", fontWeight: "600" }],
+            "stat-numeric": ["18px", { lineHeight: "20px", letterSpacing: "0.05em", fontWeight: "700" }],
+            "body-md": ["16px", { lineHeight: "24px", fontWeight: "400" }],
+            "body-lg": ["18px", { lineHeight: "28px", fontWeight: "400" }],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #0A0A1A;
+      color: #FFFFFF;
+      font-family: 'Vazirmatn', sans-serif;
+      min-height: 100dvh;
+    }
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+    .fill-icon { font-variation-settings: 'FILL' 1; }
+    #loading-screen {
+      position: fixed; inset: 0;
+      background: #0A0A1A;
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9999;
+    }
+    .progress-bar-fill { background: linear-gradient(90deg, #7b5eea, #cbbeff); }
+    @keyframes fall {
+      0% { transform: translateY(-100px) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+    }
+    @keyframes pulse-glow {
+      from { filter: drop-shadow(0 0 10px rgba(240,192,64,0.5)); }
+      to { filter: drop-shadow(0 0 25px rgba(240,192,64,1)); }
+    }
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+    .modal-slide-up { animation: slideUp 0.3s ease-out forwards; }
+    .confetti-piece {
+      position: absolute; width: 8px; height: 16px;
+      border-radius: 2px; animation: fall linear infinite;
+    }
+    .pulse-glow { animation: pulse-glow 2s infinite alternate; }
+    .cyber-grid {
+      background-image:
+        linear-gradient(to right, rgba(123, 94, 234, 0.05) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(123, 94, 234, 0.05) 1px, transparent 1px);
+      background-size: 40px 40px;
+      position: fixed; top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      z-index: -1; pointer-events: none;
+    }
+    .glow-gold { box-shadow: 0 0 15px rgba(240,192,64,0.6), inset 0 0 10px rgba(240,192,64,0.2); border-color: #f0c040 !important; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: #0A0A1A; }
+    ::-webkit-scrollbar-thumb { background: #484554; border-radius: 4px; }
+    .card-selected { box-shadow: 0 0 20px rgba(240,192,64,0.6); border-color: #f0c040 !important; }
+    .stat-disabled { opacity: 0.4; cursor: not-allowed; }
+  </style>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body class="bg-background-deep text-text-primary min-h-screen font-body-md overflow-x-hidden">
+  <div class="cyber-grid"></div>
+  <div id="loading-screen">
+    <div class="text-center">
+      <div class="font-headline-lg text-headline-lg text-primary italic mb-4">TelBattle</div>
+      <div class="text-on-surface-variant font-body-md">در حال بارگذاری...</div>
+    </div>
+  </div>
+  <div id="app"></div>
+
+  <script src="./api.js"></script>
+  <script src="./screens/mode_select.js"></script>
+  <script src="./screens/aso_select.js"></script>
+  <script src="./screens/card_select.js"></script>
+  <script src="./screens/battle.js"></script>
+  <script src="./screens/result.js"></script>
+  <script src="./screens/profile.js"></script>
+  <script src="./screens/leaderboard.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
