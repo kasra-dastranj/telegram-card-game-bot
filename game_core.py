@@ -513,7 +513,40 @@ class DatabaseManager:
                 created_at TEXT NOT NULL
             )
         ''')
-        
+
+        # ==================== Solo Fight Tables (Mini App) ====================
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS solo_fights (
+                fight_id TEXT PRIMARY KEY,
+                player_id INTEGER NOT NULL,
+                player_card_id TEXT,
+                ai_card_id TEXT,
+                difficulty TEXT NOT NULL DEFAULT 'medium',
+                arena TEXT,
+                status TEXT NOT NULL DEFAULT 'card_selection',
+                player_rounds_won INTEGER DEFAULT 0,
+                ai_rounds_won INTEGER DEFAULT 0,
+                current_round INTEGER DEFAULT 1,
+                player_used_stats TEXT DEFAULT '[]',
+                ai_used_stats TEXT DEFAULT '[]',
+                player_current_stats TEXT,
+                ai_current_stats TEXT,
+                rounds_history TEXT DEFAULT '[]',
+                created_at TEXT NOT NULL,
+                completed_at TEXT,
+                FOREIGN KEY (player_id) REFERENCES players (user_id)
+            )
+        ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS daily_solo_count (
+                user_id INTEGER NOT NULL,
+                date TEXT NOT NULL,
+                count INTEGER DEFAULT 0,
+                PRIMARY KEY (user_id, date),
+                FOREIGN KEY (user_id) REFERENCES players (user_id)
+            )
+        ''')
+
         # ==================== Migration: اضافه کردن ستون‌های جدید به جداول قدیمی ====================
         
         migrations = [
@@ -1703,6 +1736,117 @@ class DatabaseManager:
             })
         
         return fighters
+
+    # ==================== SOLO FIGHT (Mini App) ====================
+
+    def create_solo_fight(self, player_id: int, difficulty: str) -> str:
+        import uuid
+        fight_id = str(uuid.uuid4())[:8]
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO solo_fights (fight_id, player_id, difficulty, created_at)
+            VALUES (?, ?, ?, ?)
+        ''', (fight_id, player_id, difficulty, datetime.now().isoformat()))
+        conn.commit()
+        conn.close()
+        return fight_id
+
+    def get_solo_fight(self, fight_id: str) -> Optional[Dict]:
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM solo_fights WHERE fight_id = ?', (fight_id,))
+        row = cursor.fetchone()
+        conn.close()
+        return dict(row) if row else None
+
+    def update_solo_fight(self, fight_id: str, **kwargs) -> bool:
+        if not kwargs:
+            return False
+        fields = ', '.join(f'{k} = ?' for k in kwargs)
+        values = list(kwargs.values()) + [fight_id]
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute(f'UPDATE solo_fights SET {fields} WHERE fight_id = ?', values)
+        conn.commit()
+        conn.close()
+        return True
+
+    def get_daily_solo_count(self, user_id: int) -> int:
+        today = datetime.now().strftime('%Y-%m-%d')
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute(
+            'SELECT count FROM daily_solo_count WHERE user_id = ? AND date = ?',
+            (user_id, today)
+        )
+        row = cursor.fetchone()
+        conn.close()
+        return row[0] if row else 0
+
+    def increment_daily_solo_count(self, user_id: int):
+        today = datetime.now().strftime('%Y-%m-%d')
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO daily_solo_count (user_id, date, count)
+            VALUES (?, ?, 1)
+            ON CONFLICT(user_id, date) DO UPDATE SET count = count + 1
+        ''', (user_id, today))
+        conn.commit()
+        conn.close()
+
+    def get_cards_by_rarity_pool(self, rarity: str) -> List['Card']:
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT card_id, name, rarity, power, speed, iq, popularity,
+                   abilities, dialogs, biography, image_path, card_type, created_at
+            FROM cards WHERE rarity = ?
+        ''', (rarity,))
+        results = cursor.fetchall()
+        conn.close()
+        columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq',
+                   'popularity', 'abilities', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at']
+        return [Card.from_dict(dict(zip(columns, r))) for r in results]
+
+    def get_player_progression_full(self, user_id: int) -> Dict:
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM player_progression WHERE user_id = ?', (user_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            return dict(row)
+        return {'level': 1, 'total_xp': 0, 'tier_points': 0, 'current_tier': 'Bronze'}
+
+    def get_fight_stats(self, user_id: int) -> Dict:
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT
+                COUNT(*) as total,
+                SUM(CASE WHEN result = 'win' THEN 1 ELSE 0 END) as wins,
+                SUM(CASE WHEN fight_type = 'solo' THEN 1 ELSE 0 END) as solo_total,
+                SUM(CASE WHEN fight_type = 'solo' AND result = 'win' THEN 1 ELSE 0 END) as solo_wins,
+                SUM(CASE WHEN fight_type = 'pvp' THEN 1 ELSE 0 END) as pvp_total,
+                SUM(CASE WHEN fight_type = 'pvp' AND result = 'win' THEN 1 ELSE 0 END) as pvp_wins
+            FROM fight_history WHERE user_id = ?
+        ''', (user_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            return {
+                'total_fights': row[0] or 0,
+                'wins': row[1] or 0,
+                'solo_fights': row[2] or 0,
+                'solo_wins': row[3] or 0,
+                'pvp_fights': row[4] or 0,
+                'pvp_wins': row[5] or 0
+            }
+        return {'total_fights': 0, 'wins': 0, 'solo_fights': 0, 'solo_wins': 0, 'pvp_fights': 0, 'pvp_wins': 0}
 
 # ==================== GAME LOGIC ====================
 
