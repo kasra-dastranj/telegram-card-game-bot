@@ -201,10 +201,6 @@ async function initApp() {
     tg.expand();
   }
 
-  // حذف loading screen اول از همه
-  const loadingScreen = document.getElementById("loading-screen");
-  if (loadingScreen) loadingScreen.remove();
-
   // بارگذاری پروفایل در پس‌زمینه — اگه خطا داد مشکلی نیست
   try {
     state.profile = await API.getProfile();
@@ -212,12 +208,9 @@ async function initApp() {
     console.warn("Profile load failed:", e.message);
   }
 
+  // navigate صفحه رو render می‌کنه و loading رو جایگزین می‌کنه
   navigate("mode_select");
 }
 
-// اجرا — هم DOMContentLoaded هم حالتی که DOM قبلاً آماده‌ست
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", initApp);
-} else {
-  initApp();
-}
+// اجرای فوری — script‌ها بدون defer لود میشن
+initApp();

@@ -151,22 +151,23 @@
 </head>
 <body class="bg-background-deep text-text-primary min-h-screen font-body-md overflow-x-hidden">
   <div class="cyber-grid"></div>
-  <div id="loading-screen">
-    <div class="text-center">
-      <div class="font-headline-lg text-headline-lg text-primary italic mb-4">TelBattle</div>
-      <div class="text-on-surface-variant font-body-md">در حال بارگذاری...</div>
+  <div id="app">
+    <div style="position:fixed;inset:0;background:#0A0A1A;display:flex;align-items:center;justify-content:center;z-index:9999;">
+      <div style="text-align:center;">
+        <div style="font-size:32px;font-weight:700;color:#cbbeff;font-style:italic;margin-bottom:16px;font-family:Oswald,sans-serif;">TelBattle</div>
+        <div style="color:#cac4d6;font-size:16px;font-family:Vazirmatn,sans-serif;">در حال بارگذاری...</div>
+      </div>
     </div>
   </div>
-  <div id="app"></div>
 
-  <script src="./api.js" defer></script>
-  <script src="./screens/mode_select.js" defer></script>
-  <script src="./screens/aso_select.js" defer></script>
-  <script src="./screens/card_select.js" defer></script>
-  <script src="./screens/battle.js" defer></script>
-  <script src="./screens/result.js" defer></script>
-  <script src="./screens/profile.js" defer></script>
-  <script src="./screens/leaderboard.js" defer></script>
-  <script src="./app.js" defer></script>
+  <script src="./api.js"></script>
+  <script src="./screens/mode_select.js"></script>
+  <script src="./screens/aso_select.js"></script>
+  <script src="./screens/card_select.js"></script>
+  <script src="./screens/battle.js"></script>
+  <script src="./screens/result.js"></script>
+  <script src="./screens/profile.js"></script>
+  <script src="./screens/leaderboard.js"></script>
+  <script src="./app.js"></script>
 </body>
 </html>
