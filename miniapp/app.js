@@ -201,16 +201,16 @@ window.addEventListener("DOMContentLoaded", async () => {
     tg.expand();
   }
 
-  // بارگذاری پروفایل در پس‌زمینه
+  // حذف loading screen اول از همه
+  const loadingScreen = document.getElementById("loading-screen");
+  if (loadingScreen) loadingScreen.remove();
+
+  // بارگذاری پروفایل در پس‌زمینه — اگه خطا داد مشکلی نیست
   try {
     state.profile = await API.getProfile();
   } catch (e) {
-    // ignore
+    console.warn("Profile load failed:", e.message);
   }
-
-  // حذف loading screen
-  const loadingScreen = document.getElementById("loading-screen");
-  if (loadingScreen) loadingScreen.remove();
 
   navigate("mode_select");
 });
