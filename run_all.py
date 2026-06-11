@@ -28,10 +28,9 @@ def run_flask():
 def run_bot():
     """اجرای ربات تلگرام"""
     try:
-        from telegram_bot import TelegramCardBot
+        import telegram_bot
         logger.info("🤖 Starting Telegram Bot...")
-        bot = TelegramCardBot()
-        bot.run()
+        telegram_bot.main()
     except Exception as e:
         logger.error(f"Bot error: {e}", exc_info=True)
         sys.exit(1)
