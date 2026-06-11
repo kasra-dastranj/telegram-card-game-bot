@@ -117,6 +117,11 @@ def card_to_dict(card) -> dict:
     }
 
 
+@app.route("/api/v1/health", methods=["GET"])
+def health():
+    return jsonify({"status": "ok"})
+
+
 # ==================== Routes: Static ====================
 
 @app.route("/")
