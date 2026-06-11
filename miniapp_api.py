@@ -605,7 +605,8 @@ def get_leaderboard():
 
 def run_miniapp_server(host="0.0.0.0", port=5001, debug=False):
     debug_mode = debug or os.environ.get("FLASK_DEBUG", "0") == "1"
-    app.run(host=host, port=port, debug=debug_mode)
+    # use_reloader=False چون در thread اجرا میشه
+    app.run(host=host, port=port, debug=debug_mode, use_reloader=False)
 
 
 if __name__ == "__main__":
