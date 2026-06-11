@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 # ==================== تنظیمات ====================
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.environ.get("DATABASE_PATH", "game_bot.db")
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 
@@ -42,7 +43,9 @@ if not BOT_TOKEN:
     except Exception:
         pass
 
-app = Flask(__name__, static_folder="miniapp", static_url_path="/miniapp")
+app = Flask(__name__,
+    static_folder=os.path.join(BASE_DIR, "miniapp"),
+    static_url_path="/miniapp")
 db = DatabaseManager(DB_PATH)
 battle_system = BattleSystem3Rounds(db)
 
