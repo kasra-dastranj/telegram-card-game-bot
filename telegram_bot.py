@@ -14,7 +14,7 @@ from typing import Optional, List, Dict, Any
 
 import telegram
 import telegram.error
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, Bot, BotCommand, BotCommandScope, BotCommandScopeDefault, BotCommandScopeAllGroupChats
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, Bot, BotCommand, BotCommandScope, BotCommandScopeDefault, BotCommandScopeAllGroupChats, WebAppInfo
 from telegram.ext import (
     Application, 
     CommandHandler, 
@@ -311,8 +311,11 @@ class TelegramCardBot:
         # حافظه موقت برای خلاصه مبارزات اخیر (برای دکمه اطلاعات بیشتر)
         self.recent_matches: Dict[str, Dict[str, Any]] = {}
         
-        # تنظیمات ربات
-        self.bot_token = self.config['bot_settings']['token']
+        # تنظیمات ربات — env var اولویت داره (برای Railway)
+        self.bot_token = (
+            os.environ.get("BOT_TOKEN")
+            or self.config.get('bot_settings', {}).get('token', '')
+        )
         self.admin_ids = self.config['bot_settings']['admin_user_ids']
         
         if self.bot_token == "YOUR_BOT_TOKEN_HERE":
@@ -497,7 +500,12 @@ class TelegramCardBot:
                 '📜 برای دیدن داستان بازی بنویسید: /story'
             )
 
+            miniapp_url = (
+                os.environ.get("MINIAPP_URL")
+                or self.config.get("miniapp_url", "")
+            )
             keyboard = [
+                *([[InlineKeyboardButton("🎮 Solo vs آسو", web_app=WebAppInfo(url=miniapp_url))]] if miniapp_url else []),
                 [InlineKeyboardButton("🎴 کارت‌های من", callback_data="my_cards")],
                 [InlineKeyboardButton("⚔️ چالش PvP", callback_data="request_pvp_fight"),
                  InlineKeyboardButton("🎲 Risk Mode", callback_data="risk_menu")],

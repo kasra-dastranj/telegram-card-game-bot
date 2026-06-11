@@ -7,6 +7,7 @@ TelBattle Mini App — Flask REST API
 import json
 import hmac
 import hashlib
+import os
 import random
 import sqlite3
 import logging
@@ -22,15 +23,24 @@ logger = logging.getLogger(__name__)
 
 # ==================== تنظیمات ====================
 
-DB_PATH = "game_bot.db"
-BOT_TOKEN = ""
+DB_PATH = os.environ.get("DATABASE_PATH", "game_bot.db")
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 
-try:
-    with open("config.json") as f:
-        _cfg = json.load(f)
-        BOT_TOKEN = _cfg.get("bot_token", "")
-except Exception:
-    pass
+# fallback به config.json اگه env نبود
+if not BOT_TOKEN:
+    try:
+        with open("config.json") as f:
+            _cfg = json.load(f)
+            BOT_TOKEN = _cfg.get("bot_token", "")
+    except Exception:
+        pass
+if not BOT_TOKEN:
+    try:
+        with open("game_config.json") as f:
+            _cfg = json.load(f)
+            BOT_TOKEN = _cfg.get("bot_settings", {}).get("token", "")
+    except Exception:
+        pass
 
 app = Flask(__name__, static_folder="miniapp", static_url_path="/miniapp")
 db = DatabaseManager(DB_PATH)
