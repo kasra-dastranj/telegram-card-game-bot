@@ -144,11 +144,12 @@ async function loadCards(rarity = "all") {
     state.cards = data.cards;
     state.selectedCard = null;
     state.selectedCardId = null;
-    render();
   } catch (err) {
-    showError(err.message);
+    console.warn("loadCards error:", err.message);
+    state.cards = [];
   } finally {
     state.loading = false;
+    render();
   }
 }
 
