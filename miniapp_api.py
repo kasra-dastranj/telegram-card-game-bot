@@ -87,28 +87,49 @@ def require_auth(f):
     def decorated(*args, **kwargs):
         auth_header = request.headers.get("Authorization", "")
 
-        # Debug mode یا FLASK_DEBUG=1 → بدون auth
+        # اگه initData داره، همیشه verify کن
+        if auth_header.startswith("tma "):
+            init_data = auth_header[4:]
+            user = verify_telegram_init_data(init_data)
+            if user:
+                g.user_id = user["id"]
+                db.get_or_create_player(
+                    user_id=user["id"],
+                    username=user.get("username", ""),
+                    first_name=user.get("first_name", "")
+                )
+                return f(*args, **kwargs)
+            # initData invalid — اگه debug mode، ادامه بده
+            if not (app.debug or os.environ.get("FLASK_DEBUG", "0") == "1"):
+                return jsonify({"error": "Invalid initData"}), 401
+
+        # Debug mode: بدون auth یا با initData ناموفق
         if app.debug or os.environ.get("FLASK_DEBUG", "0") == "1":
+            # سعی کن از initData user_id بگیر
+            if auth_header.startswith("tma "):
+                try:
+                    from urllib.parse import parse_qs, unquote
+                    parsed = parse_qs(unquote(auth_header[4:]))
+                    user_str = parsed.get("user", ["{}"])[0]
+                    import json as _json
+                    user_data = _json.loads(user_str)
+                    if user_data.get("id"):
+                        g.user_id = int(user_data["id"])
+                        db.get_or_create_player(
+                            user_id=g.user_id,
+                            username=user_data.get("username", ""),
+                            first_name=user_data.get("first_name", "")
+                        )
+                        return f(*args, **kwargs)
+                except Exception:
+                    pass
+            # fallback به X-Debug-User-Id
             debug_user = request.headers.get("X-Debug-User-Id", "1")
             g.user_id = int(debug_user)
             db.get_or_create_player(user_id=g.user_id)
             return f(*args, **kwargs)
 
-        if not auth_header.startswith("tma "):
-            return jsonify({"error": "Unauthorized"}), 401
-
-        init_data = auth_header[4:]
-        user = verify_telegram_init_data(init_data)
-        if not user:
-            return jsonify({"error": "Invalid initData"}), 401
-
-        g.user_id = user["id"]
-        db.get_or_create_player(
-            user_id=user["id"],
-            username=user.get("username", ""),
-            first_name=user.get("first_name", "")
-        )
-        return f(*args, **kwargs)
+        return jsonify({"error": "Unauthorized"}), 401
     return decorated
 
 
