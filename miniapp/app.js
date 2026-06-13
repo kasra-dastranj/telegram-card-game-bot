@@ -36,14 +36,17 @@ function render() {
 }
 
 function bindEvents() {
-  document.querySelectorAll("[data-action]").forEach(el => {
-    el.removeEventListener("click", handleAction);
-    el.addEventListener("click", handleAction);
-  });
+  // event delegation روی document — یه بار bind میشه
+  document.removeEventListener("click", handleAction);
+  document.addEventListener("click", handleAction);
 }
 
 async function handleAction(e) {
-  const el = e.currentTarget;
+  // از bubble استفاده کن تا closest data-action رو پیدا کنه
+  const el = e.target.closest("[data-action]");
+  if (!el) return;
+  e.stopPropagation();
+
   const action = el.dataset.action;
   const value = el.dataset.value;
 
