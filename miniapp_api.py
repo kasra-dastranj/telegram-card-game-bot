@@ -93,11 +93,12 @@ def require_auth(f):
             user = verify_telegram_init_data(init_data)
             if user:
                 g.user_id = user["id"]
-                db.get_or_create_player(
+                player = db.get_or_create_player(
                     user_id=user["id"],
                     username=user.get("username", ""),
                     first_name=user.get("first_name", "")
                 )
+                _grant_starter_cards(user["id"])
                 return f(*args, **kwargs)
             # initData invalid — اگه debug mode، ادامه بده
             if not (app.debug or os.environ.get("FLASK_DEBUG", "0") == "1"):
@@ -120,6 +121,7 @@ def require_auth(f):
                             username=user_data.get("username", ""),
                             first_name=user_data.get("first_name", "")
                         )
+                        _grant_starter_cards(g.user_id)
                         return f(*args, **kwargs)
                 except Exception:
                     pass
@@ -127,10 +129,31 @@ def require_auth(f):
             debug_user = request.headers.get("X-Debug-User-Id", "1")
             g.user_id = int(debug_user)
             db.get_or_create_player(user_id=g.user_id)
+            _grant_starter_cards(g.user_id)
             return f(*args, **kwargs)
 
         return jsonify({"error": "Unauthorized"}), 401
     return decorated
+
+
+def _grant_starter_cards(user_id: int):
+    """اگه player هیچ کارتی نداره، ۳ تا کارت starter بده"""
+    try:
+        existing = db.get_player_cards(user_id)
+        if not existing:
+            starter_names = ["Heisenberg", "John Wick", "Rehi"]
+            all_cards = db.get_all_cards()
+            granted = 0
+            for card in all_cards:
+                if card.name in starter_names:
+                    db.add_card_to_player(user_id, card.card_id)
+                    granted += 1
+            # اگه starter cards پیدا نشد، اولین ۳ کارت رو بده
+            if granted == 0 and all_cards:
+                for card in all_cards[:3]:
+                    db.add_card_to_player(user_id, card.card_id)
+    except Exception as e:
+        logger.warning(f"Failed to grant starter cards to {user_id}: {e}")
 
 
 # ==================== Helper ====================
