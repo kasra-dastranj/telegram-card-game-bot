@@ -12,6 +12,56 @@ import os
 logger = logging.getLogger(__name__)
 
 
+def seed_database():
+    """لود کارت‌ها از cards_export.json اگه DB خالیه"""
+    try:
+        from game_core import DatabaseManager
+        db = DatabaseManager()
+        cards = db.get_all_cards()
+        if len(cards) < 10:
+            logger.info(f"DB has only {len(cards)} cards — running migration...")
+            import json, sqlite3
+            from datetime import datetime
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            json_path = os.path.join(base_dir, "cards_export.json")
+            if os.path.exists(json_path):
+                with open(json_path, encoding="utf-8") as f:
+                    card_data = json.load(f)
+                conn = sqlite3.connect(db.db_path)
+                cursor = conn.cursor()
+                added = 0
+                for card in card_data:
+                    abilities = card.get("abilities", [])
+                    if isinstance(abilities, list):
+                        abilities = json.dumps(abilities, ensure_ascii=False)
+                    try:
+                        cursor.execute('''
+                            INSERT OR IGNORE INTO cards
+                            (card_id, name, rarity, power, speed, iq, popularity,
+                             abilities, biography, card_type, created_at)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ''', (
+                            card["card_id"], card["name"], card["rarity"],
+                            card["power"], card["speed"], card["iq"], card["popularity"],
+                            abilities, card.get("biography", ""),
+                            card.get("card_type", "POWER_TYPE"),
+                            datetime.now().isoformat()
+                        ))
+                        if cursor.rowcount > 0:
+                            added += 1
+                    except Exception:
+                        pass
+                conn.commit()
+                conn.close()
+                logger.info(f"✅ Seeded {added} cards into DB")
+            else:
+                logger.warning(f"cards_export.json not found at {json_path}")
+        else:
+            logger.info(f"DB has {len(cards)} cards — no seed needed")
+    except Exception as e:
+        logger.error(f"Seed error: {e}", exc_info=True)
+
+
 def run_flask():
     """اجرای Flask API در یک thread جداگانه"""
     try:
@@ -42,6 +92,9 @@ if __name__ == "__main__":
         level=logging.INFO,
         handlers=[logging.StreamHandler()]
     )
+
+    # اول DB رو seed کن
+    seed_database()
 
     # Flask در thread جداگانه
     flask_thread = threading.Thread(target=run_flask, daemon=True, name="FlaskAPI")
