@@ -75,6 +75,10 @@ async function handleAction(e) {
       break;
 
     case "select_stat":
+      if (!state.currentFight || !state.currentFight.fight_id) {
+        showError("ابتدا باید نبرد شروع شود");
+        return;
+      }
       await playRound(value);
       break;
 
@@ -108,13 +112,16 @@ async function handleAction(e) {
 
 async function startFight() {
   try {
-    showLoading("battle");
+    state.loading = true;
+    render();
     const fight = await API.soloStart(state.selectedCardId, state.selectedDifficulty);
     state.currentFight = fight;
-    render();
   } catch (err) {
     showError(err.message);
     navigate("card_select");
+  } finally {
+    state.loading = false;
+    render();
   }
 }
 
