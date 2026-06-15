@@ -45,7 +45,7 @@ async function handleAction(e) {
   // از bubble استفاده کن تا closest data-action رو پیدا کنه
   const el = e.target.closest("[data-action]");
   if (!el) return;
-  e.stopPropagation();
+  if (el.dataset.action === "") return;
 
   const action = el.dataset.action;
   const value = el.dataset.value;
