@@ -779,6 +779,10 @@ class DatabaseManager:
         conn.close()
         return player
     
+    def save_player(self, player: Player) -> None:
+        """alias for update_player — used by miniapp_api"""
+        return self.update_player(player)
+
     def update_player(self, player: Player) -> None:
         """بروزرسانی اطلاعات بازیکن"""
         conn = sqlite3.connect(self.db_path)
