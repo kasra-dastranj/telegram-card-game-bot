@@ -4217,6 +4217,75 @@ class TelegramCardBot:
 
 
 
+
+    async def _announce_pvp_result(self, context, result: dict):
+        """اعلام نتیجه فایت PvP"""
+        if not result.get("success"):
+            return
+
+        fight_id = result.get("fight_id")
+        winner = result.get("winner")
+        loser = result.get("loser")
+        challenger = result.get("challenger")
+        opponent = result.get("opponent")
+        result_type = result.get("result_type", "tie")
+
+        # دریافت fight برای chat_id
+        fight = self.db.get_fight_by_id(fight_id)
+        chat_id = fight.chat_id if fight else None
+
+        stat_names = {"power": "💪 قدرت", "speed": "⚡ سرعت", "iq": "🧠 هوش", "popularity": "❤️ محبوبیت"}
+
+        if result_type == "tie":
+            text = (
+                f"🤝 **مساوی!**\n\n"
+                f"هیچ‌کدام برنده نشدند.\n\n"
+                f"Challenger: {stat_names.get(challenger['stat'], challenger['stat'])} = {challenger['stat_value']}\n"
+                f"Opponent: {stat_names.get(opponent['stat'], opponent['stat'])} = {opponent['stat_value']}"
+            )
+        else:
+            winner_name = winner['card'].name if winner else "?"
+            loser_name = loser['card'].name if loser else "?"
+            text = (
+                f"🎉 **{winner_name} برنده شد!**\n\n"
+                f"⭐ +{winner.get('score_gained', 0)} امتیاز\n"
+                f"💔 بازنده: -{loser.get('hearts_lost', 0)} جان\n\n"
+                f"📊 جزئیات:\n"
+                f"  برنده: {stat_names.get(winner['stat'], winner['stat'])} = {winner['stat_value']}\n"
+                f"  بازنده: {stat_names.get(loser['stat'], loser['stat'])} = {loser['stat_value']}"
+            )
+
+            # XP info
+            if winner.get('xp_gained'):
+                text += f"\n\n⭐ +{winner['xp_gained']} XP برنده"
+            if loser.get('xp_gained'):
+                text += f" • +{loser['xp_gained']} XP بازنده"
+
+            # Level up
+            if challenger.get('level_up'):
+                text += f"\n⬆️ Level Up! → {challenger['new_level']}"
+            if opponent.get('level_up'):
+                text += f"\n⬆️ Level Up! → {opponent['new_level']}"
+
+        keyboard = [[InlineKeyboardButton("🥊 چالش جدید", callback_data="request_pvp_fight")]]
+
+        if chat_id:
+            try:
+                await context.bot.send_message(
+                    chat_id=chat_id,
+                    text=text,
+                    reply_markup=InlineKeyboardMarkup(keyboard),
+                    parse_mode='Markdown'
+                )
+            except Exception as e:
+                logger.error(f"Failed to announce PvP result: {e}")
+
+        # پاک کردن فایت
+        try:
+            self.db.delete_fight(fight_id)
+        except Exception:
+            pass
+
     def _create_pvp_card_selection_keyboard(self, fight_id: str, user_id: int, category: str = "menu", page: int = 1):
         """ایجاد کیبورد انتخاب کارت برای PvP"""
         keyboard = []
