@@ -4216,6 +4216,35 @@ class TelegramCardBot:
             logger.warning(f"Could not send private message to opponent {opponent_id}: {e}")
 
 
+
+    def _create_pvp_card_selection_keyboard(self, fight_id: str, user_id: int, category: str = "menu", page: int = 1):
+        """ایجاد کیبورد انتخاب کارت برای PvP"""
+        keyboard = []
+        if category == "menu":
+            rarity_counts = self.db.get_rarity_counts(user_id) if hasattr(self.db, 'get_rarity_counts') else {}
+            keyboard.append([InlineKeyboardButton(f"🟡 Legendary ({rarity_counts.get('legend', 0)})", callback_data=f"pvp_cards_{fight_id}_legend_1")])
+            keyboard.append([InlineKeyboardButton(f"🟣 Epic ({rarity_counts.get('epic', 0)})", callback_data=f"pvp_cards_{fight_id}_epic_1")])
+            keyboard.append([InlineKeyboardButton(f"🟢 Normal ({rarity_counts.get('normal', 0)})", callback_data=f"pvp_cards_{fight_id}_normal_1")])
+        else:
+            rarity_map = {"legend": CardRarity.LEGEND, "epic": CardRarity.EPIC, "normal": CardRarity.NORMAL, "rare": CardRarity.RARE}
+            rarity = rarity_map.get(category)
+            cards, total_count = self.db.get_player_cards_by_rarity(user_id, rarity=rarity, page=page, per_page=6)
+            rarity_colors = {CardRarity.NORMAL: "🟢", CardRarity.EPIC: "🟣", CardRarity.LEGEND: "🟡", CardRarity.RARE: "🔵"}
+            for card in cards:
+                color = rarity_colors.get(card.rarity, "⚪")
+                stats = f"💪{card.power} ⚡{card.speed} 🧠{card.iq} ❤️{card.popularity}"
+                keyboard.append([InlineKeyboardButton(f"{color} {card.name} ({stats})", callback_data=f"pvp_card_{fight_id}_{card.card_id}")])
+            total_pages = (total_count + 5) // 6
+            nav_buttons = []
+            if page > 1:
+                nav_buttons.append(InlineKeyboardButton("« قبلی", callback_data=f"pvp_cards_{fight_id}_{category}_{page-1}"))
+            nav_buttons.append(InlineKeyboardButton("🏠 منو", callback_data=f"pvp_cards_{fight_id}_menu_1"))
+            if page < total_pages:
+                nav_buttons.append(InlineKeyboardButton("بعدی »", callback_data=f"pvp_cards_{fight_id}_{category}_{page+1}"))
+            if nav_buttons:
+                keyboard.append(nav_buttons)
+        return InlineKeyboardMarkup(keyboard)
+
     async def pvp_cards_navigation_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """مدیریت navigation بین دسته‌بندی‌ها و صفحات کارت‌ها"""
         query = update.callback_query
