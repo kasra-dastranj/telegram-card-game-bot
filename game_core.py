@@ -566,6 +566,12 @@ class DatabaseManager:
             ('risk_matches', 'opponent_bluff_action', 'TEXT'),
             ('risk_matches', 'raise_amount', 'INTEGER DEFAULT 0'),
             ('risk_matches', 'raise_by', 'INTEGER'),
+            # Phase 1: Ability System
+            ('battle_states', 'challenger_ability_used', 'INTEGER DEFAULT 0'),
+            ('battle_states', 'opponent_ability_used', 'INTEGER DEFAULT 0'),
+            # Solo fights ability tracking
+            ('solo_fights', 'player_ability_used', 'INTEGER DEFAULT 0'),
+            ('solo_fights', 'ai_ability_used', 'INTEGER DEFAULT 0'),
         ]
         for table, column, col_def in migrations:
             try:

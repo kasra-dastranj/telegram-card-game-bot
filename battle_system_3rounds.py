@@ -61,6 +61,78 @@ TYPE_COUNTER = {
 
 TYPE_COUNTER_BONUS = 10  # بونوس برتری تایپ
 
+# ==================== ABILITY SYSTEM ====================
+
+ABILITIES = {
+    "boost_15": {
+        "name_fa": "تقویت",
+        "emoji": "💥",
+        "description": "استت این راوندِ خودت +15",
+        "effect": "self_boost",
+        "value": 15,
+    },
+    "sabotage_10": {
+        "name_fa": "خرابکاری",
+        "emoji": "🔧",
+        "description": "استت حریف در این راوند -10",
+        "effect": "opponent_debuff",
+        "value": 10,
+    },
+    "copy": {
+        "name_fa": "تقلید",
+        "emoji": "🪞",
+        "description": "مقدار total حریف را برابر total خودت کن",
+        "effect": "copy_opponent",
+        "value": 0,
+    },
+    "peek": {
+        "name_fa": "شنود",
+        "emoji": "👁️",
+        "description": "یک stat تصادفی حریف را قبل از انتخاب ببین",
+        "effect": "reveal_stat",
+        "value": 0,
+    },
+    "shield": {
+        "name_fa": "سپر",
+        "emoji": "🛡️",
+        "description": "اگر این راوند باختی، کاهش stat نصف شود",
+        "effect": "reduce_penalty",
+        "value": 0,
+    },
+}
+
+# نگاشت ابیلیتی بر اساس rarity
+RARITY_ABILITY_MAP = {
+    "normal": None,              # بدون ابیلیتی
+    "epic": "boost_15",          # حماسی: تقویت
+    "legend": "sabotage_10",     # افسانه‌ای: خرابکاری
+    "rare": "copy",              # کمیاب: تقلید
+}
+
+# نگاشت ابیلیتی بر اساس card_type (override اگه rarity ابیلیتی نداد)
+TYPE_ABILITY_MAP = {
+    "POWER_TYPE": "boost_15",
+    "SPEED_TYPE": "peek",
+    "IQ_TYPE": "sabotage_10",
+    "POPULARITY_TYPE": "shield",
+}
+
+
+def get_card_ability(card) -> Optional[str]:
+    """
+    تعیین ابیلیتی فعال یک کارت.
+    اولویت: rarity → card_type → None
+    """
+    rarity_val = card.rarity.value if hasattr(card.rarity, 'value') else card.rarity
+    ability = RARITY_ABILITY_MAP.get(rarity_val)
+    if ability:
+        return ability
+    # fallback به card_type
+    card_type = getattr(card, 'card_type', None)
+    if card_type:
+        return TYPE_ABILITY_MAP.get(card_type)
+    return None
+
 # ==================== MODELS ====================
 
 @dataclass
@@ -202,6 +274,64 @@ class BattleSystem3Rounds:
         
         return 0
     
+    def apply_ability(self, ability_key: str, role: str,
+                      challenger_total: int, opponent_total: int,
+                      challenger_base: int, opponent_base: int,
+                      challenger_boost: int, opponent_boost: int) -> Tuple[int, int, str]:
+        """
+        اعمال اثر ابیلیتی فعال‌شده روی total‌های راوند.
+        
+        Args:
+            ability_key: کلید ابیلیتی (مثل 'boost_15')
+            role: 'challenger' یا 'opponent' (کی ابیلیتی زده)
+            challenger_total: مجموع فعلی challenger
+            opponent_total: مجموع فعلی opponent
+            و بقیه مقادیر پایه
+            
+        Returns:
+            (new_challenger_total, new_opponent_total, effect_text)
+        """
+        ability = ABILITIES.get(ability_key)
+        if not ability:
+            return challenger_total, opponent_total, ""
+        
+        effect = ability["effect"]
+        emoji = ability["emoji"]
+        name = ability["name_fa"]
+        
+        if effect == "self_boost":
+            # +15 به خودش
+            if role == "challenger":
+                challenger_total += ability["value"]
+            else:
+                opponent_total += ability["value"]
+            effect_text = f"{emoji} {name}: +{ability['value']}"
+            
+        elif effect == "opponent_debuff":
+            # -10 از حریف
+            if role == "challenger":
+                opponent_total = max(0, opponent_total - ability["value"])
+            else:
+                challenger_total = max(0, challenger_total - ability["value"])
+            effect_text = f"{emoji} {name}: -{ability['value']} حریف"
+            
+        elif effect == "copy_opponent":
+            # total حریف = total خودت
+            if role == "challenger":
+                opponent_total = challenger_total
+            else:
+                challenger_total = opponent_total
+            effect_text = f"{emoji} {name}: مقدار حریف = مقدار تو"
+            
+        elif effect == "reduce_penalty":
+            # اثرش بعد از resolve اعمال میشه (در reduction)
+            effect_text = f"{emoji} {name}: کاهش stat نصف شد"
+            
+        else:
+            effect_text = ""
+        
+        return challenger_total, opponent_total, effect_text
+
     def get_available_stats(self, used_stats: List[str]) -> List[str]:
         """
         دریافت ویژگی‌های قابل انتخاب

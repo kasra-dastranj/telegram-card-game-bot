@@ -1839,8 +1839,8 @@ class TelegramCardBot:
             except Exception as e:
                 logger.warning(f"Failed to send arena message: {e}")
 
-        await self._send_round_stat_selection(context, fight_id, fight.challenger_id, challenger_card, arena_id, round_num=1, used_stats=[], opponent_card=opponent_card)
-        await self._send_round_stat_selection(context, fight_id, fight.opponent_id, opponent_card, arena_id, round_num=1, used_stats=[], opponent_card=challenger_card)
+        await self._send_round_stat_selection(context, fight_id, fight.challenger_id, challenger_card, arena_id, round_num=1, used_stats=[], opponent_card=opponent_card, ability_used=False)
+        await self._send_round_stat_selection(context, fight_id, fight.opponent_id, opponent_card, arena_id, round_num=1, used_stats=[], opponent_card=challenger_card, ability_used=False)
 
         if query:
             try:
@@ -1850,8 +1850,10 @@ class TelegramCardBot:
 
     async def _send_round_stat_selection(self, context, fight_id: str, user_id: int,
                                           card, arena_id: str, round_num: int, used_stats: list,
-                                          opponent_card=None):
+                                          opponent_card=None, ability_used: bool = False):
         """ارسال UI انتخاب stat برای یک راوند"""
+        from battle_system_3rounds import ABILITIES, get_card_ability
+        
         arena_info = ARENAS[arena_id]
         boost_stat = arena_info['boost_stat']
 
@@ -1872,6 +1874,19 @@ class TelegramCardBot:
                 f"{emoji} {name}: {val}{boost_hint}",
                 callback_data=f"r3_stat_{fight_id}_{stat}"
             )])
+
+        # دکمه ابیلیتی (اگه هنوز مصرف نشده و کارت ابیلیتی داره)
+        ability_info_text = ""
+        card_ability = get_card_ability(card)
+        if card_ability and not ability_used:
+            ab = ABILITIES[card_ability]
+            keyboard.append([InlineKeyboardButton(
+                f"🪄 {ab['emoji']} {ab['name_fa']}: {ab['description']}",
+                callback_data=f"r3_ability_{fight_id}_{card_ability}"
+            )])
+            ability_info_text = f"\n🪄 ابیلیتی: {ab['emoji']} {ab['name_fa']} (یک‌بار مصرف)"
+        elif card_ability and ability_used:
+            ability_info_text = "\n🪄 ابیلیتی: ✅ مصرف شده"
 
         # اطلاعات حریف
         opponent_info = ""
@@ -1906,6 +1921,7 @@ class TelegramCardBot:
             f"⚔️ **راوند {round_num}**\n\n"
             f"🎴 کارت تو: **{card.name}**\n"
             f"🏟️ زمین: {arena_info['emoji']} {arena_info['name_fa']}"
+            f"{ability_info_text}"
             f"{opponent_info}\n"
             f"ویژگی این راوند را انتخاب کن:"
         )
@@ -2008,6 +2024,92 @@ class TelegramCardBot:
                                         ch_rounds_won, op_rounds_won,
                                         ch_used, op_used, ch_stats, op_stats)
 
+    async def r3_ability_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """فعال‌سازی ابیلیتی کارت (یک‌بار مصرف در کل نبرد)"""
+        query = update.callback_query
+        await query.answer()
+        user_id = query.from_user.id
+
+        import json as _json
+        import sqlite3 as _sq
+
+        # r3_ability_{fight_id}_{ability_key}
+        parts = query.data.split("_", 3)
+        # data format: r3_ability_FIGHTID_ABILITYKEY
+        # split on "_" max 3: ['r3', 'ability', 'FIGHTID_ABILITYKEY']
+        # better: split manually
+        prefix = "r3_ability_"
+        rest = query.data[len(prefix):]
+        # fight_id is 8 chars, ability_key is the rest
+        # safer: find last underscore-separated ability key
+        # fight_id could contain underscores... let's use a different approach
+        # format is actually: r3_ability_{fight_id}_{ability_key} where fight_id is 8 chars
+        fight_id = rest[:8]
+        ability_key = rest[9:]  # skip the underscore after fight_id
+
+        from battle_system_3rounds import ABILITIES, get_card_ability
+
+        if ability_key not in ABILITIES:
+            await query.answer("❌ ابیلیتی نامعتبر!", show_alert=True)
+            return
+
+        # دریافت battle_state
+        conn = _sq.connect(self.db.db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT challenger_id, opponent_id, challenger_ability_used, opponent_ability_used
+            FROM battle_states WHERE fight_id = ?
+        ''', (fight_id,))
+        row = cursor.fetchone()
+
+        if not row:
+            conn.close()
+            await query.answer("❌ بازی یافت نشد!", show_alert=True)
+            return
+
+        ch_id, op_id, ch_ab_used, op_ab_used = row
+
+        # تعیین نقش
+        if user_id == ch_id:
+            role = 'challenger'
+            already_used = bool(ch_ab_used)
+        elif user_id == op_id:
+            role = 'opponent'
+            already_used = bool(op_ab_used)
+        else:
+            conn.close()
+            await query.answer("❌ این بازی مال تو نیست!", show_alert=True)
+            return
+
+        if already_used:
+            conn.close()
+            await query.answer("❌ ابیلیتی قبلاً مصرف شده!", show_alert=True)
+            return
+
+        # ثبت ابیلیتی pending (برای اعمال در resolve)
+        context.bot_data[f"r3_{fight_id}_{role}_ability"] = ability_key
+
+        # ثبت در DB که ابیلیتی مصرف شد
+        col = "challenger_ability_used" if role == "challenger" else "opponent_ability_used"
+        cursor.execute(f'UPDATE battle_states SET {col} = 1 WHERE fight_id = ?', (fight_id,))
+        conn.commit()
+        conn.close()
+
+        ab = ABILITIES[ability_key]
+        await query.answer(f"🪄 {ab['name_fa']} فعال شد! حالا stat رو انتخاب کن.", show_alert=True)
+
+        # دکمه ابیلیتی حذف شود — re-edit message بدون دکمه ابیلیتی
+        # فقط متن تأیید بزنیم
+        try:
+            await query.edit_message_text(
+                f"🪄 **{ab['emoji']} {ab['name_fa']} فعال شد!**\n\n"
+                f"💡 {ab['description']}\n\n"
+                f"حالا ویژگی راوند رو انتخاب کن ↓",
+                parse_mode='Markdown'
+            )
+        except Exception:
+            pass
+
     async def _resolve_3round(self, context, fight_id: str,
                                ch_stat: str, op_stat: str,
                                ch_id: int, op_id: int,
@@ -2044,6 +2146,25 @@ class TelegramCardBot:
         ch_total = ch_base + ch_boost + ch_counter
         op_total = op_base + op_boost + op_counter
 
+        # اعمال ابیلیتی‌های pending
+        from battle_system_3rounds import ABILITIES
+        ch_ability_key = context.bot_data.pop(f"r3_{fight_id}_challenger_ability", None)
+        op_ability_key = context.bot_data.pop(f"r3_{fight_id}_opponent_ability", None)
+        
+        ability_texts = []
+        if ch_ability_key:
+            ch_total, op_total, ab_text = self.battle3.apply_ability(
+                ch_ability_key, "challenger", ch_total, op_total,
+                ch_base, op_base, ch_boost, op_boost)
+            if ab_text:
+                ability_texts.append(f"🪄 Challenger: {ab_text}")
+        if op_ability_key:
+            ch_total, op_total, ab_text = self.battle3.apply_ability(
+                op_ability_key, "opponent", ch_total, op_total,
+                ch_base, op_base, ch_boost, op_boost)
+            if ab_text:
+                ability_texts.append(f"🪄 Opponent: {ab_text}")
+
         # تعیین برنده راوند
         if ch_total > op_total:
             round_winner = 'challenger'
@@ -2056,12 +2177,20 @@ class TelegramCardBot:
             win_margin = 0
 
         # کاهش stat بازنده (پررنگ‌تر شده)
+        # اگه shield فعال شده، کاهش نصف بشه
+        ch_has_shield = ch_ability_key == "shield"
+        op_has_shield = op_ability_key == "shield"
+        
         if round_winner == 'challenger':
             reduction = 8 if win_margin >= 15 else 5
+            if op_has_shield:
+                reduction = reduction // 2
             op_stats[op_stat] = max(0, op_stats[op_stat] - reduction)
             ch_rounds_won += 1
         elif round_winner == 'opponent':
             reduction = 8 if win_margin >= 15 else 5
+            if ch_has_shield:
+                reduction = reduction // 2
             ch_stats[ch_stat] = max(0, ch_stats[ch_stat] - reduction)
             op_rounds_won += 1
         else:
@@ -2094,9 +2223,15 @@ class TelegramCardBot:
         if op_counter:
             op_bonus_text += f" +{op_counter}🔺"
 
+        # متن ابیلیتی
+        ability_section = ""
+        if ability_texts:
+            ability_section = "\n" + "\n".join(ability_texts) + "\n"
+
         round_text = (
             f"⚔️ **راوند {current_round} تموم شد!**\n\n"
-            f"🏟️ {arena_info['emoji']} {arena_info['name_fa']}\n\n"
+            f"🏟️ {arena_info['emoji']} {arena_info['name_fa']}\n"
+            f"{ability_section}\n"
             f"Challenger: {stat_names[ch_stat]} = {ch_bonus_text} = **{ch_total}**\n"
             f"Opponent: {stat_names[op_stat]} = {op_bonus_text} = **{op_total}**\n\n"
             f"{winner_text}\n"
@@ -2177,8 +2312,17 @@ class TelegramCardBot:
                     pass
 
             # ارسال UI راوند بعدی
-            await self._send_round_stat_selection(context, fight_id, ch_id, ch_card, arena_id, next_round, ch_used, opponent_card=op_card)
-            await self._send_round_stat_selection(context, fight_id, op_id, op_card, arena_id, next_round, op_used, opponent_card=ch_card)
+            # بررسی وضعیت ابیلیتی
+            conn2 = _sq.connect(self.db.db_path)
+            cursor2 = conn2.cursor()
+            cursor2.execute('SELECT challenger_ability_used, opponent_ability_used FROM battle_states WHERE fight_id=?', (fight_id,))
+            ab_row = cursor2.fetchone()
+            conn2.close()
+            ch_ab_used = bool(ab_row[0]) if ab_row else False
+            op_ab_used = bool(ab_row[1]) if ab_row else False
+
+            await self._send_round_stat_selection(context, fight_id, ch_id, ch_card, arena_id, next_round, ch_used, opponent_card=op_card, ability_used=ch_ab_used)
+            await self._send_round_stat_selection(context, fight_id, op_id, op_card, arena_id, next_round, op_used, opponent_card=ch_card, ability_used=op_ab_used)
 
     async def _finalize_3round_battle(self, context, fight_id: str, fight,
                                        ch_card, op_card,
@@ -5253,6 +5397,7 @@ class TelegramCardBot:
 
         # ==================== فاز ۲: 3-Round Battle ====================
         app.add_handler(CallbackQueryHandler(self.r3_stat_select_handler, pattern="^r3_stat_"))
+        app.add_handler(CallbackQueryHandler(self.r3_ability_handler, pattern="^r3_ability_"))
         app.add_handler(CallbackQueryHandler(self.arena_pick_handler, pattern="^arena_pick_"))
 
         # ==================== فاز ۲: Missions ====================
