@@ -14,7 +14,40 @@
 - endpoint `GET /api/v1/health` → `{"status": "ok"}` ✅
 
 ### ❌ مشکل فعلی
-**بعد از انتخاب سختی، صفحه انتخاب کارت (card_select) خالی می‌ماند — کارت‌ها لود نمی‌شوند**
+**دکمه‌های انتخاب stat (قدرت/سرعت/هوش/شهرت) در صفحه battle کلیک نمی‌شوند — هیچ اتفاقی نمی‌افتد**
+
+### تحلیل مشکل
+- API کاملاً کار می‌کند (تست شده از Railway Console: `solo/start` → 200, `solo/round` → 200)
+- صفحه battle نمایش داده می‌شود ✅
+- کارت‌ها نمایش داده می‌شوند ✅
+- `state.loading` مشکل داشت → **حل شد**
+- مشکل فعلی: **click event به `handleAction` نمی‌رسد**
+
+### علت شناسایی شده
+Event delegation روی `document` در Telegram Desktop WebView کار نمی‌کند. احتمالاً:
+1. WebView تلگرام از Chrome engine قدیمی استفاده می‌کند
+2. `e.target.closest("[data-action]")` مشکل دارد
+3. یا `bindEvents()` بعد از render صفحه battle صدا زده نمی‌شود
+
+### راه‌حل پیشنهادی
+به جای event delegation روی `document`، مستقیم روی هر دکمه event بگذاریم. `app.js` را تغییر دهید:
+
+```javascript
+function bindEvents() {
+  document.querySelectorAll("[data-action]").forEach(el => {
+    el.onclick = handleAction;
+  });
+}
+
+function handleAction(e) {
+  const el = this; // 'this' = element clicked
+  const action = el.getAttribute("data-action");
+  const value = el.getAttribute("data-value");
+  // ... rest of switch
+}
+```
+
+یا از `onclick` inline در template literals استفاده شود.
 
 ### احتمال علت
 - endpoint `GET /api/v1/cards` خطا برمی‌گرداند
