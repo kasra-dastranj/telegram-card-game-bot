@@ -126,12 +126,16 @@ async function startFight() {
 }
 
 async function playRound(stat) {
-  if (state.loading) return;
+  if (state.loading) {
+    console.warn("playRound blocked: loading=true");
+    return;
+  }
   state.loading = true;
 
   try {
+    console.log("playRound calling API:", state.currentFight.fight_id, stat);
     const result = await API.soloRound(state.currentFight.fight_id, stat);
-    // آپدیت available_stats
+    console.log("playRound result:", result);
     state.currentFight = { ...state.currentFight, ...result };
     if (result.game_over) {
       navigate("result", { lastFightResult: result.final_result });
@@ -139,6 +143,7 @@ async function playRound(stat) {
       render();
     }
   } catch (err) {
+    console.error("playRound error:", err);
     showError(err.message);
     render();
   } finally {
@@ -196,11 +201,19 @@ function showLoading(screen) {
 }
 
 function showError(msg) {
+  console.error("APP ERROR:", msg);
   const tg = window.Telegram?.WebApp;
-  if (tg?.showAlert) {
+  if (tg?.showPopup) {
+    tg.showPopup({title: "خطا", message: msg, buttons: [{type: "ok"}]});
+  } else if (tg?.showAlert) {
     tg.showAlert(msg);
   } else {
-    alert(msg);
+    // نمایش روی صفحه برای debug
+    const errDiv = document.createElement("div");
+    errDiv.style.cssText = "position:fixed;top:0;left:0;right:0;padding:16px;background:red;color:white;z-index:99999;font-size:14px;direction:ltr;";
+    errDiv.textContent = "ERROR: " + msg;
+    document.body.appendChild(errDiv);
+    setTimeout(() => errDiv.remove(), 5000);
   }
 }
 
