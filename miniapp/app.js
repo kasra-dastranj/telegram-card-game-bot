@@ -12,6 +12,7 @@ const state = {
   leaderboard: null,
   loading: false,
   error: null,
+  roundResult: null,
 };
 
 function navigate(screen, data = {}) {
@@ -100,6 +101,10 @@ async function handleAction(e) {
       loadLeaderboard();
       break;
 
+    case "dismiss_round":
+      // handled by playRound's own listener
+      break;
+
     case "filter_rarity":
       await loadCards(value);
       break;
@@ -138,10 +143,29 @@ async function playRound(stat) {
     const result = await API.soloRound(state.currentFight.fight_id, stat);
     console.log("playRound result:", result);
     state.currentFight = { ...state.currentFight, ...result };
-    // مهم: loading را *قبل از* render نهایی false کن. اگر این کار را در finally
-    // (بعد از render) انجام دهیم، دکمه‌های راوند بعدی با حالت disabled رندر شده و
-    // برای همیشه کلیک نمی‌خورند — همان باگی که نبرد را بعد از راوند اول قفل می‌کرد.
     state.loading = false;
+
+    // نمایش نتیجه راوند قبل از رفتن به مرحله بعد
+    state.roundResult = result;
+    render();
+
+    // صبر تا کاربر overlay رو ببنده (با کلیک یا بعد از ۳ ثانیه)
+    await new Promise(resolve => {
+      const timeout = setTimeout(() => { resolve(); }, 3000);
+      const handler = (e) => {
+        if (e.target.closest("[data-action='dismiss_round']")) {
+          clearTimeout(timeout);
+          document.removeEventListener("click", handler);
+          resolve();
+        }
+      };
+      document.addEventListener("click", handler);
+      // اگه timeout زودتر تموم شد
+      setTimeout(() => { document.removeEventListener("click", handler); }, 3100);
+    });
+
+    state.roundResult = null;
+
     if (result.game_over) {
       navigate("result", { lastFightResult: result.final_result });
     } else {

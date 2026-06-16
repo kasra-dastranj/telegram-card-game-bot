@@ -21,6 +21,11 @@ function renderBattle(state) {
 </div>`;
   }
 
+  // اگه نتیجه راوند هست، overlay نشون بده
+  if (state.roundResult) {
+    return renderRoundResultOverlay(state);
+  }
+
   const playerCard = fight.player_card;
   const aiCard = fight.ai_card;
   const arena = fight.arena;
@@ -183,5 +188,82 @@ function renderBattle(state) {
       ${statButtons}
     </div>
   </section>
+</div>`;
+}
+
+function renderRoundResultOverlay(state) {
+  const r = state.roundResult;
+  const playerStatInfo = STATS_FA[r.player_stat] || { label: r.player_stat, emoji: "?" };
+  const aiStatInfo = STATS_FA[r.ai_stat] || { label: r.ai_stat, emoji: "?" };
+
+  let winnerText, winnerColor, winnerEmoji;
+  if (r.round_winner === "player") {
+    winnerText = "تو بردی!";
+    winnerColor = "text-secondary";
+    winnerEmoji = "🎉";
+  } else if (r.round_winner === "ai") {
+    winnerText = "آسو برد!";
+    winnerColor = "text-rarity-rare";
+    winnerEmoji = "😈";
+  } else {
+    winnerText = "مساوی!";
+    winnerColor = "text-outline";
+    winnerEmoji = "🤝";
+  }
+
+  return `
+<div class="min-h-screen flex flex-col items-center justify-center bg-background-deep text-on-background p-6">
+  <!-- Round Number -->
+  <div class="font-label-caps text-label-caps text-outline mb-2">نتیجه راوند ${r.round_number}</div>
+
+  <!-- Winner -->
+  <div class="text-4xl mb-2">${winnerEmoji}</div>
+  <div class="font-headline-lg text-headline-lg ${winnerColor} mb-6">${winnerText}</div>
+
+  <!-- Aso Dialog -->
+  <div class="bg-surface-container/80 border border-white/10 rounded-2xl px-4 py-2 mb-6 max-w-xs text-center">
+    <span class="text-on-surface-variant font-body-md">${r.aso_dialog || ''}</span>
+  </div>
+
+  <!-- Stat Comparison -->
+  <div class="w-full max-w-sm bg-surface-container rounded-2xl border border-white/10 p-4 mb-6">
+    <div class="flex justify-between items-center mb-3">
+      <div class="text-center flex-1">
+        <div class="font-label-caps text-label-caps text-on-surface-variant mb-1">شما</div>
+        <div class="font-headline-sm text-headline-sm text-secondary">${playerStatInfo.emoji} ${playerStatInfo.label}</div>
+      </div>
+      <div class="text-outline font-headline-sm">VS</div>
+      <div class="text-center flex-1">
+        <div class="font-label-caps text-label-caps text-on-surface-variant mb-1">آسو</div>
+        <div class="font-headline-sm text-headline-sm text-rarity-epic">${aiStatInfo.emoji} ${aiStatInfo.label}</div>
+      </div>
+    </div>
+    <div class="flex justify-between items-center">
+      <div class="text-center flex-1">
+        <span class="font-stat-numeric text-stat-numeric text-on-surface text-2xl">${r.player_total}</span>
+        ${r.player_boost > 0 ? `<span class="text-secondary text-xs ml-1">(+${r.player_boost})</span>` : ''}
+      </div>
+      <div class="text-outline">—</div>
+      <div class="text-center flex-1">
+        <span class="font-stat-numeric text-stat-numeric text-on-surface text-2xl">${r.ai_total}</span>
+        ${r.ai_boost > 0 ? `<span class="text-rarity-epic text-xs ml-1">(+${r.ai_boost})</span>` : ''}
+      </div>
+    </div>
+  </div>
+
+  <!-- Score -->
+  <div class="flex gap-4 mb-6">
+    <div class="bg-surface-container px-3 py-1.5 rounded-full border border-white/10">
+      <span class="text-secondary font-stat-numeric">${r.player_rounds_won}</span>
+      <span class="text-outline text-xs mx-1">-</span>
+      <span class="text-rarity-rare font-stat-numeric">${r.ai_rounds_won}</span>
+    </div>
+  </div>
+
+  <!-- Continue Button -->
+  <button data-action="dismiss_round" data-value=""
+    class="w-full max-w-xs bg-primary hover:bg-primary/80 text-on-primary font-button-label text-button-label py-3 px-6 rounded-xl transition-all active:scale-95 shadow-lg">
+    ${r.game_over ? 'مشاهده نتیجه' : 'راوند بعدی ➜'}
+  </button>
 </div>`;
 }
