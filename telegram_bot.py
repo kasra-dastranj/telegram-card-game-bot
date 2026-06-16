@@ -1839,8 +1839,8 @@ class TelegramCardBot:
             except Exception as e:
                 logger.warning(f"Failed to send arena message: {e}")
 
-        await self._send_round_stat_selection(context, fight_id, fight.challenger_id, challenger_card, arena_id, round_num=1, used_stats=[])
-        await self._send_round_stat_selection(context, fight_id, fight.opponent_id, opponent_card, arena_id, round_num=1, used_stats=[])
+        await self._send_round_stat_selection(context, fight_id, fight.challenger_id, challenger_card, arena_id, round_num=1, used_stats=[], opponent_card=opponent_card)
+        await self._send_round_stat_selection(context, fight_id, fight.opponent_id, opponent_card, arena_id, round_num=1, used_stats=[], opponent_card=challenger_card)
 
         if query:
             try:
@@ -1849,7 +1849,8 @@ class TelegramCardBot:
                 pass
 
     async def _send_round_stat_selection(self, context, fight_id: str, user_id: int,
-                                          card, arena_id: str, round_num: int, used_stats: list):
+                                          card, arena_id: str, round_num: int, used_stats: list,
+                                          opponent_card=None):
         """ارسال UI انتخاب stat برای یک راوند"""
         arena_info = ARENAS[arena_id]
         boost_stat = arena_info['boost_stat']
@@ -1866,16 +1867,46 @@ class TelegramCardBot:
             if stat in used_stats:
                 continue  # stat locking
             val = getattr(card, stat)
-            boost_hint = " 🔥+1" if stat == boost_stat and getattr(card, 'card_type', '') == f"{stat.upper()}_TYPE" else ""
+            boost_hint = " 🔥+8" if stat == boost_stat and getattr(card, 'card_type', '') == f"{stat.upper()}_TYPE" else ""
             keyboard.append([InlineKeyboardButton(
                 f"{emoji} {name}: {val}{boost_hint}",
                 callback_data=f"r3_stat_{fight_id}_{stat}"
             )])
 
+        # اطلاعات حریف
+        opponent_info = ""
+        if opponent_card:
+            type_labels = {
+                "POWER_TYPE": "💪 قدرت",
+                "SPEED_TYPE": "⚡ سرعت",
+                "IQ_TYPE": "🧠 هوش",
+                "POPULARITY_TYPE": "❤️ محبوبیت"
+            }
+            rarity_labels = {"normal": "معمولی", "epic": "حماسی", "legend": "افسانه‌ای", "rare": "کمیاب"}
+            op_rarity = opponent_card.rarity.value if hasattr(opponent_card.rarity, 'value') else opponent_card.rarity
+            op_type = type_labels.get(getattr(opponent_card, 'card_type', ''), '❓')
+            op_rarity_fa = rarity_labels.get(op_rarity, op_rarity)
+
+            if round_num == 1:
+                # راوند ۱: فقط نوع و کمیابی
+                opponent_info = (
+                    f"\n🎯 حریف: **{opponent_card.name}**\n"
+                    f"   نوع: {op_type} | کمیابی: {op_rarity_fa}\n"
+                )
+            else:
+                # راوند ۲ و ۳: نمایش همه stat‌ها
+                opponent_info = (
+                    f"\n🎯 حریف: **{opponent_card.name}**\n"
+                    f"   نوع: {op_type} | کمیابی: {op_rarity_fa}\n"
+                    f"   💪{opponent_card.power} ⚡{opponent_card.speed} "
+                    f"🧠{opponent_card.iq} ❤️{opponent_card.popularity}\n"
+                )
+
         text = (
             f"⚔️ **راوند {round_num}**\n\n"
             f"🎴 کارت تو: **{card.name}**\n"
-            f"🏟️ زمین: {arena_info['emoji']} {arena_info['name_fa']}\n\n"
+            f"🏟️ زمین: {arena_info['emoji']} {arena_info['name_fa']}"
+            f"{opponent_info}\n"
             f"ویژگی این راوند را انتخاب کن:"
         )
 
@@ -2003,8 +2034,15 @@ class TelegramCardBot:
         ch_boost = self.battle3.calculate_boost(ch_card, arena_id, ch_stat)
         op_boost = self.battle3.calculate_boost(op_card, arena_id, op_stat)
 
-        ch_total = ch_base + ch_boost
-        op_total = op_base + op_boost
+        # محاسبه بونوس برتری تایپ (Type Counter)
+        from battle_system_3rounds import TYPE_COUNTER, TYPE_COUNTER_BONUS
+        ch_type = getattr(ch_card, 'card_type', '') or ''
+        op_type = getattr(op_card, 'card_type', '') or ''
+        ch_counter = TYPE_COUNTER_BONUS if TYPE_COUNTER.get(ch_type) == op_type else 0
+        op_counter = TYPE_COUNTER_BONUS if TYPE_COUNTER.get(op_type) == ch_type else 0
+
+        ch_total = ch_base + ch_boost + ch_counter
+        op_total = op_base + op_boost + op_counter
 
         # تعیین برنده راوند
         if ch_total > op_total:
@@ -2017,17 +2055,18 @@ class TelegramCardBot:
             round_winner = None
             win_margin = 0
 
-        # کاهش stat برنده
-        reduction = 2 if win_margin >= 5 else 1
+        # کاهش stat بازنده (پررنگ‌تر شده)
         if round_winner == 'challenger':
-            ch_stats[ch_stat] = max(0, ch_stats[ch_stat] - reduction)
+            reduction = 8 if win_margin >= 15 else 5
+            op_stats[op_stat] = max(0, op_stats[op_stat] - reduction)
             ch_rounds_won += 1
         elif round_winner == 'opponent':
-            op_stats[op_stat] = max(0, op_stats[op_stat] - reduction)
+            reduction = 8 if win_margin >= 15 else 5
+            ch_stats[ch_stat] = max(0, ch_stats[ch_stat] - reduction)
             op_rounds_won += 1
         else:
-            ch_stats[ch_stat] = max(0, ch_stats[ch_stat] - 1)
-            op_stats[op_stat] = max(0, op_stats[op_stat] - 1)
+            ch_stats[ch_stat] = max(0, ch_stats[ch_stat] - 3)
+            op_stats[op_stat] = max(0, op_stats[op_stat] - 3)
 
         # اضافه کردن به used_stats
         ch_used.append(ch_stat)
@@ -2042,13 +2081,24 @@ class TelegramCardBot:
         else:
             winner_text = f"🤝 راوند {current_round} مساوی!"
 
+        # متن بونوس‌ها
+        ch_bonus_text = f"{ch_base}"
+        if ch_boost:
+            ch_bonus_text += f" +{ch_boost}🔥"
+        if ch_counter:
+            ch_bonus_text += f" +{ch_counter}🔺"
+        
+        op_bonus_text = f"{op_base}"
+        if op_boost:
+            op_bonus_text += f" +{op_boost}🔥"
+        if op_counter:
+            op_bonus_text += f" +{op_counter}🔺"
+
         round_text = (
             f"⚔️ **راوند {current_round} تموم شد!**\n\n"
             f"🏟️ {arena_info['emoji']} {arena_info['name_fa']}\n\n"
-            f"Challenger: {stat_names[ch_stat]} = {ch_base}"
-            f"{f' +{ch_boost}🔥' if ch_boost else ''} = **{ch_total}**\n"
-            f"Opponent: {stat_names[op_stat]} = {op_base}"
-            f"{f' +{op_boost}🔥' if op_boost else ''} = **{op_total}**\n\n"
+            f"Challenger: {stat_names[ch_stat]} = {ch_bonus_text} = **{ch_total}**\n"
+            f"Opponent: {stat_names[op_stat]} = {op_bonus_text} = **{op_total}**\n\n"
             f"{winner_text}\n"
             f"امتیاز: Challenger {ch_rounds_won} — Opponent {op_rounds_won}"
         )
@@ -2127,8 +2177,8 @@ class TelegramCardBot:
                     pass
 
             # ارسال UI راوند بعدی
-            await self._send_round_stat_selection(context, fight_id, ch_id, ch_card, arena_id, next_round, ch_used)
-            await self._send_round_stat_selection(context, fight_id, op_id, op_card, arena_id, next_round, op_used)
+            await self._send_round_stat_selection(context, fight_id, ch_id, ch_card, arena_id, next_round, ch_used, opponent_card=op_card)
+            await self._send_round_stat_selection(context, fight_id, op_id, op_card, arena_id, next_round, op_used, opponent_card=ch_card)
 
     async def _finalize_3round_battle(self, context, fight_id: str, fight,
                                        ch_card, op_card,

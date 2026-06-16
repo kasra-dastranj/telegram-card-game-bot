@@ -23,31 +23,43 @@ ARENAS = {
         "name_fa": "عرصه قدرت",
         "name_en": "Power Arena",
         "boost_stat": "power",
-        "boost_amount": 1,
+        "boost_amount": 8,
         "emoji": "⚡"
     },
     "speed_track": {
         "name_fa": "پیست سرعت",
         "name_en": "Speed Track",
         "boost_stat": "speed",
-        "boost_amount": 1,
+        "boost_amount": 8,
         "emoji": "🏃"
     },
     "thinking_room": {
         "name_fa": "اتاق فکر",
         "name_en": "Thinking Room",
         "boost_stat": "iq",
-        "boost_amount": 1,
+        "boost_amount": 8,
         "emoji": "🧠"
     },
     "stage": {
         "name_fa": "صحنه",
         "name_en": "Stage",
         "boost_stat": "popularity",
-        "boost_amount": 1,
+        "boost_amount": 8,
         "emoji": "⭐"
     }
 }
+
+# ==================== TYPE COUNTER SYSTEM ====================
+
+# چرخه برتری: POWER > SPEED > IQ > POPULARITY > POWER
+TYPE_COUNTER = {
+    "POWER_TYPE": "SPEED_TYPE",      # قدرت سرعت رو می‌زنه
+    "SPEED_TYPE": "IQ_TYPE",         # سرعت هوش رو می‌زنه
+    "IQ_TYPE": "POPULARITY_TYPE",    # هوش شهرت رو می‌زنه
+    "POPULARITY_TYPE": "POWER_TYPE", # شهرت قدرت رو می‌زنه
+}
+
+TYPE_COUNTER_BONUS = 10  # بونوس برتری تایپ
 
 # ==================== MODELS ====================
 
@@ -233,9 +245,20 @@ class BattleSystem3Rounds:
         challenger_boost = self.calculate_boost(challenger_card, battle_state.arena, challenger_stat)
         opponent_boost = self.calculate_boost(opponent_card, battle_state.arena, opponent_stat)
         
+        # محاسبه بونوس برتری تایپ (Type Counter)
+        challenger_type = getattr(challenger_card, 'card_type', '') or ''
+        opponent_type = getattr(opponent_card, 'card_type', '') or ''
+        
+        challenger_counter_bonus = 0
+        opponent_counter_bonus = 0
+        if TYPE_COUNTER.get(challenger_type) == opponent_type:
+            challenger_counter_bonus = TYPE_COUNTER_BONUS
+        if TYPE_COUNTER.get(opponent_type) == challenger_type:
+            opponent_counter_bonus = TYPE_COUNTER_BONUS
+        
         # محاسبه مجموع
-        challenger_total = challenger_base + challenger_boost
-        opponent_total = opponent_base + opponent_boost
+        challenger_total = challenger_base + challenger_boost + challenger_counter_bonus
+        opponent_total = opponent_base + opponent_boost + opponent_counter_bonus
         
         # تعیین برنده
         if challenger_total > opponent_total:
@@ -248,26 +271,26 @@ class BattleSystem3Rounds:
             winner = None  # tie
             win_margin = 0
         
-        # محاسبه کاهش آمار
+        # محاسبه کاهش آمار (پررنگ‌تر شده برای عمق استراتژیک)
         challenger_reduction = 0
         opponent_reduction = 0
         
         if winner == "challenger":
-            # برنده کاهش می‌یابد
-            if win_margin >= 5:
-                challenger_reduction = 2
+            # بازنده کاهش می‌یابد
+            if win_margin >= 15:
+                opponent_reduction = 8
             else:
-                challenger_reduction = 1
+                opponent_reduction = 5
         elif winner == "opponent":
-            # برنده کاهش می‌یابد
-            if win_margin >= 5:
-                opponent_reduction = 2
+            # بازنده کاهش می‌یابد
+            if win_margin >= 15:
+                challenger_reduction = 8
             else:
-                opponent_reduction = 1
+                challenger_reduction = 5
         else:
-            # تساوی: هر دو 1 واحد کم می‌شوند
-            challenger_reduction = 1
-            opponent_reduction = 1
+            # تساوی: هر دو 3 واحد کم می‌شوند
+            challenger_reduction = 3
+            opponent_reduction = 3
         
         # اعمال کاهش
         battle_state.challenger_current_stats[challenger_stat] = max(
