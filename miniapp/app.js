@@ -131,12 +131,17 @@ async function playRound(stat) {
     return;
   }
   state.loading = true;
+  render(); // فیدبک فوری: دکمه‌ها در حین درخواست disabled شوند تا دابل‌کلیک نشود
 
   try {
     console.log("playRound calling API:", state.currentFight.fight_id, stat);
     const result = await API.soloRound(state.currentFight.fight_id, stat);
     console.log("playRound result:", result);
     state.currentFight = { ...state.currentFight, ...result };
+    // مهم: loading را *قبل از* render نهایی false کن. اگر این کار را در finally
+    // (بعد از render) انجام دهیم، دکمه‌های راوند بعدی با حالت disabled رندر شده و
+    // برای همیشه کلیک نمی‌خورند — همان باگی که نبرد را بعد از راوند اول قفل می‌کرد.
+    state.loading = false;
     if (result.game_over) {
       navigate("result", { lastFightResult: result.final_result });
     } else {
@@ -144,10 +149,9 @@ async function playRound(stat) {
     }
   } catch (err) {
     console.error("playRound error:", err);
+    state.loading = false;
     showError(err.message);
     render();
-  } finally {
-    state.loading = false;
   }
 }
 

@@ -13,41 +13,47 @@
 - فایل‌های static JS لود می‌شوند (`/miniapp/api.js` → 200 OK) ✅
 - endpoint `GET /api/v1/health` → `{"status": "ok"}` ✅
 
-### ❌ مشکل فعلی
-**دکمه‌های انتخاب stat (قدرت/سرعت/هوش/شهرت) در صفحه battle کلیک نمی‌شوند — هیچ اتفاقی نمی‌افتد**
+### ✅ مشکل حل شد (به‌روزرسانی)
+**دکمه‌های stat در صفحه battle بعد از راوند اول قفل می‌شدند — ریشه پیدا و رفع شد.**
 
-### تحلیل مشکل
-- API کاملاً کار می‌کند (تست شده از Railway Console: `solo/start` → 200, `solo/round` → 200)
-- صفحه battle نمایش داده می‌شود ✅
-- کارت‌ها نمایش داده می‌شوند ✅
-- `state.loading` مشکل داشت → **حل شد**
-- مشکل فعلی: **click event به `handleAction` نمی‌رسد**
+### ریشهٔ واقعی (نه delegation!)
+علتِ حدس‌زده‌شدهٔ قبلی (شکستن event delegation روی `document` در WebView تلگرام)
+**اشتباه بود**: صفحات `aso_select` و `card_select` از همان delegation استفاده می‌کنند و
+دکمه‌هایشان کار می‌کند. پس delegation سالم است.
 
-### علت شناسایی شده
-Event delegation روی `document` در Telegram Desktop WebView کار نمی‌کند. احتمالاً:
-1. WebView تلگرام از Chrome engine قدیمی استفاده می‌کند
-2. `e.target.closest("[data-action]")` مشکل دارد
-3. یا `bindEvents()` بعد از render صفحه battle صدا زده نمی‌شود
+علت واقعی در `app.js` تابع `playRound` بود:
+- دکمه‌های stat در `battle.js` با `${state.loading ? 'disabled' : ''}` رندر می‌شوند.
+- یک `<button disabled>` **هیچ click/onclick صادر نمی‌کند** (نه با delegation، نه با direct bind).
+- در `playRound`، `render()` داخل `try` در حالی صدا زده می‌شد که `state.loading` هنوز
+  `true` بود → دکمه‌ها `disabled` رندر می‌شدند. سپس `finally` مقدار `loading` را `false`
+  می‌کرد ولی **دیگر `render()` نمی‌زد** → دکمه‌ها برای همیشه disabled می‌ماندند.
+- نتیجه: راوند ۱ کار می‌کرد، از راوند ۲ به بعد «هیچ اتفاقی نمی‌افتد».
 
-### راه‌حل پیشنهادی
-به جای event delegation روی `document`، مستقیم روی هر دکمه event بگذاریم. `app.js` را تغییر دهید:
+> ⚠️ نکته: تعویض delegation به `el.onclick = handleAction` این باگ را حل **نمی‌کرد**،
+> چون مشکل، صادر نشدن رویداد از دکمهٔ `disabled` است، نه روش bind کردن.
+
+### راه‌حل اعمال‌شده
+در `app.js → playRound`، مقدار `state.loading` را **قبل از** هر `render()` نهایی به
+`false` تنظیم کردیم (به‌جای انجامش در `finally` بعد از render):
 
 ```javascript
-function bindEvents() {
-  document.querySelectorAll("[data-action]").forEach(el => {
-    el.onclick = handleAction;
-  });
-}
+state.loading = true;
+render(); // فیدبک: دکمه‌ها حین درخواست disabled شوند
 
-function handleAction(e) {
-  const el = this; // 'this' = element clicked
-  const action = el.getAttribute("data-action");
-  const value = el.getAttribute("data-value");
-  // ... rest of switch
+try {
+  const result = await API.soloRound(state.currentFight.fight_id, stat);
+  state.currentFight = { ...state.currentFight, ...result };
+  state.loading = false;            // ← قبل از render
+  if (result.game_over) navigate("result", { lastFightResult: result.final_result });
+  else render();                    // دکمه‌ها دوباره enabled می‌شوند
+} catch (err) {
+  state.loading = false;            // ← قبل از render
+  showError(err.message);
+  render();
 }
 ```
 
-یا از `onclick` inline در template literals استفاده شود.
+`startFight` همین الگو را از قبل درست داشت (در `finally` اول `loading=false` بعد `render()`).
 
 ### احتمال علت
 - endpoint `GET /api/v1/cards` خطا برمی‌گرداند
