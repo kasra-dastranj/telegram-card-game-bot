@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+
+<html class="dark" dir="rtl" lang="fa"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>TelBattle - Leaderboard</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&amp;family=Rajdhani:wght@600;700&amp;family=Vazirmatn:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-variant": "#31324f",
+                        "on-secondary-container": "#392a00",
+                        "secondary-container": "#b88d00",
+                        "rarity-epic": "#9C27B0",
+                        "tertiary-fixed": "#ffdcbd",
+                        "on-tertiary-fixed": "#2c1600",
+                        "background-deep": "#0A0A1A",
+                        "on-secondary": "#3e2e00",
+                        "secondary-fixed-dim": "#f0c040",
+                        "secondary-fixed": "#ffdf97",
+                        "primary-fixed": "#e6deff",
+                        "on-primary-fixed-variant": "#4a25b7",
+                        "surface-container-high": "#262744",
+                        "on-surface": "#e1e0ff",
+                        "outline-variant": "#484554",
+                        "secondary": "#f0c040",
+                        "surface-tint": "#cbbeff",
+                        "on-secondary-fixed": "#251a00",
+                        "on-surface-variant": "#cac4d6",
+                        "error-container": "#93000a",
+                        "text-primary": "#FFFFFF",
+                        "rarity-normal": "#4CAF50",
+                        "inverse-primary": "#6343d0",
+                        "surface-dim": "#0f102c",
+                        "rarity-rare": "#F44336",
+                        "on-error": "#690005",
+                        "on-primary-fixed": "#1d0061",
+                        "surface-card": "#12122A",
+                        "on-background": "#e1e0ff",
+                        "primary": "#cbbeff",
+                        "inverse-on-surface": "#2d2e4b",
+                        "surface-container-highest": "#31324f",
+                        "primary-container": "#7b5eea",
+                        "inverse-surface": "#e1e0ff",
+                        "surface-bright": "#363654",
+                        "primary-fixed-dim": "#cbbeff",
+                        "outline": "#938ea0",
+                        "on-tertiary-fixed-variant": "#693c00",
+                        "surface-container-lowest": "#0a0b26",
+                        "on-error-container": "#ffdad6",
+                        "background": "#0f102c",
+                        "surface-container-low": "#181934",
+                        "rarity-legend": "#FF9800",
+                        "surface-container": "#1c1d39",
+                        "surface": "#0f102c",
+                        "on-tertiary": "#492900",
+                        "on-primary": "#330098",
+                        "on-secondary-fixed-variant": "#5a4400",
+                        "tertiary-fixed-dim": "#ffb86e",
+                        "error": "#ffb4ab",
+                        "on-primary-container": "#ffffff",
+                        "on-tertiary-container": "#ffffff",
+                        "tertiary-container": "#ac6600",
+                        "tertiary": "#ffb86e"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "gutter": "12px",
+                        "card-gap": "8px",
+                        "margin-mobile": "16px",
+                        "unit": "4px",
+                        "section-padding": "24px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Oswald", "Vazirmatn", "sans-serif"],
+                        "headline-sm": ["Oswald", "Vazirmatn", "sans-serif"],
+                        "body-lg": ["Vazirmatn", "sans-serif"],
+                        "headline-lg": ["Oswald", "Vazirmatn", "sans-serif"],
+                        "body-md": ["Vazirmatn", "sans-serif"],
+                        "button-label": ["Oswald", "Vazirmatn", "sans-serif"],
+                        "stat-numeric": ["Rajdhani", "sans-serif"],
+                        "label-caps": ["Rajdhani", "Vazirmatn", "sans-serif"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "500" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "0.02em", "fontWeight": "700" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "button-label": ["16px", { "lineHeight": "24px", "fontWeight": "600" }],
+                        "stat-numeric": ["18px", { "lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "700" }],
+                        "label-caps": ["12px", { "lineHeight": "16px", "letterSpacing": "0.1em", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-deep text-on-background font-body-md min-h-screen relative pb-32">
+<!-- TopAppBar Shared Component -->
+<header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-margin-mobile h-16 bg-surface-dim/80 dark:bg-surface-dim/80 backdrop-blur-xl border-b border-white/10 no-shadows text-primary font-headline-sm text-headline-sm">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full overflow-hidden border-2 border-primary-container">
+<img alt="User Avatar" class="w-full h-full object-cover" data-alt="A close-up portrait of a cyberpunk hacker character with neon purple lighting reflecting on their face, set against a dark, tech-filled background. High contrast, highly detailed digital art." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDnVEXdt6-7s5xGNgPqTEeTM6ui3iXgbQMpB7z580hbm3nRNVBgs09A_c72di5mQ_cu7FeSRFSbm1vQbiH2HfV0AiNa61xq8Gi74tGdplzrzJne_14eLsiYK4yJrwpN05IKZ-cLuuYHmZ21kmEAKv03kXfQE-loRcp_J2PN4ZnsKZEaYroaLWFS6WaeaRXV7eP2wyATz67SpQKKmJO0TxLdMRDJiQW_6PNnlq798jOvFIQ66kKZrC_gRTQticiuZOyG7PJ2l8oooAuY"/>
+</div>
+<span class="font-headline-md text-headline-md font-bold text-primary tracking-wider uppercase">TELBATTLE</span>
+</div>
+<div class="flex items-center gap-1 bg-surface-container rounded-full px-3 py-1 border border-white/5">
+<span class="font-stat-numeric text-stat-numeric text-secondary">1200</span>
+<span class="text-secondary text-sm">🪙</span>
+</div>
+</header>
+<!-- Main Canvas -->
+<main class="pt-24 px-margin-mobile flex flex-col gap-6">
+<!-- Header & Filters -->
+<section class="flex flex-col gap-4">
+<h1 class="font-headline-lg text-headline-lg text-primary drop-shadow-[0_0_10px_rgba(203,190,255,0.3)]">جدول امتیازات</h1>
+<div class="flex bg-surface-container-low p-1 rounded-lg border border-white/5 w-full">
+<button class="flex-1 py-2 text-center rounded-md transition-colors bg-primary-container text-on-primary-container font-button-label text-button-label shadow-[0_0_10px_rgba(123,94,234,0.2)]">هفتگی</button>
+<button class="flex-1 py-2 text-center rounded-md transition-colors text-on-surface-variant hover:bg-surface-container-high font-button-label text-button-label">ماهانه</button>
+<button class="flex-1 py-2 text-center rounded-md transition-colors text-on-surface-variant hover:bg-surface-container-high font-button-label text-button-label">کل زمان</button>
+</div>
+</section>
+<!-- Leaderboard List -->
+<section class="flex flex-col gap-unit pb-20">
+<!-- Rank 1 (Gold) -->
+<div class="flex items-center p-3 bg-surface-card rounded-xl border border-secondary/30 relative overflow-hidden group shadow-[0_0_15px_rgba(240,192,64,0.1)]">
+<div class="absolute inset-0 bg-gradient-to-r from-secondary/10 to-transparent pointer-events-none"></div>
+<div class="w-10 flex justify-center items-center">
+<span class="material-symbols-outlined text-secondary text-3xl drop-shadow-[0_0_8px_rgba(240,192,64,0.8)]" style="font-variation-settings: 'FILL' 1;">trophy</span>
+</div>
+<div class="w-12 h-12 rounded-full overflow-hidden border-2 border-secondary mx-3 shrink-0">
+<img alt="Avatar" class="w-full h-full object-cover" data-alt="A stylized portrait of a cyborg warrior with glowing yellow eyes and metallic armor plating. Dark atmospheric background with subtle particle effects." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDJfMDXOSrF0nc54ZUDJGuC3lkNU7-98vAwedCrhnwzxxLWUptYRICESw5BSapzTmC5SOmG5WYLMXr0JB1AGxh6Kx-LFkbu4zr8YRKB2vIvSYuCqoKUc1aHVIB7VTWr3OdQlI8USsuyt3kziR4hpYPUsxjHzS3tPKYhqF2mq7FCQe9Qy5bguWwG_SAiwz2hVNWE8NA59LeQRmU2vG01cAs7AU96fr6T6xq7BMJj60Zp2ZGZ4eZwZRSz7WLfH_qbTwmrpZ6RSpPtU-xa"/>
+</div>
+<div class="flex flex-col flex-1 min-w-0">
+<span class="font-body-lg text-body-lg text-text-primary truncate font-bold">ShadowKing99</span>
+<span class="font-label-caps text-label-caps text-rarity-legend flex items-center gap-1">
+<span class="material-symbols-outlined text-xs">diamond</span> Grandmaster
+                    </span>
+</div>
+<div class="mr-auto text-left">
+<span class="font-stat-numeric text-headline-md text-secondary drop-shadow-[0_0_5px_rgba(240,192,64,0.5)]">15,420</span>
+</div>
+</div>
+<!-- Rank 2 (Silver) -->
+<div class="flex items-center p-3 bg-surface-card rounded-xl border border-outline/30">
+<div class="w-10 flex justify-center items-center">
+<span class="font-stat-numeric text-headline-md text-outline">2</span>
+</div>
+<div class="w-10 h-10 rounded-full overflow-hidden border border-outline mx-3 shrink-0 opacity-90">
+<img alt="Avatar" class="w-full h-full object-cover" data-alt="A neon-lit portrait of a female character with pink cybernetic implants on her cheek. Moody, low-key lighting with vivid color accents." src="https://lh3.googleusercontent.com/aida-public/AB6AXuATSsKPpXNb0Al_Z11DcPhCq6WYH7u8gW9Xe13eDr9D4mjOXG8sivlP3PeIM8cmS-NrKYSgwTuLTyUqlZMbAvr50PivjBdnSQVdx7-zEdsLNwbNG4LOCam4dbsMCMnbjcwCpTFaqNavnu2K0TSMpCYG4ODDORyXUhzjzzkX_7ZI0pr5VGqZmFi6ty1_SLv4t6uKgjZZRGDNRVCj-QndfFRaDmNim6dGsRKcHcv_1JxMh5RtNmnlXW4t04_SmMWmeFy9y-Tg2Sz2aIDa"/>
+</div>
+<div class="flex flex-col flex-1 min-w-0">
+<span class="font-body-lg text-body-lg text-on-surface truncate">NeonValkyrie</span>
+<span class="font-label-caps text-label-caps text-rarity-epic flex items-center gap-1">
+<span class="material-symbols-outlined text-xs">grade</span> Diamond I
+                    </span>
+</div>
+<div class="mr-auto text-left">
+<span class="font-stat-numeric text-headline-sm text-text-primary">14,100</span>
+</div>
+</div>
+<!-- Rank 3 (Bronze) -->
+<div class="flex items-center p-3 bg-surface-card rounded-xl border border-tertiary/30">
+<div class="w-10 flex justify-center items-center">
+<span class="font-stat-numeric text-headline-md text-tertiary">3</span>
+</div>
+<div class="w-10 h-10 rounded-full overflow-hidden border border-tertiary mx-3 shrink-0 opacity-80">
+<img alt="Avatar" class="w-full h-full object-cover" data-alt="A gritty close-up of a male character wearing a high-tech augmented reality headset. The lighting is dominated by deep blues and subtle orange rims." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB6a18lgsN1m-LtTW8zYvwb2rwj-wdA8pE7r1a709XAfrkRiQSdfeiRGufLfxMLQQEeXtDsQb6p0FCiQWrsO2aqnXyrIgfxQnxYN3bez9OlVAuinFaVKBOt7_r34xyWgzjCnl74qkDfbHNqi7yPpSuYj300lJ-sTiFsukFfD4wJ4w1onlXNMmgWsoGeU_1CJ33j5o0FESaHcQ1n-QVN-ExUmgPQRoDjreyOij_0Ib7SbTdlDmsKWDlsohaTVDj6XlgLnC6kKuZHIEoJ"/>
+</div>
+<div class="flex flex-col flex-1 min-w-0">
+<span class="font-body-lg text-body-lg text-on-surface truncate">CyberRonin</span>
+<span class="font-label-caps text-label-caps text-rarity-epic flex items-center gap-1">
+<span class="material-symbols-outlined text-xs">grade</span> Diamond II
+                    </span>
+</div>
+<div class="mr-auto text-left">
+<span class="font-stat-numeric text-headline-sm text-text-primary">13,850</span>
+</div>
+</div>
+<!-- Standard Ranks -->
+<div class="flex items-center p-3 bg-surface-card/80 rounded-xl border border-white/5 mt-2">
+<div class="w-10 flex justify-center items-center">
+<span class="font-stat-numeric text-body-lg text-on-surface-variant">4</span>
+</div>
+<div class="w-10 h-10 rounded-full overflow-hidden border border-white/10 mx-3 shrink-0 opacity-70">
+<div class="w-full h-full bg-surface-container-high flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined text-xl">person</span>
+</div>
+</div>
+<div class="flex flex-col flex-1 min-w-0">
+<span class="font-body-lg text-body-md text-on-surface-variant truncate">VoidWalker</span>
+<span class="font-label-caps text-label-caps text-rarity-normal flex items-center gap-1">
+                        Platinum III
+                    </span>
+</div>
+<div class="mr-auto text-left">
+<span class="font-stat-numeric text-body-lg text-on-surface-variant">12,200</span>
+</div>
+</div>
+<div class="flex items-center p-3 bg-surface-card/80 rounded-xl border border-white/5">
+<div class="w-10 flex justify-center items-center">
+<span class="font-stat-numeric text-body-lg text-on-surface-variant">5</span>
+</div>
+<div class="w-10 h-10 rounded-full overflow-hidden border border-white/10 mx-3 shrink-0 opacity-70">
+<div class="w-full h-full bg-surface-container-high flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined text-xl">person</span>
+</div>
+</div>
+<div class="flex flex-col flex-1 min-w-0">
+<span class="font-body-lg text-body-md text-on-surface-variant truncate">GlitchMaster</span>
+<span class="font-label-caps text-label-caps text-rarity-normal flex items-center gap-1">
+                        Platinum IV
+                    </span>
+</div>
+<div class="mr-auto text-left">
+<span class="font-stat-numeric text-body-lg text-on-surface-variant">11,950</span>
+</div>
+</div>
+</section>
+</main>
+<!-- Current User Sticky Rank -->
+<div class="fixed bottom-24 left-0 w-full px-margin-mobile z-40">
+<div class="flex items-center p-4 bg-surface-container-highest/95 backdrop-blur-md rounded-xl border border-primary shadow-[0_0_20px_rgba(123,94,234,0.2)]">
+<div class="w-10 flex justify-center items-center">
+<span class="font-stat-numeric text-headline-md text-primary">142</span>
+</div>
+<div class="w-10 h-10 rounded-full overflow-hidden border-2 border-primary mx-3 shrink-0">
+<img alt="Current User" class="w-full h-full object-cover" data-alt="A close-up portrait of a cyberpunk hacker character with neon purple lighting reflecting on their face, set against a dark, tech-filled background. High contrast, highly detailed digital art." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBwrLsP8zF1wFGFAzXLl7ezgSNfUN0mDeOL71A5728F2Oh1Ln7dpxmkXr-bNFeAem-tjIycMgsWcDGi81Y-q42HxfHnsYrCCZsrIYbwbimLNa7wx087yivf0wUsck6kn_GvOCJ5V6wFlhcYruAbUL_U57cTi0AtxIqdqTQp3XbQxleu2s3ROpMRMpgboS46v-3D7QfbaBC8y8r0nZFxOIq7kQ_j7lClwqh5VTRm2TS56AEwynh2j0xoSGqNXrYvN4TGB3BpamR52Niq"/>
+</div>
+<div class="flex flex-col flex-1 min-w-0">
+<span class="font-body-lg text-body-lg text-primary font-bold truncate">شما (You)</span>
+<span class="font-label-caps text-label-caps text-rarity-rare flex items-center gap-1">
+                    Gold II
+                </span>
+</div>
+<div class="mr-auto text-left flex flex-col items-end">
+<span class="font-stat-numeric text-headline-sm text-text-primary">8,450</span>
+<span class="font-label-caps text-[10px] text-on-surface-variant">▲ 12 امروز</span>
+</div>
+</div>
+</div>
+<!-- BottomNavBar Shared Component -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-4 pt-2 bg-surface-container-lowest/90 dark:bg-surface-container-lowest/90 backdrop-blur-lg border-t border-white/5 shadow-[0_-4px_20px_rgba(123,94,234,0.15)] rounded-t-xl">
+<button class="flex flex-col items-center justify-center text-on-surface-variant/60 hover:text-primary/80 active:scale-90 transition-all duration-150">
+<span class="material-symbols-outlined text-2xl mb-1">swords</span>
+<span class="font-label-caps text-label-caps">Arena</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant/60 hover:text-primary/80 active:scale-90 transition-all duration-150">
+<span class="material-symbols-outlined text-2xl mb-1">style</span>
+<span class="font-label-caps text-label-caps">Collection</span>
+</button>
+<!-- Active Navigation Item -->
+<button class="flex flex-col items-center justify-center text-primary bg-primary-container/20 rounded-xl py-1 px-3 shadow-[0_0_10px_rgba(123,94,234,0.3)] active:scale-90 transition-all duration-150">
+<span class="material-symbols-outlined text-2xl mb-1" style="font-variation-settings: 'FILL' 1;">leaderboard</span>
+<span class="font-label-caps text-label-caps font-bold">Rank</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant/60 hover:text-primary/80 active:scale-90 transition-all duration-150">
+<span class="material-symbols-outlined text-2xl mb-1">person</span>
+<span class="font-label-caps text-label-caps">Profile</span>
+</button>
+</nav>
+</body></html>

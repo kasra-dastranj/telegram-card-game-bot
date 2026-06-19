@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+
+<html class="dark" dir="rtl" lang="fa"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>انتخاب کارت - TelBattle</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&amp;family=Rajdhani:wght@600;700&amp;family=Vazirmatn:wght@400&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-error": "#690005",
+                        "on-secondary-fixed": "#251a00",
+                        "rarity-normal": "#4CAF50",
+                        "surface-variant": "#31324f",
+                        "surface": "#0f102c",
+                        "surface-container-high": "#262744",
+                        "secondary": "#f0c040",
+                        "on-primary-container": "#ffffff",
+                        "secondary-fixed": "#ffdf97",
+                        "surface-bright": "#363654",
+                        "on-tertiary": "#492900",
+                        "text-primary": "#FFFFFF",
+                        "inverse-surface": "#e1e0ff",
+                        "rarity-epic": "#9C27B0",
+                        "on-surface-variant": "#cac4d6",
+                        "inverse-on-surface": "#2d2e4b",
+                        "on-surface": "#e1e0ff",
+                        "inverse-primary": "#6343d0",
+                        "on-error-container": "#ffdad6",
+                        "surface-card": "#12122A",
+                        "primary": "#cbbeff",
+                        "secondary-container": "#b88d00",
+                        "on-tertiary-fixed-variant": "#693c00",
+                        "on-primary-fixed-variant": "#4a25b7",
+                        "on-background": "#e1e0ff",
+                        "tertiary": "#ffb86e",
+                        "surface-container-low": "#181934",
+                        "on-primary-fixed": "#1d0061",
+                        "on-secondary": "#3e2e00",
+                        "rarity-legend": "#FF9800",
+                        "outline-variant": "#484554",
+                        "outline": "#938ea0",
+                        "surface-container": "#1c1d39",
+                        "on-primary": "#330098",
+                        "on-secondary-fixed-variant": "#5a4400",
+                        "tertiary-container": "#ac6600",
+                        "on-secondary-container": "#392a00",
+                        "surface-container-highest": "#31324f",
+                        "surface-container-lowest": "#0a0b26",
+                        "rarity-rare": "#F44336",
+                        "error-container": "#93000a",
+                        "tertiary-fixed-dim": "#ffb86e",
+                        "background": "#0f102c",
+                        "secondary-fixed-dim": "#f0c040",
+                        "on-tertiary-fixed": "#2c1600",
+                        "error": "#ffb4ab",
+                        "tertiary-fixed": "#ffdcbd",
+                        "surface-tint": "#cbbeff",
+                        "primary-fixed": "#e6deff",
+                        "primary-container": "#7b5eea",
+                        "background-deep": "#0A0A1A",
+                        "surface-dim": "#0f102c",
+                        "primary-fixed-dim": "#cbbeff",
+                        "on-tertiary-container": "#ffffff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "card-gap": "8px",
+                        "section-padding": "24px",
+                        "gutter": "12px",
+                        "unit": "4px",
+                        "margin-mobile": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-sm": ["Oswald"],
+                        "button-label": ["Oswald"],
+                        "label-caps": ["Rajdhani"],
+                        "body-lg": ["Vazirmatn"],
+                        "headline-lg": ["Oswald"],
+                        "headline-md": ["Oswald"],
+                        "body-md": ["Vazirmatn"],
+                        "stat-numeric": ["Rajdhani"]
+                    },
+                    "fontSize": {
+                        "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "500" }],
+                        "button-label": ["16px", { "lineHeight": "24px", "fontWeight": "600" }],
+                        "label-caps": ["12px", { "lineHeight": "16px", "letterSpacing": "0.1em", "fontWeight": "600" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "0.02em", "fontWeight": "700" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "stat-numeric": ["18px", { "lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: #0A0A1A;
+            color: #FFFFFF;
+            overflow-x: hidden;
+            font-family: 'Vazirmatn', sans-serif;
+        }
+        
+        .cyber-grid {
+            background-image: 
+                linear-gradient(to right, rgba(123, 94, 234, 0.05) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(123, 94, 234, 0.05) 1px, transparent 1px);
+            background-size: 40px 40px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        .cyber-grid::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at 50% 50%, transparent 0%, #0A0A1A 80%);
+        }
+
+        .glass-panel {
+            background: rgba(18, 18, 42, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .card-inner {
+            background: rgba(18, 18, 42, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card-selected {
+            box-shadow: 0 0 20px rgba(240, 192, 64, 0.6);
+            border-color: #f0c040;
+            transform: scale(1.02);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .stat-icon {
+            font-variation-settings: 'FILL' 1;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="min-h-screen pb-safe">
+<div class="cyber-grid"></div>
+<!-- Top App Bar -->
+<header class="fixed top-0 w-full z-50 bg-surface/80 dark:bg-surface/80 backdrop-blur-xl border-b border-white/10 shadow-[0_0_15px_rgba(123,94,234,0.3)] flex justify-between items-center px-margin-mobile py-4">
+<div class="flex items-center gap-3">
+<button class="text-on-surface-variant hover:text-primary transition-colors active:scale-95 duration-200">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<div class="font-headline-lg text-headline-lg font-bold tracking-wider text-primary italic">TelBattle</div>
+</div>
+<div class="flex items-center gap-2 bg-surface-container-high px-3 py-1 rounded-full border border-white/10">
+<span class="material-symbols-outlined text-secondary stat-icon text-[18px]">monetization_on</span>
+<span class="font-stat-numeric text-stat-numeric text-secondary">1,250</span>
+</div>
+</header>
+<main class="pt-[88px] pb-[88px] px-margin-mobile flex flex-col gap-section-padding">
+<!-- Opponent Area -->
+<section class="glass-panel rounded-xl p-4 flex items-center justify-between relative overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-r from-rarity-epic/20 to-transparent pointer-events-none"></div>
+<div class="flex items-center gap-4 z-10">
+<div class="w-16 h-16 rounded-full overflow-hidden border-2 border-rarity-epic shadow-[0_0_15px_rgba(156,39,176,0.5)]">
+<img alt="Mysterious cyberpunk character Aso with glowing purple accents and futuristic armor, set against a dark dystopian background." class="w-full h-full object-cover" data-alt="A striking portrait of a mysterious cyberpunk antagonist named Aso. The character wears intricate, dark metallic armor with glowing neon purple accents. The lighting is dramatic, casting deep shadows that emphasize a menacing, high-tech aesthetic. The background is a blurred, dystopian cityscape." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBMGrR8d1uh30uWJSoXtzKQ2_kuAnFxtR9Vnt_sCnL85CnjQGy6HEWAAutThkvP4PTehp6EuWJnAAAqzybHg6OIns2GwcE5ikJWbRilMWTXRtp4E4Z-Elxtcf6qbx9WA3kBI_9ftsA-dPX82RXKEmn0hsUtJhYGoL7AlKlQXcdzYxkzUj-VSko4FGJFFXWvRPu-8IbpY_4jKKTXdgBH90BbdtHUcMMriAfzlTNkO73UaCWZqi5ya1Lh5Pn2DXx56F1D_fAU4oRqr8Ti"/>
+</div>
+<div>
+<h2 class="font-headline-md text-headline-md text-text-primary mb-1">Aso</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">کارت خود را برای نبرد انتخاب کنید</p>
+</div>
+</div>
+<div class="z-10 bg-surface-container-high px-4 py-2 rounded-lg border border-white/10 text-center">
+<div class="font-label-caps text-label-caps text-outline mb-1">قدرت حریف</div>
+<div class="font-stat-numeric text-stat-numeric text-rarity-epic">???</div>
+</div>
+</section>
+<!-- Filters -->
+<section class="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+<button class="px-6 py-2 rounded-full font-button-label text-button-label bg-primary-container text-on-primary-container whitespace-nowrap active:scale-95 transition-transform">همه</button>
+<button class="px-6 py-2 rounded-full font-button-label text-button-label bg-surface-container border border-outline/30 text-on-surface-variant hover:text-primary transition-colors whitespace-nowrap active:scale-95">عادی</button>
+<button class="px-6 py-2 rounded-full font-button-label text-button-label bg-surface-container border border-outline/30 text-on-surface-variant hover:text-primary transition-colors whitespace-nowrap active:scale-95">حماسی</button>
+<button class="px-6 py-2 rounded-full font-button-label text-button-label bg-surface-container border border-outline/30 text-on-surface-variant hover:text-primary transition-colors whitespace-nowrap active:scale-95">افسانه‌ای</button>
+</section>
+<!-- Card Grid -->
+<section class="grid grid-cols-2 gap-card-gap">
+<!-- Card 1: Selected (Legendary) -->
+<div class="card-inner rounded-xl p-2 flex flex-col gap-2 card-selected cursor-pointer">
+<div class="relative w-full aspect-square rounded-lg overflow-hidden">
+<img alt="Cyberpunk hacker character in a dark, neon-lit alleyway." class="w-full h-full object-cover" data-alt="A highly detailed illustration of a cyberpunk hacker character standing in a dark, rain-slicked alleyway illuminated by vibrant neon signs. The character wears a high-tech visor and a rugged leather jacket. The lighting creates a stark contrast, typical of a dark futuristic aesthetic. The mood is intense and secretive." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCxSCbO7TXTI9_nsZlhc_ui_7DcQnaXVuSDwycbuAhRvm8F8B69P5x0WIniFRhsUtJa2tGhoC_potJVWBnkNt5bTcpY5lCkgr0m0205rU9qe7jEbxW3gGrqp5Lk1xUHFrn8NB49Wp095-hShld6VyTeoLSRcWtDla-of__I_86_tEnOrvGr0B75KtPJvuDOnHhmavNYjONj8JB8OFuS4kF-s3sabowDbuyiPPSv1PdsKx2nW8xJMkuGukWSjokjY05kcN6B7RPmAOA1"/>
+<div class="absolute top-2 right-2 bg-background-deep/80 backdrop-blur-md px-2 py-1 rounded border border-rarity-legend/50 flex items-center gap-1">
+<span class="material-symbols-outlined stat-icon text-[14px] text-rarity-legend">grade</span>
+<span class="font-label-caps text-label-caps text-rarity-legend">افسانه‌ای</span>
+</div>
+</div>
+<div class="flex flex-col gap-1 px-1">
+<h3 class="font-headline-sm text-headline-sm text-text-primary truncate">Cyber Shadow</h3>
+<div class="grid grid-cols-2 gap-x-2 gap-y-1 mt-1">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined stat-icon text-[16px] text-tertiary">bolt</span>
+<span class="font-stat-numeric text-stat-numeric text-text-primary">95</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined stat-icon text-[16px] text-primary">directions_run</span>
+<span class="font-stat-numeric text-stat-numeric text-text-primary">88</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined stat-icon text-[16px] text-info">psychology</span>
+<span class="font-stat-numeric text-stat-numeric text-text-primary">92</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined stat-icon text-[16px] text-rarity-rare">favorite</span>
+<span class="font-stat-numeric text-stat-numeric text-text-primary">85</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Card 2: Epic -->
+<div class="card-inner rounded-xl p-2 flex flex-col gap-2 cursor-pointer hover:border-rarity-epic/50 transition-colors">
+<div class="relative w-full aspect-square rounded-lg overflow-hidden opacity-90">
+<img alt="Futuristic street samurai in a neon city." class="w-full h-full object-cover" data-alt="A stylized portrait of a futuristic street samurai standing amidst a sprawling neon-lit metropolis. The character brandishes a glowing katana. The environment is dense with towering skyscrapers and vibrant holographic advertisements. The overall aesthetic is dark cyberpunk with contrasting vibrant highlights." src="https://lh3.googleusercontent.com/aida-public/AB6AXuASqaPd4BEe7waQ59NsHy6JdMoqBDoBlYmFwzURzHrmHWTFJ-WCIy1sG8VZ0NOPdR4QUO__FO94s2MHMNssrw-OWudhlvXPDVYh6DVTAbEyLK9ZJrQDzxuEFY7wcH2Z5rUx76fLvIYyQU6FA1fcP-J792gty-tcn7E6Jn8wB4b7PlLDtLR3rBKIArbOGVSkIPWkxvuNyy1Ty8cyyEyilUIve3NDhSJfHv38c0koKizE5N0gDtQ7ACjz4hB9kMq0Jk4sidvs78EkRECf"/>
+<div class="absolute top-2 right-2 bg-background-deep/80 backdrop-blur-md px-2 py-1 rounded border border-rarity-epic/50 flex items-center gap-1">
+<span class="material-symbols-outlined stat-icon text-[14px] text-rarity-epic">star</span>
+<span class="font-label-caps text-label-caps text-rarity-epic">حماسی</span>
+</div>
+</div>
+<div class="flex flex-col gap-1 px-1">
+<h3 class="font-headline-sm text-headline-sm text-text-primary truncate">Neon Ronin</h3>
+<div class="grid grid-cols-2 gap-x-2 gap-y-1 mt-1">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined stat-icon text-[16px] text-tertiary">bolt</span>
+<span class="font-stat-numeric text-stat-numeric text-text-primary">82</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined stat-icon text-[16px] text-primary">directions_run</span>
+<span class="font-stat-numeric text-stat-numeric text-text-primary">90</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined stat-icon text-[16px] text-info">psychology</span>
+<span class="font-stat-numeric text-stat-numeric text-text-primary">75</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined stat-icon text-[16px] text-rarity-rare">favorite</span>
+<span class="font-stat-numeric text-stat-numeric text-text-primary">78</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Card 3: Normal -->
+<div class="card-inner rounded-xl p-2 flex flex-col gap-2 cursor-pointer hover:border-rarity-normal/50 transition-colors">
+<div class="relative w-full aspect-square rounded-lg overflow-hidden opacity-90">
+<img alt="Tech operative in an industrial cyberpunk setting." class="w-full h-full object-cover" data-alt="A digital painting of a tech operative working in a gritty, industrial cyberpunk environment. The scene is lit by harsh, artificial lights casting deep shadows on metallic surfaces. The character is focused on a complex holographic interface. The mood is utilitarian and dark." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAFOdHhqP4iTHlEPDQznNmAhBXCN2-GVVL_GmId6EoyrnnJAQCxuU6hMsVbcBbzsPkIoGD89Sj345afQQgWwWS4rurMoJqWnikit9mHFcUHkdZtvT-ZAX02qNPMHJ7gl_CG17QfOBJzDcXXEr9AWjj6MSIV1adHRGqvS05XiaXS-ZcqyFG5z1G3e9z2QJvvT0w4aY11sfG7ohJ28UhGe7-iIi4GjytaUmSg2OAA9j7PoDCbW2sTPxEce66MOXzxjRXFZBlVq8RMZ8rC"/>
+<div class="absolute top-2 right-2 bg-background-deep/80 backdrop-blur-md px-2 py-1 rounded border border-rarity-normal/50 flex items-center gap-1">
+<span class="material-symbols-outlined stat-icon text-[14px] text-rarity-normal">circle</span>
+<span class="font-label-caps text-label-caps text-rarity-normal">عادی</span>
+</div>
+</div>
+<div class="flex flex-col gap-1 px-1">
+<h3 class="font-headline-sm text-headline-sm text-text-primary truncate">Grid Runner</h3>
+<div class="grid grid-cols-2 gap-x-2 gap-y-1 mt-1">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined stat-icon text-[16px] text-tertiary">bolt</span>
+<span class="font-stat-numeric text-stat-numeric text-text-primary">65</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined stat-icon text-[16px] text-primary">directions_run</span>
+<span class="font-stat-numeric text-stat-numeric text-text-primary">70</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined stat-icon text-[16px] text-info">psychology</span>
+<span class="font-stat-numeric text-stat-numeric text-text-primary">80</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined stat-icon text-[16px] text-rarity-rare">favorite</span>
+<span class="font-stat-numeric text-stat-numeric text-text-primary">60</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Card 4: Normal -->
+<div class="card-inner rounded-xl p-2 flex flex-col gap-2 cursor-pointer hover:border-rarity-normal/50 transition-colors">
+<div class="relative w-full aspect-square rounded-lg overflow-hidden opacity-90">
+<div class="absolute inset-0 bg-surface-container flex items-center justify-center">
+<span class="material-symbols-outlined text-[48px] text-outline opacity-50">smart_toy</span>
+</div>
+<div class="absolute top-2 right-2 bg-background-deep/80 backdrop-blur-md px-2 py-1 rounded border border-rarity-normal/50 flex items-center gap-1">
+<span class="material-symbols-outlined stat-icon text-[14px] text-rarity-normal">circle</span>
+<span class="font-label-caps text-label-caps text-rarity-normal">عادی</span>
+</div>
+</div>
+<div class="flex flex-col gap-1 px-1">
+<h3 class="font-headline-sm text-headline-sm text-text-primary truncate">Scrap Drone</h3>
+<div class="grid grid-cols-2 gap-x-2 gap-y-1 mt-1">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined stat-icon text-[16px] text-tertiary">bolt</span>
+<span class="font-stat-numeric text-stat-numeric text-text-primary">55</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined stat-icon text-[16px] text-primary">directions_run</span>
+<span class="font-stat-numeric text-stat-numeric text-text-primary">85</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined stat-icon text-[16px] text-info">psychology</span>
+<span class="font-stat-numeric text-stat-numeric text-text-primary">40</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined stat-icon text-[16px] text-rarity-rare">favorite</span>
+<span class="font-stat-numeric text-stat-numeric text-text-primary">45</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Action Button fixed at bottom above nav -->
+<div class="fixed bottom-[80px] left-0 right-0 px-margin-mobile z-40">
+<button class="w-full bg-primary-container text-on-primary-container font-button-label text-button-label uppercase py-3 rounded-lg shadow-[0_0_20px_rgba(123,94,234,0.4)] active:scale-95 transition-transform">
+                تایید و شروع نبرد
+            </button>
+</div>
+</main>
+<!-- Bottom Nav Bar -->
+<nav class="fixed bottom-0 w-full z-50 rounded-t-xl bg-surface-container dark:bg-surface-container border-t border-white/5 shadow-[0_-4px_20px_rgba(0,0,0,0.5)] flex justify-around items-center h-16 px-gutter pb-safe">
+<button class="flex flex-col items-center justify-center text-secondary dark:text-secondary drop-shadow-[0_0_8px_rgba(240,192,64,0.6)] active:translate-y-1 duration-150">
+<span class="material-symbols-outlined">sports_esports</span>
+<span class="font-label-caps text-label-caps mt-1">Arena</span>
+</button>
+<button class="flex flex-col items-center justify-center text-outline dark:text-outline hover:text-primary-fixed-dim transition-all active:translate-y-1 duration-150">
+<span class="material-symbols-outlined">style</span>
+<span class="font-label-caps text-label-caps mt-1">Collection</span>
+</button>
+<button class="flex flex-col items-center justify-center text-outline dark:text-outline hover:text-primary-fixed-dim transition-all active:translate-y-1 duration-150">
+<span class="material-symbols-outlined">military_tech</span>
+<span class="font-label-caps text-label-caps mt-1">Rank</span>
+</button>
+<button class="flex flex-col items-center justify-center text-outline dark:text-outline hover:text-primary-fixed-dim transition-all active:translate-y-1 duration-150">
+<span class="material-symbols-outlined">person</span>
+<span class="font-label-caps text-label-caps mt-1">Profile</span>
+</button>
+</nav>
+</body></html>

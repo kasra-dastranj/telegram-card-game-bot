@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+
+<html class="dark" dir="rtl" lang="fa"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>نتیجه برد</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&amp;family=Rajdhani:wght@600;700&amp;family=Vazirmatn:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-error": "#690005",
+                        "on-secondary-fixed": "#251a00",
+                        "rarity-normal": "#4CAF50",
+                        "surface-variant": "#31324f",
+                        "surface": "#0f102c",
+                        "surface-container-high": "#262744",
+                        "secondary": "#f0c040",
+                        "on-primary-container": "#ffffff",
+                        "secondary-fixed": "#ffdf97",
+                        "surface-bright": "#363654",
+                        "on-tertiary": "#492900",
+                        "text-primary": "#FFFFFF",
+                        "inverse-surface": "#e1e0ff",
+                        "rarity-epic": "#9C27B0",
+                        "on-surface-variant": "#cac4d6",
+                        "inverse-on-surface": "#2d2e4b",
+                        "on-surface": "#e1e0ff",
+                        "inverse-primary": "#6343d0",
+                        "on-error-container": "#ffdad6",
+                        "surface-card": "#12122A",
+                        "primary": "#cbbeff",
+                        "secondary-container": "#b88d00",
+                        "on-tertiary-fixed-variant": "#693c00",
+                        "on-primary-fixed-variant": "#4a25b7",
+                        "on-background": "#e1e0ff",
+                        "tertiary": "#ffb86e",
+                        "surface-container-low": "#181934",
+                        "on-primary-fixed": "#1d0061",
+                        "on-secondary": "#3e2e00",
+                        "rarity-legend": "#FF9800",
+                        "outline-variant": "#484554",
+                        "outline": "#938ea0",
+                        "surface-container": "#1c1d39",
+                        "on-primary": "#330098",
+                        "on-secondary-fixed-variant": "#5a4400",
+                        "tertiary-container": "#ac6600",
+                        "on-secondary-container": "#392a00",
+                        "surface-container-highest": "#31324f",
+                        "surface-container-lowest": "#0a0b26",
+                        "rarity-rare": "#F44336",
+                        "error-container": "#93000a",
+                        "tertiary-fixed-dim": "#ffb86e",
+                        "background": "#0f102c",
+                        "secondary-fixed-dim": "#f0c040",
+                        "on-tertiary-fixed": "#2c1600",
+                        "error": "#ffb4ab",
+                        "tertiary-fixed": "#ffdcbd",
+                        "surface-tint": "#cbbeff",
+                        "primary-fixed": "#e6deff",
+                        "primary-container": "#7b5eea",
+                        "background-deep": "#0A0A1A",
+                        "surface-dim": "#0f102c",
+                        "primary-fixed-dim": "#cbbeff",
+                        "on-tertiary-container": "#ffffff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "card-gap": "8px",
+                        "section-padding": "24px",
+                        "gutter": "12px",
+                        "unit": "4px",
+                        "margin-mobile": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-sm": ["Oswald"],
+                        "button-label": ["Oswald"],
+                        "label-caps": ["Rajdhani"],
+                        "body-lg": ["Vazirmatn"],
+                        "headline-lg": ["Oswald"],
+                        "headline-md": ["Oswald"],
+                        "body-md": ["Vazirmatn"],
+                        "stat-numeric": ["Rajdhani"]
+                    },
+                    "fontSize": {
+                        "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "500" }],
+                        "button-label": ["16px", { "lineHeight": "24px", "fontWeight": "600" }],
+                        "label-caps": ["12px", { "lineHeight": "16px", "letterSpacing": "0.1em", "fontWeight": "600" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "0.02em", "fontWeight": "700" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "stat-numeric": ["18px", { "lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        @keyframes fall {
+            0% { transform: translateY(-5vh) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(105vh) rotate(720deg); opacity: 0; }
+        }
+        .confetti-piece {
+            position: absolute;
+            width: 8px;
+            height: 16px;
+            border-radius: 2px;
+            animation: fall linear infinite;
+        }
+        .pulse-glow {
+            animation: pulseGlow 2s infinite alternate;
+        }
+        @keyframes pulseGlow {
+            from { filter: drop-shadow(0 0 10px rgba(240,192,64,0.5)); }
+            to { filter: drop-shadow(0 0 25px rgba(240,192,64,1)); }
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-deep text-text-primary min-h-screen flex flex-col items-center justify-center relative overflow-hidden font-body-md selection:bg-primary/30">
+<!-- Confetti Background Layer -->
+<div class="absolute inset-0 pointer-events-none z-0 overflow-hidden" id="confetti-layer"></div>
+<!-- Main Content Canvas -->
+<main class="z-10 flex flex-col items-center w-full max-w-md px-margin-mobile py-8 relative">
+<!-- Background Radial Gradient for Depth -->
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150%] h-[150%] bg-[radial-gradient(circle_at_center,rgba(123,94,234,0.15)_0%,transparent_60%)] -z-10 pointer-events-none"></div>
+<!-- Trophy / Victory Visual -->
+<div class="relative mb-6">
+<div class="absolute inset-0 bg-secondary rounded-full blur-3xl opacity-20 pulse-glow"></div>
+<span class="material-symbols-outlined text-[120px] text-secondary drop-shadow-[0_4px_20px_rgba(240,192,64,0.6)] pulse-glow block" style="font-variation-settings: 'FILL' 1;">emoji_events</span>
+</div>
+<!-- Victory Title -->
+<h1 class="font-headline-lg text-headline-lg text-secondary mb-8 text-center tracking-widest drop-shadow-[0_2px_8px_rgba(240,192,64,0.4)]">بُردی!</h1>
+<!-- Rewards Glassmorphic Card -->
+<div class="w-full bg-surface-card/80 border border-white/10 rounded-xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-xl mb-10 relative overflow-hidden">
+<!-- Subtle inner top highlight -->
+<div class="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+<h2 class="font-body-md text-on-surface-variant text-center mb-6 border-b border-white/5 pb-3">جوایز دریافتی</h2>
+<div class="space-y-3 font-stat-numeric text-stat-numeric">
+<!-- Reward: Score -->
+<div class="flex items-center justify-between bg-surface-container-low rounded-lg p-3 border border-white/5">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-[0_0_10px_rgba(123,94,234,0.2)]">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">stars</span>
+</div>
+<span class="font-body-lg text-body-lg">امتیاز</span>
+</div>
+<span class="text-primary font-bold text-xl drop-shadow-[0_0_5px_rgba(123,94,234,0.5)]">+8</span>
+</div>
+<!-- Reward: XP -->
+<div class="flex items-center justify-between bg-surface-container-low rounded-lg p-3 border border-white/5">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-rarity-epic/10 border border-rarity-epic/20 flex items-center justify-center text-rarity-epic shadow-[0_0_10px_rgba(156,39,176,0.2)]">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">bolt</span>
+</div>
+<span class="font-body-lg text-body-lg">تجربه</span>
+</div>
+<span class="text-rarity-epic font-bold text-xl drop-shadow-[0_0_5px_rgba(156,39,176,0.5)]">+10</span>
+</div>
+<!-- Reward: Rank Points -->
+<div class="flex items-center justify-between bg-surface-container-low rounded-lg p-3 border border-white/5">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-secondary/10 border border-secondary/20 flex items-center justify-center text-secondary shadow-[0_0_10px_rgba(240,192,64,0.2)]">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">military_tech</span>
+</div>
+<span class="font-body-lg text-body-lg">امتیاز رتبه</span>
+</div>
+<span class="text-secondary font-bold text-xl drop-shadow-[0_0_5px_rgba(240,192,64,0.5)]">+15</span>
+</div>
+</div>
+</div>
+<!-- Action Buttons -->
+<div class="w-full space-y-4">
+<button class="w-full bg-primary-container text-on-primary-container font-button-label text-button-label uppercase py-4 rounded-lg shadow-[0_0_20px_rgba(123,94,234,0.4)] active:scale-95 transition-all duration-200 flex justify-center items-center gap-2 hover:bg-primary hover:shadow-[0_0_30px_rgba(123,94,234,0.6)]">
+<span class="material-symbols-outlined text-[20px]">replay</span>
+                بازی دوباره
+            </button>
+<button class="w-full bg-surface-container-high border border-outline/30 text-text-primary font-button-label text-button-label uppercase py-4 rounded-lg active:scale-95 transition-all duration-200 flex justify-center items-center gap-2 hover:bg-surface-bright">
+<span class="material-symbols-outlined text-[20px]">home</span>
+                خانه
+            </button>
+</div>
+</main>
+<script>
+        // Simple Confetti Generator
+        document.addEventListener('DOMContentLoaded', () => {
+            const layer = document.getElementById('confetti-layer');
+            const colors = ['#f0c040', '#7b5eea', '#cbbeff', '#FF9800', '#9C27B0'];
+            const confettiCount = 60;
+
+            for (let i = 0; i < confettiCount; i++) {
+                const conf = document.createElement('div');
+                conf.classList.add('confetti-piece');
+                
+                // Randomize properties
+                conf.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                conf.style.left = `${Math.random() * 100}vw`;
+                
+                const duration = Math.random() * 3 + 2; // 2s to 5s
+                conf.style.animationDuration = `${duration}s`;
+                conf.style.animationDelay = `${Math.random() * 2}s`;
+                
+                // Random sizes
+                const scale = Math.random() * 0.8 + 0.4;
+                conf.style.transform = `scale(${scale})`;
+                
+                layer.appendChild(conf);
+            }
+        });
+    </script>
+</body></html>

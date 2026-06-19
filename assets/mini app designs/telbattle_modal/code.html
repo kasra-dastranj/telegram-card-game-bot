@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+
+<html class="dark" dir="rtl" lang="fa"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>TelBattle - انتخاب کارت</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&amp;family=Rajdhani:wght@600;700&amp;family=Vazirmatn:wght@400&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-dim": "#0f102c",
+                      "on-primary": "#330098",
+                      "surface": "#0f102c",
+                      "outline-variant": "#484554",
+                      "outline": "#938ea0",
+                      "rarity-rare": "#F44336",
+                      "surface-container": "#1c1d39",
+                      "tertiary-container": "#ac6600",
+                      "secondary-fixed-dim": "#f0c040",
+                      "on-secondary": "#3e2e00",
+                      "rarity-legend": "#FF9800",
+                      "error": "#ffb4ab",
+                      "on-tertiary-container": "#ffffff",
+                      "primary": "#cbbeff",
+                      "on-tertiary-fixed-variant": "#693c00",
+                      "on-secondary-fixed-variant": "#5a4400",
+                      "primary-container": "#7b5eea",
+                      "background-deep": "#0A0A1A",
+                      "surface-card": "#12122A",
+                      "on-tertiary": "#492900",
+                      "background": "#0f102c",
+                      "primary-fixed": "#e6deff",
+                      "surface-container-low": "#181934",
+                      "secondary-container": "#b88d00",
+                      "secondary-fixed": "#ffdf97",
+                      "on-primary-fixed": "#1d0061",
+                      "surface-tint": "#cbbeff",
+                      "primary-fixed-dim": "#cbbeff",
+                      "inverse-on-surface": "#2d2e4b",
+                      "on-error-container": "#ffdad6",
+                      "surface-container-highest": "#31324f",
+                      "on-primary-container": "#ffffff",
+                      "on-background": "#e1e0ff",
+                      "tertiary-fixed-dim": "#ffb86e",
+                      "surface-container-high": "#262744",
+                      "on-primary-fixed-variant": "#4a25b7",
+                      "surface-bright": "#363654",
+                      "surface-variant": "#31324f",
+                      "on-surface": "#e1e0ff",
+                      "on-secondary-fixed": "#251a00",
+                      "rarity-epic": "#9C27B0",
+                      "inverse-primary": "#6343d0",
+                      "on-surface-variant": "#cac4d6",
+                      "inverse-surface": "#e1e0ff",
+                      "on-tertiary-fixed": "#2c1600",
+                      "text-primary": "#FFFFFF",
+                      "tertiary": "#ffb86e",
+                      "on-error": "#690005",
+                      "tertiary-fixed": "#ffdcbd",
+                      "on-secondary-container": "#392a00",
+                      "error-container": "#93000a",
+                      "rarity-normal": "#4CAF50",
+                      "secondary": "#f0c040",
+                      "surface-container-lowest": "#0a0b26"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "section-padding": "24px",
+                      "margin-mobile": "16px",
+                      "unit": "4px",
+                      "card-gap": "8px",
+                      "gutter": "12px"
+              },
+              "fontFamily": {
+                      "body-lg": [
+                              "Vazirmatn"
+                      ],
+                      "headline-lg": [
+                              "Oswald"
+                      ],
+                      "headline-md": [
+                              "Oswald"
+                      ],
+                      "body-md": [
+                              "Vazirmatn"
+                      ],
+                      "stat-numeric": [
+                              "Rajdhani"
+                      ],
+                      "label-caps": [
+                              "Rajdhani"
+                      ],
+                      "headline-sm": [
+                              "Oswald"
+                      ],
+                      "button-label": [
+                              "Oswald"
+                      ]
+              },
+              "fontSize": {
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "letterSpacing": "0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "headline-md": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "stat-numeric": [
+                              "18px",
+                              {
+                                      "lineHeight": "20px",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "label-caps": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.1em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "headline-sm": [
+                              "20px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "button-label": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "600"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+      </script>
+<style>
+        /* Custom scrollbar for webkit */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0A0A1A; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #484554; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #7b5eea; 
+        }
+
+        .glow-gold {
+            box-shadow: 0 0 15px rgba(240, 192, 64, 0.6), inset 0 0 10px rgba(240, 192, 64, 0.2);
+            border-color: #f0c040 !important;
+        }
+
+        .progress-bar-fill {
+            background: linear-gradient(90deg, #7b5eea, #cbbeff);
+        }
+        
+        /* Modal animation */
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+        .modal-slide-up {
+            animation: slideUp 0.3s ease-out forwards;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-deep text-text-primary font-body-md h-screen overflow-hidden flex flex-col relative">
+<!-- TopAppBar -->
+<header class="bg-surface-dim/80 backdrop-blur-xl border-b border-white/10 shadow-[0_4px_20px_rgba(123,94,234,0.3)] fixed top-0 w-full z-40 flex justify-between items-center px-margin-mobile py-unit h-16">
+<div class="flex items-center gap-3">
+<button class="text-on-surface-variant hover:text-primary transition-colors active:scale-95 duration-150 p-2 rounded-full bg-surface-container-low/50">
+<span class="material-symbols-outlined" data-weight="fill" style="font-variation-settings: 'FILL' 1;">arrow_forward</span>
+</button>
+<h1 class="font-headline-sm text-headline-sm uppercase tracking-wider text-primary">کارت خودت رو انتخاب کن</h1>
+</div>
+<div class="flex items-center gap-2 bg-surface-container-highest/50 px-3 py-1.5 rounded-full border border-white/5">
+<span class="material-symbols-outlined text-secondary text-sm" data-weight="fill" style="font-variation-settings: 'FILL' 1;">monetization_on</span>
+<span class="font-stat-numeric text-stat-numeric text-secondary">1,250</span>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-1 mt-16 px-margin-mobile pt-section-padding pb-[400px] overflow-y-auto">
+<!-- 2-Column Grid -->
+<div class="grid grid-cols-2 gap-card-gap md:grid-cols-3 lg:grid-cols-4">
+<!-- Card Cell 1: Selected State (State A) -->
+<div class="bg-surface-card rounded-lg border border-outline-variant/30 overflow-hidden relative glow-gold cursor-pointer transform hover:-translate-y-1 transition-all duration-200">
+<div class="p-2 flex gap-3 items-center border-b border-white/5">
+<div class="w-16 h-16 rounded overflow-hidden relative shrink-0">
+<img alt="Cyberpunk character portrait with neon lighting" class="w-full h-full object-cover" data-alt="A highly detailed, gritty cyberpunk character portrait. The subject is a futuristic rebel with neon purple and cyan implants glowing in the dark. The background is a blurred dystopian cityscape at night. High contrast lighting with deep shadows and vibrant saturated colors emphasizes the dark gamer aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBZZWrcjtQEfz1dMwZQp7CaODX7nN3b3JFlYgZ3uqVjbxCuKsHGOqzZIs8rTOP4BAQX2KqtXTEpJxsIo1R6dhz-hbRqZ0Rdr843ATZ65nOWq3dwU9nXjZcBCOg67mjcsJ6vghgWvT7f9HEdd0ciXkKCJbEzXwkZpqeBMpBQn_df2pCLoJA8aSRCZSkbWkjMCGhDuBV2u0F3l7y8L-s-mFHdPWJHtaL5vGOcILqn9JB6t3Jyy8uVsbE04qt1qCPxfm89C6D7-Md_YAcY"/>
+<!-- Rarity Badge - Legend -->
+<div class="absolute top-0 right-0 bg-rarity-legend text-on-primary-container text-[10px] font-bold px-1.5 py-0.5 rounded-bl">LEGEND</div>
+</div>
+<div class="flex-1">
+<h3 class="font-headline-sm text-[16px] leading-tight text-secondary">سایبر نینجا</h3>
+</div>
+</div>
+<!-- Stats Grid -->
+<div class="grid grid-cols-2 gap-1 p-2 bg-surface-container-low/50">
+<div class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px] text-rarity-rare">bolt</span><span class="font-stat-numeric text-[14px]">85</span></div>
+<div class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px] text-primary">directions_run</span><span class="font-stat-numeric text-[14px]">92</span></div>
+<div class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px] text-secondary">psychology</span><span class="font-stat-numeric text-[14px]">70</span></div>
+<div class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px] text-rarity-epic">favorite</span><span class="font-stat-numeric text-[14px]">88</span></div>
+</div>
+</div>
+<!-- Card Cell 2: Normal State -->
+<div class="bg-surface-card rounded-lg border border-outline-variant/30 overflow-hidden relative cursor-pointer hover:border-primary/50 transform hover:-translate-y-1 transition-all duration-200 shadow-md">
+<div class="p-2 flex gap-3 items-center border-b border-white/5">
+<div class="w-16 h-16 rounded overflow-hidden relative shrink-0">
+<img alt="Gamer portrait with headset" class="w-full h-full object-cover" data-alt="A stylized portrait of an esports gamer wearing a high-tech illuminated headset. The lighting is moody with dramatic shadows and deep blue and purple hues, typical of a modern gaming environment. The subject looks focused and intense against a dark, minimalist void-like background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAyFVcWt0T-mRCurTlN9BeTn1MhumXJ6jp1hH0snlgu4rBJ-bRpEyFF5DomwMt3hAZsJ9ddgHQc0SNf7G-5BBkIrxkvMukNH3CkcSUThDERuRSPImF5VKyTY0T2rLhzgITVyAFOBgumkpSOCX21PWK8jdO3ds5iab9h7lWDNqXN6iT8Tsm36lhd8_zDlGjeFar0cmT0oSvMMvOxi4ufZryDyMGucG6US0IWtGn-eji_viFn01jYhyer1eWAx4YIe75X_DIREkGh47jw"/>
+<!-- Rarity Badge - Epic -->
+<div class="absolute top-0 right-0 bg-rarity-epic text-on-primary-container text-[10px] font-bold px-1.5 py-0.5 rounded-bl">EPIC</div>
+</div>
+<div class="flex-1">
+<h3 class="font-headline-sm text-[16px] leading-tight text-text-primary">هکر ارشد</h3>
+</div>
+</div>
+<!-- Stats Grid -->
+<div class="grid grid-cols-2 gap-1 p-2 bg-surface-container-low/50">
+<div class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px] text-rarity-rare">bolt</span><span class="font-stat-numeric text-[14px]">60</span></div>
+<div class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px] text-primary">directions_run</span><span class="font-stat-numeric text-[14px]">45</span></div>
+<div class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px] text-secondary">psychology</span><span class="font-stat-numeric text-[14px]">95</span></div>
+<div class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px] text-rarity-epic">favorite</span><span class="font-stat-numeric text-[14px]">72</span></div>
+</div>
+</div>
+<!-- Card Cell 3: Cooldown State (State B) -->
+<div class="bg-surface-card rounded-lg border border-outline-variant/30 overflow-hidden relative opacity-60 grayscale cursor-not-allowed">
+<!-- Overlay Icon -->
+<div class="absolute inset-0 z-10 flex items-center justify-center bg-black/40 backdrop-blur-[2px]">
+<span class="material-symbols-outlined text-[48px] text-white animate-pulse">hourglass_empty</span>
+</div>
+<div class="p-2 flex gap-3 items-center border-b border-white/5">
+<div class="w-16 h-16 rounded overflow-hidden relative shrink-0">
+<img alt="Gamer holding controller" class="w-full h-full object-cover" data-alt="A close up shot of a high tech mechanical gaming controller held by cybernetic hands. The aesthetic is heavily cyberpunk, featuring intricate metallic details and glowing LED accents. Set against an intensely dark navy background #0A0A1A, evoking a futuristic and competitive ccg atmosphere." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCwoaHmGZg48Kl4AgdvtNL6wNkcknQE95jAv6tdlp9aIf-t47jyRtpOR6V6uo0cxQXgNEVyhNjH1zByz0nrkqU48W-fR5WyUxzBz-qqDS6UjJmduyoIitBTrhp8HG6LY-TwFuqJOavIuao95IWqnYd2or-a-A6siE0CFdcYYPtDtlbMubN16GRIevKwhiDBNJY4oMV3JrKaIN_YDepKh6uVDsohENrO_ePUz9YXaYyXdYXjREYeApuU0FBfLwu40Wz0fj9tsCJg6ZQa"/>
+<!-- Rarity Badge - Normal -->
+<div class="absolute top-0 right-0 bg-rarity-normal text-on-primary-container text-[10px] font-bold px-1.5 py-0.5 rounded-bl">NORMAL</div>
+</div>
+<div class="flex-1">
+<h3 class="font-headline-sm text-[16px] leading-tight text-text-primary">سرباز پیاده</h3>
+</div>
+</div>
+<!-- Stats Grid -->
+<div class="grid grid-cols-2 gap-1 p-2 bg-surface-container-low/50">
+<div class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px] text-rarity-rare">bolt</span><span class="font-stat-numeric text-[14px]">40</span></div>
+<div class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px] text-primary">directions_run</span><span class="font-stat-numeric text-[14px]">50</span></div>
+<div class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px] text-secondary">psychology</span><span class="font-stat-numeric text-[14px]">35</span></div>
+<div class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px] text-rarity-epic">favorite</span><span class="font-stat-numeric text-[14px]">60</span></div>
+</div>
+</div>
+<!-- Card Cell 4: Normal State -->
+<div class="bg-surface-card rounded-lg border border-outline-variant/30 overflow-hidden relative cursor-pointer hover:border-primary/50 transform hover:-translate-y-1 transition-all duration-200 shadow-md">
+<div class="p-2 flex gap-3 items-center border-b border-white/5">
+<div class="w-16 h-16 rounded overflow-hidden relative shrink-0">
+<img alt="Abstract neon shapes" class="w-full h-full object-cover" data-alt="An abstract 3d rendering of floating geometric shapes in a dark void. The shapes are illuminated by intense neon purple and pink lights, creating a highly digital and energetic feel. The smooth glassmorphic textures reflect the glowing lights, perfect for a modern cyberpunk trading card game." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDw0_CD_55iPCBk-dUEAhLtEVot2RD1bg95dpokZOBZeaDdVCJguJaZ4jNxQH81DCCcVquyfSyRgkxixf7RyO-cZJKPxN-CvlGGFf6NDraOq0pp0Ao-TkmM_AbyS6ziqTliYv5pp2xe7Kwkg_kBxMONtQ8uZpsz6gp5733mEWhsKT2gBbG_fDx21rPjpLwG4SJnXRwnOWZreAWEYhEZJy2631X50mIo6UFKgR3R8vxQjJVu5FsL1X8nGar2tzvvtQDL8Q0Od97iOFf-"/>
+<!-- Rarity Badge - Rare -->
+<div class="absolute top-0 right-0 bg-rarity-rare text-on-primary-container text-[10px] font-bold px-1.5 py-0.5 rounded-bl">RARE</div>
+</div>
+<div class="flex-1">
+<h3 class="font-headline-sm text-[16px] leading-tight text-text-primary">الگوریتم شبح</h3>
+</div>
+</div>
+<!-- Stats Grid -->
+<div class="grid grid-cols-2 gap-1 p-2 bg-surface-container-low/50">
+<div class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px] text-rarity-rare">bolt</span><span class="font-stat-numeric text-[14px]">75</span></div>
+<div class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px] text-primary">directions_run</span><span class="font-stat-numeric text-[14px]">80</span></div>
+<div class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px] text-secondary">psychology</span><span class="font-stat-numeric text-[14px]">65</span></div>
+<div class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px] text-rarity-epic">favorite</span><span class="font-stat-numeric text-[14px]">55</span></div>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Sheet Modal (Active State) -->
+<div class="fixed bottom-0 left-0 w-full z-50 modal-slide-up">
+<!-- Backdrop Blur Layer -->
+<div class="absolute -top-[1000px] left-0 w-full h-[1000px] bg-background-deep/60 backdrop-blur-xl pointer-events-none border-b border-transparent"></div>
+<!-- Modal Content -->
+<div class="bg-surface-card border-t border-primary/30 rounded-t-2xl shadow-[0_-10px_40px_rgba(123,94,234,0.15)] p-margin-mobile relative">
+<!-- Drag Handle -->
+<div class="w-12 h-1.5 bg-outline-variant/50 rounded-full mx-auto mb-4"></div>
+<div class="flex flex-col md:flex-row gap-6">
+<!-- Large Image & Identity -->
+<div class="flex gap-4 items-center md:flex-col md:w-1/3">
+<div class="w-24 h-24 md:w-full md:h-48 rounded-xl overflow-hidden relative shadow-[0_0_20px_rgba(240,192,64,0.3)] border-2 border-secondary">
+<img alt="Cyberpunk character large portrait" class="w-full h-full object-cover" data-alt="A large, highly detailed portrait of a cyber ninja character. The ninja wears a sleek, metallic dark suit with glowing gold and purple accents. The background is an abstract, dark digital space with subtle code-like patterns. The lighting is cinematic, highlighting the reflective surfaces and intense aura of a legendary card." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBt-vMlZqfj7r1wwnYRo1ZfbQwUh1kJLy7j4DwEGqFGJGRvEP-Uyd1CMa03GdT36jnQH0DcENUgIwAgH8QDCFpmWd-AVo4KfWC8nDO7DYQu3oH_KNA_Zugk3kLCTE_RpnnW9SvwzmiEFocyWrNGUJCdJQJI9XmpJkWg52_nHQ0T95NXZyyV-Is732Rgn6TmszZAm1Qf8Eh_9EuVRe5ptwX3zavNNPk3cVmWhghD74OcMjO6_q0t-xrAL445H3olgkXTiEghpYmEY3rd"/>
+<div class="absolute top-2 right-2 bg-rarity-legend text-on-primary-container text-xs font-bold px-2 py-1 rounded">LEGENDARY</div>
+</div>
+<div class="flex-1 md:text-center md:w-full">
+<h2 class="font-headline-lg text-headline-lg text-secondary mb-1">سایبر نینجا</h2>
+<p class="text-on-surface-variant text-sm font-body-md">نیروی ویژه نفوذ سایبری</p>
+</div>
+</div>
+<!-- Stats & Abilities -->
+<div class="flex-1 flex flex-col gap-4">
+<!-- Progress Bars -->
+<div class="space-y-3 bg-surface-container-low/50 p-4 rounded-xl border border-white/5">
+<!-- Power -->
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-rarity-rare w-6 text-center">bolt</span>
+<div class="flex-1 h-2 bg-surface rounded-full overflow-hidden">
+<div class="h-full progress-bar-fill w-[85%] rounded-full"></div>
+</div>
+<span class="font-stat-numeric text-stat-numeric w-8 text-left">85</span>
+</div>
+<!-- Speed -->
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary w-6 text-center">directions_run</span>
+<div class="flex-1 h-2 bg-surface rounded-full overflow-hidden">
+<div class="h-full progress-bar-fill w-[92%] rounded-full"></div>
+</div>
+<span class="font-stat-numeric text-stat-numeric w-8 text-left">92</span>
+</div>
+<!-- IQ -->
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary w-6 text-center">psychology</span>
+<div class="flex-1 h-2 bg-surface rounded-full overflow-hidden">
+<div class="h-full progress-bar-fill w-[70%] rounded-full"></div>
+</div>
+<span class="font-stat-numeric text-stat-numeric w-8 text-left">70</span>
+</div>
+<!-- Popularity -->
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-rarity-epic w-6 text-center">favorite</span>
+<div class="flex-1 h-2 bg-surface rounded-full overflow-hidden">
+<div class="h-full progress-bar-fill w-[88%] rounded-full"></div>
+</div>
+<span class="font-stat-numeric text-stat-numeric w-8 text-left">88</span>
+</div>
+</div>
+<!-- Abilities List -->
+<div>
+<h4 class="font-headline-sm text-sm text-outline mb-2">توانایی‌های ویژه</h4>
+<div class="flex gap-2 flex-wrap">
+<span class="bg-surface-container-highest/80 border border-outline-variant/50 text-xs px-3 py-1.5 rounded-full flex items-center gap-1 text-on-surface">
+<span class="material-symbols-outlined text-[14px] text-primary">visibility_off</span> استتار
+                            </span>
+<span class="bg-surface-container-highest/80 border border-outline-variant/50 text-xs px-3 py-1.5 rounded-full flex items-center gap-1 text-on-surface">
+<span class="material-symbols-outlined text-[14px] text-rarity-rare">local_fire_department</span> ضربه مهلک
+                            </span>
+</div>
+</div>
+<!-- Confirm Button -->
+<button class="mt-auto w-full bg-primary-container text-text-primary font-button-label text-button-label uppercase py-3 rounded-lg hover:bg-inverse-primary active:scale-95 transition-all duration-150 shadow-[0_0_15px_rgba(123,94,234,0.4)]">
+                        انتخاب این کارت
+                    </button>
+</div>
+</div>
+</div>
+</div>
+</body></html>

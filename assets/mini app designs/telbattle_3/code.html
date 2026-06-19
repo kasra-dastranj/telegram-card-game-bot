@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+
+<html class="dark" dir="rtl" lang="fa"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Battle Screen</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&amp;family=Rajdhani:wght@600;700&amp;family=Vazirmatn:wght@400;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-background": "#e1e0ff",
+                        "surface-container": "#1c1d39",
+                        "rarity-epic": "#9C27B0",
+                        "on-primary-fixed-variant": "#4a25b7",
+                        "on-tertiary-container": "#ffffff",
+                        "on-secondary-fixed": "#251a00",
+                        "text-primary": "#FFFFFF",
+                        "primary-container": "#7b5eea",
+                        "secondary-container": "#b88d00",
+                        "tertiary-fixed": "#ffdcbd",
+                        "inverse-primary": "#6343d0",
+                        "on-primary-container": "#ffffff",
+                        "tertiary": "#ffb86e",
+                        "on-primary-fixed": "#1d0061",
+                        "surface-variant": "#31324f",
+                        "tertiary-container": "#ac6600",
+                        "surface-dim": "#0f102c",
+                        "inverse-on-surface": "#2d2e4b",
+                        "rarity-rare": "#F44336",
+                        "surface-container-highest": "#31324f",
+                        "surface-card": "#12122A",
+                        "rarity-legend": "#FF9800",
+                        "on-tertiary-fixed-variant": "#693c00",
+                        "on-secondary-container": "#392a00",
+                        "background": "#0f102c",
+                        "on-surface-variant": "#cac4d6",
+                        "error": "#ffb4ab",
+                        "on-secondary-fixed-variant": "#5a4400",
+                        "on-error": "#690005",
+                        "surface-container-lowest": "#0a0b26",
+                        "on-primary": "#330098",
+                        "error-container": "#93000a",
+                        "tertiary-fixed-dim": "#ffb86e",
+                        "surface-bright": "#363654",
+                        "inverse-surface": "#e1e0ff",
+                        "primary-fixed-dim": "#cbbeff",
+                        "surface-tint": "#cbbeff",
+                        "rarity-normal": "#4CAF50",
+                        "outline-variant": "#484554",
+                        "secondary-fixed": "#ffdf97",
+                        "secondary-fixed-dim": "#f0c040",
+                        "on-secondary": "#3e2e00",
+                        "surface": "#0f102c",
+                        "primary": "#cbbeff",
+                        "outline": "#938ea0",
+                        "on-error-container": "#ffdad6",
+                        "surface-container-low": "#181934",
+                        "background-deep": "#0A0A1A",
+                        "on-surface": "#e1e0ff",
+                        "on-tertiary-fixed": "#2c1600",
+                        "primary-fixed": "#e6deff",
+                        "secondary": "#f0c040",
+                        "surface-container-high": "#262744",
+                        "on-tertiary": "#492900"
+                    },
+                    borderRadius: {
+                        DEFAULT: "0.25rem",
+                        lg: "0.5rem",
+                        xl: "0.75rem",
+                        full: "9999px"
+                    },
+                    spacing: {
+                        "section-padding": "24px",
+                        "unit": "4px",
+                        "margin-mobile": "16px",
+                        "card-gap": "8px",
+                        "gutter": "12px"
+                    },
+                    fontFamily: {
+                        "body-lg": ["Vazirmatn"],
+                        "button-label": ["Oswald"],
+                        "headline-sm": ["Oswald"],
+                        "headline-md": ["Oswald"],
+                        "label-caps": ["Rajdhani"],
+                        "body-md": ["Vazirmatn"],
+                        "headline-lg": ["Oswald"],
+                        "stat-numeric": ["Rajdhani"]
+                    },
+                    fontSize: {
+                        "body-lg": ["18px", { lineHeight: "28px", fontWeight: "400" }],
+                        "button-label": ["16px", { lineHeight: "24px", fontWeight: "600" }],
+                        "headline-sm": ["20px", { lineHeight: "28px", fontWeight: "500" }],
+                        "headline-md": ["24px", { lineHeight: "32px", fontWeight: "600" }],
+                        "label-caps": ["12px", { lineHeight: "16px", letterSpacing: "0.1em", fontWeight: "600" }],
+                        "body-md": ["16px", { lineHeight: "24px", fontWeight: "400" }],
+                        "headline-lg": ["32px", { lineHeight: "40px", letterSpacing: "0.02em", fontWeight: "700" }],
+                        "stat-numeric": ["18px", { lineHeight: "20px", letterSpacing: "0.05em", fontWeight: "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .vs-glow {
+            text-shadow: 0 0 20px rgba(123, 94, 234, 0.8), 0 0 40px rgba(123, 94, 234, 0.4);
+        }
+        .card-glow-player {
+            box-shadow: 0 0 25px rgba(240, 192, 64, 0.4);
+        }
+        .bg-grid-pattern {
+            background-image: linear-gradient(to right, rgba(255,255,255,0.05) 1px, transparent 1px),
+                              linear-gradient(to bottom, rgba(255,255,255,0.05) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background-deep text-on-background min-h-screen flex flex-col font-body-md overflow-hidden bg-grid-pattern relative">
+<!-- Top Navigation Header Shell (Suppressed as per rules: linear/transactional battle screen) -->
+<!-- Content Canvas -->
+<!-- Battle Header Section -->
+<header class="w-full px-margin-mobile pt-6 pb-4 flex flex-col items-center gap-4 z-10 relative">
+<div class="flex justify-between items-center w-full">
+<div class="flex items-center gap-2 bg-surface-container/80 backdrop-blur-md px-4 py-2 rounded-full border border-white/5">
+<span class="material-symbols-outlined text-secondary-fixed-dim" style="font-variation-settings: 'FILL' 1;">bolt</span>
+<span class="font-headline-sm text-headline-sm text-text-primary">عرصه قدرت</span>
+</div>
+<div class="flex items-center gap-1.5">
+<div class="w-3 h-3 rounded-full bg-rarity-normal shadow-[0_0_8px_rgba(76,175,80,0.6)]"></div>
+<div class="w-3 h-3 rounded-full bg-surface-variant"></div>
+<div class="w-3 h-3 rounded-full bg-surface-variant"></div>
+</div>
+</div>
+<div class="flex justify-between items-center w-full max-w-sm mt-2 px-2">
+<div class="flex flex-col items-center">
+<span class="font-label-caps text-label-caps text-rarity-epic">آسو</span>
+<span class="font-headline-md text-headline-md text-error">۰</span>
+</div>
+<div class="font-button-label text-button-label text-outline bg-surface-container px-4 py-1 rounded-lg">
+                راوند ۱/۳
+            </div>
+<div class="flex flex-col items-center">
+<span class="font-label-caps text-label-caps text-on-surface-variant">شما</span>
+<span class="font-headline-md text-headline-md text-secondary">۰</span>
+</div>
+</div>
+</header>
+<!-- Main Battle Area -->
+<main class="flex-grow flex flex-col items-center justify-center w-full px-margin-mobile relative z-10 -mt-8">
+<div class="flex items-center justify-between w-full max-w-md gap-4 relative">
+<!-- Aso Card (Boss Face Up) -->
+<div class="relative">
+<div class="absolute -top-12 left-2 bg-surface-variant/90 backdrop-blur-md border border-rarity-epic shadow-[0_0_15px_rgba(156,39,176,0.3)] text-text-primary px-3 py-1.5 rounded-2xl rounded-bl-sm text-sm z-30 whitespace-nowrap">
+این همه توانت بود؟
+</div>
+<div class="w-36 h-56 bg-surface-card rounded-xl border-2 border-rarity-epic flex flex-col items-center justify-center relative overflow-hidden shadow-[0_0_25px_rgba(156,39,176,0.5)] transform -rotate-2">
+<div class="h-1/2 w-full bg-[url('https://lh3.googleusercontent.com/aida/AP1WRLuSDSnXslg8dhJihrHyvfOaO9Au0cvk8_U8q1VkbH1gVoYs2nK8WLvyZJ8py_7HOHKRAYhioinFBqxHFGZqsHPVRCa36_tB_OtTcBYnJEF3OMvGFHA4Mxi4ZutmcVHDp0OkSYRCxoIzc2tcd_U4i0k6uXM9L4QQHZRI6zAla09SCKcEJ0AM1GcV1QGDoupdIr6H9qyQKEeCk21katFlnNEXPxJpMH0s1sQkG8xrMMbqawQDYajaj8il7A')] bg-cover bg-center relative" data-alt="Aso, the magnificent divine god character in a cyberpunk world, radiating intense purple energy.">
+<div class="absolute top-2 right-2 bg-rarity-epic text-white text-[10px] font-label-caps px-2 py-0.5 rounded-sm">BOSS</div>
+</div>
+<div class="h-1/2 w-full p-2 flex flex-col justify-between bg-gradient-to-t from-background-deep to-surface-card relative z-10">
+<h3 class="font-headline-sm text-headline-sm text-rarity-epic truncate text-center mb-1 drop-shadow-md">آسو</h3>
+<div class="grid grid-cols-2 gap-1 gap-y-2 mt-auto opacity-70">
+<div class="flex items-center gap-1">
+<span class="text-[10px]">💪</span>
+<span class="font-stat-numeric text-stat-numeric text-on-surface">???</span>
+</div>
+<div class="flex items-center gap-1 justify-end">
+<span class="font-stat-numeric text-stat-numeric text-on-surface">???</span>
+<span class="text-[10px]">⚡</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="text-[10px]">🧠</span>
+<span class="font-stat-numeric text-stat-numeric text-on-surface">???</span>
+</div>
+<div class="flex items-center gap-1 justify-end">
+<span class="font-stat-numeric text-stat-numeric text-on-surface">???</span>
+<span class="text-[10px]">⭐</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- VS Badge -->
+<div class="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center">
+<div class="w-16 h-16 rounded-full bg-surface-card border-2 border-primary flex items-center justify-center vs-glow relative">
+<div class="absolute inset-0 rounded-full bg-primary/20 animate-pulse"></div>
+<span class="font-headline-md text-headline-md text-text-primary italic relative z-10 tracking-widest">VS</span>
+</div>
+</div>
+<!-- Player Card (Face Up - John Wick) -->
+<div class="w-36 h-56 bg-surface-card rounded-xl border border-rarity-legend relative overflow-hidden card-glow-player transform rotate-2 flex flex-col">
+<div class="h-1/2 w-full bg-[url('https://images.unsplash.com/photo-1607563148153-625290b2e8fa?ixlib=rb-4.0.3&amp;auto=format&amp;fit=crop&amp;w=800&amp;q=80')] bg-cover bg-center relative" data-alt="Intense portrait of an action hero resembling John Wick in a neon-lit cyberpunk alleyway. Rain slicked streets reflect vibrant violet and gold lights. High contrast cinematic lighting creates a tense, dramatic gamer aesthetic.">
+<div class="absolute top-2 right-2 bg-rarity-legend text-on-secondary-fixed text-[10px] font-label-caps px-2 py-0.5 rounded-sm">LEGEND</div>
+</div>
+<div class="h-1/2 p-2 flex flex-col justify-between bg-gradient-to-t from-background-deep to-surface-card relative z-10">
+<h3 class="font-headline-sm text-headline-sm text-text-primary truncate text-center mb-1">جان ویک</h3>
+<div class="grid grid-cols-2 gap-1 gap-y-2 mt-auto">
+<div class="flex items-center gap-1">
+<span class="text-[10px]">💪</span>
+<span class="font-stat-numeric text-stat-numeric text-on-surface">82</span>
+</div>
+<div class="flex items-center gap-1 justify-end">
+<span class="font-stat-numeric text-stat-numeric text-on-surface">88</span>
+<span class="text-[10px]">⚡</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="text-[10px]">🧠</span>
+<span class="font-stat-numeric text-stat-numeric text-on-surface">78</span>
+</div>
+<div class="flex items-center gap-1 justify-end">
+<span class="font-stat-numeric text-stat-numeric text-on-surface">85</span>
+<span class="text-[10px]">⭐</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Interaction Panel -->
+<section class="w-full bg-surface-container-lowest/90 backdrop-blur-xl border-t border-white/5 rounded-t-2xl p-6 pb-8 z-20 shadow-[0_-8px_30px_rgba(10,10,26,0.8)] relative">
+<h2 class="font-headline-sm text-headline-sm text-text-primary text-center mb-4">راوند ۱: آماری رو انتخاب کن</h2>
+<div class="grid grid-cols-2 gap-3 max-w-sm mx-auto">
+<!-- Stat Button: Power -->
+<button class="w-full bg-surface-container hover:bg-surface-bright active:scale-95 transition-all duration-200 border border-white/10 rounded-xl py-3 px-4 flex items-center justify-between group shadow-lg">
+<div class="flex items-center gap-2">
+<span class="text-lg">💪</span>
+<span class="font-button-label text-button-label text-on-surface">قدرت</span>
+</div>
+<span class="font-stat-numeric text-stat-numeric text-secondary group-hover:text-tertiary transition-colors">82</span>
+</button>
+<!-- Stat Button: Speed -->
+<button class="w-full bg-primary-container text-on-primary-container active:scale-95 transition-all duration-200 border border-primary rounded-xl py-3 px-4 flex items-center justify-between shadow-[0_0_15px_rgba(123,94,234,0.4)]">
+<div class="flex items-center gap-2">
+<span class="text-lg">⚡</span>
+<span class="font-button-label text-button-label text-white">سرعت</span>
+</div>
+<span class="font-stat-numeric text-stat-numeric text-white">88</span>
+</button>
+<!-- Stat Button: IQ (Used/Grayed out example for visual reference, though prompt says "future rounds") -->
+<button class="w-full bg-surface-container hover:bg-surface-bright active:scale-95 transition-all duration-200 border border-white/10 rounded-xl py-3 px-4 flex items-center justify-between group shadow-lg">
+<div class="flex items-center gap-2">
+<span class="text-lg">🧠</span>
+<span class="font-button-label text-button-label text-on-surface">هوش</span>
+</div>
+<span class="font-stat-numeric text-stat-numeric text-rarity-epic group-hover:text-primary-fixed transition-colors">78</span>
+</button>
+<!-- Stat Button: Pop -->
+<button class="w-full bg-surface-container hover:bg-surface-bright active:scale-95 transition-all duration-200 border border-white/10 rounded-xl py-3 px-4 flex items-center justify-between group shadow-lg">
+<div class="flex items-center gap-2">
+<span class="text-lg">⭐</span>
+<span class="font-button-label text-button-label text-on-surface">شهرت</span>
+</div>
+<span class="font-stat-numeric text-stat-numeric text-rarity-legend group-hover:text-secondary transition-colors">85</span>
+</button>
+</div>
+</section>
+<!-- Background Atmospheric Elements -->
+<div class="fixed top-0 left-0 w-full h-full pointer-events-none z-0 overflow-hidden">
+<div class="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary-container/10 rounded-full blur-[120px]"></div>
+<div class="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-surface-bright/20 rounded-full blur-[100px]"></div>
+</div>
+</body></html>

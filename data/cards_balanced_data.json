@@ -1,0 +1,368 @@
+{
+  "cards": [
+    {
+      "name": "Tyrion Lannister",
+      "name_fa": "تیریون لنیستر",
+      "primary_stat": "iq",
+      "card_type": "genius",
+      "normal": {
+        "power": 2,
+        "speed": 4,
+        "iq": 9,
+        "popularity": 6,
+        "total": 21
+      },
+      "epic": {
+        "power": 3,
+        "speed": 5,
+        "iq": 10,
+        "popularity": 7,
+        "total": 25
+      },
+      "legend": {
+        "power": 4,
+        "speed": 6,
+        "iq": 10,
+        "popularity": 8,
+        "total": 28
+      },
+      "abilities": ["Strategic Mind", "Political Genius", "Survivor"]
+    },
+    {
+      "name": "Rick Grimes",
+      "name_fa": "ریک گرایمز",
+      "primary_stat": "iq",
+      "card_type": "balanced",
+      "normal": {
+        "power": 6,
+        "speed": 5,
+        "iq": 7,
+        "popularity": 4,
+        "total": 22
+      },
+      "epic": {
+        "power": 7,
+        "speed": 6,
+        "iq": 8,
+        "popularity": 5,
+        "total": 26
+      },
+      "legend": {
+        "power": 8,
+        "speed": 7,
+        "iq": 9,
+        "popularity": 6,
+        "total": 30
+      },
+      "abilities": ["Leadership", "Survival Instinct", "Tactical Combat"]
+    },
+    {
+      "name": "Negan",
+      "name_fa": "نیگن",
+      "primary_stat": "power",
+      "card_type": "warrior",
+      "normal": {
+        "power": 8,
+        "speed": 4,
+        "iq": 5,
+        "popularity": 3,
+        "total": 20
+      },
+      "epic": {
+        "power": 9,
+        "speed": 5,
+        "iq": 6,
+        "popularity": 4,
+        "total": 24
+      },
+      "legend": {
+        "power": 10,
+        "speed": 6,
+        "iq": 7,
+        "popularity": 5,
+        "total": 28
+      },
+      "abilities": ["Lucille Master", "Intimidation", "Ruthless"]
+    },
+    {
+      "name": "Daryl Dixon",
+      "name_fa": "دریل دیکسون",
+      "primary_stat": "speed",
+      "card_type": "speedster",
+      "normal": {
+        "power": 5,
+        "speed": 8,
+        "iq": 4,
+        "popularity": 5,
+        "total": 22
+      },
+      "epic": {
+        "power": 6,
+        "speed": 9,
+        "iq": 5,
+        "popularity": 6,
+        "total": 26
+      },
+      "legend": {
+        "power": 7,
+        "speed": 10,
+        "iq": 6,
+        "popularity": 7,
+        "total": 30
+      },
+      "abilities": ["Crossbow Expert", "Tracker", "Stealth"]
+    },
+    {
+      "name": "Billy Butcher",
+      "name_fa": "بیلی بوچر",
+      "primary_stat": "power",
+      "card_type": "warrior",
+      "normal": {
+        "power": 7,
+        "speed": 6,
+        "iq": 5,
+        "popularity": 2,
+        "total": 20
+      },
+      "epic": {
+        "power": 8,
+        "speed": 7,
+        "iq": 6,
+        "popularity": 3,
+        "total": 24
+      },
+      "legend": {
+        "power": 10,
+        "speed": 8,
+        "iq": 7,
+        "popularity": 4,
+        "total": 29
+      },
+      "abilities": ["Supe Hunter", "Brutal Fighter", "Fearless"]
+    },
+    {
+      "name": "Homelander",
+      "name_fa": "هوملندر",
+      "primary_stat": "power",
+      "card_type": "warrior",
+      "normal": {
+        "power": 8,
+        "speed": 7,
+        "iq": 3,
+        "popularity": 4,
+        "total": 22
+      },
+      "epic": {
+        "power": 9,
+        "speed": 8,
+        "iq": 4,
+        "popularity": 5,
+        "total": 26
+      },
+      "legend": {
+        "power": 10,
+        "speed": 9,
+        "iq": 5,
+        "popularity": 6,
+        "total": 30
+      },
+      "abilities": ["Laser Eyes", "Flight", "Invulnerability"]
+    },
+    {
+      "name": "Michelangelo",
+      "name_fa": "مایکی لاک‌پشت نینجا",
+      "primary_stat": "speed",
+      "card_type": "speedster",
+      "normal": {
+        "power": 5,
+        "speed": 8,
+        "iq": 3,
+        "popularity": 6,
+        "total": 22
+      },
+      "epic": {
+        "power": 6,
+        "speed": 9,
+        "iq": 4,
+        "popularity": 7,
+        "total": 26
+      },
+      "legend": {
+        "power": 7,
+        "speed": 10,
+        "iq": 5,
+        "popularity": 8,
+        "total": 30
+      },
+      "abilities": ["Nunchaku Master", "Party Dude", "Ninja Speed"]
+    },
+    {
+      "name": "Donald Trump",
+      "name_fa": "دونالد ترامپ",
+      "primary_stat": "power",
+      "card_type": "celebrity",
+      "normal": {
+        "power": 6,
+        "speed": 3,
+        "iq": 5,
+        "popularity": 7,
+        "total": 21
+      },
+      "epic": {
+        "power": 7,
+        "speed": 4,
+        "iq": 6,
+        "popularity": 8,
+        "total": 25
+      },
+      "legend": {
+        "power": 8,
+        "speed": 5,
+        "iq": 7,
+        "popularity": 9,
+        "total": 29
+      },
+      "abilities": ["Business Tycoon", "Media Presence", "Negotiator"]
+    },
+    {
+      "name": "Mahmoud Ahmadinejad",
+      "name_fa": "محمود احمدی‌نژاد",
+      "primary_stat": "popularity",
+      "card_type": "celebrity",
+      "normal": {
+        "power": 4,
+        "speed": 3,
+        "iq": 6,
+        "popularity": 7,
+        "total": 20
+      },
+      "epic": {
+        "power": 5,
+        "speed": 4,
+        "iq": 7,
+        "popularity": 8,
+        "total": 24
+      },
+      "legend": {
+        "power": 6,
+        "speed": 5,
+        "iq": 8,
+        "popularity": 9,
+        "total": 28
+      },
+      "abilities": ["Political Leader", "Public Speaker", "Controversial"]
+    },
+    {
+      "name": "Bashar al-Assad",
+      "name_fa": "بشار اسد",
+      "primary_stat": "speed",
+      "card_type": "balanced",
+      "normal": {
+        "power": 5,
+        "speed": 6,
+        "iq": 6,
+        "popularity": 2,
+        "total": 19
+      },
+      "epic": {
+        "power": 6,
+        "speed": 7,
+        "iq": 7,
+        "popularity": 3,
+        "total": 23
+      },
+      "legend": {
+        "power": 7,
+        "speed": 8,
+        "iq": 8,
+        "popularity": 4,
+        "total": 27
+      },
+      "abilities": ["Military Strategy", "Political Survival", "Ruthless"]
+    },
+    {
+      "name": "Patrick Star",
+      "name_fa": "پاتریک",
+      "primary_stat": "popularity",
+      "card_type": "celebrity",
+      "normal": {
+        "power": 2,
+        "speed": 1,
+        "iq": 1,
+        "popularity": 8,
+        "total": 12
+      },
+      "epic": {
+        "power": 3,
+        "speed": 2,
+        "iq": 2,
+        "popularity": 9,
+        "total": 16
+      },
+      "legend": {
+        "power": 4,
+        "speed": 3,
+        "iq": 3,
+        "popularity": 10,
+        "total": 20
+      },
+      "abilities": ["Lovable Idiot", "Comic Relief", "Unpredictable"]
+    },
+    {
+      "name": "Pahlavon Puria",
+      "name_fa": "پهلوان پوریا",
+      "primary_stat": "power",
+      "card_type": "warrior",
+      "normal": {
+        "power": 8,
+        "speed": 5,
+        "iq": 3,
+        "popularity": 6,
+        "total": 22
+      },
+      "epic": {
+        "power": 9,
+        "speed": 6,
+        "iq": 4,
+        "popularity": 7,
+        "total": 26
+      },
+      "legend": {
+        "power": 10,
+        "speed": 7,
+        "iq": 5,
+        "popularity": 8,
+        "total": 30
+      },
+      "abilities": ["Wrestling Champion", "Strength", "Persian Hero"]
+    },
+    {
+      "name": "Spider-Man",
+      "name_fa": "اسپایدرمن",
+      "primary_stat": "speed",
+      "card_type": "speedster",
+      "normal": {
+        "power": 6,
+        "speed": 8,
+        "iq": 6,
+        "popularity": 7,
+        "total": 27
+      },
+      "epic": {
+        "power": 7,
+        "speed": 9,
+        "iq": 7,
+        "popularity": 8,
+        "total": 31
+      },
+      "legend": {
+        "power": 8,
+        "speed": 10,
+        "iq": 8,
+        "popularity": 9,
+        "total": 35
+      },
+      "abilities": ["Web Slinger", "Spider Sense", "Agility"]
+    }
+  ]
+}

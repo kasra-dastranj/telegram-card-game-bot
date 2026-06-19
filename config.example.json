@@ -1,0 +1,35 @@
+{
+    "bot_settings": {
+        "token": "YOUR_BOT_TOKEN_HERE",
+        "admin_user_ids": [123456789, 987654321],
+        "webhook_url": null,
+        "webhook_port": 8443
+    },
+    "game_settings": {
+        "daily_hearts": 10,
+        "heart_reset_hours": 24,
+        "claim_cooldown_hours": 24,
+        "ability_cooldown_hours": 24,
+        "max_cards_per_page": 8,
+        "card_drop_rates": {
+            "normal": 65,
+            "epic": 25,
+            "legend": 10
+        }
+    },
+    "database": {
+        "path": "game_bot.db",
+        "backup_interval_hours": 24,
+        "auto_backup": true
+    },
+    "image_settings": {
+        "card_images_path": "card_images/",
+        "default_card_image": "card_images/default.png",
+        "enable_images": true
+    },
+    "images": {
+        "path": "card_images",
+        "max_size_mb": 5,
+        "allowed_formats": ["png", "jpg", "jpeg", "gif"]
+    }
+}

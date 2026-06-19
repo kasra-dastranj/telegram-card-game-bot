@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+
+<html class="dark" dir="rtl" lang="fa"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>TelBattle - Card Selection</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&amp;family=Rajdhani:wght@500;600;700&amp;family=Vazirmatn:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-primary-fixed-variant": "#4a25b7",
+                      "rarity-epic": "#9C27B0",
+                      "surface-container-highest": "#31324f",
+                      "on-secondary-fixed": "#251a00",
+                      "primary-fixed-dim": "#cbbeff",
+                      "text-primary": "#FFFFFF",
+                      "surface-container-high": "#262744",
+                      "on-secondary": "#3e2e00",
+                      "surface-dim": "#0f102c",
+                      "secondary-fixed": "#ffdf97",
+                      "primary-fixed": "#e6deff",
+                      "rarity-normal": "#4CAF50",
+                      "secondary-fixed-dim": "#f0c040",
+                      "on-tertiary-container": "#ffffff",
+                      "inverse-primary": "#6343d0",
+                      "error-container": "#93000a",
+                      "outline-variant": "#484554",
+                      "inverse-on-surface": "#2d2e4b",
+                      "secondary": "#f0c040",
+                      "surface-bright": "#363654",
+                      "on-primary-container": "#ffffff",
+                      "on-tertiary": "#492900",
+                      "on-tertiary-fixed-variant": "#693c00",
+                      "on-error-container": "#ffdad6",
+                      "tertiary-container": "#ac6600",
+                      "surface-container": "#1c1d39",
+                      "on-primary-fixed": "#1d0061",
+                      "primary-container": "#7b5eea",
+                      "on-secondary-container": "#392a00",
+                      "surface": "#0f102c",
+                      "rarity-legend": "#FF9800",
+                      "on-surface-variant": "#cac4d6",
+                      "error": "#ffb4ab",
+                      "on-tertiary-fixed": "#2c1600",
+                      "on-primary": "#330098",
+                      "tertiary-fixed": "#ffdcbd",
+                      "on-background": "#e1e0ff",
+                      "background-deep": "#0A0A1A",
+                      "on-secondary-fixed-variant": "#5a4400",
+                      "inverse-surface": "#e1e0ff",
+                      "background": "#0f102c",
+                      "surface-variant": "#31324f",
+                      "on-surface": "#e1e0ff",
+                      "surface-card": "#12122A",
+                      "surface-tint": "#cbbeff",
+                      "rarity-rare": "#F44336",
+                      "secondary-container": "#b88d00",
+                      "tertiary": "#ffb86e",
+                      "tertiary-fixed-dim": "#ffb86e",
+                      "surface-container-low": "#181934",
+                      "outline": "#938ea0",
+                      "on-error": "#690005",
+                      "primary": "#cbbeff",
+                      "surface-container-lowest": "#0a0b26"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "section-padding": "24px",
+                      "margin-mobile": "16px",
+                      "gutter": "12px",
+                      "card-gap": "8px",
+                      "unit": "4px"
+              },
+              "fontFamily": {
+                      "headline-lg": ["Oswald", "sans-serif"],
+                      "body-md": ["Vazirmatn", "sans-serif"],
+                      "headline-md": ["Oswald", "sans-serif"],
+                      "body-lg": ["Vazirmatn", "sans-serif"],
+                      "label-caps": ["Rajdhani", "sans-serif"],
+                      "button-label": ["Oswald", "sans-serif"],
+                      "stat-numeric": ["Rajdhani", "sans-serif"],
+                      "headline-sm": ["Oswald", "sans-serif"]
+              },
+              "fontSize": {
+                      "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "0.02em", "fontWeight": "700"}],
+                      "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                      "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                      "label-caps": ["12px", {"lineHeight": "16px", "letterSpacing": "0.1em", "fontWeight": "600"}],
+                      "button-label": ["16px", {"lineHeight": "24px", "fontWeight": "600"}],
+                      "stat-numeric": ["18px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "700"}],
+                      "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "500"}]
+              }
+            }
+          }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-family: 'Material Symbols Outlined';
+            font-weight: normal;
+            font-style: normal;
+            font-size: 24px;
+            display: inline-block;
+            line-height: 1;
+            text-transform: none;
+            letter-spacing: normal;
+            word-wrap: normal;
+            white-space: nowrap;
+            direction: ltr;
+        }
+        /* Glassmorphism utilities */
+        .glass-panel {
+            background: rgba(18, 18, 42, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        /* Custom scrollbar for horizontal lists if needed */
+        ::-webkit-scrollbar {
+            height: 4px;
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: theme('colors.surface-container-low');
+        }
+        ::-webkit-scrollbar-thumb {
+            background: theme('colors.primary-container');
+            border-radius: theme('borderRadius.full');
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-deep text-text-primary font-body-md min-h-screen pb-24 overflow-x-hidden selection:bg-primary-container selection:text-white">
+<!-- TopAppBar -->
+<header class="bg-surface/80 dark:bg-surface/80 backdrop-blur-xl fixed top-0 w-full z-50 border-b border-white/10 shadow-[0_0_15px_rgba(123,94,234,0.3)] flex justify-between items-center px-margin-mobile py-4 transition-all">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full overflow-hidden border border-primary/30 ring-2 ring-primary/10">
+<img alt="User Avatar" class="w-full h-full object-cover" data-alt="A cyberpunk avatar portrait of a futuristic hacker with glowing neon accents, deep shadows, and high-contrast violet and cyan lighting, hyper-realistic, 8k resolution, stylized for a dark sci-fi game UI." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAc7ZpvhI_xSk6RoGLXCrtaYBRHWOlYzjGObbQZzHyE6Jj6nOl-V73yleziPvPxJcmMAc2pjR3K-wmpgGBRSjeW_ol4bXsn37LlUNDjsx2ryNMouCJfyy3ZJ44xb3pfWT16bwDOxpMxnm8Gyc0IOAby7dQXUFjw7eio47JO6EjbEVIondJhgAMshPUayka0tKKt5VlaXujxxIQcymPg2tVXYDgDfbmUvWYiDfkhVWtmZJDTx68lsRgmVvXx-Z3V5QxiaZF0zrpJQvTK"/>
+</div>
+<h1 class="font-headline-lg text-headline-lg font-bold tracking-wider text-primary italic">TelBattle</h1>
+</div>
+<div class="flex items-center gap-1 bg-surface-container-high px-3 py-1.5 rounded-full border border-secondary/20 shadow-[0_0_8px_rgba(240,192,64,0.2)]">
+<span class="material-symbols-outlined text-secondary" data-icon="toll" style="font-variation-settings: 'FILL' 1; font-size: 18px;">toll</span>
+<span class="font-stat-numeric text-stat-numeric text-secondary">1,250 COINS</span>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="pt-[88px] px-margin-mobile pb-section-padding max-w-lg mx-auto relative">
+<!-- Context Header (Opponent & Difficulty) -->
+<div class="glass-panel rounded-xl p-4 mb-6 flex justify-between items-center relative overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-r from-error/10 to-transparent opacity-50"></div>
+<div class="relative z-10 flex flex-col">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-widest mb-1">حریف فعلی</span>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-error" data-icon="swords">swords</span>
+<span class="font-headline-md text-headline-md text-text-primary">آسو (Aso)</span>
+</div>
+</div>
+<div class="relative z-10 flex flex-col items-end">
+<span class="font-label-caps text-label-caps text-outline uppercase tracking-widest mb-1">سطح سختی</span>
+<div class="flex items-center gap-1 text-rarity-legend">
+<span class="material-symbols-outlined" data-icon="local_fire_department" style="font-variation-settings: 'FILL' 1; font-size: 16px;">local_fire_department</span>
+<span class="font-stat-numeric text-stat-numeric text-rarity-legend shadow-rarity-legend drop-shadow-[0_0_4px_rgba(255,152,0,0.8)]">سخت</span>
+</div>
+</div>
+</div>
+<!-- Section Title -->
+<h2 class="font-headline-md text-headline-md text-primary-fixed mb-4 border-r-4 border-primary pr-3">انتخاب کارت مبارزه</h2>
+<!-- Cards Grid -->
+<div class="grid grid-cols-2 gap-card-gap">
+<!-- Card 1: Legendary (Selected/Focus Example) -->
+<button class="group relative bg-surface-card rounded-lg p-unit border border-rarity-legend shadow-[0_0_15px_rgba(255,152,0,0.3)] transition-all hover:scale-[1.02] active:scale-95 text-right overflow-hidden flex flex-col h-full cursor-pointer focus:outline-none focus:ring-2 focus:ring-rarity-legend" onclick="openModal('card-legendary')">
+<div class="absolute inset-0 bg-gradient-to-b from-rarity-legend/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<!-- Rarity Badge -->
+<div class="absolute top-2 left-2 z-10 bg-surface-container-highest/90 backdrop-blur border border-rarity-legend/50 rounded flex items-center px-1.5 py-0.5">
+<span class="font-label-caps text-[10px] font-bold text-rarity-legend uppercase tracking-wider shadow-rarity-legend drop-shadow-sm">Legend</span>
+</div>
+<div class="w-full h-28 rounded-md overflow-hidden mb-2 relative bg-surface-container">
+<img alt="Card Image" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="A majestic, glowing energy being in dark metallic armor, floating above a neon-lit futuristic city, intense purple and cyan ethereal energy wings, cyberpunk aesthetic, dramatic dark background, highly detailed digital painting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCWw6gSo3wAjc_xU50TPoKTZF5A1LQhysZA3knO7eO5kEzye-KhGK4QXp6MCzdsdISF4x53CTAao0yVQoYjgUKj2ye2rVSTtqOkRJMMo9BA1ZKoEnGwZV63BnfUtZNqa-lv2lCKHlvwb3g26oyChXXkAWyYca6eJG3LUIk0kwBgkwC_Wc2ReXHBw-9Tqkpk2qGXcqdg5nhaTnRK6Lg5TySZwVggaw3u8G_RZtj8RLj1Cd50gVoTp_jkPJfNd0v7Wsiz4dvYF9Zu-j2H"/>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-text-primary px-1 mb-2 truncate">فرمانده ابدیت</h3>
+<!-- Stats Grid -->
+<div class="grid grid-cols-2 gap-1 px-1 mt-auto">
+<div class="flex items-center gap-1 bg-surface-container-low rounded px-1.5 py-1">
+<span class="text-[14px] leading-none">⚡</span>
+<span class="font-stat-numeric text-[14px] text-text-primary font-bold">۹۵</span>
+</div>
+<div class="flex items-center gap-1 bg-surface-container-low rounded px-1.5 py-1">
+<span class="text-[14px] leading-none">🏃</span>
+<span class="font-stat-numeric text-[14px] text-text-primary font-bold">۸۸</span>
+</div>
+<div class="flex items-center gap-1 bg-surface-container-low rounded px-1.5 py-1">
+<span class="text-[14px] leading-none">🧠</span>
+<span class="font-stat-numeric text-[14px] text-text-primary font-bold">۹۲</span>
+</div>
+<div class="flex items-center gap-1 bg-surface-container-low rounded px-1.5 py-1">
+<span class="text-[14px] leading-none">⭐</span>
+<span class="font-stat-numeric text-[14px] text-text-primary font-bold">۹۹</span>
+</div>
+</div>
+</button>
+<!-- Card 2: Epic -->
+<button class="group relative bg-surface-card rounded-lg p-unit border border-white/10 hover:border-rarity-epic transition-all hover:shadow-[0_0_10px_rgba(156,39,176,0.3)] active:scale-95 text-right overflow-hidden flex flex-col h-full cursor-pointer focus:outline-none">
+<div class="absolute top-2 left-2 z-10 bg-surface-container-highest/90 backdrop-blur border border-rarity-epic/50 rounded flex items-center px-1.5 py-0.5">
+<span class="font-label-caps text-[10px] font-bold text-rarity-epic uppercase tracking-wider">Epic</span>
+</div>
+<div class="w-full h-28 rounded-md overflow-hidden mb-2 relative bg-surface-container">
+<img alt="Card Image" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="A sleek cyberpunk street samurai with a glowing katana, wearing high-tech tactical gear, standing in a rain-slicked neon alleyway, moody atmospheric lighting, dark metallic tones with bright red accents." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCw_zz-G1XOzfS7m-qqmxEJoUAS3vcmuOoJpkQgnVL2IGWvsTxWBJ6_7DStzKu2zcZ8QlxLho4QKtW_MHSut_DWgOZUelpcCfB56ZOmWEa8PtEelVACuwm6P1mC4wpKkO--IzSzluxt-Tb3wauZAZ24vvM4DPMtgReboigZtUYcmcsLs7fQkntbsUmbocZyjuQ-P5lsEL5lcLZijOJS9haacQmWOVQADYRB3NaTXm4ZenythPdlrcgqxr4uoQ8fYtsvsij-fzUMniQb"/>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-text-primary px-1 mb-2 truncate">سایه‌رو</h3>
+<div class="grid grid-cols-2 gap-1 px-1 mt-auto">
+<div class="flex items-center gap-1 bg-surface-container-low rounded px-1.5 py-1">
+<span class="text-[14px] leading-none">⚡</span><span class="font-stat-numeric text-[14px] text-text-primary font-bold">۷۵</span>
+</div>
+<div class="flex items-center gap-1 bg-surface-container-low rounded px-1.5 py-1">
+<span class="text-[14px] leading-none">🏃</span><span class="font-stat-numeric text-[14px] text-text-primary font-bold">۹۴</span>
+</div>
+<div class="flex items-center gap-1 bg-surface-container-low rounded px-1.5 py-1">
+<span class="text-[14px] leading-none">🧠</span><span class="font-stat-numeric text-[14px] text-text-primary font-bold">۶۰</span>
+</div>
+<div class="flex items-center gap-1 bg-surface-container-low rounded px-1.5 py-1">
+<span class="text-[14px] leading-none">⭐</span><span class="font-stat-numeric text-[14px] text-text-primary font-bold">۸۲</span>
+</div>
+</div>
+</button>
+<!-- Card 3: Normal -->
+<button class="group relative bg-surface-card rounded-lg p-unit border border-white/10 hover:border-rarity-normal transition-all hover:shadow-[0_0_10px_rgba(76,175,80,0.2)] active:scale-95 text-right overflow-hidden flex flex-col h-full cursor-pointer focus:outline-none">
+<div class="absolute top-2 left-2 z-10 bg-surface-container-highest/90 backdrop-blur border border-rarity-normal/50 rounded flex items-center px-1.5 py-0.5">
+<span class="font-label-caps text-[10px] font-bold text-rarity-normal uppercase tracking-wider">Normal</span>
+</div>
+<div class="w-full h-28 rounded-md overflow-hidden mb-2 relative bg-surface-container">
+<img alt="Card Image" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="A heavily armored robotic enforcer drone, brutalist design, scratched dark metal plating, glowing yellow optical sensors, dark industrial background, cinematic lighting, sci-fi concept art." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBHB5wA2Vaouba-xBBTTc0mgpszKaOo9U-Dvo0i-h5oobCWI3kP8R_9bKl6_LfpQiFADmr5NbClHkfORiPSLc6iSED9ecKM7FmLSznelJc1zRg_L98u-avL8hDbehIgjKnOWjrIBEze8NTjcMoLW0LxiA1Dkyem4BHP2ZkizxBaDQsMkg74IGIjv84hrqCXZlqDtUacUeC2LxY69nl3kAGnfymrpSFTK4oNdEhvZ1sdxU2GjH-Zfq_4D6s3vp1XTnfRxUBeBZmmVW3y"/>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-text-primary px-1 mb-2 truncate">مدافع فولادی</h3>
+<div class="grid grid-cols-2 gap-1 px-1 mt-auto">
+<div class="flex items-center gap-1 bg-surface-container-low rounded px-1.5 py-1">
+<span class="text-[14px] leading-none">⚡</span><span class="font-stat-numeric text-[14px] text-text-primary font-bold">۸۵</span>
+</div>
+<div class="flex items-center gap-1 bg-surface-container-low rounded px-1.5 py-1">
+<span class="text-[14px] leading-none">🏃</span><span class="font-stat-numeric text-[14px] text-text-primary font-bold">۴۰</span>
+</div>
+<div class="flex items-center gap-1 bg-surface-container-low rounded px-1.5 py-1">
+<span class="text-[14px] leading-none">🧠</span><span class="font-stat-numeric text-[14px] text-text-primary font-bold">۵۰</span>
+</div>
+<div class="flex items-center gap-1 bg-surface-container-low rounded px-1.5 py-1">
+<span class="text-[14px] leading-none">⭐</span><span class="font-stat-numeric text-[14px] text-text-primary font-bold">۴۵</span>
+</div>
+</div>
+</button>
+<!-- Card 4: Cooldown (Disabled State) -->
+<div class="relative bg-surface-card rounded-lg p-unit border border-white/5 opacity-60 text-right overflow-hidden flex flex-col h-full grayscale">
+<!-- Cooldown Overlay -->
+<div class="absolute inset-0 bg-surface-dim/70 backdrop-blur-[2px] z-20 flex flex-col items-center justify-center">
+<span class="material-symbols-outlined text-secondary animate-pulse mb-2" data-icon="hourglass_empty" style="font-size: 32px;">hourglass_empty</span>
+<span class="font-label-caps text-label-caps text-secondary font-bold tracking-widest bg-black/50 px-2 py-1 rounded">در حال استراحت</span>
+</div>
+<div class="absolute top-2 left-2 z-10 bg-surface-container-highest/90 border border-rarity-epic/30 rounded flex items-center px-1.5 py-0.5">
+<span class="font-label-caps text-[10px] font-bold text-rarity-epic uppercase tracking-wider">Epic</span>
+</div>
+<div class="w-full h-28 rounded-md overflow-hidden mb-2 bg-surface-container">
+<img alt="Card Image" class="w-full h-full object-cover" data-alt="A mystical techno-mage character casting a temporal spell, glowing runes floating around hands, dark futuristic attire, deep void-like background, muted colors indicating a stasis or cooldown state." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC5dymW_f2te3pWRy1NG8fq69ijlqA6TxS2xx1lf5ufCdf-giLu9UM_4MPDSl-yhyqtUTIQggOxi1OsuO5fappuEaSbrVzmj7YorKu6ZvCp4ugP-ZHwXq_c_qet_Xv1v2TNBovWT9ywBFNWIEc-uAoef2jTt0u1kEhZVryyEgjv2VHqZEepZ9__vs4QLVgdChbUB2X8rHOmcpPt3ZNZrK15yk0GH_ildBuFYBL_zPLxBRcUQzxxyJw4IFt58t984MeV99mto5HAQxEl"/>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-text-primary px-1 mb-2 truncate">ساحره زمان</h3>
+<div class="grid grid-cols-2 gap-1 px-1 mt-auto">
+<div class="flex items-center gap-1 bg-surface-container-low rounded px-1.5 py-1">
+<span class="text-[14px] leading-none">⚡</span><span class="font-stat-numeric text-[14px] text-text-primary font-bold">۸۰</span>
+</div>
+<div class="flex items-center gap-1 bg-surface-container-low rounded px-1.5 py-1">
+<span class="text-[14px] leading-none">🏃</span><span class="font-stat-numeric text-[14px] text-text-primary font-bold">۷۰</span>
+</div>
+<div class="flex items-center gap-1 bg-surface-container-low rounded px-1.5 py-1">
+<span class="text-[14px] leading-none">🧠</span><span class="font-stat-numeric text-[14px] text-text-primary font-bold">۹۵</span>
+</div>
+<div class="flex items-center gap-1 bg-surface-container-low rounded px-1.5 py-1">
+<span class="text-[14px] leading-none">⭐</span><span class="font-stat-numeric text-[14px] text-text-primary font-bold">۸۸</span>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="bg-surface-container dark:bg-surface-container fixed bottom-0 w-full z-40 rounded-t-xl border-t border-white/5 shadow-[0_-4px_20px_rgba(0,0,0,0.5)] flex justify-around items-center h-16 px-gutter pb-safe md:hidden">
+<button class="flex flex-col items-center justify-center text-secondary dark:text-secondary drop-shadow-[0_0_8px_rgba(240,192,64,0.6)] w-full h-full">
+<span class="material-symbols-outlined mb-1" data-icon="sports_esports" style="font-variation-settings: 'FILL' 1;">sports_esports</span>
+<span class="font-label-caps text-label-caps">Arena</span>
+</button>
+<button class="flex flex-col items-center justify-center text-outline dark:text-outline hover:text-primary-fixed-dim transition-all active:translate-y-1 duration-150 w-full h-full">
+<span class="material-symbols-outlined mb-1" data-icon="style">style</span>
+<span class="font-label-caps text-label-caps">Collection</span>
+</button>
+<button class="flex flex-col items-center justify-center text-outline dark:text-outline hover:text-primary-fixed-dim transition-all active:translate-y-1 duration-150 w-full h-full">
+<span class="material-symbols-outlined mb-1" data-icon="military_tech">military_tech</span>
+<span class="font-label-caps text-label-caps">Rank</span>
+</button>
+<button class="flex flex-col items-center justify-center text-outline dark:text-outline hover:text-primary-fixed-dim transition-all active:translate-y-1 duration-150 w-full h-full">
+<span class="material-symbols-outlined mb-1" data-icon="person">person</span>
+<span class="font-label-caps text-label-caps">Profile</span>
+</button>
+</nav>
+<!-- Card Details Bottom Sheet Modal -->
+<div class="fixed inset-0 z-[100] hidden flex-col justify-end" id="card-modal">
+<!-- Backdrop -->
+<div class="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity" onclick="closeModal()"></div>
+<!-- Sheet Content -->
+<div class="relative bg-surface-container-highest rounded-t-2xl border-t border-white/10 shadow-[0_-10px_40px_rgba(0,0,0,0.8)] w-full max-w-lg mx-auto flex flex-col max-h-[751px] overflow-hidden transform translate-y-full transition-transform duration-300 ease-out" id="modal-sheet">
+<!-- Drag Handle -->
+<div class="w-full flex justify-center pt-3 pb-2 cursor-pointer" onclick="closeModal()">
+<div class="w-12 h-1.5 bg-outline-variant rounded-full"></div>
+</div>
+<div class="px-section-padding pb-section-padding overflow-y-auto">
+<!-- Header: Image & Title -->
+<div class="flex gap-4 items-end mb-6 relative">
+<!-- Glow effect behind image -->
+<div class="absolute -top-4 -right-4 w-32 h-32 bg-rarity-legend/20 rounded-full blur-2xl pointer-events-none"></div>
+<div class="w-24 h-32 rounded-lg overflow-hidden border-2 border-rarity-legend shadow-[0_0_20px_rgba(255,152,0,0.4)] shrink-0 bg-surface-card relative z-10">
+<img alt="Selected Card" class="w-full h-full object-cover" data-alt="A majestic, glowing energy being in dark metallic armor, floating above a neon-lit futuristic city, intense purple and cyan ethereal energy wings, cyberpunk aesthetic, dramatic dark background, highly detailed digital painting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDJsH3tmyxnWg8j_HrbyvdtmAwfZCRdF0d1lkot5Nge_ZTihdTh5kiGMkpHAFfJRrAa4GLJv6vx7f5P5hIGW54rPDtdtB6v_cEsoNzS05blwtRVAaciSTsL6EMMSBdQwYOFGjgxkVYrfwmXQ4Mjtx56MKdtR44bN4KsdrFmdizXIEcd5BpA_5cYMxhOJ5lN6xB0Kx4cB7us3UpURjiGjN8At2j98atKYzOALvlBZcrjEe84YoHOloW2wxGmLEi7h45kYDRMSKRZygRp"/>
+</div>
+<div class="pb-1 relative z-10">
+<div class="inline-flex items-center gap-1 bg-rarity-legend/10 border border-rarity-legend/30 px-2 py-0.5 rounded text-rarity-legend mb-2">
+<span class="material-symbols-outlined" data-icon="stars" style="font-size: 14px;">stars</span>
+<span class="font-label-caps text-[12px] font-bold uppercase tracking-widest">Legendary</span>
+</div>
+<h2 class="font-headline-lg text-headline-lg text-text-primary leading-tight">فرمانده ابدیت</h2>
+<p class="font-body-md text-sm text-on-surface-variant mt-1">کلاس: رهبر انرژی</p>
+</div>
+</div>
+<!-- Detailed Stats Bars -->
+<div class="space-y-3 mb-6 bg-surface-card/50 rounded-xl p-4 border border-white/5">
+<h4 class="font-label-caps text-label-caps text-outline uppercase tracking-widest mb-2 border-b border-white/10 pb-1">مشخصات فنی</h4>
+<!-- Stat Bar: Power -->
+<div>
+<div class="flex justify-between text-sm mb-1">
+<span class="flex items-center gap-1 text-on-surface"><span class="text-[14px]">⚡</span> قدرت</span>
+<span class="font-stat-numeric text-stat-numeric text-primary-fixed">۹۵</span>
+</div>
+<div class="w-full h-2 bg-surface rounded-full overflow-hidden">
+<div class="h-full bg-gradient-to-l from-primary-container to-[#b39ddb] rounded-full" style="width: 95%;"></div>
+</div>
+</div>
+<!-- Stat Bar: Speed -->
+<div>
+<div class="flex justify-between text-sm mb-1">
+<span class="flex items-center gap-1 text-on-surface"><span class="text-[14px]">🏃</span> سرعت</span>
+<span class="font-stat-numeric text-stat-numeric text-primary-fixed">۸۸</span>
+</div>
+<div class="w-full h-2 bg-surface rounded-full overflow-hidden">
+<div class="h-full bg-gradient-to-l from-primary-container to-[#b39ddb] rounded-full" style="width: 88%;"></div>
+</div>
+</div>
+<!-- Stat Bar: IQ -->
+<div>
+<div class="flex justify-between text-sm mb-1">
+<span class="flex items-center gap-1 text-on-surface"><span class="text-[14px]">🧠</span> هوش</span>
+<span class="font-stat-numeric text-stat-numeric text-primary-fixed">۹۲</span>
+</div>
+<div class="w-full h-2 bg-surface rounded-full overflow-hidden">
+<div class="h-full bg-gradient-to-l from-primary-container to-[#b39ddb] rounded-full" style="width: 92%;"></div>
+</div>
+</div>
+</div>
+<!-- Abilities -->
+<div class="mb-8">
+<h4 class="font-label-caps text-label-caps text-outline uppercase tracking-widest mb-3 px-1">قابلیت‌های ویژه</h4>
+<div class="space-y-2">
+<div class="glass-panel p-3 rounded-lg flex gap-3 items-start border-l-2 border-l-secondary">
+<div class="bg-secondary/20 p-1.5 rounded-md text-secondary shrink-0 mt-0.5">
+<span class="material-symbols-outlined" data-icon="bolt" style="font-size: 20px;">bolt</span>
+</div>
+<div>
+<h5 class="font-headline-sm text-[16px] text-text-primary mb-0.5">ضربه پلاسما</h5>
+<p class="font-body-md text-[13px] text-on-surface-variant leading-relaxed">وارد کردن آسیب سنگین به حریف و کاهش قدرت دفاعی او برای ۲ نوبت.</p>
+</div>
+</div>
+<div class="glass-panel p-3 rounded-lg flex gap-3 items-start border-l-2 border-l-primary-fixed">
+<div class="bg-primary/20 p-1.5 rounded-md text-primary shrink-0 mt-0.5">
+<span class="material-symbols-outlined" data-icon="shield" style="font-size: 20px;">shield</span>
+</div>
+<div>
+<h5 class="font-headline-sm text-[16px] text-text-primary mb-0.5">سپر ابدیت</h5>
+<p class="font-body-md text-[13px] text-on-surface-variant leading-relaxed">ایجاد یک سپر انرژی که ۵۰٪ از آسیب حملات بعدی را خنثی می‌کند.</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Action Button -->
+<button class="w-full bg-primary-container text-on-primary-container font-button-label text-button-label py-4 rounded-xl shadow-[0_4px_15px_rgba(123,94,234,0.4)] hover:bg-inverse-primary hover:shadow-[0_6px_20px_rgba(123,94,234,0.6)] active:scale-95 transition-all flex justify-center items-center gap-2" onclick="confirmSelection()">
+<span class="material-symbols-outlined" data-icon="done_all">done_all</span>
+                    انتخاب برای مبارزه
+                </button>
+</div>
+</div>
+</div>
+<script>
+        // Simple JS for Modal Interaction
+        const modal = document.getElementById('card-modal');
+        const sheet = document.getElementById('modal-sheet');
+
+        function openModal(cardId) {
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            // Slight delay to allow display:flex to apply before translating for animation
+            setTimeout(() => {
+                sheet.classList.remove('translate-y-full');
+                sheet.classList.add('translate-y-0');
+            }, 10);
+        }
+
+        function closeModal() {
+            sheet.classList.remove('translate-y-0');
+            sheet.classList.add('translate-y-full');
+            // Wait for transition to finish before hiding
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }, 300);
+        }
+
+        function confirmSelection() {
+            // Visual feedback on button click before closing
+            const btn = document.activeElement;
+            btn.innerHTML = '<span class="material-symbols-outlined animate-spin" data-icon="sync">sync</span> در حال تایید...';
+            setTimeout(() => {
+                closeModal();
+                // Reset text after close
+                setTimeout(() => {
+                    btn.innerHTML = '<span class="material-symbols-outlined" data-icon="done_all">done_all</span> انتخاب برای مبارزه';
+                }, 300);
+            }, 800);
+        }
+    </script>
+</body></html>

@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+
+<html class="dark" dir="rtl" lang="fa"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>رویارویی با آسو</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700&amp;family=Oswald:wght@500;600;700&amp;family=Rajdhani:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-container-highest": "#31324f",
+                      "inverse-on-surface": "#2d2e4b",
+                      "rarity-rare": "#F44336",
+                      "surface-variant": "#31324f",
+                      "tertiary-container": "#ac6600",
+                      "surface-dim": "#0f102c",
+                      "tertiary": "#ffb86e",
+                      "on-primary-fixed": "#1d0061",
+                      "on-primary-container": "#ffffff",
+                      "inverse-primary": "#6343d0",
+                      "primary-container": "#7b5eea",
+                      "text-primary": "#FFFFFF",
+                      "secondary-container": "#b88d00",
+                      "tertiary-fixed": "#ffdcbd",
+                      "on-tertiary-container": "#ffffff",
+                      "on-primary-fixed-variant": "#4a25b7",
+                      "rarity-epic": "#9C27B0",
+                      "on-secondary-fixed": "#251a00",
+                      "surface-container": "#1c1d39",
+                      "on-background": "#e1e0ff",
+                      "surface-container-high": "#262744",
+                      "secondary": "#f0c040",
+                      "primary-fixed": "#e6deff",
+                      "on-tertiary": "#492900",
+                      "primary": "#cbbeff",
+                      "outline": "#938ea0",
+                      "surface-container-low": "#181934",
+                      "on-error-container": "#ffdad6",
+                      "on-surface": "#e1e0ff",
+                      "background-deep": "#0A0A1A",
+                      "on-tertiary-fixed": "#2c1600",
+                      "rarity-normal": "#4CAF50",
+                      "secondary-fixed-dim": "#f0c040",
+                      "secondary-fixed": "#ffdf97",
+                      "outline-variant": "#484554",
+                      "surface": "#0f102c",
+                      "on-secondary": "#3e2e00",
+                      "primary-fixed-dim": "#cbbeff",
+                      "inverse-surface": "#e1e0ff",
+                      "surface-tint": "#cbbeff",
+                      "tertiary-fixed-dim": "#ffb86e",
+                      "error-container": "#93000a",
+                      "surface-bright": "#363654",
+                      "on-error": "#690005",
+                      "surface-container-lowest": "#0a0b26",
+                      "on-primary": "#330098",
+                      "on-surface-variant": "#cac4d6",
+                      "on-secondary-fixed-variant": "#5a4400",
+                      "error": "#ffb4ab",
+                      "surface-card": "#12122A",
+                      "rarity-legend": "#FF9800",
+                      "on-tertiary-fixed-variant": "#693c00",
+                      "on-secondary-container": "#392a00",
+                      "background": "#0f102c"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "unit": "4px",
+                      "margin-mobile": "16px",
+                      "gutter": "12px",
+                      "card-gap": "8px",
+                      "section-padding": "24px"
+              },
+              "fontFamily": {
+                      "stat-numeric": ["Rajdhani"],
+                      "headline-lg": ["Oswald"],
+                      "label-caps": ["Rajdhani"],
+                      "headline-sm": ["Oswald"],
+                      "headline-md": ["Oswald"],
+                      "body-md": ["Vazirmatn"],
+                      "button-label": ["Oswald"],
+                      "body-lg": ["Vazirmatn"]
+              },
+              "fontSize": {
+                      "stat-numeric": ["18px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "700"}],
+                      "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "0.02em", "fontWeight": "700"}],
+                      "label-caps": ["12px", {"lineHeight": "16px", "letterSpacing": "0.1em", "fontWeight": "600"}],
+                      "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "500"}],
+                      "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                      "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "button-label": ["16px", {"lineHeight": "24px", "fontWeight": "600"}],
+                      "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}]
+              }
+            }
+          }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .aso-font {
+            font-family: 'Oswald', sans-serif; /* Fallback since specific stylized font isn't standard, using Oswald for impact */
+            text-shadow: 0 0 10px rgba(123, 94, 234, 0.8), 0 0 20px rgba(123, 94, 234, 0.4);
+        }
+        .glow-green { box-shadow: 0 0 15px rgba(76, 175, 80, 0.4); border-color: rgba(76, 175, 80, 0.6); }
+        .glow-purple { box-shadow: 0 0 20px rgba(156, 39, 176, 0.6); border-color: rgba(156, 39, 176, 0.8); }
+        .glow-red { box-shadow: 0 0 15px rgba(244, 67, 54, 0.4); border-color: rgba(244, 67, 54, 0.6); }
+        
+        .glass-panel {
+            background: rgba(18, 18, 42, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        /* Shimmer effect for recommended */
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        .shimmer-text {
+            background: linear-gradient(90deg, #cbbeff 25%, #ffffff 50%, #cbbeff 75%);
+            background-size: 200% auto;
+            color: transparent;
+            -webkit-background-clip: text;
+            animation: shimmer 3s linear infinite;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-deep text-text-primary min-h-screen flex flex-col font-body-md overflow-x-hidden selection:bg-primary-container selection:text-white">
+<!-- Top Navigation App Bar -->
+<header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-margin-mobile h-16 bg-surface-dim/80 dark:bg-surface-dim/80 backdrop-blur-xl border-b border-white/10 flat no shadows">
+<!-- Leading Action: Back (since this is a selection screen, returning somewhere) -->
+<button class="text-on-surface-variant hover:text-primary transition-colors flex items-center justify-center active:scale-95">
+<span class="material-symbols-outlined text-2xl">arrow_forward</span> <!-- RTL arrow -->
+</button>
+<!-- Headline -->
+<h1 class="font-headline-sm text-headline-sm font-bold text-primary tracking-wider uppercase">رویارویی با آسو</h1>
+<!-- Trailing Action: Player Currency -->
+<div class="flex items-center gap-1 bg-surface-card rounded-full px-3 py-1 border border-white/5">
+<span class="font-stat-numeric text-stat-numeric text-secondary">1200</span>
+<span class="material-symbols-outlined text-secondary text-sm" style="font-variation-settings: 'FILL' 1;">stars</span>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-grow flex flex-col pt-16 pb-24 px-margin-mobile gap-section-padding relative">
+<!-- Aso Illustration Area -->
+<section class="relative w-full h-[353px] min-h-[300px] mt-4 rounded-xl overflow-hidden glass-panel flex flex-col justify-end">
+<!-- Background Image of Aso -->
+<div class="absolute inset-0 z-0 bg-cover bg-center opacity-80" data-alt="A majestic, imposing cinematic illustration of a cyberpunk digital god named Aso. The figure is shrouded in dark, flowing void-like energy with piercing glowing neon purple and gold elements. The background is a vast, starry deep-space void typical of high-end dark gamer aesthetics. Lighting is dramatic, with rim lights outlining the imposing silhouette. Intricate glowing circuitry patterns run across the divine being's features." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuB_l0eBz7eEHN3QHi3xvbMncm9xGvLL0wiD71smPqVAM2MTcTPYI6kid9PZVDAQePL20i4SiqN-zco7PGGmAF_MoZxbre0S0hTAAGtSAtbuErfT-fOnBC-zVVSW7C0s4F573x7_prK-IvhjAfJ3ZOZj_GaOFYnMiOAb4nNmVOVtaL7HEoFOJ6Ha7K9RcvtIbB2Zk4m2UZyD6_MgUGyAiBPYeOQ8_aawUi-DY5TZORzplyLeVzqBlmnoqkC0WDr9Ltrv-K8yLEKT9x5q');">
+<!-- Gradient overlay to blend with content below -->
+<div class="absolute inset-0 bg-gradient-to-t from-background-deep via-surface-card/50 to-transparent"></div>
+</div>
+<!-- Dialogue Box -->
+<div class="relative z-10 p-4 mb-4 mx-4 glass-panel rounded-lg border border-primary/30 shadow-[0_0_20px_rgba(123,94,234,0.15)] flex flex-col gap-2">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-sm" style="font-variation-settings: 'FILL' 1;">format_quote</span>
+<h2 class="aso-font font-headline-md text-headline-md text-primary tracking-widest uppercase">آسو</h2>
+</div>
+<p class="font-body-lg text-body-lg text-on-surface leading-relaxed">
+                    «می‌دونم اومدی. انتخاب کن.»
+                </p>
+</div>
+</section>
+<!-- Selection Buttons (Difficulty Levels) -->
+<section class="flex flex-col gap-4 z-10 w-full max-w-md mx-auto">
+<!-- Easy: Merciful Aso -->
+<button class="w-full flex items-center justify-between p-4 rounded-xl glass-panel glow-green transition-transform active:scale-95 group relative overflow-hidden">
+<div class="absolute inset-0 bg-rarity-normal/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="flex items-center gap-4 relative z-10">
+<div class="w-12 h-12 rounded-full bg-surface-container flex items-center justify-center border border-rarity-normal/50">
+<span class="material-symbols-outlined text-rarity-normal text-3xl">spa</span>
+</div>
+<div class="flex flex-col items-start">
+<span class="font-headline-sm text-headline-sm text-white group-hover:text-rarity-normal transition-colors">آسوِ رحیم</span>
+<span class="font-label-caps text-label-caps text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[10px]">shield</span> سطح آسان
+                        </span>
+</div>
+</div>
+<span class="material-symbols-outlined text-rarity-normal/50 group-hover:text-rarity-normal relative z-10">arrow_back_ios_new</span>
+</button>
+<!-- Medium: Angry Aso (Recommended) -->
+<button class="w-full flex items-center justify-between p-4 rounded-xl glass-panel glow-purple transition-transform active:scale-95 group relative overflow-hidden border-primary/50 shadow-[0_0_30px_rgba(156,39,176,0.2)]">
+<!-- Active pulsing background -->
+<div class="absolute inset-0 bg-primary/10 animate-pulse"></div>
+<div class="absolute top-0 right-0 bg-primary text-white font-label-caps text-label-caps px-3 py-1 rounded-bl-lg rounded-tr-xl z-20 flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]" style="font-variation-settings: 'FILL' 1;">star</span>
+                    پیشنهادی
+                </div>
+<div class="flex items-center gap-4 relative z-10 mt-2">
+<div class="w-14 h-14 rounded-full bg-surface-container flex items-center justify-center border-2 border-rarity-epic shadow-[0_0_15px_rgba(156,39,176,0.5)]">
+<span class="material-symbols-outlined text-rarity-epic text-4xl" style="font-variation-settings: 'FILL' 1;">local_fire_department</span>
+</div>
+<div class="flex flex-col items-start">
+<span class="font-headline-md text-headline-md text-white shimmer-text">آسوِ خشمگین</span>
+<span class="font-label-caps text-label-caps text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[10px]">swords</span> سطح متوسط
+                        </span>
+</div>
+</div>
+<span class="material-symbols-outlined text-rarity-epic relative z-10">arrow_back_ios_new</span>
+</button>
+<!-- Hard: Destroyer Aso -->
+<button class="w-full flex items-center justify-between p-4 rounded-xl glass-panel glow-red transition-transform active:scale-95 group relative overflow-hidden opacity-90 hover:opacity-100">
+<div class="absolute inset-0 bg-rarity-rare/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<!-- Intimidating scratch marks or glitch effect could go here in CSS, keeping simple with gradient -->
+<div class="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-transparent via-transparent to-rarity-rare/10 pointer-events-none"></div>
+<div class="flex items-center gap-4 relative z-10">
+<div class="w-12 h-12 rounded-full bg-surface-container flex items-center justify-center border border-rarity-rare/50">
+<span class="material-symbols-outlined text-rarity-rare text-3xl">skull</span>
+</div>
+<div class="flex flex-col items-start">
+<span class="font-headline-sm text-headline-sm text-white group-hover:text-rarity-rare transition-colors">آسوِ نابودگر</span>
+<span class="font-label-caps text-label-caps text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[10px]">warning</span> سطح دشوار
+                        </span>
+</div>
+</div>
+<span class="material-symbols-outlined text-rarity-rare/50 group-hover:text-rarity-rare relative z-10">arrow_back_ios_new</span>
+</button>
+</section>
+</main>
+<!-- Navigation Suppressed: This is a focused selection/task screen, BottomNavBar is excluded per rules -->
+</body></html>

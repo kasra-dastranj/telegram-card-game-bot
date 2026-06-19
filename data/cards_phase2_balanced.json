@@ -1,0 +1,2623 @@
+{
+  "cards": [
+    {
+      "name": "Tyrion Lannister",
+      "name_fa": "تیریون لنیستر",
+      "primary_stat": "iq",
+      "card_type": "IQ_TYPE",
+      "normal": {
+        "power": 2,
+        "speed": 3,
+        "iq": 9,
+        "popularity": 5,
+        "total": 19
+      },
+      "epic": {
+        "power": 3,
+        "speed": 4,
+        "iq": 9,
+        "popularity": 6,
+        "total": 22
+      },
+      "legend": {
+        "power": 4,
+        "speed": 5,
+        "iq": 10,
+        "popularity": 7,
+        "total": 26
+      }
+    },
+    {
+      "name": "Rick Grimes",
+      "name_fa": "ریک گرایمز",
+      "primary_stat": "iq",
+      "card_type": "IQ_TYPE",
+      "normal": {
+        "power": 6,
+        "speed": 5,
+        "iq": 7,
+        "popularity": 4,
+        "total": 22
+      },
+      "epic": {
+        "power": 7,
+        "speed": 6,
+        "iq": 8,
+        "popularity": 5,
+        "total": 26
+      },
+      "legend": {
+        "power": 8,
+        "speed": 7,
+        "iq": 10,
+        "popularity": 6,
+        "total": 31
+      }
+    },
+    {
+      "name": "Negan",
+      "name_fa": "نیگن",
+      "primary_stat": "power",
+      "card_type": "POWER_TYPE",
+      "normal": {
+        "power": 8,
+        "speed": 4,
+        "iq": 4,
+        "popularity": 2,
+        "total": 18
+      },
+      "epic": {
+        "power": 9,
+        "speed": 5,
+        "iq": 5,
+        "popularity": 3,
+        "total": 22
+      },
+      "legend": {
+        "power": 10,
+        "speed": 6,
+        "iq": 6,
+        "popularity": 4,
+        "total": 26
+      }
+    },
+    {
+      "name": "Daryl Dixon",
+      "name_fa": "دریل دیکسون",
+      "primary_stat": "speed",
+      "card_type": "SPEED_TYPE",
+      "normal": {
+        "power": 5,
+        "speed": 8,
+        "iq": 3,
+        "popularity": 4,
+        "total": 20
+      },
+      "epic": {
+        "power": 6,
+        "speed": 9,
+        "iq": 4,
+        "popularity": 5,
+        "total": 24
+      },
+      "legend": {
+        "power": 7,
+        "speed": 10,
+        "iq": 5,
+        "popularity": 6,
+        "total": 28
+      }
+    },
+    {
+      "name": "Billy Butcher",
+      "name_fa": "بوچر",
+      "primary_stat": "power",
+      "card_type": "POWER_TYPE",
+      "normal": {
+        "power": 7,
+        "speed": 5,
+        "iq": 4,
+        "popularity": 2,
+        "total": 18
+      },
+      "epic": {
+        "power": 8,
+        "speed": 6,
+        "iq": 5,
+        "popularity": 3,
+        "total": 22
+      },
+      "legend": {
+        "power": 10,
+        "speed": 7,
+        "iq": 6,
+        "popularity": 4,
+        "total": 27
+      }
+    },
+    {
+      "name": "Homelander",
+      "name_fa": "هوملندر",
+      "primary_stat": "power",
+      "card_type": "POWER_TYPE",
+      "normal": {
+        "power": 8,
+        "speed": 6,
+        "iq": 2,
+        "popularity": 4,
+        "total": 20
+      },
+      "epic": {
+        "power": 9,
+        "speed": 7,
+        "iq": 3,
+        "popularity": 5,
+        "total": 24
+      },
+      "legend": {
+        "power": 10,
+        "speed": 8,
+        "iq": 4,
+        "popularity": 6,
+        "total": 28
+      }
+    },
+    {
+      "name": "Michelangelo",
+      "name_fa": "مایکی لاک‌پشت نینجا",
+      "primary_stat": "speed",
+      "card_type": "SPEED_TYPE",
+      "normal": {
+        "power": 5,
+        "speed": 8,
+        "iq": 2,
+        "popularity": 6,
+        "total": 21
+      },
+      "epic": {
+        "power": 6,
+        "speed": 9,
+        "iq": 3,
+        "popularity": 7,
+        "total": 25
+      },
+      "legend": {
+        "power": 7,
+        "speed": 10,
+        "iq": 4,
+        "popularity": 8,
+        "total": 29
+      }
+    },
+    {
+      "name": "Donald Trump",
+      "name_fa": "ترامپ",
+      "primary_stat": "power",
+      "card_type": "POWER_TYPE",
+      "normal": {
+        "power": 5,
+        "speed": 3,
+        "iq": 6,
+        "popularity": 8,
+        "total": 22
+      },
+      "epic": {
+        "power": 6,
+        "speed": 4,
+        "iq": 7,
+        "popularity": 9,
+        "total": 26
+      },
+      "legend": {
+        "power": 7,
+        "speed": 5,
+        "iq": 8,
+        "popularity": 9,
+        "total": 29
+      }
+    },
+    {
+      "name": "Mahmoud Ahmadinejad",
+      "name_fa": "محمود احمدی‌نژاد",
+      "primary_stat": "popularity",
+      "card_type": "POPULARITY_TYPE",
+      "normal": {
+        "power": 3,
+        "speed": 3,
+        "iq": 5,
+        "popularity": 8,
+        "total": 19
+      },
+      "epic": {
+        "power": 4,
+        "speed": 4,
+        "iq": 6,
+        "popularity": 9,
+        "total": 23
+      },
+      "legend": {
+        "power": 5,
+        "speed": 5,
+        "iq": 7,
+        "popularity": 10,
+        "total": 27
+      }
+    },
+    {
+      "name": "Bashar al-Assad",
+      "name_fa": "بشار اسد",
+      "primary_stat": "speed",
+      "card_type": "SPEED_TYPE",
+      "normal": {
+        "power": 4,
+        "speed": 7,
+        "iq": 6,
+        "popularity": 1,
+        "total": 18
+      },
+      "epic": {
+        "power": 5,
+        "speed": 8,
+        "iq": 7,
+        "popularity": 2,
+        "total": 22
+      },
+      "legend": {
+        "power": 6,
+        "speed": 10,
+        "iq": 8,
+        "popularity": 3,
+        "total": 27
+      }
+    },
+    {
+      "name": "Patrick Star",
+      "name_fa": "پاتریک",
+      "primary_stat": "popularity",
+      "card_type": "POPULARITY_TYPE",
+      "normal": {
+        "power": 2,
+        "speed": 2,
+        "iq": 2,
+        "popularity": 8,
+        "total": 14
+      },
+      "epic": {
+        "power": 3,
+        "speed": 3,
+        "iq": 3,
+        "popularity": 9,
+        "total": 18
+      },
+      "legend": {
+        "power": 4,
+        "speed": 4,
+        "iq": 4,
+        "popularity": 10,
+        "total": 22
+      }
+    },
+    {
+      "name": "Pahlavon Puria",
+      "name_fa": "پهلوان پوریا",
+      "primary_stat": "power",
+      "card_type": "POWER_TYPE",
+      "normal": {
+        "power": 8,
+        "speed": 4,
+        "iq": 2,
+        "popularity": 6,
+        "total": 20
+      },
+      "epic": {
+        "power": 9,
+        "speed": 5,
+        "iq": 3,
+        "popularity": 7,
+        "total": 24
+      },
+      "legend": {
+        "power": 10,
+        "speed": 6,
+        "iq": 4,
+        "popularity": 8,
+        "total": 28
+      }
+    },
+    {
+      "name": "Spider-Man",
+      "name_fa": "اسپایدرمن",
+      "primary_stat": "speed",
+      "card_type": "SPEED_TYPE",
+      "normal": {
+        "power": 5,
+        "speed": 8,
+        "iq": 5,
+        "popularity": 4,
+        "total": 22
+      },
+      "epic": {
+        "power": 6,
+        "speed": 9,
+        "iq": 6,
+        "popularity": 5,
+        "total": 26
+      },
+      "legend": {
+        "power": 7,
+        "speed": 10,
+        "iq": 7,
+        "popularity": 6,
+        "total": 30
+      }
+    },
+    {
+      "name": "Batman",
+      "name_fa": "بتمن",
+      "primary_stat": "power",
+      "card_type": "POWER_TYPE",
+      "normal": {
+        "power": 7,
+        "speed": 6,
+        "iq": 6,
+        "popularity": 3,
+        "total": 22
+      },
+      "epic": {
+        "power": 8,
+        "speed": 7,
+        "iq": 7,
+        "popularity": 4,
+        "total": 26
+      },
+      "legend": {
+        "power": 10,
+        "speed": 8,
+        "iq": 8,
+        "popularity": 5,
+        "total": 31
+      }
+    },
+    {
+      "name": "John Wick",
+      "name_fa": "جان ویک",
+      "primary_stat": "speed",
+      "card_type": "SPEED_TYPE",
+      "normal": {
+        "power": 7,
+        "speed": 8,
+        "iq": 5,
+        "popularity": 2,
+        "total": 22
+      },
+      "epic": {
+        "power": 8,
+        "speed": 9,
+        "iq": 6,
+        "popularity": 3,
+        "total": 26
+      },
+      "legend": {
+        "power": 9,
+        "speed": 10,
+        "iq": 7,
+        "popularity": 4,
+        "total": 30
+      }
+    },
+    {
+      "name": "Captain Jack Sparrow",
+      "name_fa": "کاپتان جک اسپارو",
+      "primary_stat": "popularity",
+      "card_type": "POPULARITY_TYPE",
+      "normal": {
+        "power": 4,
+        "speed": 5,
+        "iq": 5,
+        "popularity": 8,
+        "total": 22
+      },
+      "epic": {
+        "power": 5,
+        "speed": 6,
+        "iq": 6,
+        "popularity": 9,
+        "total": 26
+      },
+      "legend": {
+        "power": 6,
+        "speed": 7,
+        "iq": 7,
+        "popularity": 10,
+        "total": 30
+      }
+    },
+    {
+      "name": "Deadpool",
+      "name_fa": "ددپول",
+      "primary_stat": "speed",
+      "card_type": "SPEED_TYPE",
+      "normal": {
+        "power": 6,
+        "speed": 8,
+        "iq": 4,
+        "popularity": 4,
+        "total": 22
+      },
+      "epic": {
+        "power": 7,
+        "speed": 9,
+        "iq": 5,
+        "popularity": 5,
+        "total": 26
+      },
+      "legend": {
+        "power": 8,
+        "speed": 10,
+        "iq": 6,
+        "popularity": 6,
+        "total": 30
+      }
+    },
+    {
+      "name": "Thanos",
+      "name_fa": "تانوس",
+      "primary_stat": "power",
+      "card_type": "POWER_TYPE",
+      "normal": {
+        "power": 9,
+        "speed": 5,
+        "iq": 6,
+        "popularity": 2,
+        "total": 22
+      },
+      "epic": {
+        "power": 9,
+        "speed": 6,
+        "iq": 7,
+        "popularity": 3,
+        "total": 25
+      },
+      "legend": {
+        "power": 10,
+        "speed": 7,
+        "iq": 8,
+        "popularity": 4,
+        "total": 29
+      }
+    },
+    {
+      "name": "Rostam",
+      "name_fa": "رستم",
+      "primary_stat": "power",
+      "card_type": "POWER_TYPE",
+      "normal": {
+        "power": 9,
+        "speed": 5,
+        "iq": 3,
+        "popularity": 5,
+        "total": 22
+      },
+      "epic": {
+        "power": 9,
+        "speed": 6,
+        "iq": 4,
+        "popularity": 6,
+        "total": 25
+      },
+      "legend": {
+        "power": 10,
+        "speed": 7,
+        "iq": 5,
+        "popularity": 7,
+        "total": 29
+      }
+    },
+    {
+      "name": "Snoop Dogg",
+      "name_fa": "اسنوپ داگ",
+      "primary_stat": "popularity",
+      "card_type": "POPULARITY_TYPE",
+      "normal": {
+        "power": 2,
+        "speed": 3,
+        "iq": 5,
+        "popularity": 8,
+        "total": 18
+      },
+      "epic": {
+        "power": 3,
+        "speed": 4,
+        "iq": 6,
+        "popularity": 9,
+        "total": 22
+      },
+      "legend": {
+        "power": 4,
+        "speed": 5,
+        "iq": 7,
+        "popularity": 10,
+        "total": 26
+      }
+    },
+    {
+      "name": "Tataloo",
+      "name_fa": "تتلو",
+      "primary_stat": "popularity",
+      "card_type": "POPULARITY_TYPE",
+      "normal": {
+        "power": 3,
+        "speed": 4,
+        "iq": 4,
+        "popularity": 8,
+        "total": 19
+      },
+      "epic": {
+        "power": 4,
+        "speed": 5,
+        "iq": 5,
+        "popularity": 9,
+        "total": 23
+      },
+      "legend": {
+        "power": 5,
+        "speed": 6,
+        "iq": 6,
+        "popularity": 10,
+        "total": 27
+      }
+    },
+    {
+      "name": "Jackie Chan",
+      "name_fa": "جکی چان",
+      "primary_stat": "speed",
+      "card_type": "SPEED_TYPE",
+      "normal": {
+        "power": 6,
+        "speed": 8,
+        "iq": 4,
+        "popularity": 4,
+        "total": 22
+      },
+      "epic": {
+        "power": 7,
+        "speed": 9,
+        "iq": 5,
+        "popularity": 5,
+        "total": 26
+      },
+      "legend": {
+        "power": 8,
+        "speed": 10,
+        "iq": 6,
+        "popularity": 6,
+        "total": 30
+      }
+    },
+    {
+      "name": "Heisenberg",
+      "name_fa": "هایزنبرگ",
+      "primary_stat": "iq",
+      "card_type": "IQ_TYPE",
+      "normal": {
+        "power": 3,
+        "speed": 2,
+        "iq": 9,
+        "popularity": 4,
+        "total": 18
+      },
+      "epic": {
+        "power": 4,
+        "speed": 3,
+        "iq": 9,
+        "popularity": 5,
+        "total": 21
+      },
+      "legend": {
+        "power": 5,
+        "speed": 4,
+        "iq": 10,
+        "popularity": 6,
+        "total": 25
+      }
+    },
+    {
+      "name": "Mokhtar",
+      "name_fa": "مختار",
+      "primary_stat": "power",
+      "card_type": "POWER_TYPE",
+      "normal": {
+        "power": 7,
+        "speed": 5,
+        "iq": 5,
+        "popularity": 4,
+        "total": 21
+      },
+      "epic": {
+        "power": 8,
+        "speed": 6,
+        "iq": 6,
+        "popularity": 5,
+        "total": 25
+      },
+      "legend": {
+        "power": 10,
+        "speed": 7,
+        "iq": 7,
+        "popularity": 6,
+        "total": 30
+      }
+    },
+    {
+      "name": "Jumong",
+      "name_fa": "جومونگ",
+      "primary_stat": "speed",
+      "card_type": "SPEED_TYPE",
+      "normal": {
+        "power": 5,
+        "speed": 8,
+        "iq": 5,
+        "popularity": 4,
+        "total": 22
+      },
+      "epic": {
+        "power": 6,
+        "speed": 9,
+        "iq": 6,
+        "popularity": 5,
+        "total": 26
+      },
+      "legend": {
+        "power": 7,
+        "speed": 10,
+        "iq": 7,
+        "popularity": 6,
+        "total": 30
+      }
+    },
+    {
+      "name": "Scorpion",
+      "name_fa": "اسکورپین",
+      "primary_stat": "speed",
+      "card_type": "SPEED_TYPE",
+      "normal": {
+        "power": 6,
+        "speed": 8,
+        "iq": 3,
+        "popularity": 3,
+        "total": 20
+      },
+      "epic": {
+        "power": 7,
+        "speed": 9,
+        "iq": 4,
+        "popularity": 4,
+        "total": 24
+      },
+      "legend": {
+        "power": 8,
+        "speed": 10,
+        "iq": 5,
+        "popularity": 5,
+        "total": 28
+      }
+    },
+    {
+      "name": "Leon Kennedy",
+      "name_fa": "لئون رزیدنت ایول",
+      "primary_stat": "speed",
+      "card_type": "SPEED_TYPE",
+      "normal": {
+        "power": 6,
+        "speed": 8,
+        "iq": 5,
+        "popularity": 3,
+        "total": 22
+      },
+      "epic": {
+        "power": 7,
+        "speed": 9,
+        "iq": 6,
+        "popularity": 4,
+        "total": 26
+      },
+      "legend": {
+        "power": 8,
+        "speed": 10,
+        "iq": 7,
+        "popularity": 5,
+        "total": 30
+      }
+    },
+    {
+      "name": "Ben10",
+      "name_fa": "بن تن",
+      "primary_stat": "power",
+      "card_type": "POWER_TYPE",
+      "normal": {
+        "power": 7,
+        "speed": 5,
+        "iq": 3,
+        "popularity": 5,
+        "total": 20
+      },
+      "epic": {
+        "power": 8,
+        "speed": 6,
+        "iq": 4,
+        "popularity": 6,
+        "total": 24
+      },
+      "legend": {
+        "power": 10,
+        "speed": 7,
+        "iq": 5,
+        "popularity": 7,
+        "total": 29
+      }
+    },
+    {
+      "name": "Mr Bean",
+      "name_fa": "مستربین",
+      "primary_stat": "popularity",
+      "card_type": "POPULARITY_TYPE",
+      "normal": {
+        "power": 1,
+        "speed": 2,
+        "iq": 3,
+        "popularity": 8,
+        "total": 14
+      },
+      "epic": {
+        "power": 2,
+        "speed": 3,
+        "iq": 4,
+        "popularity": 9,
+        "total": 18
+      },
+      "legend": {
+        "power": 3,
+        "speed": 4,
+        "iq": 5,
+        "popularity": 10,
+        "total": 22
+      }
+    },
+    {
+      "name": "CJ",
+      "name_fa": "سی جی",
+      "primary_stat": "popularity",
+      "card_type": "POPULARITY_TYPE",
+      "normal": {
+        "power": 5,
+        "speed": 6,
+        "iq": 3,
+        "popularity": 7,
+        "total": 21
+      },
+      "epic": {
+        "power": 6,
+        "speed": 7,
+        "iq": 4,
+        "popularity": 8,
+        "total": 25
+      },
+      "legend": {
+        "power": 7,
+        "speed": 8,
+        "iq": 5,
+        "popularity": 10,
+        "total": 30
+      }
+    },
+    {
+      "name": "Dr Stop",
+      "name_fa": "دکتر استاپ",
+      "primary_stat": "popularity",
+      "card_type": "POPULARITY_TYPE",
+      "normal": {
+        "power": 2,
+        "speed": 3,
+        "iq": 5,
+        "popularity": 8,
+        "total": 18
+      },
+      "epic": {
+        "power": 3,
+        "speed": 4,
+        "iq": 6,
+        "popularity": 9,
+        "total": 22
+      },
+      "legend": {
+        "power": 4,
+        "speed": 5,
+        "iq": 7,
+        "popularity": 10,
+        "total": 26
+      }
+    },
+    {
+      "name": "Master Shifu",
+      "name_fa": "استاد شیفو",
+      "primary_stat": "speed",
+      "card_type": "SPEED_TYPE",
+      "normal": {
+        "power": 3,
+        "speed": 8,
+        "iq": 7,
+        "popularity": 4,
+        "total": 22
+      },
+      "epic": {
+        "power": 4,
+        "speed": 9,
+        "iq": 8,
+        "popularity": 5,
+        "total": 26
+      },
+      "legend": {
+        "power": 5,
+        "speed": 10,
+        "iq": 9,
+        "popularity": 6,
+        "total": 30
+      }
+    },
+    {
+      "name": "Putin",
+      "name_fa": "پوتین",
+      "primary_stat": "power",
+      "card_type": "POWER_TYPE",
+      "normal": {
+        "power": 6,
+        "speed": 4,
+        "iq": 7,
+        "popularity": 5,
+        "total": 22
+      },
+      "epic": {
+        "power": 7,
+        "speed": 5,
+        "iq": 8,
+        "popularity": 6,
+        "total": 26
+      },
+      "legend": {
+        "power": 8,
+        "speed": 6,
+        "iq": 9,
+        "popularity": 7,
+        "total": 30
+      }
+    },
+    {
+      "name": "Big Masoud",
+      "name_fa": "بیگ مسعود",
+      "primary_stat": "popularity",
+      "card_type": "POPULARITY_TYPE",
+      "normal": {
+        "power": 4,
+        "speed": 3,
+        "iq": 3,
+        "popularity": 8,
+        "total": 18
+      },
+      "epic": {
+        "power": 5,
+        "speed": 4,
+        "iq": 4,
+        "popularity": 9,
+        "total": 22
+      },
+      "legend": {
+        "power": 6,
+        "speed": 5,
+        "iq": 5,
+        "popularity": 10,
+        "total": 26
+      }
+    },
+    {
+      "name": "Mike Ehrmantraut",
+      "name_fa": "مایک",
+      "primary_stat": "iq",
+      "card_type": "IQ_TYPE",
+      "normal": {
+        "power": 5,
+        "speed": 4,
+        "iq": 8,
+        "popularity": 2,
+        "total": 19
+      },
+      "epic": {
+        "power": 6,
+        "speed": 5,
+        "iq": 9,
+        "popularity": 3,
+        "total": 23
+      },
+      "legend": {
+        "power": 7,
+        "speed": 6,
+        "iq": 10,
+        "popularity": 4,
+        "total": 27
+      }
+    },
+    {
+      "name": "Shao Kahn",
+      "name_fa": "شاوکان",
+      "primary_stat": "power",
+      "card_type": "POWER_TYPE",
+      "normal": {
+        "power": 9,
+        "speed": 4,
+        "iq": 3,
+        "popularity": 2,
+        "total": 18
+      },
+      "epic": {
+        "power": 9,
+        "speed": 5,
+        "iq": 4,
+        "popularity": 3,
+        "total": 21
+      },
+      "legend": {
+        "power": 10,
+        "speed": 6,
+        "iq": 5,
+        "popularity": 4,
+        "total": 25
+      }
+    },
+    {
+      "name": "Amoo Poorang",
+      "name_fa": "عمو پورنگ",
+      "primary_stat": "popularity",
+      "card_type": "POPULARITY_TYPE",
+      "normal": {
+        "power": 3,
+        "speed": 4,
+        "iq": 4,
+        "popularity": 8,
+        "total": 19
+      },
+      "epic": {
+        "power": 4,
+        "speed": 5,
+        "iq": 5,
+        "popularity": 9,
+        "total": 23
+      },
+      "legend": {
+        "power": 5,
+        "speed": 6,
+        "iq": 6,
+        "popularity": 10,
+        "total": 27
+      }
+    },
+    {
+      "name": "Saul Goodman",
+      "name_fa": "ساول گودمن",
+      "primary_stat": "iq",
+      "card_type": "IQ_TYPE",
+      "normal": {
+        "power": 1,
+        "speed": 3,
+        "iq": 8,
+        "popularity": 6,
+        "total": 18
+      },
+      "epic": {
+        "power": 2,
+        "speed": 4,
+        "iq": 9,
+        "popularity": 7,
+        "total": 22
+      },
+      "legend": {
+        "power": 3,
+        "speed": 5,
+        "iq": 10,
+        "popularity": 8,
+        "total": 26
+      }
+    },
+    {
+      "name": "Sub-Zero",
+      "name_fa": "سابزیرو",
+      "primary_stat": "speed",
+      "card_type": "SPEED_TYPE",
+      "normal": {
+        "power": 6,
+        "speed": 8,
+        "iq": 4,
+        "popularity": 3,
+        "total": 21
+      },
+      "epic": {
+        "power": 7,
+        "speed": 9,
+        "iq": 5,
+        "popularity": 4,
+        "total": 25
+      },
+      "legend": {
+        "power": 8,
+        "speed": 10,
+        "iq": 6,
+        "popularity": 5,
+        "total": 29
+      }
+    },
+    {
+      "name": "Tom and Jerry",
+      "name_fa": "تام و جری",
+      "primary_stat": "speed",
+      "card_type": "SPEED_TYPE",
+      "normal": {
+        "power": 2,
+        "speed": 8,
+        "iq": 6,
+        "popularity": 6,
+        "total": 22
+      },
+      "epic": {
+        "power": 3,
+        "speed": 9,
+        "iq": 7,
+        "popularity": 7,
+        "total": 26
+      },
+      "legend": {
+        "power": 4,
+        "speed": 10,
+        "iq": 8,
+        "popularity": 8,
+        "total": 30
+      }
+    },
+    {
+      "name": "Kung Fu Panda",
+      "name_fa": "پاندای کونگ‌فوکار",
+      "primary_stat": "power",
+      "card_type": "POWER_TYPE",
+      "normal": {
+        "power": 7,
+        "speed": 5,
+        "iq": 4,
+        "popularity": 6,
+        "total": 22
+      },
+      "epic": {
+        "power": 8,
+        "speed": 6,
+        "iq": 5,
+        "popularity": 7,
+        "total": 26
+      },
+      "legend": {
+        "power": 10,
+        "speed": 7,
+        "iq": 6,
+        "popularity": 8,
+        "total": 31
+      }
+    },
+    {
+      "name": "Shredder",
+      "name_fa": "شریدر",
+      "primary_stat": "power",
+      "card_type": "POWER_TYPE",
+      "normal": {
+        "power": 7,
+        "speed": 6,
+        "iq": 5,
+        "popularity": 2,
+        "total": 20
+      },
+      "epic": {
+        "power": 8,
+        "speed": 7,
+        "iq": 6,
+        "popularity": 3,
+        "total": 24
+      },
+      "legend": {
+        "power": 10,
+        "speed": 8,
+        "iq": 7,
+        "popularity": 4,
+        "total": 29
+      }
+    },
+    {
+      "name": "Mario",
+      "name_fa": "ماریو",
+      "primary_stat": "popularity",
+      "card_type": "POPULARITY_TYPE",
+      "normal": {
+        "power": 5,
+        "speed": 6,
+        "iq": 4,
+        "popularity": 7,
+        "total": 22
+      },
+      "epic": {
+        "power": 6,
+        "speed": 7,
+        "iq": 5,
+        "popularity": 8,
+        "total": 26
+      },
+      "legend": {
+        "power": 7,
+        "speed": 8,
+        "iq": 6,
+        "popularity": 10,
+        "total": 31
+      }
+    },
+    {
+      "name": "Captain America",
+      "name_fa": "کاپتان امریکا",
+      "primary_stat": "power",
+      "card_type": "POWER_TYPE",
+      "normal": {
+        "power": 7,
+        "speed": 6,
+        "iq": 5,
+        "popularity": 4,
+        "total": 22
+      },
+      "epic": {
+        "power": 8,
+        "speed": 7,
+        "iq": 6,
+        "popularity": 5,
+        "total": 26
+      },
+      "legend": {
+        "power": 10,
+        "speed": 8,
+        "iq": 7,
+        "popularity": 6,
+        "total": 31
+      }
+    },
+    {
+      "name": "Arthur Morgan",
+      "name_fa": "آرتور مورگان",
+      "primary_stat": "popularity",
+      "card_type": "POPULARITY_TYPE",
+      "normal": {
+        "power": 7,
+        "speed": 5,
+        "iq": 5,
+        "popularity": 5,
+        "total": 22
+      },
+      "epic": {
+        "power": 8,
+        "speed": 6,
+        "iq": 6,
+        "popularity": 6,
+        "total": 26
+      },
+      "legend": {
+        "power": 9,
+        "speed": 7,
+        "iq": 7,
+        "popularity": 7,
+        "total": 30
+      }
+    },
+    {
+      "name": "Darth Vader",
+      "name_fa": "دارث ویدر",
+      "primary_stat": "iq",
+      "card_type": "IQ_TYPE",
+      "normal": {
+        "power": 7,
+        "speed": 5,
+        "iq": 7,
+        "popularity": 3,
+        "total": 22
+      },
+      "epic": {
+        "power": 8,
+        "speed": 6,
+        "iq": 8,
+        "popularity": 4,
+        "total": 26
+      },
+      "legend": {
+        "power": 9,
+        "speed": 7,
+        "iq": 10,
+        "popularity": 5,
+        "total": 31
+      }
+    },
+    {
+      "name": "Iron Man",
+      "name_fa": "ایرون من",
+      "primary_stat": "iq",
+      "card_type": "IQ_TYPE",
+      "normal": {
+        "power": 4,
+        "speed": 5,
+        "iq": 8,
+        "popularity": 5,
+        "total": 22
+      },
+      "epic": {
+        "power": 5,
+        "speed": 6,
+        "iq": 9,
+        "popularity": 6,
+        "total": 26
+      },
+      "legend": {
+        "power": 6,
+        "speed": 7,
+        "iq": 10,
+        "popularity": 7,
+        "total": 30
+      }
+    },
+    {
+      "name": "Michael Scofield",
+      "name_fa": "مایکل اسکافیلد",
+      "primary_stat": "iq",
+      "card_type": "IQ_TYPE",
+      "normal": {
+        "power": 2,
+        "speed": 4,
+        "iq": 9,
+        "popularity": 3,
+        "total": 18
+      },
+      "epic": {
+        "power": 3,
+        "speed": 5,
+        "iq": 9,
+        "popularity": 4,
+        "total": 21
+      },
+      "legend": {
+        "power": 4,
+        "speed": 6,
+        "iq": 10,
+        "popularity": 5,
+        "total": 25
+      }
+    },
+    {
+      "name": "T-Bag",
+      "name_fa": "تی بگ",
+      "primary_stat": "iq",
+      "card_type": "IQ_TYPE",
+      "normal": {
+        "power": 3,
+        "speed": 4,
+        "iq": 8,
+        "popularity": 3,
+        "total": 18
+      },
+      "epic": {
+        "power": 4,
+        "speed": 5,
+        "iq": 9,
+        "popularity": 4,
+        "total": 22
+      },
+      "legend": {
+        "power": 5,
+        "speed": 6,
+        "iq": 10,
+        "popularity": 5,
+        "total": 26
+      }
+    },
+    {
+      "name": "Thor",
+      "name_fa": "ثور",
+      "primary_stat": "power",
+      "card_type": "POWER_TYPE",
+      "normal": {
+        "power": 9,
+        "speed": 5,
+        "iq": 3,
+        "popularity": 5,
+        "total": 22
+      },
+      "epic": {
+        "power": 9,
+        "speed": 6,
+        "iq": 4,
+        "popularity": 6,
+        "total": 25
+      },
+      "legend": {
+        "power": 10,
+        "speed": 7,
+        "iq": 5,
+        "popularity": 7,
+        "total": 29
+      }
+    },
+    {
+      "name": "Billie Eilish",
+      "name_fa": "بیلی ایلیش",
+      "primary_stat": "popularity",
+      "card_type": "POPULARITY_TYPE",
+      "normal": {
+        "power": 2,
+        "speed": 4,
+        "iq": 5,
+        "popularity": 8,
+        "total": 19
+      },
+      "epic": {
+        "power": 3,
+        "speed": 5,
+        "iq": 6,
+        "popularity": 9,
+        "total": 23
+      },
+      "legend": {
+        "power": 4,
+        "speed": 6,
+        "iq": 7,
+        "popularity": 10,
+        "total": 27
+      }
+    },
+    {
+      "name": "Risitas",
+      "name_fa": "ریسیتاس",
+      "primary_stat": "popularity",
+      "card_type": "POPULARITY_TYPE",
+      "normal": {
+        "power": 2,
+        "speed": 3,
+        "iq": 3,
+        "popularity": 8,
+        "total": 16
+      },
+      "epic": {
+        "power": 3,
+        "speed": 4,
+        "iq": 4,
+        "popularity": 9,
+        "total": 20
+      },
+      "legend": {
+        "power": 4,
+        "speed": 5,
+        "iq": 5,
+        "popularity": 10,
+        "total": 24
+      }
+    },
+    {
+      "name": "Gigachad",
+      "name_fa": "گیگاچد",
+      "primary_stat": "power",
+      "card_type": "POWER_TYPE",
+      "normal": {
+        "power": 8,
+        "speed": 4,
+        "iq": 2,
+        "popularity": 6,
+        "total": 20
+      },
+      "epic": {
+        "power": 9,
+        "speed": 5,
+        "iq": 3,
+        "popularity": 7,
+        "total": 24
+      },
+      "legend": {
+        "power": 10,
+        "speed": 6,
+        "iq": 4,
+        "popularity": 8,
+        "total": 28
+      }
+    },
+    {
+      "name": "Kratos",
+      "name_fa": "کریتوس",
+      "primary_stat": "power",
+      "card_type": "POWER_TYPE",
+      "normal": {
+        "power": 9,
+        "speed": 6,
+        "iq": 4,
+        "popularity": 2,
+        "total": 21
+      },
+      "epic": {
+        "power": 9,
+        "speed": 7,
+        "iq": 5,
+        "popularity": 3,
+        "total": 24
+      },
+      "legend": {
+        "power": 10,
+        "speed": 8,
+        "iq": 6,
+        "popularity": 4,
+        "total": 28
+      }
+    },
+    {
+      "name": "Mileena",
+      "name_fa": "ملینا",
+      "primary_stat": "speed",
+      "card_type": "SPEED_TYPE",
+      "normal": {
+        "power": 6,
+        "speed": 8,
+        "iq": 3,
+        "popularity": 4,
+        "total": 21
+      },
+      "epic": {
+        "power": 7,
+        "speed": 9,
+        "iq": 4,
+        "popularity": 5,
+        "total": 25
+      },
+      "legend": {
+        "power": 8,
+        "speed": 10,
+        "iq": 5,
+        "popularity": 6,
+        "total": 29
+      }
+    },
+    {
+      "name": "Shir Farhad",
+      "name_fa": "شیر فرهاد",
+      "primary_stat": "power",
+      "card_type": "POWER_TYPE",
+      "normal": {
+        "power": 8,
+        "speed": 5,
+        "iq": 3,
+        "popularity": 4,
+        "total": 20
+      },
+      "epic": {
+        "power": 9,
+        "speed": 6,
+        "iq": 4,
+        "popularity": 5,
+        "total": 24
+      },
+      "legend": {
+        "power": 10,
+        "speed": 7,
+        "iq": 5,
+        "popularity": 6,
+        "total": 28
+      }
+    },
+    {
+      "name": "Shrek",
+      "name_fa": "شرک",
+      "primary_stat": "power",
+      "card_type": "POWER_TYPE",
+      "normal": {
+        "power": 7,
+        "speed": 3,
+        "iq": 4,
+        "popularity": 6,
+        "total": 20
+      },
+      "epic": {
+        "power": 8,
+        "speed": 4,
+        "iq": 5,
+        "popularity": 7,
+        "total": 24
+      },
+      "legend": {
+        "power": 10,
+        "speed": 5,
+        "iq": 6,
+        "popularity": 8,
+        "total": 29
+      }
+    },
+    {
+      "name": "Joker",
+      "name_fa": "جوکر",
+      "primary_stat": "iq",
+      "card_type": "IQ_TYPE",
+      "normal": {
+        "power": 3,
+        "speed": 5,
+        "iq": 8,
+        "popularity": 6,
+        "total": 22
+      },
+      "epic": {
+        "power": 4,
+        "speed": 6,
+        "iq": 9,
+        "popularity": 7,
+        "total": 26
+      },
+      "legend": {
+        "power": 5,
+        "speed": 7,
+        "iq": 10,
+        "popularity": 8,
+        "total": 30
+      }
+    },
+    {
+      "name": "Naghi Mamooli",
+      "name_fa": "نقی معمولی",
+      "primary_stat": "popularity",
+      "card_type": "POPULARITY_TYPE",
+      "normal": {
+        "power": 3,
+        "speed": 3,
+        "iq": 4,
+        "popularity": 8,
+        "total": 18
+      },
+      "epic": {
+        "power": 4,
+        "speed": 4,
+        "iq": 5,
+        "popularity": 9,
+        "total": 22
+      },
+      "legend": {
+        "power": 5,
+        "speed": 5,
+        "iq": 6,
+        "popularity": 10,
+        "total": 26
+      }
+    },
+    {
+      "name": "Hulk",
+      "name_fa": "هالک",
+      "primary_stat": "power",
+      "card_type": "POWER_TYPE",
+      "normal": {
+        "power": 9,
+        "speed": 4,
+        "iq": 1,
+        "popularity": 4,
+        "total": 18
+      },
+      "epic": {
+        "power": 9,
+        "speed": 5,
+        "iq": 2,
+        "popularity": 5,
+        "total": 21
+      },
+      "legend": {
+        "power": 10,
+        "speed": 6,
+        "iq": 3,
+        "popularity": 6,
+        "total": 25
+      }
+    },
+    {
+      "name": "Davood ZZZ",
+      "name_fa": "داوود ززز",
+      "primary_stat": "popularity",
+      "card_type": "POPULARITY_TYPE",
+      "normal": {
+        "power": 2,
+        "speed": 3,
+        "iq": 3,
+        "popularity": 8,
+        "total": 16
+      },
+      "epic": {
+        "power": 3,
+        "speed": 4,
+        "iq": 4,
+        "popularity": 9,
+        "total": 20
+      },
+      "legend": {
+        "power": 4,
+        "speed": 5,
+        "iq": 5,
+        "popularity": 10,
+        "total": 24
+      }
+    },
+    {
+      "name": "Abbas Araqchi",
+      "name_fa": "عراقچی",
+      "primary_stat": "iq",
+      "card_type": "IQ_TYPE",
+      "normal": {
+        "power": 2,
+        "speed": 3,
+        "iq": 8,
+        "popularity": 5,
+        "total": 18
+      },
+      "epic": {
+        "power": 3,
+        "speed": 4,
+        "iq": 9,
+        "popularity": 6,
+        "total": 22
+      },
+      "legend": {
+        "power": 4,
+        "speed": 5,
+        "iq": 10,
+        "popularity": 7,
+        "total": 26
+      }
+    },
+    {
+      "name": "Tai Lung",
+      "name_fa": "تایلانگ",
+      "primary_stat": "power",
+      "card_type": "POWER_TYPE",
+      "normal": {
+        "power": 8,
+        "speed": 6,
+        "iq": 3,
+        "popularity": 2,
+        "total": 19
+      },
+      "epic": {
+        "power": 9,
+        "speed": 7,
+        "iq": 4,
+        "popularity": 3,
+        "total": 23
+      },
+      "legend": {
+        "power": 10,
+        "speed": 8,
+        "iq": 5,
+        "popularity": 4,
+        "total": 27
+      }
+    },
+    {
+      "name": "Ezio",
+      "name_fa": "اتزیو",
+      "primary_stat": "speed",
+      "card_type": "SPEED_TYPE",
+      "normal": {
+        "power": 6,
+        "speed": 8,
+        "iq": 6,
+        "popularity": 2,
+        "total": 22
+      },
+      "epic": {
+        "power": 7,
+        "speed": 9,
+        "iq": 7,
+        "popularity": 3,
+        "total": 26
+      },
+      "legend": {
+        "power": 8,
+        "speed": 10,
+        "iq": 8,
+        "popularity": 4,
+        "total": 30
+      }
+    },
+    {
+      "name": "Albert Wesker",
+      "name_fa": "آلبرت وسکر",
+      "primary_stat": "power",
+      "card_type": "POWER_TYPE",
+      "normal": {
+        "power": 7,
+        "speed": 6,
+        "iq": 6,
+        "popularity": 2,
+        "total": 21
+      },
+      "epic": {
+        "power": 8,
+        "speed": 7,
+        "iq": 7,
+        "popularity": 3,
+        "total": 25
+      },
+      "legend": {
+        "power": 10,
+        "speed": 8,
+        "iq": 8,
+        "popularity": 4,
+        "total": 30
+      }
+    },
+    {
+      "name": "Etabaki",
+      "name_fa": "اتابکی",
+      "primary_stat": "popularity",
+      "card_type": "POPULARITY_TYPE",
+      "normal": {
+        "power": 3,
+        "speed": 4,
+        "iq": 5,
+        "popularity": 7,
+        "total": 19
+      },
+      "epic": {
+        "power": 4,
+        "speed": 5,
+        "iq": 6,
+        "popularity": 8,
+        "total": 23
+      },
+      "legend": {
+        "power": 5,
+        "speed": 6,
+        "iq": 7,
+        "popularity": 10,
+        "total": 28
+      }
+    },
+    {
+      "name": "BoJack",
+      "name_fa": "بوجک",
+      "primary_stat": "iq",
+      "card_type": "IQ_TYPE",
+      "normal": {
+        "power": 2,
+        "speed": 3,
+        "iq": 7,
+        "popularity": 6,
+        "total": 18
+      },
+      "epic": {
+        "power": 3,
+        "speed": 4,
+        "iq": 8,
+        "popularity": 7,
+        "total": 22
+      },
+      "legend": {
+        "power": 4,
+        "speed": 5,
+        "iq": 10,
+        "popularity": 8,
+        "total": 27
+      }
+    },
+    {
+      "name": "Terminator",
+      "name_fa": "ترمیناتور",
+      "primary_stat": "power",
+      "card_type": "POWER_TYPE",
+      "normal": {
+        "power": 8,
+        "speed": 5,
+        "iq": 3,
+        "popularity": 3,
+        "total": 19
+      },
+      "epic": {
+        "power": 9,
+        "speed": 6,
+        "iq": 4,
+        "popularity": 4,
+        "total": 23
+      },
+      "legend": {
+        "power": 10,
+        "speed": 7,
+        "iq": 5,
+        "popularity": 5,
+        "total": 27
+      }
+    },
+    {
+      "name": "Joel",
+      "name_fa": "جوئل در لست آف اس",
+      "primary_stat": "iq",
+      "card_type": "IQ_TYPE",
+      "normal": {
+        "power": 6,
+        "speed": 5,
+        "iq": 7,
+        "popularity": 3,
+        "total": 21
+      },
+      "epic": {
+        "power": 7,
+        "speed": 6,
+        "iq": 8,
+        "popularity": 4,
+        "total": 25
+      },
+      "legend": {
+        "power": 8,
+        "speed": 7,
+        "iq": 10,
+        "popularity": 5,
+        "total": 30
+      }
+    },
+    {
+      "name": "Sonic",
+      "name_fa": "سونیک",
+      "primary_stat": "speed",
+      "card_type": "SPEED_TYPE",
+      "normal": {
+        "power": 3,
+        "speed": 9,
+        "iq": 4,
+        "popularity": 6,
+        "total": 22
+      },
+      "epic": {
+        "power": 4,
+        "speed": 9,
+        "iq": 5,
+        "popularity": 7,
+        "total": 25
+      },
+      "legend": {
+        "power": 5,
+        "speed": 10,
+        "iq": 6,
+        "popularity": 8,
+        "total": 29
+      }
+    },
+    {
+      "name": "Sherlock",
+      "name_fa": "شرلوک",
+      "primary_stat": "iq",
+      "card_type": "IQ_TYPE",
+      "normal": {
+        "power": 2,
+        "speed": 4,
+        "iq": 9,
+        "popularity": 3,
+        "total": 18
+      },
+      "epic": {
+        "power": 3,
+        "speed": 5,
+        "iq": 9,
+        "popularity": 4,
+        "total": 21
+      },
+      "legend": {
+        "power": 4,
+        "speed": 6,
+        "iq": 10,
+        "popularity": 5,
+        "total": 25
+      }
+    },
+    {
+      "name": "Ghost",
+      "name_fa": "گوست توی کال آف دیوتی",
+      "primary_stat": "power",
+      "card_type": "POWER_TYPE",
+      "normal": {
+        "power": 7,
+        "speed": 6,
+        "iq": 5,
+        "popularity": 2,
+        "total": 20
+      },
+      "epic": {
+        "power": 8,
+        "speed": 7,
+        "iq": 6,
+        "popularity": 3,
+        "total": 24
+      },
+      "legend": {
+        "power": 10,
+        "speed": 8,
+        "iq": 7,
+        "popularity": 4,
+        "total": 29
+      }
+    },
+    {
+      "name": "SpongeBob",
+      "name_fa": "باب اسفنجی",
+      "primary_stat": "popularity",
+      "card_type": "POPULARITY_TYPE",
+      "normal": {
+        "power": 2,
+        "speed": 4,
+        "iq": 3,
+        "popularity": 8,
+        "total": 17
+      },
+      "epic": {
+        "power": 3,
+        "speed": 5,
+        "iq": 4,
+        "popularity": 9,
+        "total": 21
+      },
+      "legend": {
+        "power": 4,
+        "speed": 6,
+        "iq": 5,
+        "popularity": 10,
+        "total": 25
+      }
+    },
+    {
+      "name": "Tony Soprano",
+      "name_fa": "تونی سوپرانوز",
+      "primary_stat": "iq",
+      "card_type": "IQ_TYPE",
+      "normal": {
+        "power": 6,
+        "speed": 3,
+        "iq": 8,
+        "popularity": 5,
+        "total": 22
+      },
+      "epic": {
+        "power": 7,
+        "speed": 4,
+        "iq": 9,
+        "popularity": 6,
+        "total": 26
+      },
+      "legend": {
+        "power": 8,
+        "speed": 5,
+        "iq": 10,
+        "popularity": 7,
+        "total": 30
+      }
+    },
+    {
+      "name": "Master Chief",
+      "name_fa": "مسترچیف",
+      "primary_stat": "speed",
+      "card_type": "SPEED_TYPE",
+      "normal": {
+        "power": 7,
+        "speed": 8,
+        "iq": 5,
+        "popularity": 2,
+        "total": 22
+      },
+      "epic": {
+        "power": 8,
+        "speed": 9,
+        "iq": 6,
+        "popularity": 3,
+        "total": 26
+      },
+      "legend": {
+        "power": 9,
+        "speed": 10,
+        "iq": 7,
+        "popularity": 4,
+        "total": 30
+      }
+    },
+    {
+      "name": "Zuko",
+      "name_fa": "زوکو",
+      "primary_stat": "speed",
+      "card_type": "SPEED_TYPE",
+      "normal": {
+        "power": 6,
+        "speed": 8,
+        "iq": 5,
+        "popularity": 3,
+        "total": 22
+      },
+      "epic": {
+        "power": 7,
+        "speed": 9,
+        "iq": 6,
+        "popularity": 4,
+        "total": 26
+      },
+      "legend": {
+        "power": 8,
+        "speed": 10,
+        "iq": 7,
+        "popularity": 5,
+        "total": 30
+      }
+    },
+    {
+      "name": "Captain Price",
+      "name_fa": "کاپتان پرایس",
+      "primary_stat": "iq",
+      "card_type": "IQ_TYPE",
+      "normal": {
+        "power": 6,
+        "speed": 5,
+        "iq": 7,
+        "popularity": 4,
+        "total": 22
+      },
+      "epic": {
+        "power": 7,
+        "speed": 6,
+        "iq": 8,
+        "popularity": 5,
+        "total": 26
+      },
+      "legend": {
+        "power": 8,
+        "speed": 7,
+        "iq": 10,
+        "popularity": 6,
+        "total": 31
+      }
+    },
+    {
+      "name": "Hitman",
+      "name_fa": "هیتمن",
+      "primary_stat": "power",
+      "card_type": "POWER_TYPE",
+      "normal": {
+        "power": 7,
+        "speed": 6,
+        "iq": 6,
+        "popularity": 1,
+        "total": 20
+      },
+      "epic": {
+        "power": 8,
+        "speed": 7,
+        "iq": 7,
+        "popularity": 2,
+        "total": 24
+      },
+      "legend": {
+        "power": 10,
+        "speed": 8,
+        "iq": 8,
+        "popularity": 3,
+        "total": 29
+      }
+    },
+    {
+      "name": "Ragnar",
+      "name_fa": "رگنار",
+      "primary_stat": "popularity",
+      "card_type": "POPULARITY_TYPE",
+      "normal": {
+        "power": 7,
+        "speed": 5,
+        "iq": 5,
+        "popularity": 5,
+        "total": 22
+      },
+      "epic": {
+        "power": 8,
+        "speed": 6,
+        "iq": 6,
+        "popularity": 6,
+        "total": 26
+      },
+      "legend": {
+        "power": 9,
+        "speed": 7,
+        "iq": 7,
+        "popularity": 7,
+        "total": 30
+      }
+    },
+    {
+      "name": "Leon The Professional",
+      "name_fa": "لئون حرفه‌ای",
+      "primary_stat": "iq",
+      "card_type": "IQ_TYPE",
+      "normal": {
+        "power": 6,
+        "speed": 6,
+        "iq": 7,
+        "popularity": 2,
+        "total": 21
+      },
+      "epic": {
+        "power": 7,
+        "speed": 7,
+        "iq": 8,
+        "popularity": 3,
+        "total": 25
+      },
+      "legend": {
+        "power": 8,
+        "speed": 8,
+        "iq": 10,
+        "popularity": 4,
+        "total": 30
+      }
+    },
+    {
+      "name": "Oogway",
+      "name_fa": "ارباب شن",
+      "primary_stat": "iq",
+      "card_type": "IQ_TYPE",
+      "normal": {
+        "power": 2,
+        "speed": 3,
+        "iq": 9,
+        "popularity": 6,
+        "total": 20
+      },
+      "epic": {
+        "power": 3,
+        "speed": 4,
+        "iq": 9,
+        "popularity": 7,
+        "total": 23
+      },
+      "legend": {
+        "power": 4,
+        "speed": 5,
+        "iq": 10,
+        "popularity": 8,
+        "total": 27
+      }
+    },
+    {
+      "name": "Muhammad Ali",
+      "name_fa": "محمدعلی کلی",
+      "primary_stat": "power",
+      "card_type": "POWER_TYPE",
+      "normal": {
+        "power": 8,
+        "speed": 7,
+        "iq": 4,
+        "popularity": 3,
+        "total": 22
+      },
+      "epic": {
+        "power": 9,
+        "speed": 8,
+        "iq": 5,
+        "popularity": 4,
+        "total": 26
+      },
+      "legend": {
+        "power": 10,
+        "speed": 9,
+        "iq": 6,
+        "popularity": 5,
+        "total": 30
+      }
+    },
+    {
+      "name": "Undertaker",
+      "name_fa": "اندرتیکر",
+      "primary_stat": "power",
+      "card_type": "POWER_TYPE",
+      "normal": {
+        "power": 8,
+        "speed": 4,
+        "iq": 4,
+        "popularity": 6,
+        "total": 22
+      },
+      "epic": {
+        "power": 9,
+        "speed": 5,
+        "iq": 5,
+        "popularity": 7,
+        "total": 26
+      },
+      "legend": {
+        "power": 10,
+        "speed": 6,
+        "iq": 6,
+        "popularity": 8,
+        "total": 30
+      }
+    },
+    {
+      "name": "Superman",
+      "name_fa": "سوپرمن",
+      "primary_stat": "power",
+      "card_type": "POWER_TYPE",
+      "normal": {
+        "power": 9,
+        "speed": 6,
+        "iq": 4,
+        "popularity": 3,
+        "total": 22
+      },
+      "epic": {
+        "power": 9,
+        "speed": 7,
+        "iq": 5,
+        "popularity": 4,
+        "total": 25
+      },
+      "legend": {
+        "power": 10,
+        "speed": 8,
+        "iq": 6,
+        "popularity": 5,
+        "total": 29
+      }
+    },
+    {
+      "name": "Nader Shah",
+      "name_fa": "نادرشاه",
+      "primary_stat": "iq",
+      "card_type": "IQ_TYPE",
+      "normal": {
+        "power": 7,
+        "speed": 5,
+        "iq": 8,
+        "popularity": 2,
+        "total": 22
+      },
+      "epic": {
+        "power": 8,
+        "speed": 6,
+        "iq": 9,
+        "popularity": 3,
+        "total": 26
+      },
+      "legend": {
+        "power": 9,
+        "speed": 7,
+        "iq": 10,
+        "popularity": 4,
+        "total": 30
+      }
+    },
+    {
+      "name": "Lalo Salamanca",
+      "name_fa": "لالو سالامانکا",
+      "primary_stat": "iq",
+      "card_type": "IQ_TYPE",
+      "normal": {
+        "power": 5,
+        "speed": 6,
+        "iq": 8,
+        "popularity": 3,
+        "total": 22
+      },
+      "epic": {
+        "power": 6,
+        "speed": 7,
+        "iq": 9,
+        "popularity": 4,
+        "total": 26
+      },
+      "legend": {
+        "power": 7,
+        "speed": 8,
+        "iq": 10,
+        "popularity": 5,
+        "total": 30
+      }
+    },
+    {
+      "name": "Doctor Strange",
+      "name_fa": "دکتر استرنج",
+      "primary_stat": "speed",
+      "card_type": "SPEED_TYPE",
+      "normal": {
+        "power": 5,
+        "speed": 6,
+        "iq": 7,
+        "popularity": 4,
+        "total": 22
+      },
+      "epic": {
+        "power": 6,
+        "speed": 7,
+        "iq": 8,
+        "popularity": 5,
+        "total": 26
+      },
+      "legend": {
+        "power": 7,
+        "speed": 8,
+        "iq": 9,
+        "popularity": 6,
+        "total": 30
+      }
+    },
+    {
+      "name": "Jon Snow",
+      "name_fa": "جان اسنو",
+      "primary_stat": "speed",
+      "card_type": "SPEED_TYPE",
+      "normal": {
+        "power": 6,
+        "speed": 6,
+        "iq": 5,
+        "popularity": 5,
+        "total": 22
+      },
+      "epic": {
+        "power": 7,
+        "speed": 7,
+        "iq": 6,
+        "popularity": 6,
+        "total": 26
+      },
+      "legend": {
+        "power": 8,
+        "speed": 8,
+        "iq": 7,
+        "popularity": 7,
+        "total": 30
+      }
+    },
+    {
+      "name": "Zeus",
+      "name_fa": "زئوس",
+      "primary_stat": "power",
+      "card_type": "POWER_TYPE",
+      "normal": {
+        "power": 9,
+        "speed": 5,
+        "iq": 5,
+        "popularity": 3,
+        "total": 22
+      },
+      "epic": {
+        "power": 9,
+        "speed": 6,
+        "iq": 6,
+        "popularity": 4,
+        "total": 25
+      },
+      "legend": {
+        "power": 10,
+        "speed": 7,
+        "iq": 7,
+        "popularity": 5,
+        "total": 29
+      }
+    },
+    {
+      "name": "Witcher",
+      "name_fa": "ویچر",
+      "primary_stat": "speed",
+      "card_type": "SPEED_TYPE",
+      "normal": {
+        "power": 7,
+        "speed": 8,
+        "iq": 5,
+        "popularity": 2,
+        "total": 22
+      },
+      "epic": {
+        "power": 8,
+        "speed": 9,
+        "iq": 6,
+        "popularity": 3,
+        "total": 26
+      },
+      "legend": {
+        "power": 9,
+        "speed": 10,
+        "iq": 7,
+        "popularity": 4,
+        "total": 30
+      }
+    },
+    {
+      "name": "Ali Daei",
+      "name_fa": "علی دایی",
+      "primary_stat": "popularity",
+      "card_type": "POPULARITY_TYPE",
+      "normal": {
+        "power": 5,
+        "speed": 5,
+        "iq": 4,
+        "popularity": 7,
+        "total": 21
+      },
+      "epic": {
+        "power": 6,
+        "speed": 6,
+        "iq": 5,
+        "popularity": 8,
+        "total": 25
+      },
+      "legend": {
+        "power": 7,
+        "speed": 7,
+        "iq": 6,
+        "popularity": 10,
+        "total": 30
+      }
+    },
+    {
+      "name": "Levi",
+      "name_fa": "لیوای",
+      "primary_stat": "speed",
+      "card_type": "SPEED_TYPE",
+      "normal": {
+        "power": 6,
+        "speed": 9,
+        "iq": 5,
+        "popularity": 2,
+        "total": 22
+      },
+      "epic": {
+        "power": 7,
+        "speed": 9,
+        "iq": 6,
+        "popularity": 3,
+        "total": 25
+      },
+      "legend": {
+        "power": 8,
+        "speed": 10,
+        "iq": 7,
+        "popularity": 4,
+        "total": 29
+      }
+    },
+    {
+      "name": "Koeman",
+      "name_fa": "کومان",
+      "primary_stat": "popularity",
+      "card_type": "POPULARITY_TYPE",
+      "normal": {
+        "power": 4,
+        "speed": 5,
+        "iq": 6,
+        "popularity": 7,
+        "total": 22
+      },
+      "epic": {
+        "power": 5,
+        "speed": 6,
+        "iq": 7,
+        "popularity": 8,
+        "total": 26
+      },
+      "legend": {
+        "power": 6,
+        "speed": 7,
+        "iq": 8,
+        "popularity": 10,
+        "total": 31
+      }
+    },
+    {
+      "name": "Optimus Prime",
+      "name_fa": "اپتیموس پرایم",
+      "primary_stat": "power",
+      "card_type": "POWER_TYPE",
+      "normal": {
+        "power": 9,
+        "speed": 5,
+        "iq": 5,
+        "popularity": 3,
+        "total": 22
+      },
+      "epic": {
+        "power": 9,
+        "speed": 6,
+        "iq": 6,
+        "popularity": 4,
+        "total": 25
+      },
+      "legend": {
+        "power": 10,
+        "speed": 7,
+        "iq": 7,
+        "popularity": 5,
+        "total": 29
+      }
+    },
+    {
+      "name": "Napoleon",
+      "name_fa": "ناپلئون",
+      "primary_stat": "iq",
+      "card_type": "IQ_TYPE",
+      "normal": {
+        "power": 5,
+        "speed": 4,
+        "iq": 8,
+        "popularity": 5,
+        "total": 22
+      },
+      "epic": {
+        "power": 6,
+        "speed": 5,
+        "iq": 9,
+        "popularity": 6,
+        "total": 26
+      },
+      "legend": {
+        "power": 7,
+        "speed": 6,
+        "iq": 10,
+        "popularity": 7,
+        "total": 30
+      }
+    },
+    {
+      "name": "Harry Potter",
+      "name_fa": "هری پاتر",
+      "primary_stat": "popularity",
+      "card_type": "POPULARITY_TYPE",
+      "normal": {
+        "power": 4,
+        "speed": 5,
+        "iq": 7,
+        "popularity": 6,
+        "total": 22
+      },
+      "epic": {
+        "power": 5,
+        "speed": 6,
+        "iq": 8,
+        "popularity": 7,
+        "total": 26
+      },
+      "legend": {
+        "power": 6,
+        "speed": 7,
+        "iq": 9,
+        "popularity": 8,
+        "total": 30
+      }
+    },
+    {
+      "name": "Mia Khalifa",
+      "name_fa": "میا خلیفه",
+      "primary_stat": "popularity",
+      "card_type": "POPULARITY_TYPE",
+      "normal": {
+        "power": 2,
+        "speed": 4,
+        "iq": 3,
+        "popularity": 8,
+        "total": 17
+      },
+      "epic": {
+        "power": 3,
+        "speed": 5,
+        "iq": 4,
+        "popularity": 9,
+        "total": 21
+      },
+      "legend": {
+        "power": 4,
+        "speed": 6,
+        "iq": 5,
+        "popularity": 10,
+        "total": 25
+      }
+    }
+  ]
+}
