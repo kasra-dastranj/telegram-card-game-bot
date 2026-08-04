@@ -1,755 +1,317 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fa" dir="rtl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>مدیریت کارت‌های بازی</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>مدیریت کارت‌های TelBattle</title>
+  <style>
+    :root {
+      --bg: #0f172a; --panel: #111f32; --panel-2: #16263b; --line: rgba(255,255,255,.1);
+      --text: #f8fafc; --muted: #9fb0c5; --primary: #22c55e; --primary-2: #15803d;
+      --accent: #f59e0b; --danger: #ef4444; --focus: #86efac; --radius: 16px;
+    }
+    * { box-sizing: border-box; }
+    html { color-scheme: dark; }
+    body { margin: 0; min-height: 100vh; background: radial-gradient(circle at top right, #173a31 0, var(--bg) 34rem); color: var(--text); font-family: Tahoma, Arial, sans-serif; line-height: 1.6; }
+    button, input, select, textarea { font: inherit; }
+    button, [role="button"] { cursor: pointer; }
+    button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+    .shell { width: min(1440px, 100%); margin: auto; padding: 20px; }
+    .skip-link { position: fixed; top: 8px; right: 8px; z-index: 100; padding: 8px 12px; border-radius: 8px; background: var(--text); color: var(--bg); transform: translateY(-160%); }
+    .skip-link:focus { transform: translateY(0); }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-mark { width: 46px; height: 46px; display: grid; place-items: center; border-radius: 14px; background: linear-gradient(145deg, var(--primary), var(--primary-2)); box-shadow: 0 10px 30px rgba(34,197,94,.25); }
+    .brand h1 { margin: 0; font-size: clamp(1.2rem, 2vw, 1.7rem); }
+    .brand p { margin: 0; color: var(--muted); font-size: .86rem; }
+    .icon { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .btn { min-height: 44px; border: 1px solid var(--line); border-radius: 12px; padding: 8px 14px; background: var(--panel-2); color: var(--text); display: inline-flex; align-items: center; justify-content: center; gap: 8px; transition: background .2s, border-color .2s, transform .2s; }
+    .btn:hover { background: #20344e; border-color: rgba(255,255,255,.2); }
+    .btn:active { transform: translateY(1px); }
+    .btn-primary { background: var(--primary-2); border-color: var(--primary); }
+    .btn-primary:hover { background: #166534; }
+    .btn-danger { color: #fecaca; border-color: rgba(239,68,68,.35); }
+    .btn-danger:hover { background: rgba(239,68,68,.16); }
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+    .stat { border: 1px solid var(--line); background: rgba(17,31,50,.86); border-radius: 14px; padding: 12px 14px; }
+    .stat span { color: var(--muted); font-size: .78rem; }
+    .stat strong { display: block; margin-top: 3px; font-size: 1.2rem; }
+    .workspace { display: grid; grid-template-columns: minmax(270px, 350px) minmax(0, 1fr); gap: 16px; align-items: start; }
+    .panel { border: 1px solid var(--line); background: rgba(17,31,50,.94); border-radius: var(--radius); box-shadow: 0 18px 55px rgba(0,0,0,.2); }
+    .sidebar { position: sticky; top: 16px; max-height: calc(100vh - 32px); display: flex; flex-direction: column; overflow: hidden; }
+    .tools { padding: 14px; border-bottom: 1px solid var(--line); display: grid; gap: 10px; }
+    .search-row { display: grid; grid-template-columns: 1fr 110px; gap: 8px; }
+    .input { width: 100%; min-height: 44px; border: 1px solid var(--line); border-radius: 11px; padding: 9px 11px; background: #0b1728; color: var(--text); }
+    textarea.input { min-height: 96px; resize: vertical; }
+    .input::placeholder { color: #71839a; }
+    .card-list { overflow: auto; padding: 8px; }
+    .card-row { width: 100%; border: 1px solid transparent; border-radius: 12px; background: transparent; color: inherit; padding: 11px; display: grid; grid-template-columns: 1fr auto; gap: 8px; text-align: right; margin-bottom: 5px; }
+    .card-row:hover { background: rgba(255,255,255,.045); }
+    .card-row.active { background: rgba(34,197,94,.11); border-color: rgba(34,197,94,.5); }
+    .card-row strong { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .subline { color: var(--muted); font-size: .75rem; margin-top: 2px; }
+    .rarity { align-self: start; border-radius: 999px; padding: 2px 8px; font-size: .7rem; background: #23344b; }
+    .rarity.legend { color: #fde68a; background: rgba(245,158,11,.12); }
+    .rarity.epic { color: #d8b4fe; background: rgba(168,85,247,.12); }
+    .rarity.rare { color: #93c5fd; background: rgba(59,130,246,.12); }
+    .editor { overflow: hidden; }
+    .editor-head { padding: 17px 20px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .editor-head h2 { margin: 0; font-size: 1.15rem; }
+    .editor-head small { color: var(--muted); direction: ltr; }
+    .tabs { display: flex; gap: 4px; overflow-x: auto; padding: 8px 16px 0; border-bottom: 1px solid var(--line); }
+    .tab { min-height: 44px; white-space: nowrap; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--muted); padding: 9px 14px; }
+    .tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--primary); }
+    .section { display: none; padding: 20px; }
+    .section.active { display: block; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .field { min-width: 0; }
+    .field.full { grid-column: 1 / -1; }
+    label { display: block; margin-bottom: 5px; color: #dbe6f3; font-size: .86rem; font-weight: 700; }
+    .hint { display: block; color: var(--muted); font-size: .72rem; margin-top: 4px; }
+    .group-title { grid-column: 1 / -1; margin: 12px 0 0; padding-top: 14px; border-top: 1px solid var(--line); color: #bbf7d0; font-size: .9rem; }
+    .switch-line { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+    .switch-line input { width: 20px; height: 20px; accent-color: var(--primary); }
+    fieldset { border: 1px solid var(--line); border-radius: 13px; padding: 14px; margin: 10px 0 0; }
+    fieldset:disabled { opacity: .5; }
+    legend { padding: 0 7px; color: var(--muted); }
+    .preview { min-height: 180px; border: 1px dashed rgba(255,255,255,.18); border-radius: 14px; display: grid; place-items: center; overflow: hidden; background: #0b1728; color: var(--muted); }
+    .preview img { display: block; width: 100%; max-height: 330px; object-fit: contain; }
+    .upload { border: 1px solid var(--line); border-radius: 13px; padding: 13px; background: rgba(255,255,255,.025); }
+    .upload + .upload { margin-top: 10px; }
+    .actions { position: sticky; bottom: 0; z-index: 4; display: flex; justify-content: space-between; gap: 10px; padding: 13px 20px; border-top: 1px solid var(--line); background: rgba(17,31,50,.96); backdrop-filter: blur(12px); }
+    .actions > div { display: flex; gap: 8px; }
+    .empty { padding: 80px 24px; text-align: center; color: var(--muted); }
+    .empty strong { display: block; color: var(--text); margin-bottom: 6px; }
+    .toast { position: fixed; left: 20px; bottom: 20px; z-index: 20; max-width: min(420px, calc(100vw - 40px)); padding: 12px 16px; border-radius: 12px; background: #172a42; border: 1px solid var(--line); box-shadow: 0 15px 45px rgba(0,0,0,.35); transform: translateY(120%); transition: transform .25s; }
+    .toast.show { transform: translateY(0); }
+    .toast.error { border-color: rgba(239,68,68,.55); color: #fecaca; }
+    .loading { opacity: .55; pointer-events: none; }
+    [hidden] { display: none !important; }
+    @media (max-width: 980px) { .workspace { grid-template-columns: 1fr; } .sidebar { position: static; max-height: 420px; } .stats { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 620px) { .shell { padding: 10px; } .topbar { align-items: flex-start; } .brand p { display: none; } .grid, .grid-4 { grid-template-columns: 1fr; } .search-row { grid-template-columns: 1fr; } .editor-head { align-items: flex-start; flex-direction: column; } .actions { flex-direction: column; } .actions > div, .actions .btn { width: 100%; } }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; } }
+  </style>
 </head>
-<body class="bg-gray-100 font-sans">
-    <div id="root"></div>
+<body>
+  <a class="skip-link" href="#workspace">پرش به ویرایشگر کارت</a>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg class="icon" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="m9 9 3-2 3 2-1 4h-4z"/></svg>
+        </div>
+        <div><h1>مدیریت کارت‌های TelBattle</h1><p>ویرایش داده‌های پایه و مودهای Quick، Deck و Easy</p></div>
+      </div>
+      <button id="refreshBtn" class="btn" type="button" aria-label="بارگذاری دوباره کارت‌ها">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg> بروزرسانی
+      </button>
+    </header>
 
-    <script type="text/babel">
-        const { useState, useEffect } = React;
+    <section class="stats" aria-label="خلاصه کارت‌ها">
+      <div class="stat"><span>کل کارت‌ها</span><strong id="totalCards">—</strong></div>
+      <div class="stat"><span>دارای Trait</span><strong id="traitCards">—</strong></div>
+      <div class="stat"><span>دارای Series</span><strong id="seriesCards">—</strong></div>
+      <div class="stat"><span>دارای Passive</span><strong id="passiveCards">—</strong></div>
+    </section>
 
-        function App() {
-            const [cards, setCards] = useState([]);
-            const [loading, setLoading] = useState(true);
-            const [error, setError] = useState(null);
-            const [selectedCard, setSelectedCard] = useState(null);
-            const [isEditing, setIsEditing] = useState(false);
-            const [showForm, setShowForm] = useState(false);
-            const [formData, setFormData] = useState({
-                name: '',
-                rarity: 'normal',
-                power: 50,
-                speed: 50,
-                iq: 50,
-                popularity: 50,
-                abilities: [],
-                biography: '',
-                dialogs: []
-            });
-            const [newAbility, setNewAbility] = useState('');
-            const [stats, setStats] = useState(null);
-            const [imageFile, setImageFile] = useState(null);
-            const [imagePreview, setImagePreview] = useState(null);
-            const [newDialog, setNewDialog] = useState('');
-            // Dual upload additions
-            const [stickerFile, setStickerFile] = useState(null);
-            const [uploadStatus, setUploadStatus] = useState({ type: '', message: '' });
-            const [stickerBadge, setStickerBadge] = useState(false);
+    <div id="workspace" class="workspace">
+      <aside class="panel sidebar" aria-label="فهرست کارت‌ها">
+        <div class="tools">
+          <button id="newBtn" class="btn btn-primary" type="button">
+            <svg class="icon" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg> کارت جدید
+          </button>
+          <div class="search-row">
+            <input id="search" class="input" type="search" placeholder="جستجوی نام، Trait یا Series" aria-label="جستجوی کارت">
+            <select id="rarityFilter" class="input" aria-label="فیلتر کمیابی">
+              <option value="">همه</option><option value="normal">Normal</option><option value="epic">Epic</option><option value="legend">Legend</option><option value="rare">Rare</option>
+            </select>
+          </div>
+        </div>
+        <div id="cardList" class="card-list" aria-live="polite"></div>
+      </aside>
 
-            const handleAddDialog = () => {
-                if (newDialog.trim()) {
-                    setFormData({
-                        ...formData,
-                        dialogs: [...formData.dialogs, newDialog.trim()]
-                    });
-                    setNewDialog('');
-                }
-            };
+      <section class="panel editor" aria-label="ویرایشگر کارت">
+        <div id="emptyState" class="empty"><strong>یک کارت را انتخاب کنید</strong>یا با دکمه «کارت جدید» یک تعریف تازه بسازید.</div>
+        <form id="cardForm" hidden novalidate>
+          <div class="editor-head"><div><h2 id="editorTitle">کارت جدید</h2><small id="cardId">new</small></div><span id="saveState" class="subline">تغییری ذخیره نشده</span></div>
+          <div class="tabs" role="tablist" aria-label="بخش‌های فرم">
+            <button class="tab" type="button" role="tab" data-tab="base" aria-selected="true">اطلاعات پایه</button>
+            <button class="tab" type="button" role="tab" data-tab="modes" aria-selected="false">مودهای جدید</button>
+            <button class="tab" type="button" role="tab" data-tab="media" aria-selected="false">رسانه</button>
+          </div>
 
-            const handleRemoveDialog = (index) => {
-                const updatedDialogs = [...formData.dialogs];
-                updatedDialogs.splice(index, 1);
-                setFormData({
-                    ...formData,
-                    dialogs: updatedDialogs
-                });
-            };
+          <div class="section active" data-section="base">
+            <div class="grid">
+              <div class="field"><label for="name">نام کارت</label><input id="name" class="input" required maxlength="100"></div>
+              <div class="field"><label for="rarity">کمیابی</label><select id="rarity" class="input"><option value="normal">Normal</option><option value="epic">Epic</option><option value="legend">Legend</option><option value="rare">Rare</option></select></div>
+              <div class="field"><label for="cardType">نوع اصلی</label><select id="cardType" class="input"><option value="POWER_TYPE">Power</option><option value="SPEED_TYPE">Speed</option><option value="IQ_TYPE">IQ</option><option value="POPULARITY_TYPE">Popularity</option></select><span class="hint">برای منطق‌های قدیمی و دسته‌بندی کارت استفاده می‌شود.</span></div>
+              <div class="field"><label for="abilities">Abilityهای شخصیت</label><input id="abilities" class="input" placeholder="Leadership, Survivor"><span class="hint">با ویرگول جدا کنید؛ با Ability مصرفی Quick متفاوت است.</span></div>
+              <div class="group-title">Statهای اصلی (۱ تا ۱۰۰)</div>
+              <div class="grid grid-4 field full">
+                <div><label for="power">قدرت</label><input id="power" class="input" type="number" min="1" max="100" required></div>
+                <div><label for="speed">سرعت</label><input id="speed" class="input" type="number" min="1" max="100" required></div>
+                <div><label for="iq">هوش</label><input id="iq" class="input" type="number" min="1" max="100" required></div>
+                <div><label for="popularity">محبوبیت</label><input id="popularity" class="input" type="number" min="1" max="100" required></div>
+              </div>
+              <div class="field full"><label for="cardEffects">Effectهای موتور قدیمی</label><input id="cardEffects" class="input" placeholder="reflect, drain, arena_shift"><span class="hint">کلیدهای معتبر: reflect، drain و arena_shift. در Deck جدید اعمال نمی‌شوند.</span></div>
+              <div class="field full"><label for="biography">بیوگرافی</label><textarea id="biography" class="input"></textarea></div>
+              <div class="field full"><label for="dialogs">دیالوگ‌های پیروزی</label><textarea id="dialogs" class="input" placeholder="هر دیالوگ در یک خط"></textarea></div>
+            </div>
+          </div>
 
-            // دریافت لیست کارت‌ها
-            const fetchCards = async () => {
-                try {
-                    setLoading(true);
-                    const response = await fetch('/api/cards');
-                    const data = await response.json();
-                    
-                    if (data.success) {
-                        setCards(data.cards);
-                    } else {
-                        throw new Error(data.error || 'خطا در دریافت کارت‌ها');
-                    }
-                } catch (err) {
-                    setError(err.message);
-                    console.error('Error fetching cards:', err);
-                } finally {
-                    setLoading(false);
-                }
-            };
-
-            // دریافت آمار
-            const fetchStats = async () => {
-                try {
-                    const response = await fetch('/api/stats');
-                    const data = await response.json();
-                    
-                    if (data.success) {
-                        setStats(data.stats);
-                    }
-                } catch (err) {
-                    console.error('Error fetching stats:', err);
-                }
-            };
-
-            // اجرای اولیه
-            useEffect(() => {
-                fetchCards();
-                fetchStats();
-            }, []);
-
-            // تغییر فرم
-            const handleInputChange = (e) => {
-                const { name, value } = e.target;
-                let processedValue = value;
-                
-                if (name === 'power' || name === 'speed' || name === 'iq' || name === 'popularity') {
-                    processedValue = Math.max(1, Math.min(100, parseInt(value || 0)));
-                }
-                
-                setFormData({
-                    ...formData,
-                    [name]: processedValue
-                });
-            };
-
-            // اضافه کردن ابیلیتی
-            const handleAddAbility = () => {
-                if (newAbility.trim()) {
-                    setFormData({
-                        ...formData,
-                        abilities: [...formData.abilities, newAbility.trim()]
-                    });
-                    setNewAbility('');
-                }
-            };
-
-            // حذف ابیلیتی
-            const handleRemoveAbility = (index) => {
-                const updatedAbilities = [...formData.abilities];
-                updatedAbilities.splice(index, 1);
-                setFormData({
-                    ...formData,
-                    abilities: updatedAbilities
-                });
-            };
-
-            // تغییر تصویر
-            const handleImageChange = (e) => {
-                const file = e.target.files[0];
-                if (file) {
-                    setImageFile(file);
-                    
-                    // نمایش پیش‌نمایش
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        setImagePreview(e.target.result);
-                    };
-                    reader.readAsDataURL(file);
-                }
-            };
-
-            // تغییر استیکر WebP
-            const handleStickerChange = (e) => {
-                const file = e.target.files[0];
-                if (file) {
-                    setStickerFile(file);
-                }
-            };
-
-            // آپلود فوری تصویر
-            const uploadImageNow = async () => {
-                if (!imageFile || !formData.name) {
-                    setUploadStatus({ type: 'error', message: 'Please choose an image and enter a card name first.' });
-                    return;
-                }
-                const uploadData = new FormData();
-                uploadData.append('image', imageFile);
-                uploadData.append('card_name', formData.name);
-                try {
-                    const response = await fetch('/api/upload_image', { method: 'POST', body: uploadData });
-                    const data = await response.json();
-                    if (data.success) {
-                        setUploadStatus({ type: 'success', message: data.message || 'Image uploaded successfully.' });
-                    } else {
-                        setUploadStatus({ type: 'error', message: data.error || 'Image upload failed.' });
-                    }
-                } catch (err) {
-                    setUploadStatus({ type: 'error', message: 'Network error while uploading image.' });
-                }
-            };
-
-            // آپلود فوری استیکر
-            const uploadStickerNow = async () => {
-                if (!stickerFile || !formData.name) {
-                    setUploadStatus({ type: 'error', message: 'Please choose a WebP file and enter a card name first.' });
-                    return;
-                }
-                const uploadData = new FormData();
-                uploadData.append('sticker', stickerFile);
-                uploadData.append('card_name', formData.name);
-                try {
-                    const response = await fetch('/api/upload_sticker', { method: 'POST', body: uploadData });
-                    const data = await response.json();
-                    if (data.success) {
-                        setStickerBadge(true);
-                        setUploadStatus({ type: 'success', message: data.message || 'WebP sticker uploaded successfully.' });
-                    } else {
-                        setStickerBadge(false);
-                        setUploadStatus({ type: 'error', message: data.error || 'Sticker upload failed.' });
-                    }
-                } catch (err) {
-                    setStickerBadge(false);
-                    setUploadStatus({ type: 'error', message: 'Network error while uploading sticker.' });
-                }
-            };
-
-            // آپلود تصویر
-            const uploadImage = async () => {
-                if (!imageFile || !formData.name) return true; // اگر تصویری انتخاب نشده، ادامه بده
-                
-                const uploadData = new FormData();
-                uploadData.append('image', imageFile);
-                uploadData.append('card_name', formData.name);
-                
-                try {
-                    const response = await fetch('/api/upload_image', {
-                        method: 'POST',
-                        body: uploadData
-                    });
-                    
-                    const data = await response.json();
-                    return data.success;
-                } catch (err) {
-                    console.error('Error uploading image:', err);
-                    return false;
-                }
-            };
-
-            // ارسال فرم
-            const handleSubmit = async (e) => {
-                e.preventDefault();
-                
-                try {
-                    // آپلود تصویر اگر انتخاب شده باشد
-                    if (imageFile) {
-                        const imageUploaded = await uploadImage();
-                        if (!imageUploaded) {
-                            throw new Error('خطا در آپلود تصویر');
-                        }
-                    }
-                    
-                    // ارسال اطلاعات کارت
-                    const url = isEditing 
-                        ? `/api/cards/${selectedCard.id}`
-                        : '/api/cards';
-                    
-                    const method = isEditing ? 'PUT' : 'POST';
-                    
-                    const response = await fetch(url, {
-                        method,
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(formData)
-                    });
-                    
-                    const data = await response.json();
-                    
-                    if (data.success) {
-                        alert(isEditing ? 'کارت با موفقیت بروزرسانی شد' : 'کارت با موفقیت اضافه شد');
-                        setShowForm(false);
-                        setIsEditing(false);
-                        setSelectedCard(null);
-                        setImageFile(null);
-                        setImagePreview(null);
-                        fetchCards();
-                        fetchStats();
-                    } else {
-                        throw new Error(data.error || 'خطا در ذخیره کارت');
-                    }
-                } catch (err) {
-                    alert(err.message);
-                    console.error('Error saving card:', err);
-                }
-            };
-
-            // شروع ویرایش
-            const handleEditCard = (card) => {
-                setFormData({
-                    name: card.name,
-                    rarity: card.rarity,
-                    power: card.power,
-                    speed: card.speed,
-                    iq: card.iq,
-                    popularity: card.popularity,
-                    abilities: card.abilities || [],
-                    biography: card.biography || '',
-                    dialogs: card.dialogs || []
-                });
-                setSelectedCard(card);
-                setIsEditing(true);
-                setShowForm(true);
-                
-                // تلاش برای نمایش تصویر فعلی
-                setImagePreview(`/card_images/${card.name.toLowerCase().replace(' ', '_')}.png`);
-            };
-
-            // حذف کارت
-            const handleDeleteCard = async (cardId, cardName) => {
-                if (!confirm(`آیا مطمئنید که می‌خواهید کارت "${cardName}" را حذف کنید؟`)) {
-                    return;
-                }
-                
-                try {
-                    const response = await fetch(`/api/cards/${cardId}`, {
-                        method: 'DELETE'
-                    });
-                    
-                    const data = await response.json();
-                    
-                    if (data.success) {
-                        alert('کارت با موفقیت حذف شد');
-                        fetchCards();
-                        fetchStats();
-                    } else {
-                        throw new Error(data.error || 'خطا در حذف کارت');
-                    }
-                } catch (err) {
-                    alert(err.message);
-                    console.error('Error deleting card:', err);
-                }
-            };
-
-            // ریست فرم
-            const resetForm = () => {
-                setFormData({
-                    name: '',
-                    rarity: 'normal',
-                    power: 50,
-                    speed: 50,
-                    iq: 50,
-                    popularity: 50,
-                    abilities: [],
-                    biography: '',
-                    dialogs: []
-                });
-                setNewAbility('');
-                setNewDialog('');
-                setSelectedCard(null);
-                setIsEditing(false);
-                setImageFile(null);
-                setImagePreview(null);
-            };
-
-            // رنگ کمیابی
-            const getRarityColor = (rarity) => {
-                switch(rarity) {
-                    case 'normal': return 'bg-green-100 text-green-800';
-                    case 'epic': return 'bg-purple-100 text-purple-800';
-                    case 'legend': return 'bg-yellow-100 text-yellow-800';
-                    default: return 'bg-gray-100 text-gray-800';
-                }
-            };
-
-            return (
-                <div className="container mx-auto px-4 py-8">
-                    <div className="flex justify-between items-center mb-8">
-                        <h1 className="text-3xl font-bold text-gray-800">مدیریت کارت‌های بازی</h1>
-                        <button 
-                            onClick={() => {resetForm(); setShowForm(true);}}
-                            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-                        >
-                            افزودن کارت جدید
-                        </button>
-                    </div>
-
-                    {/* آمار */}
-                    {stats && (
-                        <div className="bg-white shadow rounded-lg p-6 mb-8">
-                            <h2 className="text-xl font-semibold mb-4">آمار کلی سیستم</h2>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div className="bg-blue-50 p-4 rounded">
-                                    <h3 className="font-semibold">کارت‌ها</h3>
-                                    <p className="text-2xl">{stats.total_cards}</p>
-                                    <div className="mt-2 text-sm">
-                                        <span className="text-green-600">معمولی: {stats.rarity_distribution.normal}</span> | 
-                                        <span className="text-purple-600"> حماسی: {stats.rarity_distribution.epic}</span> | 
-                                        <span className="text-yellow-600"> افسانه‌ای: {stats.rarity_distribution.legend}</span>
-                                    </div>
-                                </div>
-                                <div className="bg-green-50 p-4 rounded">
-                                    <h3 className="font-semibold">بازیکنان</h3>
-                                    <p className="text-2xl">{stats.total_players}</p>
-                                </div>
-                                <div className="bg-yellow-50 p-4 rounded">
-                                    <h3 className="font-semibold">میانگین ویژگی‌ها</h3>
-                                    {stats.avg_stats && (
-                                        <div className="text-sm mt-2">
-                                            <p>قدرت: {stats.avg_stats.avg_power}</p>
-                                            <p>سرعت: {stats.avg_stats.avg_speed}</p>
-                                            <p>آی‌کیو: {stats.avg_stats.avg_iq}</p>
-                                            <p>محبوبیت: {stats.avg_stats.avg_popularity}</p>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* فرم افزودن/ویرایش کارت */}
-                    {showForm && (
-                        <div className="bg-white shadow rounded-lg p-6 mb-8">
-                            <h2 className="text-xl font-semibold mb-4">
-                                {isEditing ? 'ویرایش کارت' : 'افزودن کارت جدید'}
-                            </h2>
-                            <form onSubmit={handleSubmit}>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div>
-                                        <label className="block text-gray-700 mb-2">نام کارت</label>
-                                        <input
-                                            type="text"
-                                            name="name"
-                                            value={formData.name}
-                                            onChange={handleInputChange}
-                                            className="w-full p-2 border rounded"
-                                            required
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-gray-700 mb-2">کمیابی</label>
-                                        <select
-                                            name="rarity"
-                                            value={formData.rarity}
-                                            onChange={handleInputChange}
-                                            className="w-full p-2 border rounded"
-                                        >
-                                            <option value="normal">معمولی</option>
-                                            <option value="epic">حماسی</option>
-                                            <option value="legend">افسانه‌ای</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-gray-700 mb-2">قدرت ({formData.power})</label>
-                                        <input
-                                            type="range"
-                                            name="power"
-                                            min="1"
-                                            max="100"
-                                            value={formData.power}
-                                            onChange={handleInputChange}
-                                            className="w-full"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-gray-700 mb-2">سرعت ({formData.speed})</label>
-                                        <input
-                                            type="range"
-                                            name="speed"
-                                            min="1"
-                                            max="100"
-                                            value={formData.speed}
-                                            onChange={handleInputChange}
-                                            className="w-full"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-gray-700 mb-2">آی‌کیو ({formData.iq})</label>
-                                        <input
-                                            type="range"
-                                            name="iq"
-                                            min="1"
-                                            max="100"
-                                            value={formData.iq}
-                                            onChange={handleInputChange}
-                                            className="w-full"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-gray-700 mb-2">محبوبیت ({formData.popularity})</label>
-                                        <input
-                                            type="range"
-                                            name="popularity"
-                                            min="1"
-                                            max="100"
-                                            value={formData.popularity}
-                                            onChange={handleInputChange}
-                                            className="w-full"
-                                        />
-                                    </div>
-                                    
-                                    {/* بخش آپلود تصویر و استیکر */}
-                                    <div className="md:col-span-2">
-                                        <label className="block text-gray-700 mb-2 font-semibold">🖼️ Image / Sticker Upload</label>
-                                        <div className="flex flex-col gap-4 p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                                            {/* پیش‌نمایش */}
-                                            {imagePreview && (
-                                                <div className="mb-2 inline-block relative">
-                                                    <img 
-                                                        src={imagePreview} 
-                                                        alt="Preview" 
-                                                        className="max-w-xs max-h-40 rounded border"
-                                                        onError={(e) => e.target.style.display = 'none'} 
-                                                    />
-                                                    {stickerBadge && (
-                                                        <span className="absolute -top-2 -right-2 bg-purple-600 text-white text-xs px-2 py-1 rounded-full shadow">
-                                                            🎭 WebP Sticker
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            )}
-
-                                            {/* آپلود تصویر */}
-                                            <div className="bg-white p-3 rounded-lg border border-gray-200">
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">📷 Card Image (PNG/JPG)</label>
-                                                <div className="flex gap-2 items-center">
-                                                    <input
-                                                        type="file"
-                                                        accept="image/png,image/jpeg"
-                                                        onChange={handleImageChange}
-                                                        className="flex-1 text-sm"
-                                                    />
-                                                    <button type="button" onClick={uploadImageNow} className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1 rounded">
-                                                        Upload Image
-                                                    </button>
-                                                </div>
-                                                <small className="text-gray-500 mt-1 block">Used for card display in panel</small>
-                                            </div>
-
-                                            {/* آپلود استیکر */}
-                                            <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-3 rounded-lg border-2 border-purple-200">
-                                                <label className="block text-sm font-medium text-purple-700 mb-2">🎭 WebP Sticker (recommended)</label>
-                                                <div className="flex gap-2 items-center">
-                                                    <input
-                                                        type="file"
-                                                        accept=".webp"
-                                                        onChange={handleStickerChange}
-                                                        className="flex-1 text-sm"
-                                                    />
-                                                    <button type="button" onClick={uploadStickerNow} className="bg-purple-600 hover:bg-purple-700 text-white text-sm px-3 py-1 rounded">
-                                                        Upload Sticker
-                                                    </button>
-                                                </div>
-                                                <small className="text-purple-600 mt-1 block font-medium">⚡ Recommended size: 512×512px, max 500KB</small>
-                                            </div>
-
-                                            {/* وضعیت آپلود */}
-                                            {uploadStatus.message && (
-                                                <div className={`p-3 rounded-lg text-sm font-medium ${uploadStatus.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                                    {uploadStatus.message}
-                                                </div>
-                                            )}
-
-                                            {/* راهنما */}
-                                            <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-                                                <p className="text-xs text-blue-800">
-                                                    <strong>💡 Tip:</strong> WebP stickers look cleaner and load faster in Telegram.
-                                                    You can convert PNG to WebP using <a href="https://ezgif.com/png-to-webp" target="_blank" className="underline font-semibold">ezgif.com</a>.
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="md:col-span-2">
-                                        <label className="block text-gray-700 mb-2">ابیلیتی‌ها</label>
-                                        <div className="flex mb-2">
-                                            <input
-                                                type="text"
-                                                value={newAbility}
-                                                onChange={(e) => setNewAbility(e.target.value)}
-                                                className="flex-grow p-2 border rounded-r-none rounded-l"
-                                                placeholder="ابیلیتی جدید"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={handleAddAbility}
-                                                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-l-none rounded-r"
-                                            >
-                                                +
-                                            </button>
-                                        </div>
-                                        <div className="flex flex-wrap gap-2 mt-2">
-                                            {formData.abilities.map((ability, index) => (
-                                                <span 
-                                                    key={index}
-                                                    className="bg-gray-200 px-3 py-1 rounded-full flex items-center"
-                                                >
-                                                    {ability}
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleRemoveAbility(index)}
-                                                        className="ml-2 text-red-500 font-bold"
-                                                    >
-                                                        ×
-                                                    </button>
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </div>
-                                    <div className="md:col-span-2">
-                                        <label className="block text-gray-700 mb-2">Biography</label>
-                                        <textarea
-                                            name="biography"
-                                            value={formData.biography}
-                                            onChange={handleInputChange}
-                                            className="w-full p-2 border rounded h-24"
-                                            placeholder="Write a short description or story about this character..."
-                                        ></textarea>
-                                    </div>
-                                    <div className="md:col-span-2">
-                                        <label className="block text-gray-700 mb-2">Victory Dialogs</label>
-                                        <div className="flex mb-2">
-                                            <input
-                                                type="text"
-                                                value={newDialog}
-                                                onChange={(e) => setNewDialog(e.target.value)}
-                                                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddDialog(); } }}
-                                                className="flex-grow p-2 border rounded-r-none rounded-l"
-                                                placeholder="Enter new dialog and press Enter or click +"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={handleAddDialog}
-                                                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-l-none rounded-r"
-                                            >
-                                                +
-                                            </button>
-                                        </div>
-                                        <div className="flex flex-col gap-2 mt-2">
-                                            {formData.dialogs.map((dialog, index) => (
-                                                <div 
-                                                    key={index}
-                                                    className="bg-gray-100 px-3 py-1 rounded-full flex items-center justify-between"
-                                                >
-                                                    <span>{dialog}</span>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleRemoveDialog(index)}
-                                                        className="ml-2 text-red-500 font-bold"
-                                                    >
-                                                        ×
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="flex justify-end mt-6 gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowForm(false)}
-                                        className="bg-gray-300 hover:bg-gray-400 text-black font-bold py-2 px-4 rounded"
-                                    >
-                                        انصراف
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
-                                    >
-                                        {isEditing ? 'بروزرسانی کارت' : 'افزودن کارت'}
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    )}
-
-                    {/* نمایش کارت‌ها */}
-                    <div className="bg-white shadow rounded-lg p-6">
-                        <h2 className="text-xl font-semibold mb-4">لیست کارت‌ها</h2>
-                        
-                        {loading ? (
-                            <p className="text-center py-4">در حال بارگیری...</p>
-                        ) : error ? (
-                            <div className="text-center py-4 text-red-500">
-                                <p>{error}</p>
-                                <button 
-                                    onClick={fetchCards}
-                                    className="mt-2 bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-4 rounded"
-                                >
-                                    تلاش مجدد
-                                </button>
-                            </div>
-                        ) : cards.length === 0 ? (
-                            <p className="text-center py-4">هنوز کارتی اضافه نشده است.</p>
-                        ) : (
-                            <div className="overflow-x-auto">
-                                <table className="min-w-full bg-white">
-                                    <thead>
-                                        <tr className="bg-gray-100">
-                                            <th className="py-2 px-4 border-b text-right">تصویر</th>
-                                            <th className="py-2 px-4 border-b text-right">نام</th>
-                                            <th className="py-2 px-4 border-b text-right">کمیابی</th>
-                                            <th className="py-2 px-4 border-b text-right">قدرت</th>
-                                            <th className="py-2 px-4 border-b text-right">سرعت</th>
-                                            <th className="py-2 px-4 border-b text-right">آی‌کیو</th>
-                                            <th className="py-2 px-4 border-b text-right">محبوبیت</th>
-                                            <th className="py-2 px-4 border-b text-right">بیوگرافی</th>
-                                            <th className="py-2 px-4 border-b text-right">عملیات</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {cards.map((card) => (
-                                            <tr key={card.id} className="hover:bg-gray-50">
-                                                <td className="py-2 px-4 border-b">
-                                                    <img 
-                                                        src={`/card_images/${card.name.toLowerCase().replace(/ /g, '_')}.png`}
-                                                        alt={card.name}
-                                                        className="h-12 w-12 object-cover rounded"
-                                                        onError={(e) => e.target.src = 'https://via.placeholder.com/50?text=No+Image'}
-                                                    />
-                                                </td>
-                                                <td className="py-2 px-4 border-b">{card.name}</td>
-                                                <td className="py-2 px-4 border-b">
-                                                    <span className={`px-2 py-1 rounded text-xs ${getRarityColor(card.rarity)}`}>
-                                                        {card.rarity === 'normal' ? 'معمولی' : 
-                                                         card.rarity === 'epic' ? 'حماسی' : 'افسانه‌ای'}
-                                                    </span>
-                                                </td>
-                                                <td className="py-2 px-4 border-b">{card.power}</td>
-                                                <td className="py-2 px-4 border-b">{card.speed}</td>
-                                                <td className="py-2 px-4 border-b">{card.iq}</td>
-                                                <td className="py-2 px-4 border-b">{card.popularity}</td>
-                                                <td className="py-2 px-4 border-b">
-                                                    <div className="max-w-xs truncate" title={card.biography}>
-                                                        {card.biography || 'بدون بیوگرافی'}
-                                                    </div>
-                                                </td>
-                                                <td className="py-2 px-4 border-b">
-                                                    <div className="flex space-x-2">
-                                                        <button 
-                                                            onClick={() => handleEditCard(card)}
-                                                            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded text-xs ml-2"
-                                                        >
-                                                            ویرایش
-                                                        </button>
-                                                        <button 
-                                                            onClick={() => handleDeleteCard(card.id, card.name)}
-                                                            className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-xs"
-                                                        >
-                                                            حذف
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-                    </div>
+          <div class="section" data-section="modes">
+            <div class="grid">
+              <div class="field"><label for="traits">Traitها</label><input id="traits" class="input" placeholder="Hero, Leader, Funny"><span class="hint">برای اولویت Trait در Deck و سؤال‌های ترکیبی Easy.</span></div>
+              <div class="field"><label for="series">Series / مجموعه</label><input id="series" class="input" placeholder="Game of Thrones"><span class="hint">سه کارت هم‌مجموعه می‌توانند Synergy بگیرند.</span></div>
+              <div class="group-title">Hidden Stats برای Easy (اختیاری)</div>
+              <div class="grid grid-4 field full">
+                <div><label for="funny">بامزگی</label><input id="funny" class="input hidden-stat" type="number" min="1" max="100"></div>
+                <div><label for="scary">ترسناکی</label><input id="scary" class="input hidden-stat" type="number" min="1" max="100"></div>
+                <div><label for="charisma">کاریزما</label><input id="charisma" class="input hidden-stat" type="number" min="1" max="100"></div>
+                <div><label for="cute">کیوتی</label><input id="cute" class="input hidden-stat" type="number" min="1" max="100"></div>
+                <div><label for="evil">شرارت</label><input id="evil" class="input hidden-stat" type="number" min="1" max="100"></div>
+                <div><label for="leadership">رهبری</label><input id="leadership" class="input hidden-stat" type="number" min="1" max="100"></div>
+              </div>
+              <div class="group-title">Passive خودکار Quick</div>
+              <div class="field full switch-line"><input id="passiveEnabled" type="checkbox"><label for="passiveEnabled" style="margin:0">این کارت Passive دارد</label></div>
+              <fieldset id="passiveFields" class="field full" disabled>
+                <legend>شرط و اثر Passive</legend>
+                <div class="grid">
+                  <div class="field"><label for="passiveName">نام</label><input id="passiveName" class="input" placeholder="فرمانده میدان"></div>
+                  <div class="field"><label for="conditionType">نوع شرط</label><select id="conditionType" class="input"><option value="arena">زمین مشخص</option><option value="opponent_trait">Trait حریف</option><option value="opponent_name">نام حریف</option></select></div>
+                  <div class="field"><label for="conditionValue">مقدار شرط</label><input id="conditionValue" class="input" list="arenaValues" placeholder="city یا Hero"><datalist id="arenaValues"><option value="city"><option value="desert"><option value="ice"><option value="forest"><option value="silent_temple"><option value="null_zone"></datalist></div>
+                  <div class="field"><label for="passiveStat">Stat هدف</label><select id="passiveStat" class="input"><option value="power">Power</option><option value="speed">Speed</option><option value="iq">IQ</option><option value="popularity">Popularity</option></select></div>
+                  <div class="field"><label for="passiveDelta">مقدار تغییر</label><input id="passiveDelta" class="input" type="number" min="-100" max="100" value="1"></div>
                 </div>
-            );
-        }
+              </fieldset>
+            </div>
+          </div>
 
-        ReactDOM.render(
-            <App />,
-            document.getElementById('root')
-        );
-    </script>
+          <div class="section" data-section="media">
+            <div class="grid">
+              <div class="field">
+                <label>پیش‌نمایش تصویر</label><div id="imagePreview" class="preview">هنوز تصویری ثبت نشده است.</div>
+              </div>
+              <div class="field">
+                <label for="imagePath">مسیر تصویر در پروژه</label><input id="imagePath" class="input" placeholder="assets/card_images/card.png">
+                <div class="upload"><label for="imageFile">آپلود PNG/JPG/WebP</label><input id="imageFile" class="input" type="file" accept="image/png,image/jpeg,image/webp"><button id="uploadImageBtn" class="btn" type="button" style="margin-top:8px">آپلود تصویر</button></div>
+                <div class="upload"><label for="stickerFile">آپلود Sticker WebP محلی</label><input id="stickerFile" class="input" type="file" accept="image/webp,.webp"><button id="uploadStickerBtn" class="btn" type="button" style="margin-top:8px">آپلود استیکر</button><span class="hint">فایل با نام کارت ذخیره می‌شود؛ بعد از تغییر نام کارت، استیکر را دوباره آپلود کنید.</span></div>
+              </div>
+              <div class="field full"><label for="photoFileId">Telegram Photo file_id</label><input id="photoFileId" class="input" dir="ltr"><span class="hint">اختیاری؛ برای Inline Picker بدون آپلود دوباره.</span></div>
+              <div class="field full"><label for="stickerFileId">Telegram Sticker file_id</label><input id="stickerFileId" class="input" dir="ltr"><span class="hint">اگر وارد شود، Easy و Deck مستقیماً از Sticker تلگرام استفاده می‌کنند.</span></div>
+            </div>
+          </div>
 
+          <div class="actions">
+            <button id="deleteBtn" class="btn btn-danger" type="button">حذف کارت</button>
+            <div><button id="cancelBtn" class="btn" type="button">لغو تغییرات</button><button id="saveBtn" class="btn btn-primary" type="submit">ذخیره کارت</button></div>
+          </div>
+        </form>
+      </section>
+    </div>
+  </main>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const state = { cards: [], selectedId: null, creating: false, busy: false };
+    const $ = id => document.getElementById(id);
+    const fields = ['name','rarity','cardType','power','speed','iq','popularity','abilities','cardEffects','biography','dialogs','traits','series','funny','scary','charisma','cute','evil','leadership','passiveName','conditionType','conditionValue','passiveStat','passiveDelta','imagePath','photoFileId','stickerFileId'];
+    const splitList = value => [...new Set(String(value || '').split(/[\n,،]+/).map(x => x.trim()).filter(Boolean))];
+    const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+    const rarityLabel = { normal: 'Normal', epic: 'Epic', legend: 'Legend', rare: 'Rare' };
+
+    function toast(message, error = false) {
+      const node = $('toast'); node.textContent = message; node.className = `toast show${error ? ' error' : ''}`;
+      clearTimeout(toast.timer); toast.timer = setTimeout(() => node.className = 'toast', 3200);
+    }
+    function revealEditor() {
+      if (!matchMedia('(max-width: 980px)').matches) return;
+      const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      requestAnimationFrame(() => document.querySelector('.editor').scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' }));
+    }
+    async function api(url, options = {}) {
+      const response = await fetch(url, options); let data = {};
+      try { data = await response.json(); } catch (_) {}
+      if (!response.ok || data.success === false) throw new Error(data.error || `خطای HTTP ${response.status}`);
+      return data;
+    }
+    function setBusy(value) {
+      state.busy = value; $('cardForm').classList.toggle('loading', value); $('saveBtn').disabled = value;
+      $('saveState').textContent = value ? 'در حال ذخیره…' : 'آماده ذخیره';
+    }
+    function renderStats() {
+      $('totalCards').textContent = state.cards.length.toLocaleString('fa-IR');
+      $('traitCards').textContent = state.cards.filter(c => c.traits?.length).length.toLocaleString('fa-IR');
+      $('seriesCards').textContent = state.cards.filter(c => c.series).length.toLocaleString('fa-IR');
+      $('passiveCards').textContent = state.cards.filter(c => c.passive && Object.keys(c.passive).length).length.toLocaleString('fa-IR');
+    }
+    function renderList() {
+      const term = $('search').value.trim().toLowerCase(); const rarity = $('rarityFilter').value;
+      const cards = state.cards.filter(card => {
+        const haystack = [card.name, card.series, ...(card.traits || [])].join(' ').toLowerCase();
+        return (!term || haystack.includes(term)) && (!rarity || card.rarity === rarity);
+      });
+      $('cardList').innerHTML = cards.length ? cards.map(card => `
+        <button type="button" class="card-row ${state.selectedId === card.id ? 'active' : ''}" data-card-id="${escapeHtml(card.id)}">
+          <span><strong>${escapeHtml(card.name)}</strong><span class="subline">${escapeHtml(card.series || 'بدون Series')} · ${(card.traits || []).length} Trait</span></span>
+          <span class="rarity ${escapeHtml(card.rarity)}">${rarityLabel[card.rarity] || escapeHtml(card.rarity)}</span>
+        </button>`).join('') : '<div class="empty" style="padding:35px 12px">کارتی با این فیلتر پیدا نشد.</div>';
+    }
+    async function loadCards(preferredId = state.selectedId) {
+      try {
+        const data = await api('/api/cards'); state.cards = data.cards || []; renderStats();
+        if (preferredId && state.cards.some(card => card.id === preferredId)) selectCard(preferredId); else renderList();
+      } catch (error) { toast(error.message, true); }
+    }
+    function blankCard() {
+      return { name:'', rarity:'normal', card_type:'POWER_TYPE', power:50, speed:50, iq:50, popularity:50, abilities:[], card_effects:[], biography:'', dialogs:[], traits:[], series:'', hidden_stats:{}, passive:{}, image_path:'', photo_file_id:'', sticker_file_id:'' };
+    }
+    function selectCard(id) {
+      const card = state.cards.find(item => item.id === id); if (!card) return;
+      state.selectedId = id; state.creating = false; fillForm(card); renderList(); revealEditor();
+    }
+    function startNew() { state.selectedId = null; state.creating = true; fillForm(blankCard()); renderList(); revealEditor(); }
+    function fillForm(card) {
+      $('emptyState').hidden = true; $('cardForm').hidden = false; $('editorTitle').textContent = state.creating ? 'کارت جدید' : card.name; $('cardId').textContent = state.creating ? 'new' : card.id;
+      $('name').value = card.name || ''; $('rarity').value = card.rarity || 'normal'; $('cardType').value = card.card_type || 'POWER_TYPE';
+      ['power','speed','iq','popularity'].forEach(key => $(key).value = card[key] ?? 50);
+      $('abilities').value = (card.abilities || []).join(', '); $('cardEffects').value = (card.card_effects || []).join(', '); $('biography').value = card.biography || ''; $('dialogs').value = (card.dialogs || []).join('\n');
+      $('traits').value = (card.traits || []).join(', '); $('series').value = card.series || '';
+      ['funny','scary','charisma','cute','evil','leadership'].forEach(key => $(key).value = card.hidden_stats?.[key] ?? '');
+      const passive = card.passive || {}; $('passiveEnabled').checked = Object.keys(passive).length > 0; $('passiveFields').disabled = !$('passiveEnabled').checked;
+      $('passiveName').value = passive.name || ''; const condition = passive.condition || {}; const conditionType = Object.keys(condition)[0] || 'arena'; $('conditionType').value = conditionType; $('conditionValue').value = condition[conditionType] || ''; $('passiveStat').value = passive.effect?.stat || 'power'; $('passiveDelta').value = passive.effect?.delta ?? 1;
+      $('imagePath').value = card.image_path || ''; $('photoFileId').value = card.photo_file_id || ''; $('stickerFileId').value = card.sticker_file_id || ''; $('deleteBtn').hidden = state.creating; $('saveState').textContent = 'آماده ویرایش'; updatePreview(); activateTab('base');
+    }
+    function collectPayload() {
+      const hidden = {}; ['funny','scary','charisma','cute','evil','leadership'].forEach(key => { if ($(key).value !== '') hidden[key] = Number($(key).value); });
+      let passive = {}; if ($('passiveEnabled').checked) { const type = $('conditionType').value; const value = $('conditionValue').value.trim(); if (!value) throw new Error('مقدار شرط Passive را وارد کنید'); passive = { name: $('passiveName').value.trim() || 'Passive', condition: {[type]: value}, effect: {stat: $('passiveStat').value, delta: Number($('passiveDelta').value)} }; }
+      return { name:$('name').value.trim(), rarity:$('rarity').value, card_type:$('cardType').value, power:Number($('power').value), speed:Number($('speed').value), iq:Number($('iq').value), popularity:Number($('popularity').value), abilities:splitList($('abilities').value), card_effects:splitList($('cardEffects').value), biography:$('biography').value.trim(), dialogs:splitList($('dialogs').value), traits:splitList($('traits').value), series:$('series').value.trim(), hidden_stats:hidden, passive, image_path:$('imagePath').value.trim(), photo_file_id:$('photoFileId').value.trim(), sticker_file_id:$('stickerFileId').value.trim() };
+    }
+    async function saveCard(event) {
+      event.preventDefault(); if (!$('cardForm').reportValidity() || state.busy) return;
+      try { setBusy(true); const payload = collectPayload(); const url = state.creating ? '/api/cards' : `/api/cards/${encodeURIComponent(state.selectedId)}`; const method = state.creating ? 'POST' : 'PUT'; const data = await api(url, {method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)}); state.selectedId = data.card.id; state.creating = false; toast(data.message); await loadCards(state.selectedId); }
+      catch (error) { toast(error.message, true); } finally { setBusy(false); }
+    }
+    async function deleteCard() {
+      const card = state.cards.find(item => item.id === state.selectedId); if (!card || !confirm(`کارت «${card.name}» حذف شود؟ این کار روی مالکان کارت هم اثر می‌گذارد.`)) return;
+      try { setBusy(true); await api(`/api/cards/${encodeURIComponent(card.id)}`, {method:'DELETE'}); toast('کارت حذف شد'); state.selectedId = null; state.creating = false; $('cardForm').hidden = true; $('emptyState').hidden = false; await loadCards(); }
+      catch (error) { toast(error.message, true); } finally { setBusy(false); }
+    }
+    function activateTab(name) { document.querySelectorAll('.tab').forEach(tab => tab.setAttribute('aria-selected', String(tab.dataset.tab === name))); document.querySelectorAll('.section').forEach(section => section.classList.toggle('active', section.dataset.section === name)); }
+    function updatePreview() { const path = $('imagePath').value.trim(); const node = $('imagePreview'); if (!path) { node.textContent = 'هنوز تصویری ثبت نشده است.'; return; } const filename = path.split(/[\\/]/).pop(); node.innerHTML = `<img src="/card_images/${encodeURIComponent(filename)}" alt="پیش‌نمایش کارت ${escapeHtml($('name').value || '')}" onerror="this.parentElement.textContent='تصویر پیدا نشد'">`; }
+    async function upload(kind) {
+      const input = kind === 'image' ? $('imageFile') : $('stickerFile'); if (!input.files[0]) return toast('ابتدا فایل را انتخاب کنید', true); if (!$('name').value.trim()) return toast('قبل از آپلود، نام کارت را وارد کنید', true);
+      const form = new FormData(); form.append(kind, input.files[0]); form.append('card_name', $('name').value.trim());
+      try { const data = await api(`/api/upload_${kind}`, {method:'POST', body:form}); if (data.image_path) { $('imagePath').value = data.image_path; updatePreview(); } toast(data.message); }
+      catch (error) { toast(error.message, true); }
+    }
+    $('cardList').addEventListener('click', event => { const button = event.target.closest('[data-card-id]'); if (button) selectCard(button.dataset.cardId); });
+    $('newBtn').addEventListener('click', startNew); $('refreshBtn').addEventListener('click', () => loadCards()); $('search').addEventListener('input', renderList); $('rarityFilter').addEventListener('change', renderList);
+    $('cardForm').addEventListener('submit', saveCard); $('deleteBtn').addEventListener('click', deleteCard); $('cancelBtn').addEventListener('click', () => state.selectedId ? selectCard(state.selectedId) : startNew());
+    $('passiveEnabled').addEventListener('change', () => $('passiveFields').disabled = !$('passiveEnabled').checked); $('imagePath').addEventListener('input', updatePreview); $('name').addEventListener('input', () => { if (!state.creating) $('editorTitle').textContent = $('name').value || 'بدون نام'; });
+    $('uploadImageBtn').addEventListener('click', () => upload('image')); $('uploadStickerBtn').addEventListener('click', () => upload('sticker')); document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => activateTab(tab.dataset.tab)));
+    loadCards();
+  </script>
 </body>
 </html>

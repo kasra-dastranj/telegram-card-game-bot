@@ -109,7 +109,7 @@ class TierDecaySystem:
         new_tp = max(0, current_tp - actual_decay)
         
         logger.info(
-            f"Decay calculated: {current_tp} → {new_tp} "
+            f"Decay calculated: {current_tp} -> {new_tp} "
             f"(decay: {actual_decay}, days: {days_inactive})"
         )
         

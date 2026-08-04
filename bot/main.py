@@ -19,6 +19,8 @@ from telegram.ext import (
     Application, 
     CommandHandler, 
     CallbackQueryHandler, 
+    ChosenInlineResultHandler,
+    InlineQueryHandler,
     MessageHandler, 
     filters, 
     ContextTypes
@@ -37,7 +39,7 @@ from systems.battle_system_3rounds import BattleSystem3Rounds, BattleState, AREN
 from systems.claim_system import ClaimSystem
 from systems.card_missions_system import CardMissionsSystem, MISSION_TYPES
 from systems.skins_system import SkinsSystem, SKIN_TYPES
-
+from systems.game_mode_system import GameModeSystem
 # تنظیم لاگینگ  
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -60,6 +62,7 @@ PANEL_TIMEOUT = 15 * 60
 # Command scope definitions
 PRIVATE_CHAT_COMMANDS = [
     BotCommand("start", "شروع بازی و نمایش منوی اصلی"),
+    BotCommand("fight", "شروع Quick Match"),
     BotCommand("profile", "نمایش پروفایل و آمار شخصی"),
     BotCommand("cards", "مشاهده کارت‌های جمع‌آوری شده"),
     BotCommand("claim", "دریافت کارت روزانه رایگان"),
@@ -256,10 +259,10 @@ def ensure_not_expired(query, db: DatabaseManager = None, context: ContextTypes.
             try:
                 data = query.data or ""
                 fight_id = None
-                for prefix in ["accept_pvp_", "accept_pvp_random_", "pvp_card_", "pvp_stat_"]:
+                for prefix in ["accept_pvp_", "accept_pvp_random_", "pvp_deck_", "r3_card_", "pvp_card_", "pvp_stat_"]:
                     if data.startswith(prefix):
                         parts = data.split("_")
-                        fight_id = parts[2] if prefix in ["pvp_card_", "pvp_stat_"] else parts[-1]
+                        fight_id = parts[2] if prefix in ["pvp_deck_", "r3_card_", "pvp_card_", "pvp_stat_"] else parts[-1]
                         break
                 
                 # Schedule notification as a background task
@@ -294,15 +297,19 @@ from bot.handlers.shop import ShopHandlersMixin
 from bot.handlers.fusion import FusionHandlersMixin
 from bot.handlers.risk import RiskHandlersMixin
 from bot.handlers.pvp import PvPHandlersMixin
+from bot.handlers.deck import DeckHandlersMixin
+from bot.handlers.game_modes import GameModeHandlersMixin
 
 
 class TelegramCardBot(
+    GameModeHandlersMixin,
     BasicHandlersMixin,
     BattleHandlersMixin,
     ShopHandlersMixin,
     FusionHandlersMixin,
     RiskHandlersMixin,
     PvPHandlersMixin,
+    DeckHandlersMixin,
 ):
     def __init__(self, config_path: str = "game_config.json"):
         # بارگیری تنظیمات
@@ -322,6 +329,7 @@ class TelegramCardBot(
         self.claim_sys = ClaimSystem(self.db)
         self.missions = CardMissionsSystem(self.db)
         self.skins = SkinsSystem(self.db)
+        self.modes = GameModeSystem(self.db)
 
         # حافظه موقت برای خلاصه مبارزات اخیر (برای دکمه اطلاعات بیشتر)
         self.recent_matches: Dict[str, Dict[str, Any]] = {}
@@ -463,11 +471,23 @@ class TelegramCardBot(
         
         # فایت PvP
         app.add_handler(CallbackQueryHandler(self.request_pvp_fight_handler, pattern="^request_pvp_fight$"))
+        app.add_handler(CallbackQueryHandler(self.game_mode_select_handler, pattern="^gm_mode_"))
+        app.add_handler(CallbackQueryHandler(self.game_variant_handler, pattern="^gm_variant_"))
+        app.add_handler(CallbackQueryHandler(self.game_source_handler, pattern="^gm_source_"))
+        app.add_handler(CallbackQueryHandler(self.game_accept_handler, pattern="^gm_accept_"))
+        app.add_handler(CallbackQueryHandler(self.game_cancel_handler, pattern="^gm_cancel_"))
+        app.add_handler(CallbackQueryHandler(self.quick_card_page_handler, pattern="^gm_qpage_"))
+        app.add_handler(CallbackQueryHandler(self.quick_card_handler, pattern="^gm_qcard_"))
+        app.add_handler(CallbackQueryHandler(self.quick_ability_handler, pattern="^gm_qability_"))
+        app.add_handler(CallbackQueryHandler(self.quick_stat_handler, pattern="^gm_qstat_"))
+        app.add_handler(CallbackQueryHandler(self.game_report_handler, pattern="^gm_report_"))
+        app.add_handler(CallbackQueryHandler(self.easy_round_count_handler, pattern="^gm_erounds_"))
+        app.add_handler(CallbackQueryHandler(self.easy_ready_handler, pattern="^gm_eready_"))
+        app.add_handler(CallbackQueryHandler(self.easy_start_handler, pattern="^gm_estart_"))
         app.add_handler(CallbackQueryHandler(self.accept_pvp_random_handler, pattern="^accept_pvp_random_"))
         app.add_handler(CallbackQueryHandler(self.accept_pvp_fight_handler, pattern="^accept_pvp_"))
         app.add_handler(CallbackQueryHandler(self.pvp_cards_navigation_handler, pattern="^pvp_cards_"))
-        app.add_handler(CallbackQueryHandler(self.pvp_card_select_handler, pattern="^pvp_card_"))
-        app.add_handler(CallbackQueryHandler(self.pvp_stat_select_handler, pattern="^pvp_stat_"))
+        # pvp_card_ و pvp_stat_ از سیستم قدیمی حذف شدند — deck system جایگزین شد
         
         # عضویت کانال
         app.add_handler(CallbackQueryHandler(self.check_membership_handler, pattern="^check_membership$"))
@@ -478,9 +498,36 @@ class TelegramCardBot(
         app.add_handler(CallbackQueryHandler(self.toggle_favorite_handler, pattern="^toggle_fav_"))
 
         # ==================== فاز ۲: 3-Round Battle ====================
+        app.add_handler(InlineQueryHandler(self.easy_inline_query_handler, pattern=r"^easy\s"))
+        app.add_handler(ChosenInlineResultHandler(self.easy_chosen_inline_handler, pattern=r"^ez\|"))
+        app.add_handler(InlineQueryHandler(self.r3_inline_card_query_handler))
+        app.add_handler(ChosenInlineResultHandler(self.r3_chosen_inline_card_handler))
         app.add_handler(CallbackQueryHandler(self.r3_stat_select_handler, pattern="^r3_stat_"))
         app.add_handler(CallbackQueryHandler(self.r3_ability_handler, pattern="^r3_ability_"))
+        app.add_handler(CallbackQueryHandler(self.r3_effect_select_handler, pattern="^r3_effect_"))
+        app.add_handler(CallbackQueryHandler(self.r3_inline_confirm_handler, pattern="^r3i\\|"))
+        app.add_handler(CallbackQueryHandler(self.r3_inline_effect_confirm_handler, pattern="^r3e\\|"))
+        app.add_handler(CallbackQueryHandler(self.pvp_inline_deck_confirm_handler, pattern="^pvpd\\|"))
+        app.add_handler(CallbackQueryHandler(self.arena_shift_pick_handler, pattern="^arena_shift_pick_"))
         app.add_handler(CallbackQueryHandler(self.arena_pick_handler, pattern="^arena_pick_"))
+
+        # ==================== Deck System ====================
+        app.add_handler(CallbackQueryHandler(self.deck_menu_handler, pattern="^deck_menu$"))
+        app.add_handler(CallbackQueryHandler(self.deck_create_start_handler, pattern="^deck_create$"))
+        app.add_handler(CallbackQueryHandler(self.deck_build_category_handler, pattern="^deck_build_cat_"))
+        app.add_handler(CallbackQueryHandler(self.deck_build_pick_handler, pattern="^deck_build_pick_"))
+        app.add_handler(CallbackQueryHandler(self.deck_build_skip_name_handler, pattern="^deck_build_skip_name$"))
+        app.add_handler(CallbackQueryHandler(self.deck_delete_confirm_handler, pattern="^deck_delete_confirm_"))
+        app.add_handler(CallbackQueryHandler(self.deck_delete_handler, pattern="^deck_delete_(?!confirm_)"))
+        app.add_handler(CallbackQueryHandler(self.deck_view_handler, pattern="^deck_view_"))
+        app.add_handler(CallbackQueryHandler(self.pvp_deck_select_handler, pattern="^pvp_deck_"))
+        app.add_handler(CallbackQueryHandler(self.r3_card_select_handler, pattern="^r3_card_"))
+        app.add_handler(CallbackQueryHandler(self.noop_handler, pattern="^noop$"))
+        # MessageHandler برای دریافت نام دک از کاربر (فقط وقتی waiting_name فعال است)
+        app.add_handler(MessageHandler(
+            filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE,
+            self._deck_name_message_router
+        ))
 
         # ==================== فاز ۲: Missions ====================
         app.add_handler(CallbackQueryHandler(self.mission_claim_handler, pattern="^mission_claim_"))
@@ -535,6 +582,12 @@ class TelegramCardBot(
     async def error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE):
         """هندلر خطاها"""
         logger.error(f"Exception while handling an update: {context.error}", exc_info=context.error)
+
+    async def _deck_name_message_router(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Router برای پیام‌های متنی — فقط اگر کاربر در حال نام‌گذاری دک است."""
+        build = context.user_data.get('deck_build', {})
+        if build.get('waiting_name'):
+            await self.deck_name_message_handler(update, context)
 
     async def cleanup_task(self, context: ContextTypes.DEFAULT_TYPE):
         """تسک تمیزکردن فایت‌های منقضی"""
@@ -684,7 +737,7 @@ def main():
         
         # شروع ربات
         print("🚀 ربات در حال اجرا...")
-        application.run_polling(drop_pending_updates=True)
+        application.run_polling(drop_pending_updates=True, allowed_updates=Update.ALL_TYPES)
         
     except KeyboardInterrupt:
         print("\n👋 ربات متوقف شد!")

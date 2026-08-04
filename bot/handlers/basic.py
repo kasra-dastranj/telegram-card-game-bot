@@ -99,6 +99,11 @@ class BasicHandlersMixin:
                 await self.send_channel_join_message(update)
                 return
 
+            # Telegram deep-link invitations for the new game modes must be
+            # handled before rendering the normal private start menu.
+            if chat_type == 'private' and await self.handle_game_invite_start(update, context):
+                return
+
             # Group behavior
             if chat_type in ['group', 'supergroup']:
                 active = self.db.get_active_fight_for_group(update.effective_chat.id)
@@ -121,7 +126,8 @@ class BasicHandlersMixin:
             )
             keyboard = [
                 *([[InlineKeyboardButton("🎮 Solo vs آسو", web_app=WebAppInfo(url=miniapp_url))]] if miniapp_url else []),
-                [InlineKeyboardButton("🎴 کارت‌های من", callback_data="my_cards")],
+                [InlineKeyboardButton("🎴 کارت‌های من", callback_data="my_cards"),
+                 InlineKeyboardButton("🗂️ دک‌های من", callback_data="deck_menu")],
                 [InlineKeyboardButton("⚔️ چالش PvP", callback_data="request_pvp_fight"),
                  InlineKeyboardButton("🎲 Risk Mode", callback_data="risk_menu")],
                 [InlineKeyboardButton("🎁 کلیم روزانه", callback_data="daily_claim"),
@@ -486,6 +492,10 @@ class BasicHandlersMixin:
                 keyboard.append(nav_buttons)
         
         return InlineKeyboardMarkup(keyboard)
+
+    def _create_my_cards_keyboard(self, user_id: int, category: str = "menu", page: int = 1) -> InlineKeyboardMarkup:
+        """Compatibility wrapper for older handlers that still call the spaced name."""
+        return self._create_mycards_keyboard(user_id, category=category, page=page)
 
     async def claim_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """مدیریت دستور /claim"""
@@ -1302,5 +1312,3 @@ class BasicHandlersMixin:
             await query.answer("❌ خطا در تغییر وضعیت!", show_alert=True)
 
     # ==================== 3-ROUND BATTLE SYSTEM ====================
-
-

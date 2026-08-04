@@ -594,7 +594,7 @@ class GameLogic:
         }
         
         # ==================== XP و Tier Points ====================
-        from phase2_systems import LevelSystem, TierSystem, XP_SOURCES
+        from systems.phase2_systems import LevelSystem, TierSystem, XP_SOURCES
         
         xp_sources = XP_SOURCES
         

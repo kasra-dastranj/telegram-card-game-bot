@@ -69,16 +69,43 @@ def get_card_image_path(card_name: str, config: Dict) -> Optional[str]:
     if not config.get('image_settings', {}).get('enable_images', False):
         return None
 
-    images_path = config.get('image_settings', {}).get('card_images_path', '/root/card game/card_images/')
-    default_image = config.get('image_settings', {}).get('default_card_image', '/root/card game/card_images/default.png')
+    images_path = config.get('image_settings', {}).get('card_images_path', 'assets/card_images/')
+    default_image = config.get('image_settings', {}).get('default_card_image', 'assets/card_images/default.png')
+
+    # اگه path مطلق نبود، relative به working dir
+    if not os.path.isabs(images_path):
+        images_path = os.path.join(os.getcwd(), images_path)
+    if not os.path.isabs(default_image):
+        default_image = os.path.join(os.getcwd(), default_image)
+
+    # fallback: اگه path اصلی خالی بود، assets/card_images رو امتحان کن
+    if not os.path.exists(images_path) or not os.listdir(images_path):
+        fallback = os.path.join(os.getcwd(), 'assets', 'card_images')
+        if os.path.exists(fallback) and os.listdir(fallback):
+            images_path = fallback
 
     os.makedirs(images_path, exist_ok=True)
 
+    # تبدیل اسم کارت به نام فایل
     card_filename = card_name.lower().replace(' ', '_').replace('-', '_')
     possible_extensions = ['.png', '.jpg', '.jpeg', '.webp']
 
     for ext in possible_extensions:
         card_image = os.path.join(images_path, f"{card_filename}{ext}")
+        if os.path.exists(card_image):
+            return card_image
+
+    # اگه با underscore پیدا نشد، با نقطه‌ها هم امتحان کن (مثل mr.krabs)
+    card_filename_dots = card_name.lower().replace(' ', '_')
+    for ext in possible_extensions:
+        card_image = os.path.join(images_path, f"{card_filename_dots}{ext}")
+        if os.path.exists(card_image):
+            return card_image
+
+    # اگه هنوز پیدا نشد، نقطه رو نگه دار (مثلاً mr.krabs.png)
+    card_filename_keep_dot = card_name.lower().replace(' ', '')
+    for ext in possible_extensions:
+        card_image = os.path.join(images_path, f"{card_filename_keep_dot}{ext}")
         if os.path.exists(card_image):
             return card_image
 

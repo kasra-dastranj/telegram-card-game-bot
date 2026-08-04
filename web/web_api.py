@@ -5,48 +5,218 @@
 API وب کامل برای مدیریت کارت‌ها با Cooldown جداگانه
 """
 
-import sys
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from flask import Flask, request, jsonify, send_from_directory
-from flask_cors import CORS
-import json
 import os
+import re
+import sys
 import uuid
 import sqlite3
 from datetime import datetime
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+WEB_ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
 from werkzeug.utils import secure_filename
 
 from game_core import DatabaseManager, Card, CardRarity, CardManager, GameLogic
+from systems.game_mode_system import CORE_STATS, QUICK_ARENAS, GameModeSystem
 
 class WebAPI:
     def __init__(self, db_manager: DatabaseManager):
         self.app = Flask(__name__)
+        self.app.config['MAX_CONTENT_LENGTH'] = 8 * 1024 * 1024
         CORS(self.app)
         
         self.db = db_manager
         self.card_manager = CardManager(db_manager)
         self.game_logic = GameLogic(db_manager)
+        self.modes = GameModeSystem(db_manager)
         
         self.setup_routes()
+
+    @staticmethod
+    def _string_list(value, field_name):
+        if value in (None, ""):
+            return []
+        if isinstance(value, str):
+            value = [part.strip() for part in value.split(',')]
+        if not isinstance(value, list):
+            raise ValueError(f'فیلد {field_name} باید لیست باشد')
+        return list(dict.fromkeys(str(item).strip() for item in value if str(item).strip()))
+
+    def _validate_card_payload(self, data, existing_card=None):
+        if not isinstance(data, dict):
+            raise ValueError('بدنه درخواست باید JSON باشد')
+        required = ('name', 'rarity', 'power', 'speed', 'iq', 'popularity')
+        missing = [field for field in required if data.get(field) in (None, '')]
+        if missing:
+            raise ValueError('فیلدهای الزامی: ' + '، '.join(missing))
+
+        name = str(data['name']).strip()
+        if not name or len(name) > 100:
+            raise ValueError('نام کارت باید بین ۱ تا ۱۰۰ کاراکتر باشد')
+        try:
+            rarity = CardRarity(str(data['rarity']).strip().lower())
+        except ValueError as exc:
+            raise ValueError('کمیابی کارت نامعتبر است') from exc
+
+        stats = {}
+        for stat in CORE_STATS:
+            try:
+                value = int(data[stat])
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f'مقدار {stat} باید عدد باشد') from exc
+            if not 1 <= value <= 100:
+                raise ValueError(f'مقدار {stat} باید بین ۱ تا ۱۰۰ باشد')
+            stats[stat] = value
+
+        card_type = str(data.get('card_type') or 'POWER_TYPE').strip().upper()
+        allowed_types = {'POWER_TYPE', 'SPEED_TYPE', 'IQ_TYPE', 'POPULARITY_TYPE'}
+        if card_type not in allowed_types:
+            raise ValueError('نوع اصلی کارت نامعتبر است')
+
+        hidden_stats = data.get('hidden_stats') or {}
+        if not isinstance(hidden_stats, dict):
+            raise ValueError('Hidden Stats باید یک object باشد')
+        clean_hidden = {}
+        for key, raw_value in hidden_stats.items():
+            key = str(key).strip()
+            if not key or raw_value in (None, ''):
+                continue
+            try:
+                value = int(raw_value)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f'Hidden Stat {key} باید عدد باشد') from exc
+            if not 1 <= value <= 100:
+                raise ValueError(f'Hidden Stat {key} باید بین ۱ تا ۱۰۰ باشد')
+            clean_hidden[key] = value
+
+        passive = data.get('passive') or {}
+        if not isinstance(passive, dict):
+            raise ValueError('Passive باید یک object باشد')
+        if passive:
+            effect = passive.get('effect') or {}
+            condition = passive.get('condition') or {}
+            if not isinstance(condition, dict):
+                raise ValueError('شرط Passive باید یک object باشد')
+            allowed_conditions = {'arena', 'opponent_name', 'opponent_trait'}
+            unknown_conditions = set(condition) - allowed_conditions
+            clean_condition = {
+                key: str(value).strip()
+                for key, value in condition.items()
+                if key in allowed_conditions and str(value).strip()
+            }
+            if unknown_conditions or len(clean_condition) != 1:
+                raise ValueError('Passive باید دقیقاً یک شرط معتبر داشته باشد')
+            if clean_condition.get('arena') not in (
+                None,
+                *(arena['id'] for arena in QUICK_ARENAS),
+            ):
+                raise ValueError('میدان Passive نامعتبر است')
+            if effect.get('stat') not in CORE_STATS:
+                raise ValueError('Passive باید یکی از چهار Stat اصلی را تغییر دهد')
+            try:
+                effect['delta'] = int(effect.get('delta', 0))
+            except (TypeError, ValueError) as exc:
+                raise ValueError('مقدار Passive باید عدد باشد') from exc
+            if not -100 <= effect['delta'] <= 100:
+                raise ValueError('مقدار Passive باید بین ۱۰۰- تا ۱۰۰ باشد')
+            passive = {
+                'name': str(passive.get('name') or 'Passive').strip(),
+                'condition': clean_condition,
+                'effect': {'stat': effect['stat'], 'delta': effect['delta']},
+            }
+
+        created_at = existing_card.created_at if existing_card else datetime.now()
+        card_id = existing_card.card_id if existing_card else str(uuid.uuid4())
+        return {
+            'card': Card(
+                card_id=card_id,
+                name=name,
+                rarity=rarity,
+                power=stats['power'],
+                speed=stats['speed'],
+                iq=stats['iq'],
+                popularity=stats['popularity'],
+                abilities=self._string_list(data.get('abilities'), 'abilities'),
+                card_effects=self._string_list(data.get('card_effects'), 'card_effects'),
+                dialogs=self._string_list(data.get('dialogs'), 'dialogs'),
+                biography=str(data.get('biography') or '').strip(),
+                image_path=str(data.get('image_path') or '').strip(),
+                card_type=card_type,
+                created_at=created_at,
+            ),
+            'metadata': {
+                'traits': self._string_list(data.get('traits'), 'traits'),
+                'series': str(data.get('series') or '').strip() or None,
+                'hidden_stats': clean_hidden,
+                'passive': passive,
+            },
+            'media': {
+                'photo': str(data.get('photo_file_id') or '').strip(),
+                'sticker': str(data.get('sticker_file_id') or '').strip(),
+            },
+        }
+
+    def _save_card_extras(self, card_id, payload):
+        metadata = payload['metadata']
+        self.modes.set_card_metadata(card_id, **metadata)
+        for kind, file_id in payload['media'].items():
+            if file_id:
+                self.db.set_card_media_file_id(card_id, file_id, kind)
+            else:
+                self.db.clear_card_media_file_id(card_id, kind)
+
+    def _serialize_card(self, card):
+        metadata = self.modes.get_card_metadata(card.card_id)
+        return {
+            'id': card.card_id,
+            'name': card.name,
+            'rarity': card.rarity.value,
+            'power': card.power,
+            'speed': card.speed,
+            'iq': card.iq,
+            'popularity': card.popularity,
+            'card_type': card.card_type,
+            'abilities': card.abilities,
+            'card_effects': card.card_effects,
+            'biography': card.biography,
+            'dialogs': card.dialogs,
+            'image_path': card.image_path,
+            'traits': metadata['traits'],
+            'series': metadata['series'] or '',
+            'hidden_stats': metadata['hidden_stats'],
+            'passive': metadata['passive'],
+            'photo_file_id': self.db.get_card_media_file_id(card.card_id, 'photo') or '',
+            'sticker_file_id': self.db.get_card_media_file_id(card.card_id, 'sticker') or '',
+            'created_at': card.created_at.isoformat(),
+        }
     
     def setup_routes(self):
         """تنظیم مسیرهای API"""
         
         @self.app.route('/')
         def serve_frontend():
-            """صفحه اصلی مدیریت - پنل قدیمی کامل"""
-            return send_from_directory('.', 'admin_panel_full.html')
+            """صفحه اصلی مدیریت کارت‌ها."""
+            return send_from_directory(str(WEB_ROOT), 'card_management.html')
+
+        @self.app.route('/legacy')
+        def serve_legacy_frontend():
+            """نسخه قدیمی پنل برای دسترسی موقت به ابزارهای جانبی."""
+            return send_from_directory(str(WEB_ROOT), 'admin_panel_full.html')
         
         @self.app.route('/simple')
         def serve_simple():
             """پنل ساده"""
-            return send_from_directory('.', 'admin_complete.html')
+            return send_from_directory(str(WEB_ROOT), 'card_management.html')
         
         @self.app.route('/test')
         def serve_test():
             """صفحه تست API"""
-            return send_from_directory('.', 'test_api.html')
+            return jsonify({'success': True, 'service': 'TelBattle Card Admin API'})
         
         # ==================== EXISTING CARD APIs ====================
         
@@ -55,23 +225,7 @@ class WebAPI:
             """دریافت تمام کارت‌ها"""
             try:
                 cards = self.db.get_all_cards()
-                cards_data = []
-                
-                for card in cards:
-                    card_dict = {
-                        'id': card.card_id,
-                        'name': card.name,
-                        'rarity': card.rarity.value,
-                        'power': card.power,
-                        'speed': card.speed,
-                        'iq': card.iq,
-                        'popularity': card.popularity,
-                        'abilities': card.abilities,
-                        'biography': getattr(card, 'biography', ''),
-                        'dialogs': getattr(card, 'dialogs', []),
-                        'created_at': card.created_at.isoformat()
-                    }
-                    cards_data.append(card_dict)
+                cards_data = [self._serialize_card(card) for card in cards]
                 
                 return jsonify({
                     'success': True,
@@ -89,58 +243,61 @@ class WebAPI:
         def create_card():
             """ایجاد کارت جدید"""
             try:
-                data = request.get_json()
+                data = request.get_json(silent=True) or {}
+                payload = self._validate_card_payload(data)
+                card = payload['card']
                 
-                required_fields = ['name', 'rarity', 'power', 'speed', 'iq', 'popularity']
-                for field in required_fields:
-                    if field not in data:
-                        return jsonify({
-                            'success': False,
-                            'error': f'فیلد {field} الزامی است'
-                        }), 400
-                
-                existing_card = self.db.get_card_by_name(data['name'])
+                existing_card = self.db.get_card_by_name(card.name)
                 if existing_card:
                     return jsonify({
                         'success': False,
                         'error': 'کارت با این نام قبلاً وجود دارد'
                     }), 409
                 
-                dialogs_input = data.get('dialogs', []) or []
-                if isinstance(dialogs_input, str):
-                    dialogs_input = [dialogs_input]
-                
-                card = Card(
-                    card_id=str(uuid.uuid4()),
-                    name=data['name'],
-                    rarity=CardRarity(data['rarity']),
-                    power=int(data['power']),
-                    speed=int(data['speed']),
-                    iq=int(data['iq']),
-                    popularity=int(data['popularity']),
-                    abilities=data.get('abilities', []),
-                    dialogs=dialogs_input,
-                    biography=data.get('biography', ''),
-                    image_path=f"card_images/{data['name'].lower().replace(' ', '_')}.png"
-                )
-                
                 if self.db.add_card(card):
+                    self._save_card_extras(card.card_id, payload)
                     return jsonify({
                         'success': True,
                         'message': f'کارت {card.name} با موفقیت اضافه شد',
-                        'card_id': card.card_id
-                    })
+                        'card': self._serialize_card(card),
+                    }), 201
                 else:
                     return jsonify({
                         'success': False,
                         'error': 'خطا در ذخیره کارت'
                     }), 500
                     
+            except ValueError as e:
+                return jsonify({'success': False, 'error': str(e)}), 400
             except Exception as e:
                 return jsonify({
                     'success': False,
                     'error': str(e)
                 }), 500
+
+        @self.app.route('/api/cards/<card_id>', methods=['PUT'])
+        def update_card(card_id):
+            """ویرایش تعریف اصلی و متادیتای مودهای جدید کارت."""
+            try:
+                existing = self.db.get_card_by_id(card_id)
+                if not existing:
+                    return jsonify({'success': False, 'error': 'کارت یافت نشد'}), 404
+                payload = self._validate_card_payload(request.get_json(silent=True) or {}, existing)
+                duplicate = self.db.get_card_by_name(payload['card'].name)
+                if duplicate and duplicate.card_id != card_id:
+                    return jsonify({'success': False, 'error': 'کارت دیگری با این نام وجود دارد'}), 409
+                if not self.db.update_card(payload['card']):
+                    return jsonify({'success': False, 'error': 'خطا در ویرایش کارت'}), 500
+                self._save_card_extras(card_id, payload)
+                return jsonify({
+                    'success': True,
+                    'message': f"کارت {payload['card'].name} به‌روزرسانی شد",
+                    'card': self._serialize_card(payload['card']),
+                })
+            except ValueError as e:
+                return jsonify({'success': False, 'error': str(e)}), 400
+            except Exception as e:
+                return jsonify({'success': False, 'error': str(e)}), 500
         
         @self.app.route('/api/cards/<card_id>', methods=['DELETE'])
         def delete_card(card_id):
@@ -327,9 +484,9 @@ class WebAPI:
                 cards = self.db.get_all_cards()
                 players = self.db.get_leaderboard(1000)
                 
-                rarity_stats = {'normal': 0, 'epic': 0, 'legend': 0}
+                rarity_stats = {rarity.value: 0 for rarity in CardRarity}
                 for card in cards:
-                    rarity_stats[card.rarity.value] += 1
+                    rarity_stats[card.rarity.value] = rarity_stats.get(card.rarity.value, 0) + 1
                 
                 # آمار PvP
                 conn = sqlite3.connect(self.db.db_path)
@@ -383,7 +540,7 @@ class WebAPI:
         @self.app.route('/card_images/<filename>')
         def serve_image(filename):
             """سرو کردن تصاویر کارت‌ها"""
-            return send_from_directory('card_images', filename)
+            return send_from_directory(str(PROJECT_ROOT / 'assets' / 'card_images'), filename)
             
         @self.app.route('/api/upload_image', methods=['POST'])
         def upload_image():
@@ -402,18 +559,25 @@ class WebAPI:
 
                 filename = secure_filename(file.filename)
                 ext = os.path.splitext(filename)[1].lower()
-                allowed_exts = {'.png', '.jpg', '.jpeg'}
+                allowed_exts = {'.png', '.jpg', '.jpeg', '.webp'}
                 if ext not in allowed_exts:
-                    return jsonify({'success': False, 'message': '', 'error': 'Invalid file type. Only PNG and JPG are allowed.'}), 400
+                    return jsonify({'success': False, 'message': '', 'error': 'Invalid file type. PNG, JPG or WebP expected.'}), 400
 
-                os.makedirs('card_images', exist_ok=True)
+                images_dir = PROJECT_ROOT / 'assets' / 'card_images'
+                images_dir.mkdir(parents=True, exist_ok=True)
 
-                card_slug = card_name.lower().replace(' ', '_')
+                card_slug = secure_filename(card_name) or uuid.uuid5(uuid.NAMESPACE_DNS, card_name).hex[:12]
                 save_name = f"{card_slug}{ext}"
-                file_path = os.path.join('card_images', save_name)
+                file_path = images_dir / save_name
                 file.save(file_path)
 
-                return jsonify({'success': True, 'message': 'Image uploaded successfully.', 'error': ''}), 200
+                return jsonify({
+                    'success': True,
+                    'message': 'Image uploaded successfully.',
+                    'image_path': f'assets/card_images/{save_name}',
+                    'preview_url': f'/card_images/{save_name}',
+                    'error': '',
+                }), 200
 
             except Exception as e:
                 return jsonify({'success': False, 'message': '', 'error': str(e)}), 500
@@ -426,17 +590,35 @@ class WebAPI:
                     return jsonify({'success': False, 'message': 'No sticker file provided.'}), 400
 
                 file = request.files['sticker']
+                card_name = request.form.get('card_name', '').strip()
                 if not file or file.filename == '':
                     return jsonify({'success': False, 'message': 'No selected file.'}), 400
+                if not card_name:
+                    return jsonify({'success': False, 'message': 'card_name is required.'}), 400
 
-                stickers_dir = os.path.join(os.getcwd(), 'stickers')
-                os.makedirs(stickers_dir, exist_ok=True)
+                original_name = secure_filename(file.filename)
+                ext = os.path.splitext(original_name)[1].lower()
+                if ext != '.webp':
+                    return jsonify({'success': False, 'message': 'Sticker must be a WebP file.'}), 400
 
-                filename = secure_filename(file.filename)
-                save_path = os.path.join(stickers_dir, filename)
+                stickers_dir = PROJECT_ROOT / 'assets' / 'stickers'
+                stickers_dir.mkdir(parents=True, exist_ok=True)
+
+                # Keep the saved asset discoverable by the battle media resolver.
+                card_stem = card_name.upper().replace('-', '_').replace(' ', '_')
+                card_stem = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', card_stem).strip(' ._')
+                if not card_stem:
+                    card_stem = uuid.uuid5(uuid.NAMESPACE_DNS, card_name).hex[:12]
+                filename = f'{card_stem}.webp'
+                save_path = stickers_dir / filename
                 file.save(save_path)
 
-                return jsonify({'success': True, 'message': 'Sticker uploaded successfully', 'filename': filename}), 200
+                return jsonify({
+                    'success': True,
+                    'message': 'Sticker uploaded successfully',
+                    'filename': filename,
+                    'sticker_path': f'assets/stickers/{filename}',
+                }), 200
 
             except Exception as e:
                 return jsonify({'success': False, 'message': str(e)}), 500
@@ -659,7 +841,7 @@ class WebAPI:
             'avg_popularity': round(total_popularity / count, 1)
         }
     
-    def run(self, host='0.0.0.0', port=5000, debug=False):
+    def run(self, host='127.0.0.1', port=5000, debug=False):
         """اجرای سرور وب"""
         print(f"🌐 Starting Complete Web Management Panel on http://{host}:{port}")
         self.app.run(host=host, port=port, debug=debug, use_reloader=False)
@@ -668,7 +850,9 @@ def main():
     """اجرای سرور مدیریت وب"""
     db = DatabaseManager()
     api = WebAPI(db)
-    api.run(debug=False, port=5000)
+    host = os.getenv('ADMIN_PANEL_HOST', '127.0.0.1')
+    port = int(os.getenv('ADMIN_PANEL_PORT', '5000'))
+    api.run(host=host, port=port, debug=False)
 
 if __name__ == "__main__":
     main()

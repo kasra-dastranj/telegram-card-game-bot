@@ -42,11 +42,23 @@ class DatabaseManager:
                 iq INTEGER NOT NULL,
                 popularity INTEGER NOT NULL,
                 abilities TEXT NOT NULL,
+                card_effects TEXT DEFAULT '[]',
                 dialogs TEXT,
                 biography TEXT,
                 image_path TEXT,
                 card_type TEXT DEFAULT 'POWER_TYPE',
                 created_at TEXT NOT NULL
+            )
+        ''')
+
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS card_media_cache (
+                card_id TEXT NOT NULL,
+                media_kind TEXT NOT NULL,
+                file_id TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                PRIMARY KEY (card_id, media_kind),
+                FOREIGN KEY (card_id) REFERENCES cards (card_id)
             )
         ''')
         
@@ -343,6 +355,27 @@ class DatabaseManager:
             )
         ''')
 
+        # ==================== جدول دک‌های بازیکنان ====================
+
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS player_decks (
+                deck_id    TEXT PRIMARY KEY,
+                player_id  INTEGER NOT NULL,
+                deck_name  TEXT NOT NULL,
+                card_id_1  TEXT NOT NULL,
+                card_id_2  TEXT NOT NULL,
+                card_id_3  TEXT NOT NULL,
+                is_valid   INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (player_id) REFERENCES players (user_id)
+            )
+        ''')
+        try:
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_player_decks_player ON player_decks (player_id)')
+        except Exception:
+            pass
+
         # ==================== Migration: اضافه کردن ستون‌های جدید به جداول قدیمی ====================
         
         migrations = [
@@ -350,6 +383,7 @@ class DatabaseManager:
             ('player_cards', 'is_favorite', 'INTEGER DEFAULT 0'),
             ('player_cards', 'rarity_override', 'TEXT'),
             ('cards', 'card_type', "TEXT DEFAULT 'POWER_TYPE'"),
+            ('cards', 'card_effects', "TEXT DEFAULT '[]'"),
             ('players', 'coins', 'INTEGER DEFAULT 0'),
             ('players', 'max_hearts', 'INTEGER DEFAULT 10'),
             ('players', 'last_mining_claim', 'TEXT'),
@@ -368,6 +402,15 @@ class DatabaseManager:
             # Solo fights ability tracking
             ('solo_fights', 'player_ability_used', 'INTEGER DEFAULT 0'),
             ('solo_fights', 'ai_ability_used', 'INTEGER DEFAULT 0'),
+            # Deck System (Phase: deck-and-beats)
+            ('battle_states', 'challenger_deck_cards', "TEXT DEFAULT '[]'"),
+            ('battle_states', 'opponent_deck_cards', "TEXT DEFAULT '[]'"),
+            ('battle_states', 'challenger_remaining_cards', "TEXT DEFAULT '[]'"),
+            ('battle_states', 'opponent_remaining_cards', "TEXT DEFAULT '[]'"),
+            ('battle_states', 'challenger_deck_selected', 'INTEGER DEFAULT 0'),
+            ('battle_states', 'opponent_deck_selected', 'INTEGER DEFAULT 0'),
+            ('active_fights', 'challenger_deck_id', 'TEXT DEFAULT NULL'),
+            ('active_fights', 'opponent_deck_id', 'TEXT DEFAULT NULL'),
         ]
         for table, column, col_def in migrations:
             try:
@@ -388,6 +431,7 @@ class DatabaseManager:
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_players_score ON players(total_score DESC)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_progression_user ON player_progression(user_id)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_progression_last_played ON player_progression(last_played_at)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_card_media_cache_card ON card_media_cache(card_id)')
         except Exception as e:
             logger.warning(f"Index creation warning: {e}")
         
@@ -400,6 +444,49 @@ class DatabaseManager:
     def _get_connection(self) -> sqlite3.Connection:
         """دریافت connection به دیتابیس"""
         return sqlite3.connect(self.db_path)
+
+    def get_card_media_file_id(self, card_id: str, media_kind: str = "photo") -> Optional[str]:
+        """دریافت file_id تلگرام برای رسانه cache شده کارت."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                'SELECT file_id FROM card_media_cache WHERE card_id = ? AND media_kind = ?',
+                (card_id, media_kind)
+            )
+            row = cursor.fetchone()
+            return row[0] if row else None
+        finally:
+            conn.close()
+
+    def set_card_media_file_id(self, card_id: str, file_id: str, media_kind: str = "photo") -> bool:
+        """ذخیره file_id تلگرام برای استفاده در inline picker."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        try:
+            cursor.execute('''
+                INSERT OR REPLACE INTO card_media_cache
+                    (card_id, media_kind, file_id, updated_at)
+                VALUES (?, ?, ?, ?)
+            ''', (card_id, media_kind, file_id, datetime.now().isoformat()))
+            conn.commit()
+            return True
+        finally:
+            conn.close()
+
+    def clear_card_media_file_id(self, card_id: str, media_kind: str) -> bool:
+        """Remove a cached Telegram photo/sticker id for a card."""
+        conn = sqlite3.connect(self.db_path)
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                'DELETE FROM card_media_cache WHERE card_id = ? AND media_kind = ?',
+                (card_id, media_kind),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+        finally:
+            conn.close()
     
     def add_card(self, card: Card) -> bool:
         """اضافه کردن کارت جدید"""
@@ -409,12 +496,12 @@ class DatabaseManager:
             
             card_data = card.to_dict()
             cursor.execute('''
-            INSERT INTO cards (card_id, name, rarity, power, speed, iq, popularity, abilities, dialogs, biography, image_path, card_type, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO cards (card_id, name, rarity, power, speed, iq, popularity, abilities, card_effects, dialogs, biography, image_path, card_type, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 card_data['card_id'], card_data['name'], card_data['rarity'],
                 card_data['power'], card_data['speed'], card_data['iq'], card_data['popularity'],
-                card_data['abilities'], card_data['dialogs'], card_data['biography'],
+                card_data['abilities'], card_data['card_effects'], card_data['dialogs'], card_data['biography'],
                 card_data['image_path'], card_data['card_type'], card_data['created_at']
             ))
             
@@ -428,6 +515,43 @@ class DatabaseManager:
             except Exception:
                 pass
             return False
+
+    def update_card(self, card: Card) -> bool:
+        """Update the editable definition of an existing card.
+
+        Player ownership and per-player rarity overrides are intentionally left
+        untouched.  Mode-specific metadata is stored by ``GameModeSystem``.
+        """
+        conn = sqlite3.connect(self.db_path)
+        try:
+            card_data = card.to_dict()
+            cursor = conn.cursor()
+            cursor.execute(
+                '''
+                UPDATE cards SET
+                    name=?, rarity=?, power=?, speed=?, iq=?, popularity=?,
+                    abilities=?, card_effects=?, dialogs=?, biography=?,
+                    image_path=?, card_type=?
+                WHERE card_id=?
+                ''',
+                (
+                    card_data['name'], card_data['rarity'], card_data['power'],
+                    card_data['speed'], card_data['iq'], card_data['popularity'],
+                    card_data['abilities'], card_data['card_effects'],
+                    card_data['dialogs'], card_data['biography'],
+                    card_data['image_path'], card_data['card_type'], card.card_id,
+                ),
+            )
+            updated = cursor.rowcount == 1
+            conn.commit()
+            if updated:
+                self.card_cache.invalidate(f"card_{card.card_id}")
+            return updated
+        except sqlite3.IntegrityError:
+            conn.rollback()
+            return False
+        finally:
+            conn.close()
     
     def get_card_by_id(self, card_id: str) -> Optional[Card]:
         """دریافت کارت بر اساس ID با cache"""
@@ -439,14 +563,14 @@ class DatabaseManager:
         cursor = conn.cursor()
         
         cursor.execute('''
-            SELECT card_id, name, rarity, power, speed, iq, popularity, abilities, dialogs, biography, image_path, card_type, created_at
+            SELECT card_id, name, rarity, power, speed, iq, popularity, abilities, card_effects, dialogs, biography, image_path, card_type, created_at
             FROM cards WHERE card_id = ?
         ''', (card_id,))
         result = cursor.fetchone()
         conn.close()
         
         if result:
-            columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at']
+            columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'card_effects', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at']
             card = Card.from_dict(dict(zip(columns, result)))
             self.card_cache.set(f"card_{card_id}", card)
             return card
@@ -459,7 +583,7 @@ class DatabaseManager:
         cursor.execute('''
             SELECT c.card_id, c.name, COALESCE(pc.rarity_override, c.rarity),
                    c.power, c.speed, c.iq, c.popularity,
-                   c.abilities, c.dialogs, c.biography, c.image_path, c.card_type, c.created_at
+                   c.abilities, c.card_effects, c.dialogs, c.biography, c.image_path, c.card_type, c.created_at
             FROM cards c
             JOIN player_cards pc ON c.card_id = pc.card_id
             WHERE c.card_id = ? AND pc.user_id = ?
@@ -467,21 +591,23 @@ class DatabaseManager:
         result = cursor.fetchone()
         conn.close()
         if result:
-            columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at']
+            columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'card_effects', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at']
             return Card.from_dict(dict(zip(columns, result)))
         return None
-        """دریافت کارت بر اساس نام"""
+
+    def get_card_by_name(self, name: str) -> Optional[Card]:
+        """دریافت کارت بر اساس نام، بدون حساسیت به بزرگی حروف."""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute('''
-            SELECT card_id, name, rarity, power, speed, iq, popularity, abilities, dialogs, biography, image_path, card_type, created_at
+            SELECT card_id, name, rarity, power, speed, iq, popularity, abilities, card_effects, dialogs, biography, image_path, card_type, created_at
             FROM cards WHERE lower(name) = lower(?) LIMIT 1
         ''', (name,))
         result = cursor.fetchone()
         conn.close()
         
         if result:
-            columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at']
+            columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'card_effects', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at']
             return Card.from_dict(dict(zip(columns, result)))
         return None
     
@@ -491,13 +617,13 @@ class DatabaseManager:
         cursor = conn.cursor()
         
         cursor.execute('''
-            SELECT card_id, name, rarity, power, speed, iq, popularity, abilities, dialogs, biography, image_path, card_type, created_at
+            SELECT card_id, name, rarity, power, speed, iq, popularity, abilities, card_effects, dialogs, biography, image_path, card_type, created_at
             FROM cards ORDER BY created_at DESC
         ''')
         results = cursor.fetchall()
         conn.close()
         
-        columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at']
+        columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'card_effects', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at']
         return [Card.from_dict(dict(zip(columns, r))) for r in results]
     
     def delete_card(self, card_id: str) -> bool:
@@ -619,7 +745,7 @@ class DatabaseManager:
             SELECT c.card_id, c.name,
                    COALESCE(pc.rarity_override, c.rarity) as rarity,
                    c.power, c.speed, c.iq, c.popularity,
-                   c.abilities, c.dialogs, c.biography, c.image_path, c.card_type, c.created_at
+                   c.abilities, c.card_effects, c.dialogs, c.biography, c.image_path, c.card_type, c.created_at
             FROM cards c
             JOIN player_cards pc ON c.card_id = pc.card_id
             WHERE pc.user_id = ?
@@ -629,7 +755,7 @@ class DatabaseManager:
         results = cursor.fetchall()
         conn.close()
         
-        columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at']
+        columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'card_effects', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at']
         return [Card.from_dict(dict(zip(columns, r))) for r in results]
     
     def get_player_cards_by_rarity(self, user_id: int, rarity: CardRarity = None, page: int = 1, per_page: int = 6) -> Tuple[List[Card], int]:
@@ -637,13 +763,13 @@ class DatabaseManager:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         offset = (page - 1) * per_page
-        columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at']
+        columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'card_effects', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at']
         
         if rarity:
             cursor.execute('''
                 SELECT c.card_id, c.name, COALESCE(pc.rarity_override, c.rarity),
                        c.power, c.speed, c.iq, c.popularity,
-                       c.abilities, c.dialogs, c.biography, c.image_path, c.card_type, c.created_at
+                       c.abilities, c.card_effects, c.dialogs, c.biography, c.image_path, c.card_type, c.created_at
                 FROM cards c JOIN player_cards pc ON c.card_id = pc.card_id
                 WHERE pc.user_id = ? AND COALESCE(pc.rarity_override, c.rarity) = ?
                 ORDER BY pc.usage_count DESC, pc.obtained_at DESC
@@ -658,7 +784,7 @@ class DatabaseManager:
             cursor.execute('''
                 SELECT c.card_id, c.name, COALESCE(pc.rarity_override, c.rarity),
                        c.power, c.speed, c.iq, c.popularity,
-                       c.abilities, c.dialogs, c.biography, c.image_path, c.card_type, c.created_at
+                       c.abilities, c.card_effects, c.dialogs, c.biography, c.image_path, c.card_type, c.created_at
                 FROM cards c JOIN player_cards pc ON c.card_id = pc.card_id
                 WHERE pc.user_id = ?
                 ORDER BY pc.usage_count DESC, pc.obtained_at DESC
@@ -676,11 +802,11 @@ class DatabaseManager:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         offset = (page - 1) * per_page
-        columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at']
+        columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'card_effects', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at']
         
         cursor.execute('''
             SELECT c.card_id, c.name, c.rarity, c.power, c.speed, c.iq, c.popularity,
-                   c.abilities, c.dialogs, c.biography, c.image_path, c.card_type, c.created_at
+                   c.abilities, c.card_effects, c.dialogs, c.biography, c.image_path, c.card_type, c.created_at
             FROM cards c JOIN player_cards pc ON c.card_id = pc.card_id
             WHERE pc.user_id = ? AND (pc.is_favorite = 1 OR pc.usage_count >= 5)
             ORDER BY pc.is_favorite DESC, pc.usage_count DESC
@@ -976,6 +1102,8 @@ class DatabaseManager:
     
     def get_user_active_fights(self, user_id: int) -> List:
         """دریافت فایت‌های فعال بازیکن"""
+        self.cleanup_expired_fights()
+
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
@@ -1012,6 +1140,8 @@ class DatabaseManager:
     
     def get_active_fight_for_group(self, chat_id: int) -> Optional[str]:
         """دریافت فایت فعال برای گروه"""
+        self.cleanup_expired_fights()
+
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
@@ -1032,13 +1162,31 @@ class DatabaseManager:
         cursor = conn.cursor()
         
         cutoff_time = datetime.now() - timedelta(minutes=minutes)
+        now = datetime.now()
+
+        cursor.execute('''
+            UPDATE battle_states
+            SET status = 'completed'
+            WHERE status != 'completed'
+            AND fight_id IN (
+                SELECT fight_id FROM active_fights
+                WHERE status != 'completed' AND status != 'cancelled'
+                AND (
+                    (expires_at IS NOT NULL AND expires_at < ?)
+                    OR (expires_at IS NULL AND created_at < ?)
+                )
+            )
+        ''', (now.isoformat(), cutoff_time.isoformat()))
         
         cursor.execute('''
             UPDATE active_fights 
             SET status = 'cancelled'
             WHERE status != 'completed' AND status != 'cancelled'
-            AND created_at < ?
-        ''', (cutoff_time.isoformat(),))
+            AND (
+                (expires_at IS NOT NULL AND expires_at < ?)
+                OR (expires_at IS NULL AND created_at < ?)
+            )
+        ''', (now.isoformat(), cutoff_time.isoformat()))
         
         deleted_count = cursor.rowcount
         
@@ -1608,13 +1756,13 @@ class DatabaseManager:
         cursor = conn.cursor()
         cursor.execute('''
             SELECT card_id, name, rarity, power, speed, iq, popularity,
-                   abilities, dialogs, biography, image_path, card_type, created_at
+                   abilities, card_effects, dialogs, biography, image_path, card_type, created_at
             FROM cards WHERE rarity = ?
         ''', (rarity,))
         results = cursor.fetchall()
         conn.close()
         columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq',
-                   'popularity', 'abilities', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at']
+                   'popularity', 'abilities', 'card_effects', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at']
         return [Card.from_dict(dict(zip(columns, r))) for r in results]
 
     def get_player_progression_full(self, user_id: int) -> Dict:
@@ -1654,5 +1802,227 @@ class DatabaseManager:
             }
         return {'total_fights': 0, 'wins': 0, 'solo_fights': 0, 'solo_wins': 0, 'pvp_fights': 0, 'pvp_wins': 0}
 
-# ==================== GAME LOGIC ====================
+    # ==================== DECK OPERATIONS ====================
 
+    def create_deck(self, player_id: int, deck_name: str,
+                    card_id_1: str, card_id_2: str, card_id_3: str) -> str:
+        """ایجاد دک جدید — deck_id جدید برمی‌گرداند"""
+        deck_id = str(uuid.uuid4())[:8]
+        now = datetime.now().isoformat()
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        try:
+            cursor.execute('''
+                INSERT INTO player_decks
+                    (deck_id, player_id, deck_name, card_id_1, card_id_2, card_id_3,
+                     is_valid, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
+            ''', (deck_id, player_id, deck_name, card_id_1, card_id_2, card_id_3, now, now))
+            conn.commit()
+            return deck_id
+        finally:
+            conn.close()
+
+    def get_player_decks(self, player_id: int) -> List[Dict]:
+        """همه دک‌های یک بازیکن"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        try:
+            cursor.execute('''
+                SELECT deck_id, player_id, deck_name, card_id_1, card_id_2, card_id_3,
+                       is_valid, created_at, updated_at
+                FROM player_decks
+                WHERE player_id = ?
+                ORDER BY created_at ASC
+            ''', (player_id,))
+            rows = cursor.fetchall()
+            cols = ['deck_id', 'player_id', 'deck_name', 'card_id_1', 'card_id_2',
+                    'card_id_3', 'is_valid', 'created_at', 'updated_at']
+            return [dict(zip(cols, r)) for r in rows]
+        finally:
+            conn.close()
+
+    def get_deck_by_id(self, deck_id: str) -> Optional[Dict]:
+        """دریافت یک دک بر اساس ID"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        try:
+            cursor.execute('''
+                SELECT deck_id, player_id, deck_name, card_id_1, card_id_2, card_id_3,
+                       is_valid, created_at, updated_at
+                FROM player_decks WHERE deck_id = ?
+            ''', (deck_id,))
+            row = cursor.fetchone()
+            if row:
+                cols = ['deck_id', 'player_id', 'deck_name', 'card_id_1', 'card_id_2',
+                        'card_id_3', 'is_valid', 'created_at', 'updated_at']
+                return dict(zip(cols, row))
+            return None
+        finally:
+            conn.close()
+
+    def update_deck(self, deck_id: str, deck_name: str = None,
+                    card_id_1: str = None, card_id_2: str = None,
+                    card_id_3: str = None, is_valid: int = None) -> bool:
+        """آپدیت فیلدهای غیر-None یک دک"""
+        updates = []
+        values = []
+        if deck_name is not None:
+            updates.append('deck_name = ?')
+            values.append(deck_name)
+        if card_id_1 is not None:
+            updates.append('card_id_1 = ?')
+            values.append(card_id_1)
+        if card_id_2 is not None:
+            updates.append('card_id_2 = ?')
+            values.append(card_id_2)
+        if card_id_3 is not None:
+            updates.append('card_id_3 = ?')
+            values.append(card_id_3)
+        if is_valid is not None:
+            updates.append('is_valid = ?')
+            values.append(is_valid)
+        if not updates:
+            return False
+        updates.append('updated_at = ?')
+        values.append(datetime.now().isoformat())
+        values.append(deck_id)
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                f"UPDATE player_decks SET {', '.join(updates)} WHERE deck_id = ?",
+                values
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+        finally:
+            conn.close()
+
+    def delete_deck(self, deck_id: str) -> bool:
+        """حذف یک دک"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        try:
+            cursor.execute('DELETE FROM player_decks WHERE deck_id = ?', (deck_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+        finally:
+            conn.close()
+
+    def count_player_decks(self, player_id: int) -> int:
+        """تعداد دک‌های یک بازیکن"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        try:
+            cursor.execute('SELECT COUNT(*) FROM player_decks WHERE player_id = ?', (player_id,))
+            return cursor.fetchone()[0]
+        finally:
+            conn.close()
+
+    # ==================== DECK-FIGHT STATE OPERATIONS ====================
+
+    def set_fight_deck(self, fight_id: str, role: str, deck_id: str) -> bool:
+        """ذخیره deck_id انتخاب‌شده در active_fights
+        role: 'challenger' یا 'opponent'
+        """
+        if role not in ('challenger', 'opponent'):
+            raise ValueError("role must be 'challenger' or 'opponent'")
+        col = 'challenger_deck_id' if role == 'challenger' else 'opponent_deck_id'
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                f"UPDATE active_fights SET {col} = ? WHERE fight_id = ?",
+                (deck_id, fight_id)
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+        finally:
+            conn.close()
+
+    def update_battle_deck_state(self, fight_id: str, role: str,
+                                  remaining_cards: List[str],
+                                  selected: bool = None) -> bool:
+        """آپدیت remaining_cards و optionally flag deck_selected در battle_states
+        role: 'challenger' یا 'opponent'
+        """
+        if role not in ('challenger', 'opponent'):
+            raise ValueError("role must be 'challenger' or 'opponent'")
+        remaining_col = (
+            'challenger_remaining_cards' if role == 'challenger'
+            else 'opponent_remaining_cards'
+        )
+        selected_col = (
+            'challenger_deck_selected' if role == 'challenger'
+            else 'opponent_deck_selected'
+        )
+        remaining_json = json.dumps(remaining_cards)
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        try:
+            if selected is not None:
+                cursor.execute(
+                    f"UPDATE battle_states SET {remaining_col} = ?, {selected_col} = ? WHERE fight_id = ?",
+                    (remaining_json, 1 if selected else 0, fight_id)
+                )
+            else:
+                cursor.execute(
+                    f"UPDATE battle_states SET {remaining_col} = ? WHERE fight_id = ?",
+                    (remaining_json, fight_id)
+                )
+            conn.commit()
+            return cursor.rowcount > 0
+        finally:
+            conn.close()
+
+    def get_battle_deck_state(self, fight_id: str) -> Dict:
+        """وضعیت دک هر دو بازیکن از battle_states"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        try:
+            cursor.execute('''
+                SELECT challenger_deck_cards, opponent_deck_cards,
+                       challenger_remaining_cards, opponent_remaining_cards,
+                       challenger_deck_selected, opponent_deck_selected
+                FROM battle_states WHERE fight_id = ?
+            ''', (fight_id,))
+            row = cursor.fetchone()
+            if row:
+                return {
+                    'challenger_deck_cards':      json.loads(row[0] or '[]'),
+                    'opponent_deck_cards':        json.loads(row[1] or '[]'),
+                    'challenger_remaining_cards': json.loads(row[2] or '[]'),
+                    'opponent_remaining_cards':   json.loads(row[3] or '[]'),
+                    'challenger_deck_selected':   bool(row[4]),
+                    'opponent_deck_selected':     bool(row[5]),
+                }
+            return {}
+        finally:
+            conn.close()
+
+    def init_battle_deck_cards(self, fight_id: str,
+                                challenger_cards: List[str],
+                                opponent_cards: List[str]) -> bool:
+        """ثبت اولیه دک هر دو بازیکن در battle_states (در شروع فایت)"""
+        ch_json = json.dumps(challenger_cards)
+        op_json = json.dumps(opponent_cards)
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        try:
+            cursor.execute('''
+                UPDATE battle_states
+                SET challenger_deck_cards      = ?,
+                    opponent_deck_cards        = ?,
+                    challenger_remaining_cards = ?,
+                    opponent_remaining_cards   = ?,
+                    challenger_deck_selected   = 1,
+                    opponent_deck_selected     = 1
+                WHERE fight_id = ?
+            ''', (ch_json, op_json, ch_json, op_json, fight_id))
+            conn.commit()
+            return cursor.rowcount > 0
+        finally:
+            conn.close()
+
+# ==================== GAME LOGIC ====================

@@ -84,6 +84,7 @@ class Card:
     iq: int     # 1-100
     popularity: int  # 1-100
     abilities: List[str]
+    card_effects: List[str] = None
     dialogs: List[str] = None
     biography: str = "Biography not available."
     image_path: str = ""
@@ -99,6 +100,8 @@ class Card:
         self.speed = max(1, min(100, self.speed))
         self.iq = max(1, min(100, self.iq))
         self.popularity = max(1, min(100, self.popularity))
+        if self.card_effects is None:
+            self.card_effects = []
         if self.dialogs is None:
             self.dialogs = []
         if not self.card_type:
@@ -132,6 +135,7 @@ class Card:
             'iq': self.iq,
             'popularity': self.popularity,
             'abilities': json.dumps(self.abilities, ensure_ascii=False),
+            'card_effects': json.dumps(self.card_effects or [], ensure_ascii=False),
             'dialogs': json.dumps(self.dialogs or [], ensure_ascii=False),
             'biography': self.biography,
             'image_path': self.image_path,
@@ -151,6 +155,16 @@ class Card:
                 abilities = abilities_raw
         except Exception:
             abilities = []
+
+        card_effects = []
+        try:
+            effects_raw = data.get('card_effects')
+            if isinstance(effects_raw, str):
+                card_effects = json.loads(effects_raw) if effects_raw else []
+            elif isinstance(effects_raw, list):
+                card_effects = effects_raw
+        except Exception:
+            card_effects = []
         
         dialogs_list = []
         dialogs_raw = data.get('dialogs')
@@ -171,6 +185,7 @@ class Card:
             iq=data['iq'],
             popularity=data['popularity'],
             abilities=abilities,
+            card_effects=card_effects,
             dialogs=dialogs_list,
             biography=data.get('biography', 'Biography not available.'),
             image_path=data.get('image_path', ''),
@@ -221,4 +236,3 @@ class PvPFight:
             self.created_at = datetime.now()
 
 # ==================== DATABASE MANAGER ====================
-

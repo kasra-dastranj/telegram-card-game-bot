@@ -8,6 +8,7 @@
 import sqlite3
 import logging
 import random
+import json
 from typing import Dict, List, Tuple, Optional
 from datetime import datetime
 from dataclasses import dataclass
@@ -24,42 +25,198 @@ ARENAS = {
         "name_en": "Power Arena",
         "boost_stat": "power",
         "boost_amount": 8,
-        "emoji": "⚡"
+        "emoji": "⚡",
+        "compare_stat": "power",
+        "trait_ranks": [["god", "monster"], ["hero", "warrior"], ["villain"]],
     },
     "speed_track": {
         "name_fa": "پیست سرعت",
         "name_en": "Speed Track",
         "boost_stat": "speed",
         "boost_amount": 8,
-        "emoji": "🏃"
+        "emoji": "🏃",
+        "compare_stat": "speed",
+        "trait_ranks": [["assassin"], ["hero", "warrior"], ["funny"]],
     },
     "thinking_room": {
         "name_fa": "اتاق فکر",
         "name_en": "Thinking Room",
         "boost_stat": "iq",
         "boost_amount": 8,
-        "emoji": "🧠"
+        "emoji": "🧠",
+        "compare_stat": "iq",
+        "trait_ranks": [["detective", "mage"], ["leader", "assassin"], ["hero"]],
     },
     "stage": {
         "name_fa": "صحنه",
         "name_en": "Stage",
         "boost_stat": "popularity",
         "boost_amount": 8,
-        "emoji": "⭐"
+        "emoji": "⭐",
+        "compare_stat": "popularity",
+        "trait_ranks": [["hero", "funny"], ["leader", "villain"], ["monster"]],
     }
 }
 
-# ==================== TYPE COUNTER SYSTEM ====================
+# ==================== BEATS MAP SYSTEM ====================
 
-# چرخه برتری: POWER > SPEED > IQ > POPULARITY > POWER
-TYPE_COUNTER = {
-    "POWER_TYPE": "SPEED_TYPE",      # قدرت سرعت رو می‌زنه
-    "SPEED_TYPE": "IQ_TYPE",         # سرعت هوش رو می‌زنه
-    "IQ_TYPE": "POPULARITY_TYPE",    # هوش شهرت رو می‌زنه
-    "POPULARITY_TYPE": "POWER_TYPE", # شهرت قدرت رو می‌زنه
+# چرخه برتری بر اساس dominant attribute (محاسبه‌شده در زمان resolve)
+# speed → power → popularity → iq → speed (چرخه‌ای)
+BEATS_MAP = {
+    "speed":      "power",       # سرعت از قدرت فرار می‌کند
+    "power":      "popularity",  # زور شهرت را خُرد می‌کند
+    "popularity": "iq",          # شهرت هوش را کور می‌کند
+    "iq":         "speed",       # هوش سرعت را پیش‌بینی می‌کند
 }
 
-TYPE_COUNTER_BONUS = 10  # بونوس برتری تایپ
+# ترتیب اولویت برای تساوی امتیاز (اولین برنده است)
+DOMINANT_PRIORITY = ["power", "speed", "iq", "popularity"]
+
+# نام فارسی هر attribute برای نمایش
+ATTR_NAMES_FA = {
+    "power":      "💪 قدرت",
+    "speed":      "⚡ سرعت",
+    "iq":         "🧠 هوش",
+    "popularity": "❤️ محبوبیت",
+}
+
+# توضیح برتری برای نمایش در نتیجه راوند
+BEATS_REASON = {
+    ("speed",      "power"):      "سرعت از قدرت فرار کرد!",
+    ("power",      "popularity"): "زور شهرت را خُرد کرد!",
+    ("popularity", "iq"):         "شهرت هوش را کور کرد!",
+    ("iq",         "speed"):      "هوش سرعت را پیش‌بینی کرد!",
+}
+
+
+def get_dominant_attr_from_stats(stats: Dict[str, int], arena: str) -> str:
+    """محاسبه صفت غالب از روی stats خام پس از اعمال boost زمین."""
+    boosted = dict(stats)
+    arena_info = ARENAS.get(arena, {})
+    boost_stat = arena_info.get("boost_stat")
+    boost_amount = arena_info.get("boost_amount", 0)
+    if boost_stat and boost_stat in boosted:
+        boosted[boost_stat] += boost_amount
+
+    max_val = max(boosted.values())
+    for attr in DOMINANT_PRIORITY:
+        if boosted[attr] == max_val:
+            return attr
+    return "power"
+
+
+def get_dominant_attr(card, arena: str) -> str:
+    """محاسبه صفت غالب کارت پس از اعمال boost زمین.
+
+    card_type ذخیره‌شده نادیده گرفته می‌شود — فقط مقادیر عددی ملاک هستند.
+
+    Args:
+        card: Card object
+        arena: شناسه زمین (مثل "power_arena")
+
+    Returns:
+        نام صفت غالب ("power" | "speed" | "iq" | "popularity")
+    """
+    return get_dominant_attr_from_stats({
+        "power":      card.power,
+        "speed":      card.speed,
+        "iq":         card.iq,
+        "popularity": card.popularity,
+    }, arena)
+
+
+def beats(attr_a: str, attr_b: str) -> bool:
+    """True اگر attr_a بر attr_b برتری داشته باشد."""
+    return BEATS_MAP.get(attr_a) == attr_b
+
+# ==================== CARD EFFECT SYSTEM ====================
+
+CARD_EFFECT_DRAIN_AMOUNT = 10
+
+CARD_EFFECTS = {
+    "reflect": {
+        "name_fa": "انعکاس",
+        "emoji": "🪞",
+        "description": "اگر این کارت ببازد، کاهش stat به حریف برمی‌گردد.",
+    },
+    "drain": {
+        "name_fa": "درین",
+        "emoji": "🧛",
+        "description": f"قبل از resolve، صفت غالب حریف -{CARD_EFFECT_DRAIN_AMOUNT}.",
+        "value": CARD_EFFECT_DRAIN_AMOUNT,
+    },
+    "arena_shift": {
+        "name_fa": "تغییر زمین",
+        "emoji": "🌀",
+        "description": "بعد از این راوند، صاحب کارت زمین بعدی را انتخاب می‌کند.",
+    },
+}
+
+
+def get_card_effects(card) -> List[str]:
+    """لیست effectهای ماشینی کارت."""
+    raw = getattr(card, "card_effects", None) or []
+    if isinstance(raw, str):
+        import json
+        try:
+            raw = json.loads(raw) if raw else []
+        except Exception:
+            raw = []
+    return [effect for effect in raw if effect in CARD_EFFECTS]
+
+
+def has_card_effect(card, effect_key: str) -> bool:
+    return effect_key in get_card_effects(card)
+
+
+def apply_drain_to_stats(
+    source_card,
+    target_stats: Dict[str, int],
+    target_dom_attr: str,
+    amount: int = CARD_EFFECT_DRAIN_AMOUNT,
+) -> Tuple[Dict[str, int], Optional[str]]:
+    """اگر source کارت drain داشته باشد، target dominant stat را کم می‌کند."""
+    if not has_card_effect(source_card, "drain") or target_dom_attr not in target_stats:
+        return target_stats, None
+
+    drained = dict(target_stats)
+    drained[target_dom_attr] = max(0, drained[target_dom_attr] - amount)
+    return drained, target_dom_attr
+
+
+def apply_reflect_reduction(
+    winner: Optional[str],
+    challenger_card,
+    opponent_card,
+    challenger_stat: str,
+    opponent_stat: str,
+    challenger_reduction: int,
+    opponent_reduction: int,
+) -> Tuple[int, int, Optional[str]]:
+    """Reflect کاهش بازنده را به winner منتقل می‌کند."""
+    if winner == "challenger" and opponent_reduction > 0 and has_card_effect(opponent_card, "reflect"):
+        return opponent_reduction, 0, "opponent"
+    if winner == "opponent" and challenger_reduction > 0 and has_card_effect(challenger_card, "reflect"):
+        return 0, challenger_reduction, "challenger"
+    return challenger_reduction, opponent_reduction, None
+
+
+def select_arena_shift_role(
+    challenger_card,
+    opponent_card,
+    round_winner: Optional[str],
+) -> Optional[str]:
+    """تعیین اینکه چه کسی بعد از راوند زمین را عوض می‌کند."""
+    ch_shift = has_card_effect(challenger_card, "arena_shift")
+    op_shift = has_card_effect(opponent_card, "arena_shift")
+
+    if ch_shift and not op_shift:
+        return "challenger"
+    if op_shift and not ch_shift:
+        return "opponent"
+    if ch_shift and op_shift:
+        return round_winner or "challenger"
+    return None
 
 # ==================== ABILITY SYSTEM ====================
 
@@ -151,6 +308,11 @@ class RoundResult:
     challenger_reduction: int
     opponent_reduction: int
     timestamp: str
+    beats_win: bool = False          # True اگر برتری Beats Map تعیین‌کننده بود
+    dominant_challenger: str = ""    # صفت غالب challenger
+    dominant_opponent: str = ""      # صفت غالب opponent
+    active_effects: List[str] = None
+    arena_shift_role: Optional[str] = None
 
 @dataclass
 class BattleState:
@@ -226,6 +388,69 @@ class BattleSystem3Rounds:
         else:
             logger.info(f"Arena selector: {selector}")
             return None, selector  # بازیکن باید انتخاب کنه
+
+    def _get_card_traits(self, card_id: str) -> List[str]:
+        """Return normalized mode traits without making the battle engine own metadata."""
+        conn = sqlite3.connect(self.db.db_path)
+        try:
+            row = conn.execute(
+                "SELECT traits FROM card_mode_metadata WHERE card_id=?",
+                (card_id,),
+            ).fetchone()
+        except sqlite3.OperationalError:
+            row = None
+        finally:
+            conn.close()
+        if not row:
+            return []
+        try:
+            return [str(value).strip().casefold() for value in json.loads(row[0] or "[]")]
+        except (TypeError, ValueError):
+            return []
+
+    def resolve_deck_cards(self, challenger_card: Card, opponent_card: Card, arena: str) -> Dict:
+        """Resolve one Deck round: trait tier first, then the arena's numeric stat."""
+        arena_info = ARENAS.get(arena, ARENAS["power_arena"])
+        ranks = arena_info.get("trait_ranks", [])
+
+        def best_rank(card: Card) -> Optional[int]:
+            traits = set(self._get_card_traits(card.card_id))
+            for index, tier in enumerate(ranks, start=1):
+                if traits.intersection(str(value).casefold() for value in tier):
+                    return index
+            return None
+
+        challenger_rank = best_rank(challenger_card)
+        opponent_rank = best_rank(opponent_card)
+        winner = None
+        reason = "stat"
+        if challenger_rank is not None and (
+            opponent_rank is None or challenger_rank < opponent_rank
+        ):
+            winner, reason = "challenger", "trait"
+        elif opponent_rank is not None and (
+            challenger_rank is None or opponent_rank < challenger_rank
+        ):
+            winner, reason = "opponent", "trait"
+
+        compare_stat = arena_info.get("compare_stat", arena_info.get("boost_stat", "power"))
+        challenger_value = int(getattr(challenger_card, compare_stat, 0))
+        opponent_value = int(getattr(opponent_card, compare_stat, 0))
+        if winner is None:
+            if challenger_value > opponent_value:
+                winner = "challenger"
+            elif opponent_value > challenger_value:
+                winner = "opponent"
+
+        return {
+            "winner": winner,
+            "reason": reason,
+            "compare_stat": compare_stat,
+            "challenger_value": challenger_value,
+            "opponent_value": opponent_value,
+            "challenger_trait_rank": challenger_rank,
+            "opponent_trait_rank": opponent_rank,
+        }
     
     def calculate_boost(self, card: Card, arena: str, selected_stat: str) -> int:
         """
@@ -367,38 +592,55 @@ class BattleSystem3Rounds:
         Returns:
             RoundResult
         """
-        # دریافت آمار فعلی (کاهش یافته)
+        active_effects = []
+
+        # محاسبه dominant attribute هر کارت (پس از arena boost)
+        dom_ch_initial = get_dominant_attr_from_stats(battle_state.challenger_current_stats, battle_state.arena)
+        dom_op_initial = get_dominant_attr_from_stats(battle_state.opponent_current_stats, battle_state.arena)
+
+        # Drain قبل از resolve روی صفت غالب حریف اعمال می‌شود.
+        battle_state.opponent_current_stats, drained_attr = apply_drain_to_stats(
+            challenger_card, battle_state.opponent_current_stats, dom_op_initial
+        )
+        if drained_attr:
+            active_effects.append(f"drain:challenger:{drained_attr}")
+        battle_state.challenger_current_stats, drained_attr = apply_drain_to_stats(
+            opponent_card, battle_state.challenger_current_stats, dom_ch_initial
+        )
+        if drained_attr:
+            active_effects.append(f"drain:opponent:{drained_attr}")
+
+        dom_ch = get_dominant_attr_from_stats(battle_state.challenger_current_stats, battle_state.arena)
+        dom_op = get_dominant_attr_from_stats(battle_state.opponent_current_stats, battle_state.arena)
+        challenger_stat = dom_ch
+        opponent_stat = dom_op
+
+        # محاسبه مجموع
         challenger_base = battle_state.challenger_current_stats[challenger_stat]
         opponent_base = battle_state.opponent_current_stats[opponent_stat]
-        
-        # محاسبه boost
         challenger_boost = self.calculate_boost(challenger_card, battle_state.arena, challenger_stat)
         opponent_boost = self.calculate_boost(opponent_card, battle_state.arena, opponent_stat)
-        
-        # محاسبه بونوس برتری تایپ (Type Counter)
-        challenger_type = getattr(challenger_card, 'card_type', '') or ''
-        opponent_type = getattr(opponent_card, 'card_type', '') or ''
-        
-        challenger_counter_bonus = 0
-        opponent_counter_bonus = 0
-        if TYPE_COUNTER.get(challenger_type) == opponent_type:
-            challenger_counter_bonus = TYPE_COUNTER_BONUS
-        if TYPE_COUNTER.get(opponent_type) == challenger_type:
-            opponent_counter_bonus = TYPE_COUNTER_BONUS
-        
-        # محاسبه مجموع
-        challenger_total = challenger_base + challenger_boost + challenger_counter_bonus
-        opponent_total = opponent_base + opponent_boost + opponent_counter_bonus
-        
-        # تعیین برنده
-        if challenger_total > opponent_total:
-            winner = "challenger"
+        challenger_total = challenger_base + challenger_boost
+        opponent_total   = opponent_base   + opponent_boost
+
+        # تعیین برنده: اول Beats Map، بعد fallback به مجموع
+        beats_win = False
+        if beats(dom_ch, dom_op):
+            winner    = "challenger"
+            beats_win = True
+            win_margin = abs(challenger_total - opponent_total)
+        elif beats(dom_op, dom_ch):
+            winner    = "opponent"
+            beats_win = True
+            win_margin = abs(challenger_total - opponent_total)
+        elif challenger_total > opponent_total:
+            winner     = "challenger"
             win_margin = challenger_total - opponent_total
         elif opponent_total > challenger_total:
-            winner = "opponent"
+            winner     = "opponent"
             win_margin = opponent_total - challenger_total
         else:
-            winner = None  # tie
+            winner     = None   # tie
             win_margin = 0
         
         # محاسبه کاهش آمار (پررنگ‌تر شده برای عمق استراتژیک)
@@ -421,6 +663,18 @@ class BattleSystem3Rounds:
             # تساوی: هر دو 3 واحد کم می‌شوند
             challenger_reduction = 3
             opponent_reduction = 3
+
+        challenger_reduction, opponent_reduction, reflected_by = apply_reflect_reduction(
+            winner, challenger_card, opponent_card,
+            challenger_stat, opponent_stat,
+            challenger_reduction, opponent_reduction,
+        )
+        if reflected_by:
+            active_effects.append(f"reflect:{reflected_by}")
+
+        arena_shift_role = select_arena_shift_role(challenger_card, opponent_card, winner)
+        if arena_shift_role:
+            active_effects.append(f"arena_shift:{arena_shift_role}")
         
         # اعمال کاهش
         battle_state.challenger_current_stats[challenger_stat] = max(
@@ -446,7 +700,12 @@ class BattleSystem3Rounds:
             winner=winner,
             challenger_reduction=challenger_reduction,
             opponent_reduction=opponent_reduction,
-            timestamp=datetime.now().isoformat()
+            timestamp=datetime.now().isoformat(),
+            beats_win=beats_win,
+            dominant_challenger=dom_ch,
+            dominant_opponent=dom_op,
+            active_effects=active_effects,
+            arena_shift_role=arena_shift_role,
         )
         
         # بروزرسانی امتیاز راوندها
@@ -673,4 +932,3 @@ def format_round_result(
 """
     
     return text.strip()
-

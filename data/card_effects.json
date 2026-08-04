@@ -1,0 +1,7 @@
+{
+  "John Wick": ["reflect"],
+  "Heisenberg": ["drain"],
+  "Sherlock": ["arena_shift"],
+  "Joker": ["reflect", "arena_shift"],
+  "Tony Soprano": ["drain"]
+}

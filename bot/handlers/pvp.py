@@ -23,6 +23,7 @@ from systems.economy_system import EconomySystem
 from systems.tier_decay_system import TierDecaySystem
 from systems.risk_mode_system import RiskModeSystem, RiskTable, RiskAction
 from systems.battle_system_3rounds import BattleSystem3Rounds, BattleState, ARENAS
+from systems.deck_system import DeckSystem
 from systems.claim_system import ClaimSystem
 from systems.card_missions_system import CardMissionsSystem, MISSION_TYPES
 from systems.skins_system import SkinsSystem, SKIN_TYPES
@@ -548,45 +549,19 @@ class PvPHandlersMixin:
         challenger = self.db.get_or_create_player(fight.challenger_id)
         opponent = self.db.get_or_create_player(opponent_id)
         
-        # لینک پیوی ربات
-        bot_link = "@TelBattleBot"
-        
         # ارسال پیام قبولی در گروه
         text = (
             f"⚔️ **فایت تایید شد!**\n\n"
             f"🔥 {challenger.first_name} 🆚 {opponent.first_name}\n\n"
-            f"هر دو بازیکن در پیام خصوصی کارت و ویژگی خود را انتخاب کنید.\n"
-            f"👆 **برای انتخاب کارت:** {bot_link}\n"
+            f"هر دو بازیکن دک خود را همین‌جا در گروه انتخاب کنند.\n"
             f"⏰ مهلت: 15 دقیقه"
         )
-        
-        reply_markup = None
-        
-        await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
-        
-        # ارسال پیام خصوصی به challenger
-        try:
-            await context.bot.send_message(
-                chat_id=fight.challenger_id,
-                text=f"✅ **{opponent.first_name} چالش شما را پذیرفت!**\n\n📋 **کارت‌های من**\n\nلطفاً دسته مورد نظر را انتخاب کنید:",
-                reply_markup=self._create_pvp_card_selection_keyboard(fight_id, fight.challenger_id, category="menu", page=1),
-                parse_mode='Markdown'
-            )
-        except Exception as e:
-            logger.warning(f"Could not send private message to challenger {fight.challenger_id}: {e}")
-        
-        # ارسال پیام خصوصی به opponent
-        try:
-            await context.bot.send_message(
-                chat_id=opponent_id,
-                text=f"✅ **شما چالش {challenger.first_name} را پذیرفتید!**\n\n📋 **کارت‌های من**\n\nلطفاً دسته مورد نظر را انتخاب کنید:",
-                reply_markup=self._create_pvp_card_selection_keyboard(fight_id, opponent_id, category="menu", page=1),
-                parse_mode='Markdown'
-            )
-        except Exception as e:
-            logger.warning(f"Could not send private message to opponent {opponent_id}: {e}")
+        await query.edit_message_text(text, parse_mode='Markdown')
 
-
+        await self._send_group_deck_selection(
+            context, fight_id, fight.challenger_id, opponent_id,
+            expected_user_id=fight.challenger_id
+        )
 
 
     async def _announce_pvp_result(self, context, result: dict):
@@ -606,47 +581,51 @@ class PvPHandlersMixin:
         chat_id = fight.chat_id if fight else None
 
         stat_names = {"power": "💪 قدرت", "speed": "⚡ سرعت", "iq": "🧠 هوش", "popularity": "❤️ محبوبیت"}
+        ch_name = self._battle_player_name(challenger.get("user_id"), "Blue")
+        op_name = self._battle_player_name(opponent.get("user_id"), "Red")
+        ch_score = 0
+        op_score = 0
 
         if result_type == "tie":
-            text = (
-                f"🤝 **مساوی!**\n\n"
-                f"هیچ‌کدام برنده نشدند.\n\n"
-                f"Challenger: {stat_names.get(challenger['stat'], challenger['stat'])} = {challenger['stat_value']}\n"
-                f"Opponent: {stat_names.get(opponent['stat'], opponent['stat'])} = {opponent['stat_value']}"
-            )
+            result_line = "🤝 مساوی  |  0 — 0"
         else:
-            winner_name = winner['card'].name if winner else "?"
-            loser_name = loser['card'].name if loser else "?"
-            text = (
-                f"🎉 **{winner_name} برنده شد!**\n\n"
-                f"⭐ +{winner.get('score_gained', 0)} امتیاز\n"
-                f"💔 بازنده: -{loser.get('hearts_lost', 0)} جان\n\n"
-                f"📊 جزئیات:\n"
-                f"  برنده: {stat_names.get(winner['stat'], winner['stat'])} = {winner['stat_value']}\n"
-                f"  بازنده: {stat_names.get(loser['stat'], loser['stat'])} = {loser['stat_value']}"
-            )
+            winner_name = self._battle_player_name(winner.get("user_id"), "Winner") if winner else "Winner"
+            if result_type == "challenger_wins":
+                ch_score = 1
+            else:
+                op_score = 1
+            result_line = f"🏆 {winner_name}  |  {ch_score} — {op_score}"
 
-            # XP info
-            if winner.get('xp_gained'):
-                text += f"\n\n⭐ +{winner['xp_gained']} XP برنده"
-            if loser.get('xp_gained'):
-                text += f" • +{loser['xp_gained']} XP بازنده"
+        xp_line = ""
+        if challenger.get('xp_gained') or opponent.get('xp_gained'):
+            xp_line = f"\n⭐ +{challenger.get('xp_gained', 0)} / +{opponent.get('xp_gained', 0)} XP"
 
-            # Level up
-            if challenger.get('level_up'):
-                text += f"\n⬆️ Level Up! → {challenger['new_level']}"
-            if opponent.get('level_up'):
-                text += f"\n⬆️ Level Up! → {opponent['new_level']}"
+        level_lines = []
+        if challenger.get('level_up'):
+            level_lines.append(f"⬆️ {ch_name} → {challenger['new_level']}")
+        if opponent.get('level_up'):
+            level_lines.append(f"⬆️ {op_name} → {opponent['new_level']}")
+        level_text = ("\n" + "\n".join(level_lines)) if level_lines else ""
+
+        text = (
+            f"🏁 نتیجه فایت\n\n"
+            f"🔵 {ch_name:<12} {stat_names.get(challenger['stat'], challenger['stat'])} — {challenger['stat_value']}\n"
+            f"🔴 {op_name:<12} {stat_names.get(opponent['stat'], opponent['stat'])} — {opponent['stat_value']}\n\n"
+            f"{result_line}"
+            f"{xp_line}"
+            f"{level_text}"
+        )
 
         keyboard = [[InlineKeyboardButton("🥊 چالش جدید", callback_data="request_pvp_fight")]]
 
         if chat_id:
             try:
+                if result_type != "tie" and winner and hasattr(self, "_send_round_winner_card_media"):
+                    await self._send_round_winner_card_media(context, chat_id, winner.get('card'))
                 await context.bot.send_message(
                     chat_id=chat_id,
                     text=text,
-                    reply_markup=InlineKeyboardMarkup(keyboard),
-                    parse_mode='Markdown'
+                    reply_markup=InlineKeyboardMarkup(keyboard)
                 )
             except Exception as e:
                 logger.error(f"Failed to announce PvP result: {e}")
@@ -814,21 +793,21 @@ class PvPHandlersMixin:
         except Exception:
             pass
         
+        # اگر هر دو بازیکن کارت انتخاب کرده‌اند → شروع نبرد ۳ راوندی
+        if update_data.get("status") == FightStatus.BOTH_CARDS_SELECTED:
+            updated_fight = self.db.get_fight_by_id(fight_id)
+            await query.edit_message_text("⚔️ **هر دو بازیکن کارت انتخاب کردند!**\n\n🎮 شروع نبرد ۳ راوندی...", parse_mode='Markdown')
+            await self._init_3round_battle(context, fight_id, updated_fight, query=query)
+            return
+
+        # فقط این بازیکن کارت انتخاب کرده - منتظر حریف
         text = (
             f"✅ **کارت انتخاب شد!**\n\n"
             f"🎴 {selected_card.name}\n\n"
-            f"حالا ویژگی مورد نظر برای فایت را انتخاب کنید:"
+            f"⏳ منتظر انتخاب کارت توسط حریف..."
         )
         
-        keyboard = [
-            [InlineKeyboardButton(f"💪 قدرت ({selected_card.power})", callback_data=f"pvp_stat_{fight_id}_power")],
-            [InlineKeyboardButton(f"⚡ سرعت ({selected_card.speed})", callback_data=f"pvp_stat_{fight_id}_speed")],
-            [InlineKeyboardButton(f"🧠 آی‌کیو ({selected_card.iq})", callback_data=f"pvp_stat_{fight_id}_iq")],
-            [InlineKeyboardButton(f"❤️ محبوبیت ({selected_card.popularity})", callback_data=f"pvp_stat_{fight_id}_popularity")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+        await query.edit_message_text(text, parse_mode='Markdown')
 
 
     async def pvp_stat_select_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1476,43 +1455,19 @@ class PvPHandlersMixin:
         challenger = self.db.get_or_create_player(fight.challenger_id)
         opponent = self.db.get_or_create_player(opponent_id)
         
-        # لینک پیوی ربات
-        bot_link = "@TelBattleBot"
-        
         # ارسال پیام قبولی در گروه
         text = (
             f"⚔️ **فایت تایید شد!**\n\n"
             f"🔥 {challenger.first_name} 🆚 {opponent.first_name}\n\n"
-            f"هر دو بازیکن در پیام خصوصی کارت و ویژگی خود را انتخاب کنید.\n"
-            f"👆 **برای انتخاب کارت:** {bot_link}\n"
+            f"هر دو بازیکن دک خود را همین‌جا در گروه انتخاب کنند.\n"
             f"⏰ مهلت: 15 دقیقه"
         )
-        
-        reply_markup = None
-        
-        await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
-        
-        # ارسال پیام خصوصی به challenger
-        try:
-            await context.bot.send_message(
-                chat_id=fight.challenger_id,
-                text=f"✅ **{opponent.first_name} چالش شما را پذیرفت!**\n\n📋 **کارت‌های من**\n\nلطفاً دسته مورد نظر را انتخاب کنید:",
-                reply_markup=self._create_pvp_card_selection_keyboard(fight_id, fight.challenger_id, category="menu", page=1),
-                parse_mode='Markdown'
-            )
-        except Exception as e:
-            logger.warning(f"Could not send private message to challenger {fight.challenger_id}: {e}")
-        
-        # ارسال پیام خصوصی به opponent
-        try:
-            await context.bot.send_message(
-                chat_id=opponent_id,
-                text=f"✅ **شما چالش {challenger.first_name} را پذیرفتید!**\n\n📋 **کارت‌های من**\n\nلطفاً دسته مورد نظر را انتخاب کنید:",
-                reply_markup=self._create_pvp_card_selection_keyboard(fight_id, opponent_id, category="menu", page=1),
-                parse_mode='Markdown'
-            )
-        except Exception as e:
-            logger.warning(f"Could not send private message to opponent {opponent_id}: {e}")
+        await query.edit_message_text(text, parse_mode='Markdown')
+
+        await self._send_group_deck_selection(
+            context, fight_id, fight.challenger_id, opponent_id,
+            expected_user_id=fight.challenger_id
+        )
 
 
     async def pvp_cards_navigation_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1644,21 +1599,21 @@ class PvPHandlersMixin:
         except Exception:
             pass
         
+        # اگر هر دو بازیکن کارت انتخاب کرده‌اند → شروع نبرد ۳ راوندی
+        if update_data.get("status") == FightStatus.BOTH_CARDS_SELECTED:
+            updated_fight = self.db.get_fight_by_id(fight_id)
+            await query.edit_message_text("⚔️ **هر دو بازیکن کارت انتخاب کردند!**\n\n🎮 شروع نبرد ۳ راوندی...", parse_mode='Markdown')
+            await self._init_3round_battle(context, fight_id, updated_fight, query=query)
+            return
+
+        # فقط این بازیکن کارت انتخاب کرده - منتظر حریف
         text = (
             f"✅ **کارت انتخاب شد!**\n\n"
             f"🎴 {selected_card.name}\n\n"
-            f"حالا ویژگی مورد نظر برای فایت را انتخاب کنید:"
+            f"⏳ منتظر انتخاب کارت توسط حریف..."
         )
         
-        keyboard = [
-            [InlineKeyboardButton(f"💪 قدرت ({selected_card.power})", callback_data=f"pvp_stat_{fight_id}_power")],
-            [InlineKeyboardButton(f"⚡ سرعت ({selected_card.speed})", callback_data=f"pvp_stat_{fight_id}_speed")],
-            [InlineKeyboardButton(f"🧠 آی‌کیو ({selected_card.iq})", callback_data=f"pvp_stat_{fight_id}_iq")],
-            [InlineKeyboardButton(f"❤️ محبوبیت ({selected_card.popularity})", callback_data=f"pvp_stat_{fight_id}_popularity")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+        await query.edit_message_text(text, parse_mode='Markdown')
 
 
     async def pvp_stat_select_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1827,3 +1782,234 @@ class PvPHandlersMixin:
     # ==================== SETUP METHODS ====================
 
 
+
+    # ==================== DECK SELECTION HANDLERS ====================
+
+    async def _send_group_deck_selection(
+        self, context, fight_id: str, challenger_id: int, opponent_id: int,
+        expected_user_id: int = None
+    ):
+        """ارسال پنل انتخاب دک برای بازیکنی که نوبتش است."""
+        fight = self.db.get_fight_by_id(fight_id)
+        if not fight or not fight.chat_id:
+            return
+
+        ch_name = self._battle_player_name(challenger_id, "Blue")
+        op_name = self._battle_player_name(opponent_id, "Red")
+        deck_state = self.db.get_battle_deck_state(fight_id)
+        ch_selected = bool(deck_state.get('challenger_deck_selected'))
+        op_selected = bool(deck_state.get('opponent_deck_selected'))
+        if ch_selected and op_selected:
+            return
+
+        if expected_user_id not in (challenger_id, opponent_id):
+            expected_user_id = context.bot_data.get(f"pvp_{fight_id}_deck_expected_user")
+        if expected_user_id not in (challenger_id, opponent_id):
+            expected_user_id = opponent_id if ch_selected else challenger_id
+        if expected_user_id == challenger_id and ch_selected:
+            expected_user_id = opponent_id
+        elif expected_user_id == opponent_id and op_selected:
+            expected_user_id = challenger_id
+
+        context.bot_data[f"pvp_{fight_id}_deck_expected_user"] = expected_user_id
+        expected_name = ch_name if expected_user_id == challenger_id else op_name
+        color = "🔵" if expected_user_id == challenger_id else "🔴"
+        keyboard = [[InlineKeyboardButton(
+            f"{color} {expected_name}",
+            switch_inline_query_current_chat=(
+                f"pvpdeck {fight_id} {self._inline_user_token(expected_user_id)}"
+            ),
+        )]]
+        ch_status = "انتخاب شد" if ch_selected else "در انتظار"
+        op_status = "انتخاب شد" if op_selected else "در انتظار"
+        text = (
+            f"🗂️ انتخاب دک\n\n"
+            f"نوبت: {color} {expected_name}\n\n"
+            f"🔵 {ch_name} — {ch_status}\n"
+            f"🔴 {op_name} — {op_status}"
+        )
+        try:
+            await context.bot.send_message(
+                chat_id=fight.chat_id,
+                text=text,
+                reply_markup=InlineKeyboardMarkup(keyboard),
+            )
+        except Exception as e:
+            logger.warning(f"Could not send group deck selection for {fight_id}: {e}")
+
+    async def _send_deck_selection(self, context, fight_id: str, user_id: int, prefix_text: str = ""):
+        """ارسال UI انتخاب دک قبل از فایت (در پیوی)"""
+        deck_system = DeckSystem(self.db)
+        valid_decks = deck_system.get_valid_decks(user_id)
+
+        rarity_emoji = {'normal': '🟢', 'epic': '🟣', 'legend': '🟡', 'rare': '🔵'}
+
+        if not valid_decks:
+            # هیچ دک کاملی ندارد
+            text = (
+                f"{prefix_text}"
+                f"🗂️ **انتخاب دک**\n\n"
+                f"⚠️ هیچ دک کاملی ندارید!\n"
+                f"لطفاً ابتدا یک دک ۳ کارته بسازید."
+            )
+            keyboard = [
+                [InlineKeyboardButton("➕ ساخت دک جدید", callback_data="deck_create")],
+            ]
+        else:
+            text = f"{prefix_text}🗂️ **کدام دک می‌خواهی بازی کنی؟**\n\n"
+            keyboard = []
+            for deck in valid_decks:
+                card_names = " · ".join(
+                    f"{rarity_emoji.get(c.rarity.value if hasattr(c.rarity,'value') else c.rarity,'⚪')}{c.name[:8]}"
+                    for c in deck['cards']
+                )
+                keyboard.append([InlineKeyboardButton(
+                    f"🃏 {deck['deck_name']}  ({card_names})",
+                    callback_data=f"pvp_deck_{fight_id}_{deck['deck_id']}"
+                )])
+            keyboard.append([InlineKeyboardButton("⏱ مهلت: ۱۵ دقیقه", callback_data="noop")])
+
+        try:
+            await context.bot.send_message(
+                chat_id=user_id,
+                text=text,
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode='Markdown'
+            )
+        except Exception as e:
+            logger.error(f"Failed to send deck selection to {user_id}: {e}")
+
+    async def _record_pvp_deck_selection(
+        self, context, fight_id: str, user_id: int, deck_id: str
+    ) -> tuple:
+        """Validate/store deck selection and start battle when both players are ready."""
+        # بررسی validity دک
+        deck_system = DeckSystem(self.db)
+        is_valid = deck_system.validate_deck_integrity(user_id, deck_id)
+        if not is_valid:
+            return False, "این دک ناقص است! یک کارتش از کلکسیون حذف شده.", False
+
+        # بارگذاری کارت‌های دک
+        deck_cards = deck_system.get_deck_cards(deck_id, user_id)
+        if not deck_cards or len(deck_cards) != 3:
+            return False, "دک یافت نشد یا ناقص است", False
+
+        card_ids = [c.card_id for c in deck_cards]
+
+        # دریافت فایت و تعیین نقش
+        import sqlite3 as _sq, json as _json
+        conn = _sq.connect(self.db.db_path)
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT challenger_id, opponent_id FROM active_fights WHERE fight_id=?",
+            (fight_id,)
+        )
+        row = cursor.fetchone()
+        conn.close()
+
+        if not row:
+            return False, "فایت یافت نشد", False
+
+        ch_id, op_id = row
+        if user_id == ch_id:
+            role = 'challenger'
+        elif user_id == op_id:
+            role = 'opponent'
+        else:
+            return False, "این فایت مال تو نیست", False
+
+        expected_user_id = context.bot_data.get(f"pvp_{fight_id}_deck_expected_user")
+        if expected_user_id in (ch_id, op_id) and user_id != expected_user_id:
+            return False, "هنوز نوبت انتخاب دک تو نیست", False
+
+        # ذخیره deck_id در active_fights
+        self.db.set_fight_deck(fight_id, role, deck_id)
+
+        # بررسی وجود battle_states — اگر نبود، درج کنیم
+        conn2 = _sq.connect(self.db.db_path)
+        cursor2 = conn2.cursor()
+        cursor2.execute("SELECT fight_id FROM battle_states WHERE fight_id=?", (fight_id,))
+        exists = cursor2.fetchone()
+        conn2.close()
+
+        if not exists:
+            # battle_state هنوز ساخته نشده؛ مقدار اولیه با ستون‌های دک
+            conn3 = _sq.connect(self.db.db_path)
+            cursor3 = conn3.cursor()
+            cursor3.execute('''
+                INSERT OR IGNORE INTO battle_states
+                (fight_id, challenger_id, opponent_id,
+                 challenger_card_id, opponent_card_id,
+                 arena, current_round, challenger_rounds_won, opponent_rounds_won,
+                 challenger_used_stats, opponent_used_stats,
+                 challenger_current_stats, opponent_current_stats,
+                 status, created_at)
+                VALUES (?,?,?,?,?,?,1,0,0,'[]','[]','{}','{}','waiting_deck',?)
+            ''', (fight_id, ch_id, op_id, '', '', '', datetime.now().isoformat()))
+            conn3.commit()
+            conn3.close()
+
+        # ذخیره remaining_cards و flag deck_selected
+        self.db.update_battle_deck_state(fight_id, role, card_ids, selected=True)
+
+        # بررسی: آیا هر دو انتخاب کردند؟
+        deck_state = self.db.get_battle_deck_state(fight_id)
+        if deck_state.get('challenger_deck_selected') and deck_state.get('opponent_deck_selected'):
+            context.bot_data.pop(f"pvp_{fight_id}_deck_expected_user", None)
+            # هر دو آماده — تعیین کارت‌های اولیه برای fight و شروع نبرد
+            fight = self.db.get_fight_by_id(fight_id)
+            if not fight:
+                return False, "فایت یافت نشد", False
+
+            ch_cards_ids = deck_state['challenger_remaining_cards']
+            op_cards_ids = deck_state['opponent_remaining_cards']
+
+            # کارت‌های اولیه fight رو به اولین کارت هر دک set می‌کنیم (برای سازگاری)
+            self.db.update_fight(fight_id,
+                                 challenger_card_id=ch_cards_ids[0],
+                                 opponent_card_id=op_cards_ids[0])
+
+            # ذخیره کامل deck_cards در battle_states
+            self.db.init_battle_deck_cards(fight_id, ch_cards_ids, op_cards_ids)
+
+            # شروع نبرد
+            fight = self.db.get_fight_by_id(fight_id)
+            await self._init_3round_battle(context, fight_id, fight)
+            return True, "هر دو دک انتخاب شدند", True
+
+        next_user_id = op_id if role == 'challenger' else ch_id
+        context.bot_data[f"pvp_{fight_id}_deck_expected_user"] = next_user_id
+        await self._send_group_deck_selection(
+            context, fight_id, ch_id, op_id, expected_user_id=next_user_id
+        )
+        return True, "دک انتخاب شد", False
+
+    async def pvp_deck_select_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """بازیکن دک خود را برای فایت انتخاب کرد.
+        callback_data: pvp_deck_{fight_id}_{deck_id}
+        """
+        query = update.callback_query
+        await query.answer()
+        user_id = query.from_user.id
+
+        # parse callback_data — fight_id ۸ کاراکتر است
+        # format: pvp_deck_XXXXXXXX_YYYYYYYY
+        data = query.data  # pvp_deck_{fight_id}_{deck_id}
+        parts = data.split("_", 3)  # ['pvp', 'deck', fight_id, deck_id]
+        if len(parts) < 4:
+            await query.answer("❌ داده نامعتبر!", show_alert=True)
+            return
+        fight_id = parts[2]
+        deck_id  = parts[3]
+
+        ok, message, started = await self._record_pvp_deck_selection(
+            context, fight_id, user_id, deck_id
+        )
+        if not ok:
+            await query.answer(f"❌ {message}", show_alert=True)
+            return
+
+        try:
+            await query.edit_message_text("✅ دک انتخاب شد.\n\n⏳ منتظر حریف...")
+        except Exception:
+            pass

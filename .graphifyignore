@@ -1,0 +1,12 @@
+# Generated graph artifacts and assistant/tool metadata
+graphify-out/
+.codex/
+.agents/
+.kiro/
+.github/
+
+# Non-runtime, archived, and binary-heavy content
+_inactive/
+assets/
+card_images/
+docs/

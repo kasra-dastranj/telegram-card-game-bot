@@ -34,6 +34,9 @@ env/
 *.swo
 *~
 
+# Machine-local Codex hook (contains an absolute Graphify executable path)
+.codex/hooks.json
+
 # OS Files
 .DS_Store
 Thumbs.db
@@ -54,7 +57,11 @@ build/
 dist/
 *.egg-info/
 
+# Generated Graphify knowledge graph (rebuild locally with `graphify update .`)
+graphify-out/
+
 # Test Coverage
 .coverage
 htmlcov/
 .pytest_cache/
+.test-tmp*/
