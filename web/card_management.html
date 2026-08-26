@@ -144,7 +144,7 @@
           <div class="section active" data-section="base">
             <div class="grid">
               <div class="field"><label for="name">نام کارت</label><input id="name" class="input" required maxlength="100"></div>
-              <div class="field"><label for="rarity">کمیابی</label><select id="rarity" class="input"><option value="normal">Normal</option><option value="epic">Epic</option><option value="legend">Legend</option><option value="rare">Rare</option></select></div>
+              <div class="field"><label for="rarity">فرم قابل ویرایش</label><select id="rarity" class="input"><option value="normal">Normal</option><option value="epic">Epic</option><option value="legend">Legend</option></select><span id="variantHint" class="hint">هر فرم آمار، Ability، Passive و مدیای مستقل دارد.</span></div>
               <div class="field"><label for="cardType">نوع اصلی</label><select id="cardType" class="input"><option value="POWER_TYPE">Power</option><option value="SPEED_TYPE">Speed</option><option value="IQ_TYPE">IQ</option><option value="POPULARITY_TYPE">Popularity</option></select><span class="hint">برای منطق‌های قدیمی و دسته‌بندی کارت استفاده می‌شود.</span></div>
               <div class="field"><label for="abilities">Abilityهای شخصیت</label><input id="abilities" class="input" placeholder="Leadership, Survivor"><span class="hint">با ویرگول جدا کنید؛ با Ability مصرفی Quick متفاوت است.</span></div>
               <div class="group-title">Statهای اصلی (۱ تا ۱۰۰)</div>
@@ -195,8 +195,8 @@
               </div>
               <div class="field">
                 <label for="imagePath">مسیر تصویر در پروژه</label><input id="imagePath" class="input" placeholder="assets/card_images/card.png">
-                <div class="upload"><label for="imageFile">آپلود PNG/JPG/WebP</label><input id="imageFile" class="input" type="file" accept="image/png,image/jpeg,image/webp"><button id="uploadImageBtn" class="btn" type="button" style="margin-top:8px">آپلود تصویر</button></div>
-                <div class="upload"><label for="stickerFile">آپلود Sticker WebP محلی</label><input id="stickerFile" class="input" type="file" accept="image/webp,.webp"><button id="uploadStickerBtn" class="btn" type="button" style="margin-top:8px">آپلود استیکر</button><span class="hint">فایل با نام کارت ذخیره می‌شود؛ بعد از تغییر نام کارت، استیکر را دوباره آپلود کنید.</span></div>
+                <div class="upload"><label for="imageFile">آپلود PNG/JPG/WebP فرم انتخابی</label><input id="imageFile" class="input" type="file" accept="image/png,image/jpeg,image/webp"><button id="uploadImageBtn" class="btn" type="button" style="margin-top:8px">آپلود تصویر فرم</button></div>
+                <div class="upload"><label for="stickerFile">آپلود Sticker WebP فرم انتخابی</label><input id="stickerFile" class="input" type="file" accept="image/webp,.webp"><button id="uploadStickerBtn" class="btn" type="button" style="margin-top:8px">آپلود استیکر فرم</button><span class="hint">هر فایل با نام شخصیت و فرم انتخابی ذخیره می‌شود.</span></div>
               </div>
               <div class="field full"><label for="photoFileId">Telegram Photo file_id</label><input id="photoFileId" class="input" dir="ltr"><span class="hint">اختیاری؛ برای Inline Picker بدون آپلود دوباره.</span></div>
               <div class="field full"><label for="stickerFileId">Telegram Sticker file_id</label><input id="stickerFileId" class="input" dir="ltr"><span class="hint">اگر وارد شود، Easy و Deck مستقیماً از Sticker تلگرام استفاده می‌کنند.</span></div>
@@ -214,7 +214,8 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script>
-    const state = { cards: [], selectedId: null, creating: false, busy: false };
+    const state = { cards: [], selectedId: null, selectedCard: null, creating: false, busy: false };
+    const apiPrefix = window.location.pathname.startsWith('/card-admin') ? '/card-admin' : '';
     const $ = id => document.getElementById(id);
     const fields = ['name','rarity','cardType','power','speed','iq','popularity','abilities','cardEffects','biography','dialogs','traits','series','funny','scary','charisma','cute','evil','leadership','passiveName','conditionType','conditionValue','passiveStat','passiveDelta','imagePath','photoFileId','stickerFileId'];
     const splitList = value => [...new Set(String(value || '').split(/[\n,،]+/).map(x => x.trim()).filter(Boolean))];
@@ -231,7 +232,7 @@
       requestAnimationFrame(() => document.querySelector('.editor').scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' }));
     }
     async function api(url, options = {}) {
-      const response = await fetch(url, options); let data = {};
+      const response = await fetch(`${apiPrefix}${url}`, options); let data = {};
       try { data = await response.json(); } catch (_) {}
       if (!response.ok || data.success === false) throw new Error(data.error || `خطای HTTP ${response.status}`);
       return data;
@@ -265,23 +266,34 @@
       } catch (error) { toast(error.message, true); }
     }
     function blankCard() {
-      return { name:'', rarity:'normal', card_type:'POWER_TYPE', power:50, speed:50, iq:50, popularity:50, abilities:[], card_effects:[], biography:'', dialogs:[], traits:[], series:'', hidden_stats:{}, passive:{}, image_path:'', photo_file_id:'', sticker_file_id:'' };
+      return { name:'', rarity:'normal', card_type:'POWER_TYPE', power:50, speed:50, iq:50, popularity:50, abilities:[], card_effects:[], biography:'', dialogs:[], traits:[], series:'', hidden_stats:{}, passive:{}, image_path:'', photo_file_id:'', sticker_file_id:'', variants:[] };
     }
     function selectCard(id) {
       const card = state.cards.find(item => item.id === id); if (!card) return;
-      state.selectedId = id; state.creating = false; fillForm(card); renderList(); revealEditor();
+      state.selectedId = id; state.selectedCard = card; state.creating = false; fillForm(card); renderList(); revealEditor();
     }
-    function startNew() { state.selectedId = null; state.creating = true; fillForm(blankCard()); renderList(); revealEditor(); }
+    function startNew() { state.selectedId = null; state.selectedCard = null; state.creating = true; fillForm(blankCard()); renderList(); revealEditor(); }
+    function selectedVariant(card) {
+      const rarity = $('rarity').value || card.rarity || 'normal';
+      return (card.variants || []).find(item => item.rarity === rarity) || card;
+    }
+    function fillVariant(card) {
+      const variant = selectedVariant(card);
+      $('cardType').value = variant.card_type || 'POWER_TYPE';
+      ['power','speed','iq','popularity'].forEach(key => $(key).value = variant[key] ?? 50);
+      $('abilities').value = (variant.abilities || []).join(', '); $('cardEffects').value = (variant.card_effects || []).join(', ');
+      const passive = variant.passive || {}; $('passiveEnabled').checked = Object.keys(passive).length > 0; $('passiveFields').disabled = !$('passiveEnabled').checked;
+      $('passiveName').value = passive.name || ''; const condition = passive.condition || {}; const conditionType = Object.keys(condition)[0] || 'arena'; $('conditionType').value = conditionType; $('conditionValue').value = condition[conditionType] || ''; $('passiveStat').value = passive.effect?.stat || 'power'; $('passiveDelta').value = passive.effect?.delta ?? 1;
+      $('imagePath').value = variant.image_path || ''; $('photoFileId').value = variant.photo_file_id || ''; $('stickerFileId').value = variant.sticker_file_id || '';
+      $('variantHint').textContent = `در حال ویرایش فرم ${rarityLabel[$('rarity').value] || $('rarity').value}: آمار، Ability، Passive و مدیا مستقل است.`;
+      updatePreview();
+    }
     function fillForm(card) {
       $('emptyState').hidden = true; $('cardForm').hidden = false; $('editorTitle').textContent = state.creating ? 'کارت جدید' : card.name; $('cardId').textContent = state.creating ? 'new' : card.id;
-      $('name').value = card.name || ''; $('rarity').value = card.rarity || 'normal'; $('cardType').value = card.card_type || 'POWER_TYPE';
-      ['power','speed','iq','popularity'].forEach(key => $(key).value = card[key] ?? 50);
-      $('abilities').value = (card.abilities || []).join(', '); $('cardEffects').value = (card.card_effects || []).join(', '); $('biography').value = card.biography || ''; $('dialogs').value = (card.dialogs || []).join('\n');
+      $('name').value = card.name || ''; $('rarity').value = card.rarity === 'rare' ? 'epic' : (card.rarity || 'normal'); $('biography').value = card.biography || ''; $('dialogs').value = (card.dialogs || []).join('\n');
       $('traits').value = (card.traits || []).join(', '); $('series').value = card.series || '';
       ['funny','scary','charisma','cute','evil','leadership'].forEach(key => $(key).value = card.hidden_stats?.[key] ?? '');
-      const passive = card.passive || {}; $('passiveEnabled').checked = Object.keys(passive).length > 0; $('passiveFields').disabled = !$('passiveEnabled').checked;
-      $('passiveName').value = passive.name || ''; const condition = passive.condition || {}; const conditionType = Object.keys(condition)[0] || 'arena'; $('conditionType').value = conditionType; $('conditionValue').value = condition[conditionType] || ''; $('passiveStat').value = passive.effect?.stat || 'power'; $('passiveDelta').value = passive.effect?.delta ?? 1;
-      $('imagePath').value = card.image_path || ''; $('photoFileId').value = card.photo_file_id || ''; $('stickerFileId').value = card.sticker_file_id || ''; $('deleteBtn').hidden = state.creating; $('saveState').textContent = 'آماده ویرایش'; updatePreview(); activateTab('base');
+      fillVariant(card); $('deleteBtn').hidden = state.creating; $('saveState').textContent = 'آماده ویرایش'; activateTab('base');
     }
     function collectPayload() {
       const hidden = {}; ['funny','scary','charisma','cute','evil','leadership'].forEach(key => { if ($(key).value !== '') hidden[key] = Number($(key).value); });
@@ -290,7 +302,7 @@
     }
     async function saveCard(event) {
       event.preventDefault(); if (!$('cardForm').reportValidity() || state.busy) return;
-      try { setBusy(true); const payload = collectPayload(); const url = state.creating ? '/api/cards' : `/api/cards/${encodeURIComponent(state.selectedId)}`; const method = state.creating ? 'POST' : 'PUT'; const data = await api(url, {method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)}); state.selectedId = data.card.id; state.creating = false; toast(data.message); await loadCards(state.selectedId); }
+      try { setBusy(true); const payload = collectPayload(); const url = state.creating ? '/api/cards' : `/api/cards/${encodeURIComponent(state.selectedId)}/variants/${encodeURIComponent(payload.rarity)}`; const method = state.creating ? 'POST' : 'PUT'; const data = await api(url, {method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)}); state.selectedId = data.card.id; state.creating = false; toast(data.message); await loadCards(state.selectedId); }
       catch (error) { toast(error.message, true); } finally { setBusy(false); }
     }
     async function deleteCard() {
@@ -299,15 +311,15 @@
       catch (error) { toast(error.message, true); } finally { setBusy(false); }
     }
     function activateTab(name) { document.querySelectorAll('.tab').forEach(tab => tab.setAttribute('aria-selected', String(tab.dataset.tab === name))); document.querySelectorAll('.section').forEach(section => section.classList.toggle('active', section.dataset.section === name)); }
-    function updatePreview() { const path = $('imagePath').value.trim(); const node = $('imagePreview'); if (!path) { node.textContent = 'هنوز تصویری ثبت نشده است.'; return; } const filename = path.split(/[\\/]/).pop(); node.innerHTML = `<img src="/card_images/${encodeURIComponent(filename)}" alt="پیش‌نمایش کارت ${escapeHtml($('name').value || '')}" onerror="this.parentElement.textContent='تصویر پیدا نشد'">`; }
+    function updatePreview() { const path = $('imagePath').value.trim(); const node = $('imagePreview'); if (!path) { node.textContent = 'هنوز تصویری ثبت نشده است.'; return; } const filename = path.split(/[\\/]/).pop(); node.innerHTML = `<img src="${apiPrefix}/card_images/${encodeURIComponent(filename)}" alt="پیش‌نمایش کارت ${escapeHtml($('name').value || '')}" onerror="this.parentElement.textContent='تصویر پیدا نشد'">`; }
     async function upload(kind) {
       const input = kind === 'image' ? $('imageFile') : $('stickerFile'); if (!input.files[0]) return toast('ابتدا فایل را انتخاب کنید', true); if (!$('name').value.trim()) return toast('قبل از آپلود، نام کارت را وارد کنید', true);
-      const form = new FormData(); form.append(kind, input.files[0]); form.append('card_name', $('name').value.trim());
+      const form = new FormData(); form.append(kind, input.files[0]); form.append('card_name', $('name').value.trim()); form.append('rarity', $('rarity').value);
       try { const data = await api(`/api/upload_${kind}`, {method:'POST', body:form}); if (data.image_path) { $('imagePath').value = data.image_path; updatePreview(); } toast(data.message); }
       catch (error) { toast(error.message, true); }
     }
     $('cardList').addEventListener('click', event => { const button = event.target.closest('[data-card-id]'); if (button) selectCard(button.dataset.cardId); });
-    $('newBtn').addEventListener('click', startNew); $('refreshBtn').addEventListener('click', () => loadCards()); $('search').addEventListener('input', renderList); $('rarityFilter').addEventListener('change', renderList);
+    $('newBtn').addEventListener('click', startNew); $('refreshBtn').addEventListener('click', () => loadCards()); $('search').addEventListener('input', renderList); $('rarityFilter').addEventListener('change', renderList); $('rarity').addEventListener('change', () => { if (!state.creating && state.selectedCard) fillVariant(state.selectedCard); });
     $('cardForm').addEventListener('submit', saveCard); $('deleteBtn').addEventListener('click', deleteCard); $('cancelBtn').addEventListener('click', () => state.selectedId ? selectCard(state.selectedId) : startNew());
     $('passiveEnabled').addEventListener('change', () => $('passiveFields').disabled = !$('passiveEnabled').checked); $('imagePath').addEventListener('input', updatePreview); $('name').addEventListener('input', () => { if (!state.creating) $('editorTitle').textContent = $('name').value || 'بدون نام'; });
     $('uploadImageBtn').addEventListener('click', () => upload('image')); $('uploadStickerBtn').addEventListener('click', () => upload('sticker')); document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => activateTab(tab.dataset.tab)));

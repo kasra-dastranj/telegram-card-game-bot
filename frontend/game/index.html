@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07110e" />
+    <title>TelBattle Arena</title>
+    <script src="https://telegram.org/js/telegram-web-app.js?59"></script>
+  </head>
+  <body>
+    <main id="app" aria-live="polite">
+      <div id="game-root" aria-hidden="true"></div>
+      <div id="ui-root"></div>
+      <div id="toast" role="status" aria-live="assertive"></div>
+      <div id="orientation-guard" role="status" aria-live="polite">
+        <span class="orientation-guard__phone" aria-hidden="true"></span>
+        <strong>گوشی را عمودی بگیر</strong>
+        <p>میز TelBattle و حرکت کارت برای نمای عمودی طراحی شده‌اند.</p>
+      </div>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -23,7 +23,7 @@ from systems.economy_system import EconomySystem
 from systems.tier_decay_system import TierDecaySystem
 from systems.risk_mode_system import RiskModeSystem, RiskTable, RiskAction
 from systems.battle_system_3rounds import BattleSystem3Rounds, BattleState, ARENAS
-from systems.deck_system import DeckSystem
+from systems.deck_system import DeckSystem, DECK_SELECTION_TTL_SECONDS
 from systems.claim_system import ClaimSystem
 from systems.card_missions_system import CardMissionsSystem, MISSION_TYPES
 from systems.skins_system import SkinsSystem, SKIN_TYPES
@@ -179,7 +179,7 @@ class PvPHandlersMixin:
             color = rarity_colors[card.rarity]
             
             # ارسال تصویر کارت با یک دیالوگ کوتاه
-            claim_dialog = get_victory_dialog(card.name)
+            claim_dialog = get_victory_dialog(card.name, card.dialogs)
             image_sent = await send_card_image_safely(query.message, card.name, self.config, f"🎉 {card.name}\n\n“{claim_dialog}”")
             
             # متن اطلاعات کارت
@@ -1085,7 +1085,7 @@ class PvPHandlersMixin:
             color = rarity_colors[card.rarity]
             
             # ارسال تصویر کارت با یک دیالوگ کوتاه
-            claim_dialog = get_victory_dialog(card.name)
+            claim_dialog = get_victory_dialog(card.name, card.dialogs)
             image_sent = await send_card_image_safely(query.message, card.name, self.config, f"🎉 {card.name}\n\n“{claim_dialog}”")
             
             # متن اطلاعات کارت
@@ -1867,15 +1867,18 @@ class PvPHandlersMixin:
                     f"🃏 {deck['deck_name']}  ({card_names})",
                     callback_data=f"pvp_deck_{fight_id}_{deck['deck_id']}"
                 )])
-            keyboard.append([InlineKeyboardButton("⏱ مهلت: ۱۵ دقیقه", callback_data="noop")])
+            keyboard.append([InlineKeyboardButton("⏱ مهلت: ۱ دقیقه", callback_data="noop")])
 
         try:
-            await context.bot.send_message(
+            panel = await context.bot.send_message(
                 chat_id=user_id,
                 text=text,
                 reply_markup=InlineKeyboardMarkup(keyboard),
                 parse_mode='Markdown'
             )
+            message_id = getattr(panel, "message_id", None)
+            if isinstance(message_id, int):
+                context.bot_data[f"deck_selection_panel_{fight_id}_{user_id}"] = message_id
         except Exception as e:
             logger.error(f"Failed to send deck selection to {user_id}: {e}")
 
@@ -1883,6 +1886,15 @@ class PvPHandlersMixin:
         self, context, fight_id: str, user_id: int, deck_id: str
     ) -> tuple:
         """Validate/store deck selection and start battle when both players are ready."""
+        if self.db.cancel_fight_if_expired(fight_id):
+            return False, "مهلت یک‌دقیقه‌ای انتخاب دک تمام شده است", False
+        active_fight = self.db.get_fight_by_id(fight_id)
+        if not active_fight or active_fight.status in (
+            FightStatus.COMPLETED,
+            FightStatus.CANCELLED,
+        ):
+            return False, "این فایت دیگر فعال نیست", False
+
         # بررسی validity دک
         deck_system = DeckSystem(self.db)
         is_valid = deck_system.validate_deck_integrity(user_id, deck_id)
@@ -1956,6 +1968,13 @@ class PvPHandlersMixin:
         deck_state = self.db.get_battle_deck_state(fight_id)
         if deck_state.get('challenger_deck_selected') and deck_state.get('opponent_deck_selected'):
             context.bot_data.pop(f"pvp_{fight_id}_deck_expected_user", None)
+            cancel_job = getattr(self, "_cancel_mode_job", None)
+            if callable(cancel_job):
+                cancel_job(context, f"gm-deck-selection-{fight_id}")
+            self.db.update_fight(
+                fight_id,
+                expires_at=(datetime.now() + timedelta(minutes=15)).isoformat(),
+            )
             # هر دو آماده — تعیین کارت‌های اولیه برای fight و شروع نبرد
             fight = self.db.get_fight_by_id(fight_id)
             if not fight:

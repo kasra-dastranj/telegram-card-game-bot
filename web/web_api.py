@@ -192,6 +192,7 @@ class WebAPI:
             'passive': metadata['passive'],
             'photo_file_id': self.db.get_card_media_file_id(card.card_id, 'photo') or '',
             'sticker_file_id': self.db.get_card_media_file_id(card.card_id, 'sticker') or '',
+            'variants': self.db.get_card_variants(card.card_id),
             'created_at': card.created_at.isoformat(),
         }
     
@@ -256,6 +257,23 @@ class WebAPI:
                 
                 if self.db.add_card(card):
                     self._save_card_extras(card.card_id, payload)
+                    self.db.save_card_variant(
+                        card.card_id,
+                        card.rarity.value,
+                        {
+                            'power': card.power,
+                            'speed': card.speed,
+                            'iq': card.iq,
+                            'popularity': card.popularity,
+                            'abilities': card.abilities,
+                            'card_effects': card.card_effects,
+                            'image_path': card.image_path,
+                            'card_type': card.card_type,
+                            'passive': payload['metadata']['passive'],
+                            'photo_file_id': payload['media'].get('photo', ''),
+                            'sticker_file_id': payload['media'].get('sticker', ''),
+                        },
+                    )
                     return jsonify({
                         'success': True,
                         'message': f'کارت {card.name} با موفقیت اضافه شد',
@@ -298,6 +316,77 @@ class WebAPI:
                 return jsonify({'success': False, 'error': str(e)}), 400
             except Exception as e:
                 return jsonify({'success': False, 'error': str(e)}), 500
+
+        @self.app.route('/api/cards/<card_id>/variants/<rarity>', methods=['PUT'])
+        def update_card_variant(card_id, rarity):
+            """Save shared character details and exactly one Normal/Epic/Legend form."""
+            try:
+                existing = self.db.get_card_by_id(card_id)
+                if not existing:
+                    return jsonify({'success': False, 'error': 'کارت یافت نشد'}), 404
+                if rarity not in {'normal', 'epic', 'legend'}:
+                    return jsonify({'success': False, 'error': 'فرم کارت نامعتبر است'}), 400
+                raw_data = request.get_json(silent=True) or {}
+                payload = self._validate_card_payload(raw_data, existing)
+                duplicate = self.db.get_card_by_name(payload['card'].name)
+                if duplicate and duplicate.card_id != card_id:
+                    return jsonify({'success': False, 'error': 'کارت دیگری با این نام وجود دارد'}), 409
+
+                # متن، Trait، Series و Hidden Stats شخصیت‌محورند؛ اما مشخصات
+                # جنگی و مدیا فقط به فرمی که کاربر انتخاب کرده تعلق دارد.
+                shared = existing
+                incoming = payload['card']
+                shared.name = incoming.name
+                shared.biography = incoming.biography
+                shared.dialogs = incoming.dialogs
+                if rarity == existing.rarity.value:
+                    shared.power = incoming.power
+                    shared.speed = incoming.speed
+                    shared.iq = incoming.iq
+                    shared.popularity = incoming.popularity
+                    shared.abilities = incoming.abilities
+                    shared.card_effects = incoming.card_effects
+                    shared.image_path = incoming.image_path
+                    shared.card_type = incoming.card_type
+                if not self.db.update_card(shared):
+                    return jsonify({'success': False, 'error': 'خطا در ویرایش کارت'}), 500
+
+                old_metadata = self.modes.get_card_metadata(card_id)
+                self.modes.set_card_metadata(
+                    card_id,
+                    traits=payload['metadata']['traits'],
+                    series=payload['metadata']['series'],
+                    hidden_stats=payload['metadata']['hidden_stats'],
+                    passive=old_metadata.get('passive') or {},
+                )
+                variant = self.db.save_card_variant(
+                    card_id,
+                    rarity,
+                    {
+                        'power': incoming.power,
+                        'speed': incoming.speed,
+                        'iq': incoming.iq,
+                        'popularity': incoming.popularity,
+                        'abilities': incoming.abilities,
+                        'card_effects': incoming.card_effects,
+                        'image_path': incoming.image_path,
+                        'card_type': incoming.card_type,
+                        'passive': payload['metadata']['passive'],
+                        'photo_file_id': payload['media'].get('photo', ''),
+                        'sticker_file_id': payload['media'].get('sticker', ''),
+                    },
+                )
+                fresh = self.db.get_card_by_id(card_id)
+                return jsonify({
+                    'success': True,
+                    'message': f"فرم {rarity} کارت {fresh.name} به‌روزرسانی شد",
+                    'card': self._serialize_card(fresh),
+                    'variant': variant,
+                })
+            except ValueError as exc:
+                return jsonify({'success': False, 'error': str(exc)}), 400
+            except Exception as exc:
+                return jsonify({'success': False, 'error': str(exc)}), 500
         
         @self.app.route('/api/cards/<card_id>', methods=['DELETE'])
         def delete_card(card_id):
@@ -551,6 +640,7 @@ class WebAPI:
 
                 file = request.files['image']
                 card_name = request.form.get('card_name', '').strip()
+                rarity = request.form.get('rarity', '').strip().lower()
 
                 if not file or file.filename == '':
                     return jsonify({'success': False, 'message': '', 'error': 'No selected file.'}), 400
@@ -567,6 +657,8 @@ class WebAPI:
                 images_dir.mkdir(parents=True, exist_ok=True)
 
                 card_slug = secure_filename(card_name) or uuid.uuid5(uuid.NAMESPACE_DNS, card_name).hex[:12]
+                if rarity in {'normal', 'epic', 'legend'}:
+                    card_slug = f'{card_slug}_{rarity}'
                 save_name = f"{card_slug}{ext}"
                 file_path = images_dir / save_name
                 file.save(file_path)
@@ -591,6 +683,7 @@ class WebAPI:
 
                 file = request.files['sticker']
                 card_name = request.form.get('card_name', '').strip()
+                rarity = request.form.get('rarity', '').strip().lower()
                 if not file or file.filename == '':
                     return jsonify({'success': False, 'message': 'No selected file.'}), 400
                 if not card_name:
@@ -609,6 +702,8 @@ class WebAPI:
                 card_stem = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', card_stem).strip(' ._')
                 if not card_stem:
                     card_stem = uuid.uuid5(uuid.NAMESPACE_DNS, card_name).hex[:12]
+                if rarity in {'normal', 'epic', 'legend'}:
+                    card_stem = f'{card_stem}_{rarity.upper()}'
                 filename = f'{card_stem}.webp'
                 save_path = stickers_dir / filename
                 file.save(save_path)

@@ -7,6 +7,7 @@ Game Logic - منطق بازی
 import sqlite3
 import random
 import logging
+import uuid
 from datetime import datetime, timedelta
 from typing import Dict, Optional, Tuple
 

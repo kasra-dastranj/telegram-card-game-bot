@@ -37,6 +37,20 @@ from systems.skins_system import SkinsSystem, SKIN_TYPES
 
 logger = logging.getLogger(__name__)
 
+DECK_TURN_TIMEOUT_SECONDS = 60
+DECK_TRAIT_LABELS = {
+    "god": "خدا",
+    "monster": "هیولا",
+    "hero": "قهرمان",
+    "warrior": "جنگجو",
+    "villain": "شرور",
+    "assassin": "آدمکش",
+    "funny": "کمدی",
+    "detective": "کارآگاه",
+    "mage": "جادوگر",
+    "leader": "رهبر",
+}
+
 from bot.utils import (check_user_started_bot, handle_user_not_started, ensure_text_content,
     get_card_image_path, get_victory_dialog, send_card_image_safely, ensure_not_expired,
     REQUIRED_CHANNEL, PANEL_TIMEOUT)
@@ -59,6 +73,98 @@ class BattleHandlersMixin:
     def _battle_attr_label(self, attr: str) -> str:
         return ATTR_NAMES_FA.get(attr, attr)
 
+    def _deck_arena_rule_text(self, arena_id: str) -> str:
+        arena = ARENAS.get(arena_id, ARENAS["power_arena"])
+        compare_stat = arena.get("compare_stat", arena.get("boost_stat", "power"))
+        tiers = []
+        for index, tier in enumerate(arena.get("trait_ranks", []), start=1):
+            labels = "/".join(DECK_TRAIT_LABELS.get(str(value), str(value)) for value in tier)
+            tiers.append(f"T{index} {labels}")
+        tier_line = "، ".join(tiers) or "بدون اولویت Trait"
+        return (
+            f"🏟️ زمین: {arena['emoji']} {arena['name_fa']} — برای هر ۳ راند ثابت\n"
+            f"📐 معیار برد: اول Tierِ Trait زمین؛ سپس {self._battle_attr_label(compare_stat)} بیشتر\n"
+            f"🧬 اولویت Trait: {tier_line}"
+        )
+
+    def _deck_status_header(
+        self,
+        fight_id: str,
+        arena_id: str,
+        round_num: int,
+        challenger_wins: int,
+        opponent_wins: int,
+    ) -> str:
+        fight = self.db.get_fight_by_id(fight_id)
+        ch_name = self._battle_player_name(fight.challenger_id, "Blue") if fight else "Blue"
+        op_name = self._battle_player_name(fight.opponent_id, "Red") if fight else "Red"
+        return (
+            "⚔️ Deck Battle\n"
+            f"📊 🔵 {ch_name} {challenger_wins} — {opponent_wins} {op_name} 🔴\n"
+            f"🎴 راند {round_num} از ۳\n\n"
+            f"{self._deck_arena_rule_text(arena_id)}"
+        )
+
+    async def _upsert_deck_status_message(
+        self,
+        context,
+        fight_id: str,
+        chat_id: int,
+        text: str,
+        reply_markup=None,
+        allow_create: bool = True,
+    ) -> Optional[int]:
+        """Create Deck's single status message once, then edit it in place."""
+        inline_message_id = context.bot_data.get(f"deck_{fight_id}_inline_message_id")
+        if inline_message_id:
+            try:
+                await context.bot.edit_message_text(
+                    inline_message_id=inline_message_id,
+                    text=text,
+                    reply_markup=reply_markup,
+                )
+            except Exception as exc:
+                if "message is not modified" not in str(exc).casefold():
+                    logger.warning("Could not edit inline Deck status for %s: %s", fight_id, exc)
+            return None
+
+        key = f"deck_{fight_id}_status_message"
+        reference = context.bot_data.get(key) or {}
+        message_id = reference.get("message_id")
+        if message_id and reference.get("chat_id") == chat_id:
+            try:
+                await context.bot.edit_message_text(
+                    chat_id=chat_id,
+                    message_id=message_id,
+                    text=text,
+                    reply_markup=reply_markup,
+                )
+                return message_id
+            except Exception as exc:
+                if "message is not modified" in str(exc).casefold():
+                    return message_id
+                logger.warning("Could not edit Deck status message for %s: %s", fight_id, exc)
+                if not allow_create:
+                    return message_id
+                context.bot_data.pop(key, None)
+
+        if not allow_create:
+            logger.warning(
+                "Deck status message reference is missing for %s; skipped duplicate message creation",
+                fight_id,
+            )
+            return None
+
+        sent = await context.bot.send_message(
+            chat_id=chat_id,
+            text=text,
+            reply_markup=reply_markup,
+        )
+        sent_message_id = getattr(sent, "message_id", None)
+        if sent_message_id:
+            context.bot_data[key] = {"chat_id": chat_id, "message_id": sent_message_id}
+        return sent_message_id
+
     def _resolve_card_sticker_path(self, card) -> Optional[str]:
         """Find the Telegram sticker asset for a card before falling back to card art."""
         if not card:
@@ -70,11 +176,14 @@ class BattleHandlersMixin:
 
         normalized = card_name.upper().replace('-', '_')
         variants = []
-        for stem in (
+        rarity = str(getattr(getattr(card, 'rarity', ''), 'value', getattr(card, 'rarity', '')) or '').upper()
+        base_stems = (
             normalized.replace(' ', '_'),
             normalized,
             normalized.replace(' ', ''),
-        ):
+        )
+        # Form-specific stickers win over the old single shared asset.
+        for stem in [*(f"{value}_{rarity}" for value in base_stems if rarity), *base_stems]:
             variants.extend([
                 f"{stem}.webp",
                 f"{stem} (2).webp",
@@ -145,7 +254,8 @@ class BattleHandlersMixin:
 
     async def _get_inline_card_photo_file_id(self, context, user_id: int, card) -> Optional[str]:
         """Get or lazily upload/cache a Telegram photo file_id for inline results."""
-        cached = self.db.get_card_media_file_id(card.card_id, "photo")
+        rarity = str(getattr(getattr(card, "rarity", None), "value", getattr(card, "rarity", "normal")))
+        cached = self.db.get_card_variant_media_file_id(card.card_id, rarity, "photo")
         if cached:
             return cached
 
@@ -169,7 +279,7 @@ class BattleHandlersMixin:
                 )
             file_id = msg.photo[-1].file_id if msg.photo else None
             if file_id:
-                self.db.set_card_media_file_id(card.card_id, file_id, "photo")
+                self.db.set_card_variant_media_file_id(card.card_id, rarity, file_id, "photo")
             try:
                 await context.bot.delete_message(chat_id=cache_chat_id, message_id=msg.message_id)
             except Exception:
@@ -181,7 +291,8 @@ class BattleHandlersMixin:
 
     async def _get_inline_card_sticker_file_id(self, context, user_id: int, card) -> Optional[str]:
         """Get or lazily upload/cache a Telegram sticker file_id for inline results."""
-        cached = self.db.get_card_media_file_id(card.card_id, "sticker")
+        rarity = str(getattr(getattr(card, "rarity", None), "value", getattr(card, "rarity", "normal")))
+        cached = self.db.get_card_variant_media_file_id(card.card_id, rarity, "sticker")
         if cached:
             return cached
 
@@ -203,7 +314,7 @@ class BattleHandlersMixin:
                 )
             file_id = msg.sticker.file_id if msg.sticker else None
             if file_id:
-                self.db.set_card_media_file_id(card.card_id, file_id, "sticker")
+                self.db.set_card_variant_media_file_id(card.card_id, rarity, file_id, "sticker")
             try:
                 await context.bot.delete_message(chat_id=cache_chat_id, message_id=msg.message_id)
             except Exception:
@@ -373,25 +484,34 @@ class BattleHandlersMixin:
         context.bot_data.pop(f"r3_{fight_id}_expected_role", None)
         context.bot_data.pop(f"r3_{fight_id}_effect_expected_role", None)
 
-        # اعلام زمین در گروه
-        if fight.chat_id:
-            ch_name = self._battle_player_name(fight.challenger_id, "Blue")
-            op_name = self._battle_player_name(fight.opponent_id, "Red")
-            arena_text = (
-                f"⚔️ شروع فایت — {arena_info['name_fa']} {arena_info['emoji']}\n\n"
-                f"🔵 {ch_name}\n"
-                f"🔴 {op_name}\n\n"
-                f"🎴 راوند ۱ در گروه"
-            )
-            try:
-                await context.bot.send_message(chat_id=fight.chat_id, text=arena_text)
-            except Exception as e:
-                logger.warning(f"Failed to send arena message: {e}")
-
         # دریافت remaining_cards از battle_states (deck-based)
         deck_state = self.db.get_battle_deck_state(fight_id)
         ch_remaining = deck_state.get('challenger_remaining_cards', [])
         op_remaining = deck_state.get('opponent_remaining_cards', [])
+
+        # اعلام شروع؛ Deck از همین پیام به‌عنوان وضعیت ثابت کل مسابقه استفاده می‌کند.
+        if fight.chat_id:
+            ch_name = self._battle_player_name(fight.challenger_id, "Blue")
+            op_name = self._battle_player_name(fight.opponent_id, "Red")
+            try:
+                if ch_remaining and op_remaining:
+                    arena_text = (
+                        self._deck_status_header(fight_id, arena_id, 1, 0, 0)
+                        + "\n\n⏳ آماده‌سازی انتخاب کارت راند اول..."
+                    )
+                    await self._upsert_deck_status_message(
+                        context, fight_id, fight.chat_id, arena_text
+                    )
+                else:
+                    arena_text = (
+                        f"⚔️ شروع فایت — {arena_info['name_fa']} {arena_info['emoji']}\n\n"
+                        f"🔵 {ch_name}\n"
+                        f"🔴 {op_name}\n\n"
+                        f"🎴 راوند ۱ در گروه"
+                    )
+                    await context.bot.send_message(chat_id=fight.chat_id, text=arena_text)
+            except Exception as e:
+                logger.warning(f"Failed to send arena message: {e}")
 
         if ch_remaining and op_remaining:
             # deck-based: یک پنل مشترک در گروه برای هر دو بازیکن
@@ -1211,8 +1331,6 @@ class BattleHandlersMixin:
                 f"   {op_bonus}"
             )
             fight = self.db.get_fight_by_id(fight_id)
-            if fight and fight.chat_id:
-                await context.bot.send_message(chat_id=fight.chat_id, text=round_text + score_text)
 
             if ch_points > op_points:
                 winner_id, loser_id, result_type = ch_id, op_id, "challenger_wins"
@@ -1224,6 +1342,12 @@ class BattleHandlersMixin:
             await self._finalize_3round_battle(
                 context, fight_id, fight, ch_card, op_card,
                 winner_id, loser_id, result_type, ch_points, op_points,
+                deck_summary=(
+                    self._deck_arena_rule_text(arena_id)
+                    + "\n\n"
+                    + round_text
+                    + score_text
+                ),
             )
             return
 
@@ -1244,9 +1368,7 @@ class BattleHandlersMixin:
         conn.commit()
         conn.close()
 
-        fight = self.db.get_fight_by_id(fight_id)
-        if fight and fight.chat_id:
-            await context.bot.send_message(chat_id=fight.chat_id, text=round_text)
+        context.bot_data[f"deck_{fight_id}_last_round_summary"] = round_text
         context.bot_data[f"r3_{fight_id}_next_first_role"] = (
             "opponent" if next_round == 2 else "challenger"
         )
@@ -1259,7 +1381,8 @@ class BattleHandlersMixin:
                                        ch_card, op_card,
                                        winner_id, loser_id,
                                        result_type: str,
-                                       ch_rounds_won: int, op_rounds_won: int):
+                                       ch_rounds_won: int, op_rounds_won: int,
+                                       deck_summary: Optional[str] = None):
         """پاداش‌دهی نهایی بازی ۳ راوندی"""
         from types import SimpleNamespace
 
@@ -1389,21 +1512,45 @@ class BattleHandlersMixin:
                 final_line = f"🏆 {winner_name}  |  {ch_rounds_won} — {op_rounds_won}"
                 xp_line = f"⭐ +{winner_xp} / +{loser_xp} XP{level_up_text}"
 
-            final_text = (
-                f"🏁 نتیجه نهایی\n\n"
-                f"🔵 {ch_name:<12} {ch_rounds_won}\n"
-                f"🔴 {op_name:<12} {op_rounds_won}\n\n"
-                f"{final_line}\n"
-                f"{xp_line}"
-            )
-
-            keyboard = [[InlineKeyboardButton("🥊 چالش جدید", callback_data="request_pvp_fight")]]
-            try:
-                await context.bot.send_message(
-                    chat_id=fight.chat_id,
-                    text=final_text,
-                    reply_markup=InlineKeyboardMarkup(keyboard)
+            if deck_summary:
+                final_text = (
+                    f"🏁 نتیجه نهایی Deck\n\n"
+                    f"{deck_summary}\n\n"
+                    f"{final_line}\n"
+                    f"{xp_line}"
                 )
+            else:
+                final_text = (
+                    f"🏁 نتیجه نهایی\n\n"
+                    f"🔵 {ch_name:<12} {ch_rounds_won}\n"
+                    f"🔴 {op_name:<12} {op_rounds_won}\n\n"
+                    f"{final_line}\n"
+                    f"{xp_line}"
+                )
+
+            if context.bot_data.get(f"deck_{fight_id}_inline_message_id"):
+                keyboard = [[InlineKeyboardButton("🥊 بازی دوباره", switch_inline_query_current_chat="game")]]
+            else:
+                keyboard = [[InlineKeyboardButton("🥊 چالش جدید", callback_data="request_pvp_fight")]]
+            try:
+                if deck_summary:
+                    await self._upsert_deck_status_message(
+                        context,
+                        fight_id,
+                        fight.chat_id,
+                        final_text,
+                        InlineKeyboardMarkup(keyboard),
+                        allow_create=False,
+                    )
+                    context.bot_data.pop(f"deck_{fight_id}_status_message", None)
+                    context.bot_data.pop(f"deck_{fight_id}_inline_message_id", None)
+                    context.bot_data.pop(f"deck_{fight_id}_last_round_summary", None)
+                else:
+                    await context.bot.send_message(
+                        chat_id=fight.chat_id,
+                        text=final_text,
+                        reply_markup=InlineKeyboardMarkup(keyboard)
+                    )
             except Exception as e:
                 logger.error(f"Failed to send final result: {e}")
 
@@ -1432,37 +1579,6 @@ class BattleHandlersMixin:
     def _other_round_role(self, role: str) -> str:
         return "opponent" if role == "challenger" else "challenger"
 
-    async def _auto_select_single_round_card(
-        self, context, fight_id: str, user_id: int,
-        remaining_card_ids: list
-    ) -> bool:
-        """Auto-select when a player has exactly one card left this round."""
-        if len(remaining_card_ids) != 1:
-            return False
-
-        card_id = remaining_card_ids[0]
-        card = (
-            self.db.get_card_by_id_for_player(card_id, user_id)
-            or self.db.get_card_by_id(card_id)
-        )
-
-        import sqlite3 as _sq
-        conn = _sq.connect(self.db.db_path)
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT challenger_id FROM battle_states WHERE fight_id=?", (fight_id,)
-        )
-        row = cursor.fetchone()
-        conn.close()
-        if not row:
-            return False
-
-        role = 'challenger' if user_id == row[0] else 'opponent'
-        if not context.bot_data.get(f"r3_{fight_id}_{role}_card"):
-            context.bot_data[f"r3_{fight_id}_{role}_card"] = card_id
-            await self._after_round_card_selected(context, fight_id, user_id, role, card)
-        return True
-
     async def _send_round_card_selection_panel(
         self, context, fight_id: str,
         challenger_id: int, opponent_id: int,
@@ -1472,7 +1588,9 @@ class BattleHandlersMixin:
         opponent_played_cards: list = None,
     ):
         """Send the group picker for the player whose turn it is."""
-        arena_info = ARENAS[arena_id]
+        deck_state = self.db.get_battle_deck_state(fight_id)
+        ch_wins = deck_state.get("challenger_rounds_won", 0)
+        op_wins = deck_state.get("opponent_rounds_won", 0)
         context.bot_data[f"r3_{fight_id}_phase"] = "card_selection"
 
         ch_name = self._battle_player_name(challenger_id, "Blue")
@@ -1498,17 +1616,7 @@ class BattleHandlersMixin:
 
         expected_user_id = self._round_user_for_role(expected_role, challenger_id, opponent_id)
         expected_name = ch_name if expected_role == "challenger" else op_name
-        expected_remaining = (
-            challenger_remaining_card_ids if expected_role == "challenger"
-            else opponent_remaining_card_ids
-        )
-
         context.bot_data[f"r3_{fight_id}_expected_role"] = expected_role
-
-        if await self._auto_select_single_round_card(
-            context, fight_id, expected_user_id, expected_remaining
-        ):
-            return
 
         color = "🔵" if expected_role == "challenger" else "🔴"
         keyboard = [[InlineKeyboardButton(
@@ -1524,33 +1632,50 @@ class BattleHandlersMixin:
         op_status = "انتخاب شد" if selected["opponent"] else f"{len(opponent_remaining_card_ids)} کارت"
 
         lines = [
-            f"⚔️ راوند {round_num} — {arena_info['name_fa']} {arena_info['emoji']}",
+            self._deck_status_header(fight_id, arena_id, round_num, ch_wins, op_wins),
+        ]
+        last_round_summary = context.bot_data.get(f"deck_{fight_id}_last_round_summary")
+        if last_round_summary:
+            lines.extend(["", "── نتیجه راند قبل ──", last_round_summary])
+        lines.extend([
             "",
+            "── انتخاب کارت ──",
             f"نوبت: {color} {expected_name}",
             "",
             f"🔵 {ch_name} — {ch_status}",
             f"🔴 {op_name} — {op_status}",
-        ]
+        ])
         if ch_last or op_last:
             lines.append("")
             if ch_last:
                 lines.append(f"آخرین 🔵 {ch_last}")
             if op_last:
                 lines.append(f"آخرین 🔴 {op_last}")
-        lines.extend(["", "انتخاب بازیکن شروع‌کننده در گروه دیده می‌شود؛ انتخاب نهایی است."])
+        if (
+            len(challenger_remaining_card_ids) == 1
+            and len(opponent_remaining_card_ids) == 1
+        ):
+            lines.extend([
+                "",
+                "کارت آخر را دستی تأیید کنید؛ نام و تصویر کارت‌ها پس از انتخاب هر دو بازیکن نمایش داده می‌شود.",
+            ])
+        else:
+            lines.extend(["", "انتخاب بازیکن شروع‌کننده در گروه دیده می‌شود؛ انتخاب نهایی است."])
 
         try:
             fight = self.db.get_fight_by_id(fight_id)
             chat_id = fight.chat_id if fight and fight.chat_id else challenger_id
-            await context.bot.send_message(
-                chat_id=chat_id,
-                text="\n".join(lines),
-                reply_markup=InlineKeyboardMarkup(keyboard),
+            await self._upsert_deck_status_message(
+                context,
+                fight_id,
+                chat_id,
+                "\n".join(lines),
+                InlineKeyboardMarkup(keyboard),
             )
             if context.job_queue:
                 context.job_queue.run_once(
                     self.deck_turn_timeout_job,
-                    30,
+                    DECK_TURN_TIMEOUT_SECONDS,
                     data={
                         "fight_id": fight_id,
                         "round": round_num,
@@ -1562,7 +1687,7 @@ class BattleHandlersMixin:
             logger.error(f"Failed to send shared round card selection for {fight_id}: {e}")
 
     async def deck_turn_timeout_job(self, context):
-        """A missed 30-second Deck turn forfeits the entire match."""
+        """A missed 60-second Deck turn forfeits the entire match."""
         import sqlite3 as _sq
 
         data = context.job.data
@@ -1577,12 +1702,12 @@ class BattleHandlersMixin:
         cursor = conn.cursor()
         cursor.execute(
             """SELECT challenger_id, opponent_id, current_round,
-                      challenger_rounds_won, opponent_rounds_won, status
+                      challenger_rounds_won, opponent_rounds_won, arena, status
                  FROM battle_states WHERE fight_id=?""",
             (fight_id,),
         )
         row = cursor.fetchone()
-        if not row or row[2] != data["round"] or row[5] == "completed":
+        if not row or row[2] != data["round"] or row[6] == "completed":
             conn.close()
             return
         cursor.execute(
@@ -1595,7 +1720,7 @@ class BattleHandlersMixin:
         if not claimed:
             return
 
-        ch_id, op_id, _, ch_wins, op_wins, _ = row
+        ch_id, op_id, _, ch_wins, op_wins, arena_id, _ = row
         loser_id = ch_id if expected_role == "challenger" else op_id
         winner_id = op_id if expected_role == "challenger" else ch_id
         result_type = "opponent_wins" if expected_role == "challenger" else "challenger_wins"
@@ -1609,11 +1734,6 @@ class BattleHandlersMixin:
             return
 
         loser_name = self._battle_player_name(loser_id, "Player")
-        if fight.chat_id:
-            await context.bot.send_message(
-                chat_id=fight.chat_id,
-                text=f"⏱ زمان انتخاب {loser_name} تمام شد؛ کل بازی را باخت.",
-            )
         ch_points = ch_wins * 5
         op_points = op_wins * 5
         if expected_role == "challenger":
@@ -1624,6 +1744,11 @@ class BattleHandlersMixin:
             context, fight_id, fight, ch_card, op_card,
             winner_id, loser_id, result_type,
             ch_points, op_points,
+            deck_summary=(
+                f"{self._deck_arena_rule_text(arena_id)}\n\n"
+                f"⏱ زمان ۶۰ ثانیه‌ای انتخاب {loser_name} تمام شد؛ کل بازی را باخت.\n"
+                f"📊 امتیاز نهایی: 🔵 {ch_points} — {op_points} 🔴"
+            ),
         )
 
     async def _send_round_card_selection(
@@ -1631,10 +1756,7 @@ class BattleHandlersMixin:
         remaining_card_ids: list, arena_id: str, round_num: int,
         opponent_played_cards: list = None
     ):
-        """ارسال UI انتخاب کارت برای یک راوند از کارت‌های باقیمانده دک.
-
-        اگر فقط ۱ کارت مانده، خودکار انتخاب می‌شود.
-        """
+        """ارسال UI انتخاب دستی کارت برای یک راوند از کارت‌های باقیمانده دک."""
         import json as _json
         from systems.battle_system_3rounds import (
             CARD_EFFECTS, ATTR_NAMES_FA, get_card_effects, get_dominant_attr,
@@ -1643,9 +1765,6 @@ class BattleHandlersMixin:
 
         arena_info = ARENAS[arena_id]
         rarity_emoji = {'normal': '🟢', 'epic': '🟣', 'legend': '🟡', 'rare': '🔵'}
-
-        if await self._auto_select_single_round_card(context, fight_id, user_id, remaining_card_ids):
-            return
 
         player_name = self._battle_player_name(user_id, "Player")
         user_token = self._inline_user_token(user_id)
@@ -1843,11 +1962,31 @@ class BattleHandlersMixin:
             f"تصمیم افکت این راوند را مخفی انتخاب کن."
         )
         try:
-            await context.bot.send_message(
-                chat_id=chat_id,
-                text=text,
-                reply_markup=InlineKeyboardMarkup(keyboard)
-            )
+            deck_state = self.db.get_battle_deck_state(fight_id)
+            if deck_state.get("challenger_deck_cards") and deck_state.get("opponent_deck_cards"):
+                deck_text = (
+                    self._deck_status_header(
+                        fight_id,
+                        deck_state.get("arena"),
+                        deck_state.get("current_round", 1),
+                        deck_state.get("challenger_rounds_won", 0),
+                        deck_state.get("opponent_rounds_won", 0),
+                    )
+                    + f"\n\n── تصمیم افکت ──\n{text}"
+                )
+                await self._upsert_deck_status_message(
+                    context,
+                    fight_id,
+                    chat_id,
+                    deck_text,
+                    InlineKeyboardMarkup(keyboard),
+                )
+            else:
+                await context.bot.send_message(
+                    chat_id=chat_id,
+                    text=text,
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
         except Exception as e:
             logger.warning(f"Failed to send effect prompt for {fight_id}: {e}")
             context.bot_data.pop(f"r3_{fight_id}_{role}_effect_pending", None)
@@ -1895,18 +2034,70 @@ class BattleHandlersMixin:
         if ch_media_sent and op_media_sent:
             return
 
-        try:
-            await context.bot.send_message(
-                chat_id=fight.chat_id,
-                text=f"🎴 کارت‌های راوند {current_round}"
-            )
-        except Exception:
-            pass
+        # Peer private inline games cannot receive a new bot message in the
+        # players' chat. Reveal the two previously inserted generic selection
+        # messages in place once both choices have been confirmed.
+        if context.bot_data.get(f"deck_{fight_id}_inline_message_id"):
+            if not ch_media_sent:
+                await self._reveal_hidden_inline_round_card(
+                    context, fight_id, "challenger", ch_id, ch_card
+                )
+            if not op_media_sent:
+                await self._reveal_hidden_inline_round_card(
+                    context, fight_id, "opponent", op_id, op_card
+                )
+            return
 
         if not ch_media_sent:
             await self._send_selected_round_card_media(context, fight_id, ch_id, ch_card)
         if not op_media_sent:
             await self._send_selected_round_card_media(context, fight_id, op_id, op_card)
+
+    async def _reveal_hidden_inline_round_card(
+        self, context, fight_id: str, role: str, user_id: int, card
+    ) -> None:
+        """Reveal a hidden final pick by editing its peer-chat inline message."""
+        message_key = f"r3_{fight_id}_{role}_hidden_inline_message_id"
+        inline_message_id = context.bot_data.pop(message_key, None)
+        if not inline_message_id or not card:
+            return
+
+        player_name = self._battle_player_name(user_id, "Player")
+        caption = f"🎴 {player_name}: {card.name}"
+        try:
+            photo_file_id = await self._get_inline_card_photo_file_id(
+                context, user_id, card
+            )
+            if photo_file_id:
+                try:
+                    await context.bot.edit_message_media(
+                        inline_message_id=inline_message_id,
+                        media=telegram.InputMediaPhoto(
+                            media=photo_file_id,
+                            caption=caption,
+                        ),
+                    )
+                    return
+                except Exception as media_exc:
+                    logger.warning(
+                        "Could not replace hidden inline message with card media for %s/%s: %s",
+                        fight_id,
+                        role,
+                        media_exc,
+                    )
+
+            await context.bot.edit_message_text(
+                inline_message_id=inline_message_id,
+                text=caption,
+                reply_markup=None,
+            )
+        except Exception as exc:
+            logger.warning(
+                "Could not reveal hidden inline card for %s/%s: %s",
+                fight_id,
+                role,
+                exc,
+            )
 
     async def _advance_round_card_turn_or_start_effects(self, context, fight_id: str):
         """Move from first card turn to second, then reveal cards and start effects."""
@@ -2007,6 +2198,11 @@ class BattleHandlersMixin:
 
     async def _send_selected_round_card_media(self, context, fight_id: str, user_id: int, card) -> None:
         """Send the selected card media into the group for the fallback button path."""
+        # In a peer private chat the selected inline result is already the
+        # visible card message. Bots do not receive that peer chat_id, so a
+        # normal send would incorrectly land in the creator's bot DM.
+        if context.bot_data.get(f"deck_{fight_id}_inline_message_id"):
+            return
         fight = self.db.get_fight_by_id(fight_id)
         if not fight or not fight.chat_id or not card:
             return
@@ -2333,6 +2529,11 @@ class BattleHandlersMixin:
         if raw_query.startswith("r3effect "):
             await self._answer_r3_effect_inline_query(update, context)
             return
+        if not raw_query:
+            game_query_handler = getattr(self, "game_inline_query_handler", None)
+            if callable(game_query_handler):
+                await game_query_handler(update, context)
+            return
         if not raw_query.startswith("r3pick "):
             return
 
@@ -2418,6 +2619,7 @@ class BattleHandlersMixin:
 
         player_name = self._battle_player_name(user_id, "Player")
         generic_message = f"🎴 انتخاب کارت {player_name} ثبت شد."
+        hide_single_remaining_card = len(remaining) == 1
 
         for card_id in remaining:
             card = (
@@ -2438,6 +2640,21 @@ class BattleHandlersMixin:
             ]])
             media_key = f"r3_{fight_id}_{user_id}_{card_id}_inline_media"
             context.bot_data[media_key] = False
+
+            # The final card still needs an explicit player action, but it must
+            # remain hidden in the chat until the opponent confirms theirs.
+            if hide_single_remaining_card:
+                context.bot_data[
+                    f"r3_{fight_id}_{user_id}_{card_id}_explicit_confirm"
+                ] = True
+                results.append(InlineQueryResultArticle(
+                    id=result_id,
+                    title=card.name,
+                    description=description,
+                    input_message_content=InputTextMessageContent(generic_message),
+                    reply_markup=confirm_markup,
+                ))
+                continue
 
             sticker_file_id = await self._get_inline_card_sticker_file_id(context, user_id, card)
             if sticker_file_id:
@@ -2548,6 +2765,16 @@ class BattleHandlersMixin:
                 fight_id, target_user_id, user_id,
             )
             return
+        if context.bot_data.get(
+            f"r3_{fight_id}_{user_id}_{card_id}_explicit_confirm"
+        ):
+            logger.info(
+                "Waiting for explicit final-card confirmation: fight=%s user=%s card=%s",
+                fight_id,
+                user_id,
+                card_id,
+            )
+            return
         ok, card, info = await self._record_round_card_selection(
             context, fight_id, user_id, card_id
         )
@@ -2557,6 +2784,13 @@ class BattleHandlersMixin:
         if context.bot_data.get(f"r3_{fight_id}_{user_id}_{card_id}_inline_media"):
             context.bot_data[f"r3_{fight_id}_{info}_media_sent"] = True
         inline_message_id = getattr(chosen, "inline_message_id", None)
+        if (
+            inline_message_id
+            and not context.bot_data.get(f"r3_{fight_id}_{user_id}_{card_id}_inline_media")
+        ):
+            context.bot_data[
+                f"r3_{fight_id}_{info}_hidden_inline_message_id"
+            ] = inline_message_id
         if inline_message_id:
             try:
                 await context.bot.edit_message_reply_markup(
@@ -2657,8 +2891,21 @@ class BattleHandlersMixin:
         if not ok:
             await query.answer(f"❌ {info}", show_alert=True)
             return
+        context.bot_data.pop(
+            f"r3_{fight_id}_{user_id}_{card_id}_explicit_confirm",
+            None,
+        )
         if context.bot_data.get(f"r3_{fight_id}_{user_id}_{card_id}_inline_media"):
             context.bot_data[f"r3_{fight_id}_{info}_media_sent"] = True
+
+        inline_message_id = getattr(query, "inline_message_id", None)
+        if (
+            inline_message_id
+            and not context.bot_data.get(f"r3_{fight_id}_{user_id}_{card_id}_inline_media")
+        ):
+            context.bot_data[
+                f"r3_{fight_id}_{info}_hidden_inline_message_id"
+            ] = inline_message_id
 
         try:
             await query.edit_message_reply_markup(reply_markup=None)

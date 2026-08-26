@@ -250,8 +250,8 @@ class FusionHandlersMixin:
             target_emoji = "🟣" if fusion_type == "epic" else "🟡"
             target_label = "Epic" if fusion_type == "epic" else "Legend"
 
-            # اضافه کردن XP
-            old_level, new_level = self.db.add_xp(user_id, 15 if fusion_type == "epic" else 30)
+            # XP داخل همان تراکنش Fusion ثبت شده است.
+            old_level, new_level = result.old_level, result.new_level
             xp_text = f"\n⬆️ Level Up! {old_level} → {new_level}" if new_level > old_level else ""
 
             text = (
@@ -275,5 +275,4 @@ class FusionHandlersMixin:
         await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
 
     # ==================== RISK MODE HANDLERS ====================
-
 

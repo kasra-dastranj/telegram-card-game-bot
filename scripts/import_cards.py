@@ -7,7 +7,14 @@
 import os
 import uuid
 import random
+import sys
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
 from game_core import DatabaseManager, Card, CardRarity
+from core.card_content import content_for_card, load_card_content
 
 # آمار از پیش تعریف شده برای کارت‌های شناخته‌شده
 KNOWN_CARDS = {
@@ -142,6 +149,7 @@ def get_card_type(stats: dict) -> str:
 
 def main():
     db = DatabaseManager()
+    authored_content = load_card_content()
     
     # کارت‌های موجود در دیتابیس
     existing = {c.name.lower().replace(' ', '_'): c for c in db.get_all_cards()}
@@ -184,6 +192,9 @@ def main():
         
         display_name = filename_to_display_name(filename)
         card_type = get_card_type({"power": power, "speed": speed, "iq": iq, "popularity": popularity})
+        content = content_for_card(display_name, authored_content) or {}
+        biography = str(content.get("biography") or "Biography not available.").strip()
+        dialogs = content.get("victory_lines") if isinstance(content.get("victory_lines"), list) else []
         
         card = Card(
             card_id=str(uuid.uuid4())[:8],
@@ -194,8 +205,8 @@ def main():
             iq=iq,
             popularity=popularity,
             abilities=[],
-            dialogs=[],
-            biography="Biography not available.",
+            dialogs=dialogs,
+            biography=biography,
             image_path=f"card_images/{filename}.png",
             card_type=card_type,
         )

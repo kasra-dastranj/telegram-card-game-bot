@@ -34,8 +34,8 @@ env/
 *.swo
 *~
 
-# Machine-local Codex hook (contains an absolute Graphify executable path)
-.codex/hooks.json
+# Machine-local Codex configuration and installed skills
+.codex/
 
 # OS Files
 .DS_Store
@@ -46,6 +46,8 @@ desktop.ini
 *.backup
 *.bak
 *.backup_*
+*.db.bak*
+*.db.before_*
 
 # Temporary Files
 *.tmp
@@ -55,6 +57,7 @@ tmp/
 # Build Files
 build/
 dist/
+node_modules/
 *.egg-info/
 
 # Generated Graphify knowledge graph (rebuild locally with `graphify update .`)
@@ -64,4 +67,7 @@ graphify-out/
 .coverage
 htmlcov/
 .pytest_cache/
+.pytest-*/
 .test-tmp*/
+.deploy-staging-*/
+telbattle-deploy-*.tar.gz

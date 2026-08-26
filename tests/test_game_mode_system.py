@@ -5,7 +5,7 @@ import pytest
 from core.database import DatabaseManager
 from core.models import Card, CardRarity
 from systems.battle_system_3rounds import BattleSystem3Rounds
-from systems.game_mode_system import GameModeSystem
+from systems.game_mode_system import GameModeSystem, bidi_isolate
 
 
 def _card(card_id: str, power: int, speed: int, iq: int, popularity: int) -> Card:
@@ -73,6 +73,39 @@ def test_expired_invite_is_rejected(mode_system):
     assert mode_system.get_request(request["request_id"])["status"] == "expired"
 
 
+def test_cancel_fight_if_expired_only_touches_requested_fight(tmp_path):
+    db = DatabaseManager(str(tmp_path / "scoped-expiry.sqlite"))
+    expired_id = db.create_fight(1, 2, -1001)
+    active_id = db.create_fight(3, 4, -1002)
+    db.update_fight(
+        expired_id,
+        expires_at=(datetime.now() - timedelta(seconds=1)).isoformat(),
+    )
+    db.update_fight(
+        active_id,
+        expires_at=(datetime.now() + timedelta(minutes=5)).isoformat(),
+    )
+
+    assert db.cancel_fight_if_expired(expired_id)
+    assert db.get_fight_by_id(expired_id).status.value == "cancelled"
+    assert db.get_fight_by_id(active_id).status.value != "cancelled"
+
+
+def test_inline_private_challenge_persists_editable_message_reference(mode_system):
+    request = mode_system.create_inline_private_challenge(1, "deck", "random")
+    mode_system.update_inline_message_reference(request["request_id"], "inline-message-42")
+
+    stored = mode_system.get_request(request["request_id"])
+    assert stored["source"] == "inline_private"
+    assert stored["origin_chat_id"] == 1
+    assert stored["origin_inline_message_id"] == "inline-message-42"
+
+
+def test_inline_private_challenge_rejects_invalid_mode(mode_system):
+    with pytest.raises(ValueError, match="invalid_inline_game"):
+        mode_system.create_inline_private_challenge(1, "easy", "normal")
+
+
 def test_random_queue_only_matches_same_variant(mode_system):
     status, normal = mode_system.matchmake_random(1, "quick", "normal")
     assert status == "waiting"
@@ -116,6 +149,35 @@ def test_quick_choices_are_locked_and_report_is_persisted(mode_system, monkeypat
     assert report["request_id"] == request["request_id"]
     assert mode_system.get_report(request["request_id"]) == report
     assert mode_system.get_request(request["request_id"])["status"] == "completed"
+
+
+def test_quick_stat_preview_matches_resolution_math(mode_system):
+    mode_system.set_card_metadata(
+        "alpha",
+        passive={
+            "name": "Desert strength",
+            "condition": {"arena": "desert"},
+            "effect": {"stat": "power", "delta": 3},
+        },
+    )
+    state = {
+        "players": [1, 2],
+        "cards": {"1": "alpha", "2": "beta"},
+        "arena": "desert",
+        "ability_choices": {"1": "skip", "2": "weaken_power"},
+    }
+
+    preview = mode_system.quick_stat_preview(state, 1)
+
+    assert preview["card_name"] == "Alpha"
+    assert preview["base_values"] == {"power": 90, "speed": 30, "iq": 40, "popularity": 50}
+    assert preview["final_values"] == {"power": 93, "speed": 29, "iq": 40, "popularity": 50}
+    assert preview["passive"] == {"name": "Desert strength", "stat": "power", "delta": 3}
+    assert preview["opponent_ability_effect"] == {
+        "ability": "weaken_power",
+        "stat": "power",
+        "delta": -2,
+    }
 
 
 def test_easy_first_choice_is_final_and_ties_share_points(mode_system):
@@ -186,6 +248,14 @@ def test_easy_composite_questions_only_offer_eligible_cards(mode_system):
     pool = mode_system._easy_question_pool([1, 2])
     assert any(question.get("trait") == "Hero" for question in pool)
     assert any(question.get("series") == "Telverse" for question in pool)
+    trait_question = next(question for question in pool if question.get("trait") == "Hero")
+    assert "با ویژگی" in trait_question["text"]
+    assert "Trait" not in trait_question["text"]
+    assert "«" not in trait_question["text"]
+    assert bidi_isolate("Hero") in trait_question["text"]
+    series_question = next(question for question in pool if question.get("series") == "Telverse")
+    assert "«" not in series_question["text"]
+    assert bidi_isolate("Telverse") in series_question["text"]
 
     request = mode_system.create_easy_lobby(1, -100, rounds=1)
     mode_system.join_easy_lobby(request["request_id"], 2)

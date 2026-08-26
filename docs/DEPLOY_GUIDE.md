@@ -14,25 +14,29 @@
 
 ## 📤 دستورات آپلود به سرور
 
+> احراز هویت production فقط با کلید اختصاصی خارج از repository انجام می‌شود:
+> `%USERPROFILE%\.ssh\telbattle_deploy_ed25519`. رمز، token یا private key را
+> هرگز داخل فایل‌های پروژه ثبت نکنید.
+
 ### مرحله 1: آپلود فایل‌های اصلی
-```bash
+```powershell
 # آپلود web_api.py (تغییر کرده)
-scp "C:\Users\lenovo\Desktop\card game\web_api.py" root@195.248.243.122:"/root/card game/"
+scp -i "$env:USERPROFILE\.ssh\telbattle_deploy_ed25519" "C:\Users\lenovo\Desktop\card game\web_api.py" root@89.106.206.220:"/root/card game/"
 
 # آپلود پنل ادمین جدید
-scp "C:\Users\lenovo\Desktop\card game\admin_panel_offline.html" root@195.248.243.122:"/root/card game/"
+scp -i "$env:USERPROFILE\.ssh\telbattle_deploy_ed25519" "C:\Users\lenovo\Desktop\card game\admin_panel_offline.html" root@89.106.206.220:"/root/card game/"
 
 # آپلود telegram_bot.py (در صورت تغییر)
-scp "C:\Users\lenovo\Desktop\card game\telegram_bot.py" root@195.248.243.122:"/root/card game/"
+scp -i "$env:USERPROFILE\.ssh\telbattle_deploy_ed25519" "C:\Users\lenovo\Desktop\card game\telegram_bot.py" root@89.106.206.220:"/root/card game/"
 
 # آپلود game_core.py (در صورت تغییر)
-scp "C:\Users\lenovo\Desktop\card game\game_core.py" root@195.248.243.122:"/root/card game/"
+scp -i "$env:USERPROFILE\.ssh\telbattle_deploy_ed25519" "C:\Users\lenovo\Desktop\card game\game_core.py" root@89.106.206.220:"/root/card game/"
 ```
 
 ### مرحله 2: اتصال به سرور
-```bash
-ssh root@195.248.243.122
-# Password: Kasra@2025!
+```powershell
+ssh -i "$env:USERPROFILE\.ssh\telbattle_deploy_ed25519" root@89.106.206.220
+# Authentication: dedicated SSH key (private key is stored outside the repository)
 ```
 
 ### مرحله 3: رفتن به پوشه پروژه
@@ -82,7 +86,7 @@ tail -f bot.log
 
 ## 🌐 دسترسی به پنل ادمین
 
-**آدرس**: http://195.248.243.122:5000
+**آدرس سرور**: https://89-106-206-220.nip.io
 
 ### ویژگی‌های پنل:
 - ⚙️ **تنظیمات بازی**: تغییر تعداد جان روزانه

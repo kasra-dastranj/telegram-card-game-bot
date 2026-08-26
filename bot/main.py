@@ -9,7 +9,8 @@ import json
 import os
 import logging
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time as dt_time
+from zoneinfo import ZoneInfo
 from typing import Optional, List, Dict, Any
 
 import telegram
@@ -50,19 +51,23 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+# Bot API request URLs contain the token. Keep transport libraries out of INFO
+# logs so credentials never land in bot.log or the systemd journal.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 # ==================== CONFIG ====================
 
 # Required channel for bot usage
 REQUIRED_CHANNEL = '@KhasteNews'
 
-# Panel expiration timeout (15 minutes)
-PANEL_TIMEOUT = 15 * 60
+# Panel expiration timeout (1 minute)
+PANEL_TIMEOUT = 60
 
 # Command scope definitions
 PRIVATE_CHAT_COMMANDS = [
     BotCommand("start", "شروع بازی و نمایش منوی اصلی"),
-    BotCommand("fight", "شروع Quick Match"),
+    BotCommand("fight", "شروع Quick یا Deck"),
     BotCommand("profile", "نمایش پروفایل و آمار شخصی"),
     BotCommand("cards", "مشاهده کارت‌های جمع‌آوری شده"),
     BotCommand("claim", "دریافت کارت روزانه رایگان"),
@@ -80,7 +85,7 @@ GROUP_CHAT_COMMANDS = [
 
 DEFAULT_CONFIG = {
     "bot_settings": {
-        "token": "8494533147:AAGKuMEg0gyIEiInzBqU9pSwIUyE_Lum6h4",
+        "token": "YOUR_BOT_TOKEN_HERE",
         "admin_user_ids": [5735941901, 1431545583],
         "webhook_url": None,
         "webhook_port": 8443
@@ -241,7 +246,7 @@ async def send_card_image_safely(message, card_name: str, config: Dict, caption:
 # ==================== PANEL EXPIRATION FUNCTIONS ====================
 
 def ensure_not_expired(query, db: DatabaseManager = None, context: ContextTypes.DEFAULT_TYPE = None) -> bool:
-    """Check if a callback query is from an expired panel. Auto-expires after 15 minutes in any chat.
+    """Check if a callback query is from an expired panel. Auto-expires after 1 minute in any chat.
     Also cancels ghost fights in DB and notifies group if possible.
     """
     try:
@@ -251,7 +256,7 @@ def ensure_not_expired(query, db: DatabaseManager = None, context: ContextTypes.
         if message_age > PANEL_TIMEOUT:
             # پاکسازی فایت‌های منقضی و لغو آن‌ها
             try:
-                (db or DatabaseManager()).cleanup_expired_fights(15)
+                (db or DatabaseManager()).cleanup_expired_fights(PANEL_TIMEOUT // 60)
             except Exception as e:
                 logger.warning(f"Cleanup on expiration failed: {e}")
             
@@ -298,7 +303,7 @@ from bot.handlers.fusion import FusionHandlersMixin
 from bot.handlers.risk import RiskHandlersMixin
 from bot.handlers.pvp import PvPHandlersMixin
 from bot.handlers.deck import DeckHandlersMixin
-from bot.handlers.game_modes import GameModeHandlersMixin
+from bot.handlers.game_modes import GameModeHandlersMixin, GAME_INLINE_QUERY_PATTERN
 
 
 class TelegramCardBot(
@@ -314,9 +319,18 @@ class TelegramCardBot(
     def __init__(self, config_path: str = "game_config.json"):
         # بارگیری تنظیمات
         self.config = self._load_config(config_path)
+
+        # Production paths can be supplied by systemd without rewriting the
+        # developer's local game_config.json.
+        image_settings = self.config.setdefault("image_settings", {})
+        if os.environ.get("CARD_IMAGES_PATH"):
+            image_settings["card_images_path"] = os.environ["CARD_IMAGES_PATH"]
+        if os.environ.get("DEFAULT_CARD_IMAGE"):
+            image_settings["default_card_image"] = os.environ["DEFAULT_CARD_IMAGE"]
         
         # راه‌اندازی سیستم‌های پایه
-        self.db = DatabaseManager()
+        database_path = os.environ.get("DATABASE_PATH") or os.environ.get("DB_PATH", "game_bot.db")
+        self.db = DatabaseManager(database_path)
         self.game = GameLogic(self.db, self.config)
         self.card_manager = CardManager(self.db)
 
@@ -474,6 +488,7 @@ class TelegramCardBot(
         app.add_handler(CallbackQueryHandler(self.game_mode_select_handler, pattern="^gm_mode_"))
         app.add_handler(CallbackQueryHandler(self.game_variant_handler, pattern="^gm_variant_"))
         app.add_handler(CallbackQueryHandler(self.game_source_handler, pattern="^gm_source_"))
+        app.add_handler(CallbackQueryHandler(self.game_inline_accept_handler, pattern="^gm_inline_accept_"))
         app.add_handler(CallbackQueryHandler(self.game_accept_handler, pattern="^gm_accept_"))
         app.add_handler(CallbackQueryHandler(self.game_cancel_handler, pattern="^gm_cancel_"))
         app.add_handler(CallbackQueryHandler(self.quick_card_page_handler, pattern="^gm_qpage_"))
@@ -484,6 +499,7 @@ class TelegramCardBot(
         app.add_handler(CallbackQueryHandler(self.easy_round_count_handler, pattern="^gm_erounds_"))
         app.add_handler(CallbackQueryHandler(self.easy_ready_handler, pattern="^gm_eready_"))
         app.add_handler(CallbackQueryHandler(self.easy_start_handler, pattern="^gm_estart_"))
+        app.add_handler(CallbackQueryHandler(self.easy_inline_confirm_handler, pattern=r"^ez\|"))
         app.add_handler(CallbackQueryHandler(self.accept_pvp_random_handler, pattern="^accept_pvp_random_"))
         app.add_handler(CallbackQueryHandler(self.accept_pvp_fight_handler, pattern="^accept_pvp_"))
         app.add_handler(CallbackQueryHandler(self.pvp_cards_navigation_handler, pattern="^pvp_cards_"))
@@ -498,6 +514,13 @@ class TelegramCardBot(
         app.add_handler(CallbackQueryHandler(self.toggle_favorite_handler, pattern="^toggle_fav_"))
 
         # ==================== فاز ۲: 3-Round Battle ====================
+        app.add_handler(
+            InlineQueryHandler(
+                self.game_inline_query_handler,
+                pattern=GAME_INLINE_QUERY_PATTERN,
+            )
+        )
+        app.add_handler(ChosenInlineResultHandler(self.game_inline_chosen_handler, pattern=r"^gmi\|"))
         app.add_handler(InlineQueryHandler(self.easy_inline_query_handler, pattern=r"^easy\s"))
         app.add_handler(ChosenInlineResultHandler(self.easy_chosen_inline_handler, pattern=r"^ez\|"))
         app.add_handler(InlineQueryHandler(self.r3_inline_card_query_handler))
@@ -674,6 +697,37 @@ def setup_image_directories(config: Dict):
     print(f"🖼 پوشه‌های تصاویر آماده شد:")
     print(f"   🎴 کارت‌ها: {cards_path}")
 
+# ==================== JOB SCHEDULING ====================
+
+MAINTENANCE_TIMEZONE = ZoneInfo("Asia/Tehran")
+
+
+def schedule_maintenance_jobs(job_queue, bot):
+    """Register maintenance jobs without running daily/weekly jobs on startup."""
+    job_queue.run_repeating(
+        bot.cleanup_task,
+        interval=3600,
+        first=10,
+        name="hourly-cleanup",
+    )
+    job_queue.run_daily(
+        bot.reset_lives_task,
+        time=dt_time(hour=0, minute=5, tzinfo=MAINTENANCE_TIMEZONE),
+        name="daily-reset-lives",
+    )
+    job_queue.run_daily(
+        bot.tier_decay_task,
+        time=dt_time(hour=0, minute=10, tzinfo=MAINTENANCE_TIMEZONE),
+        name="daily-tier-decay",
+    )
+    job_queue.run_daily(
+        bot.weekly_leaderboard_task,
+        time=dt_time(hour=0, minute=15, tzinfo=MAINTENANCE_TIMEZONE),
+        days=(1,),  # python-telegram-bot maps Monday to 1.
+        name="weekly-leaderboard",
+    )
+
+
 # ==================== MAIN FUNCTION ====================
 
 def main():
@@ -705,10 +759,7 @@ def main():
         
         # تنظیم تسک تمیزکردن (اگر JobQueue در دسترس باشد)
         if application.job_queue:
-            application.job_queue.run_repeating(bot.cleanup_task, interval=3600, first=10)
-            application.job_queue.run_repeating(bot.reset_lives_task, interval=86400, first=20)
-            application.job_queue.run_repeating(bot.tier_decay_task, interval=86400, first=30)
-            application.job_queue.run_repeating(bot.weekly_leaderboard_task, interval=604800, first=60)
+            schedule_maintenance_jobs(application.job_queue, bot)
             print("✅ تسک‌های تمیزکاری، Tier Decay و لیدربرد هفتگی فعال شدند")
         else:
             print("⚠️ JobQueue در دسترس نیست - تمیزکاری خودکار غیرفعال")

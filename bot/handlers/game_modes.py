@@ -6,7 +6,9 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import random
+from datetime import datetime, timedelta
 from urllib.parse import quote
 
 from telegram import (
@@ -20,7 +22,9 @@ from telegram import (
 )
 from telegram.ext import ContextTypes
 
-from systems.deck_system import DeckSystem
+from bot.utils import get_victory_dialog
+from core.models import FightStatus
+from systems.deck_system import DeckSystem, DECK_SELECTION_TTL_SECONDS
 from systems.game_mode_system import (
     ABILITY_DEFINITIONS,
     EASY_CHOICE_TTL_SECONDS,
@@ -28,10 +32,13 @@ from systems.game_mode_system import (
     QUICK_CHOICE_TTL_SECONDS,
     QUICK_GROUP_TTL_SECONDS,
     QUICK_INVITE_TTL_SECONDS,
+    bidi_isolate,
 )
 
 
 logger = logging.getLogger(__name__)
+
+GAME_INLINE_QUERY_PATTERN = r"^(?:\s*$|game(?:\s|$)|بازی(?:\s|$))"
 
 STAT_LABELS = {
     "power": "💪 قدرت",
@@ -74,7 +81,12 @@ class GameModeHandlersMixin:
                 ]
             )
         else:
-            keyboard.append([InlineKeyboardButton("🗂 مدیریت دک‌ها", callback_data="deck_menu")])
+            keyboard.extend(
+                [
+                    [InlineKeyboardButton("🃏 Deck Mode", callback_data="gm_mode_deck")],
+                    [InlineKeyboardButton("🗂 مدیریت دک‌ها", callback_data="deck_menu")],
+                ]
+            )
         return "🎮 حالت بازی را انتخاب کن:", InlineKeyboardMarkup(keyboard)
 
     async def game_mode_select_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -97,9 +109,6 @@ class GameModeHandlersMixin:
             return
         if mode not in ("quick", "deck"):
             await query.answer("حالت نامعتبر است.", show_alert=True)
-            return
-        if mode == "deck" and not is_group:
-            await query.answer("Deck Mode فعلاً از داخل گروه شروع می‌شود.", show_alert=True)
             return
         keyboard = [
             [InlineKeyboardButton("🎯 Normal", callback_data=f"gm_variant_{mode}_normal")],
@@ -144,16 +153,172 @@ class GameModeHandlersMixin:
             )
             return
 
-        if mode != "quick":
-            await query.answer("این حالت در پیوی فعال نیست.", show_alert=True)
-            return
-        keyboard = [
-            [InlineKeyboardButton("🌍 حریف تصادفی", callback_data=f"gm_source_{mode}_{variant}_queue")],
-            [InlineKeyboardButton("🔗 دعوت با لینک", callback_data=f"gm_source_{mode}_{variant}_invite")],
-        ]
+        keyboard = [[
+            InlineKeyboardButton(
+                "👤 انتخاب بازی در پی‌وی دوست",
+                switch_inline_query="",
+            )
+        ]]
+        if mode == "quick":
+            keyboard.extend(
+                [
+                    [InlineKeyboardButton("🌍 حریف تصادفی", callback_data=f"gm_source_{mode}_{variant}_queue")],
+                    [InlineKeyboardButton("🔗 دعوت با لینک", callback_data=f"gm_source_{mode}_{variant}_invite")],
+                ]
+            )
         await query.edit_message_text(
-            "حریف را چطور پیدا کنیم؟", reply_markup=InlineKeyboardMarkup(keyboard)
+            "حریف را چطور پیدا کنیم؟\n\n"
+            "برای بازی داخل گفت‌وگوی خصوصی دوستت، دکمه‌ی اول را بزن؛ سپس همان‌جا یکی از حالت‌های Quick یا Deck را انتخاب کن.",
+            reply_markup=InlineKeyboardMarkup(keyboard),
         )
+
+    async def game_inline_query_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Offer Quick/Deck invitations inside a Telegram peer private chat."""
+        inline_query = update.inline_query
+        chat_type = getattr(inline_query, "chat_type", None)
+        if chat_type not in (None, "private", "sender"):
+            return
+        raw = (inline_query.query or "").strip().casefold()
+        parts = raw.split()
+        options = []
+        if not parts or parts in (["game"], ["بازی"]):
+            options = [
+                ("quick", "normal"),
+                ("quick", "random"),
+                ("deck", "normal"),
+                ("deck", "random"),
+            ]
+        elif len(parts) == 3 and parts[0] in ("game", "بازی"):
+            mode, variant = parts[1], parts[2]
+            if mode in ("quick", "deck") and variant in ("normal", "random"):
+                options = [(mode, variant)]
+        if not options:
+            return
+
+        user_id = inline_query.from_user.id
+        username = context.bot.username or "TelBattleBot"
+        if not self.db.get_player_cards(user_id):
+            await inline_query.answer(
+                [
+                    InlineQueryResultArticle(
+                        id="game-start-required",
+                        title="اول ربات را شروع کن",
+                        description="برای بازی حداقل یک کارت لازم است",
+                        input_message_content=InputTextMessageContent(
+                            "🎴 برای بازی TelBattle ابتدا ربات را Start کن."
+                        ),
+                        reply_markup=InlineKeyboardMarkup(
+                            [[InlineKeyboardButton("🚀 شروع ربات", url=f"https://t.me/{username}?start=inline_game")]]
+                        ),
+                    )
+                ],
+                cache_time=0,
+                is_personal=True,
+            )
+            return
+
+        creator_name = (inline_query.from_user.first_name or "بازیکن").replace("\n", " ")[:24]
+        results = []
+        deck_system = DeckSystem(self.db)
+        for mode, variant in options:
+            if mode == "deck" and variant == "normal" and not deck_system.get_valid_decks(user_id):
+                continue
+            if mode == "deck" and variant == "random" and len(self.db.get_player_cards(user_id)) < 3:
+                continue
+            request = self.modes.create_inline_private_challenge(user_id, mode, variant)
+            mode_title = "Quick" if mode == "quick" else "Deck"
+            variant_title = "Normal" if variant == "normal" else "Random"
+            emoji = "⚡" if mode == "quick" else "🃏"
+            text = (
+                f"{emoji} دعوت {mode_title} / {variant_title}\n\n"
+                f"{creator_name} منتظر یک حریف است.\n"
+                "دوستش می‌تواند با دکمه‌ی پایین وارد بازی شود.\n"
+                f"⏳ اعتبار دعوت: {QUICK_GROUP_TTL_SECONDS} ثانیه"
+            )
+            results.append(
+                InlineQueryResultArticle(
+                    id=f"gmi|{request['request_id']}",
+                    title=f"{emoji} {mode_title} — {variant_title}",
+                    description="ارسال دعوت بازی در همین پی‌وی",
+                    input_message_content=InputTextMessageContent(text),
+                    reply_markup=InlineKeyboardMarkup(
+                        [[InlineKeyboardButton("✊ قبول مبارزه", callback_data=f"gm_inline_accept_{request['request_id']}")]]
+                    ),
+                )
+            )
+
+        if not results:
+            results.append(
+                InlineQueryResultArticle(
+                    id="game-deck-required",
+                    title="دک یا کارت کافی نداری",
+                    description="برای Normal یک دک کامل و برای Random سه کارت لازم است",
+                    input_message_content=InputTextMessageContent(
+                        "⚠️ برای این حالت باید ابتدا کارت‌ها و دک خودت را کامل کنی."
+                    ),
+                )
+            )
+        await inline_query.answer(results, cache_time=0, is_personal=True)
+
+    async def game_inline_chosen_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Attach Telegram's editable inline-message reference to the chosen invite."""
+        chosen = update.chosen_inline_result
+        if not chosen.result_id.startswith("gmi|"):
+            return
+        request_id = chosen.result_id.split("|", 1)[1]
+        request = self.modes.get_request(request_id)
+        inline_message_id = getattr(chosen, "inline_message_id", None)
+        if not request or request["creator_id"] != chosen.from_user.id or not inline_message_id:
+            return
+        self.modes.update_inline_message_reference(request_id, inline_message_id)
+        self._schedule_mode_job(
+            context,
+            self.game_request_expire_job,
+            QUICK_GROUP_TTL_SECONDS,
+            {"request_id": request_id},
+            f"gm-inline-expire-{request_id}",
+        )
+
+    async def game_inline_accept_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        query = update.callback_query
+        request_id = query.data.removeprefix("gm_inline_accept_")
+        request = self.modes.get_request(request_id)
+        if not request or request.get("source") != "inline_private":
+            await query.answer("این دعوت معتبر نیست.", show_alert=True)
+            return
+        if request["creator_id"] == query.from_user.id:
+            await query.answer("نمی‌توانی دعوت خودت را قبول کنی.", show_alert=True)
+            return
+        if not self.db.get_player_cards(query.from_user.id):
+            await query.answer("ابتدا ربات را Start کن و حداقل یک کارت بگیر.", show_alert=True)
+            return
+
+        player_ids = (request["creator_id"], query.from_user.id)
+        if request["mode"] == "deck":
+            if request["variant"] == "normal":
+                deck_system = DeckSystem(self.db)
+                if any(not deck_system.get_valid_decks(user_id) for user_id in player_ids):
+                    await query.answer("هر دو بازیکن باید یک دک کامل سه‌کارته داشته باشند.", show_alert=True)
+                    return
+            elif any(len(self.db.get_player_cards(user_id)) < 3 for user_id in player_ids):
+                await query.answer("هر دو بازیکن برای Random Deck حداقل سه کارت لازم دارند.", show_alert=True)
+                return
+
+        inline_message_id = query.inline_message_id
+        if inline_message_id:
+            self.modes.update_inline_message_reference(request_id, inline_message_id)
+        ok, reason, accepted = self.modes.accept_request(request_id, query.from_user.id)
+        if not ok:
+            message = "زمان دعوت تمام شده است." if reason == "expired" else "این دعوت قبلاً پذیرفته شده است."
+            await query.answer(message, show_alert=True)
+            if reason == "expired":
+                await query.edit_message_text("⏳ این دعوت منقضی شده است.")
+            return
+        await query.answer("بازی شروع شد!")
+        await query.edit_message_text(
+            "✅ دعوت پذیرفته شد؛ انتخاب‌های بازی برای هر بازیکن باز می‌شود."
+        )
+        await self._launch_mode_match(context, accepted)
 
     async def game_source_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
@@ -269,8 +434,16 @@ class GameModeHandlersMixin:
 
     @staticmethod
     def _schedule_mode_job(context, callback, seconds: int, data: dict, name: str):
-        if context.job_queue:
+        if getattr(context, "job_queue", None):
             context.job_queue.run_once(callback, seconds, data=data, name=name)
+
+    @staticmethod
+    def _cancel_mode_job(context, name: str):
+        job_queue = getattr(context, "job_queue", None)
+        if not job_queue:
+            return
+        for job in job_queue.get_jobs_by_name(name):
+            job.schedule_removal()
 
     async def game_request_expire_job(self, context: ContextTypes.DEFAULT_TYPE):
         request_id = context.job.data["request_id"]
@@ -283,13 +456,30 @@ class GameModeHandlersMixin:
             "⏳ زمان درخواست تمام شد.\nاین درخواست منقضی شد.",
         )
 
-    async def _edit_request_panel(self, context, request, text: str):
+    async def _edit_request_panel(self, context, request, text: str, reply_markup=None):
+        inline_message_id = request.get("origin_inline_message_id")
+        if inline_message_id:
+            try:
+                await context.bot.edit_message_text(
+                    inline_message_id=inline_message_id,
+                    text=text,
+                    reply_markup=reply_markup,
+                )
+            except Exception as exc:
+                if "message is not modified" not in str(exc).casefold():
+                    logger.debug("Could not edit inline request panel %s: %s", request.get("request_id"), exc)
+            return
         chat_id = request.get("origin_chat_id")
         message_id = request.get("origin_message_id")
         if not chat_id or not message_id:
             return
         try:
-            await context.bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=text)
+            await context.bot.edit_message_text(
+                chat_id=chat_id,
+                message_id=message_id,
+                text=text,
+                reply_markup=reply_markup,
+            )
         except Exception as exc:
             logger.debug("Could not edit request panel %s: %s", request.get("request_id"), exc)
 
@@ -379,16 +569,50 @@ class GameModeHandlersMixin:
         details = "\n".join(modifiers + rules) or "بدون تغییر عددی یا قانون ویژه"
         return f"{arena['emoji']} زمین: {arena['name']}\n{details}"
 
+    async def _send_quick_random_card_preview(self, context, user_id: int, card) -> None:
+        """Show the auto-selected Random card before the player chooses an Ability."""
+        if not card:
+            return
+        resolver = getattr(self, "_resolve_card_media_path", None)
+        media_path = resolver(card) if callable(resolver) else None
+        if not media_path or not os.path.exists(media_path):
+            return
+        try:
+            with open(media_path, "rb") as media:
+                if media_path.lower().endswith(".webp"):
+                    await context.bot.send_sticker(chat_id=user_id, sticker=media)
+                else:
+                    await context.bot.send_photo(
+                        chat_id=user_id,
+                        photo=media,
+                        caption=f"🎲 کارت تصادفی شما: {card.name}",
+                    )
+        except Exception as exc:
+            logger.warning("Could not send Random Quick card preview to %s: %s", user_id, exc)
+
     async def _send_quick_ability_panels(self, context, request_id: str, state: dict):
         arena = self.modes._arena(state["arena"])
         for user_id in state["players"]:
+            card_id = state.get("cards", {}).get(str(user_id))
+            card = None
+            if card_id:
+                card = self.db.get_card_by_id_for_player(card_id, user_id) or self.db.get_card_by_id(card_id)
+            if state.get("variant") == "random":
+                await self._send_quick_random_card_preview(context, user_id, card)
             abilities = self.modes.list_player_abilities(user_id) if arena.get("abilities_enabled", True) else []
             keyboard = [
                 [InlineKeyboardButton(f"{item['title']} ×{item['quantity']}", callback_data=f"gm_qability_{request_id}_{item['ability_key']}")]
                 for item in abilities
             ]
             keyboard.append([InlineKeyboardButton("بدون Ability", callback_data=f"gm_qability_{request_id}_skip")])
-            text = self._quick_arena_text(state) + "\n\nیک Ability مصرفی انتخاب کن یا رد شو."
+            card_line = (
+                f"🎲 کارت تصادفی شما: {card.name}"
+                if state.get("variant") == "random" and card
+                else f"🎴 کارت شما: {card.name}"
+                if card
+                else "🎴 کارت انتخاب‌شده پیدا نشد"
+            )
+            text = self._quick_arena_text(state) + f"\n\n{card_line}\n\nیک Ability مصرفی انتخاب کن یا رد شو."
             try:
                 await context.bot.send_message(chat_id=user_id, text=text, reply_markup=InlineKeyboardMarkup(keyboard))
             except Exception as exc:
@@ -426,11 +650,27 @@ class GameModeHandlersMixin:
                 if opponent_card:
                     extra = f"\n👁 کارت حریف: {opponent_card.name}"
             allowed = self.modes.allowed_quick_stats(state, user_id)
+            try:
+                preview = self.modes.quick_stat_preview(state, user_id)
+            except ValueError as exc:
+                logger.warning("Could not build Quick stat preview for %s: %s", user_id, exc)
+                continue
             keyboard = [
-                [InlineKeyboardButton(STAT_LABELS[stat], callback_data=f"gm_qstat_{request_id}_{stat}")]
+                [
+                    InlineKeyboardButton(
+                        f"{STAT_LABELS[stat]}: {preview['final_values'][stat]}",
+                        callback_data=f"gm_qstat_{request_id}_{stat}",
+                    )
+                ]
                 for stat in allowed
             ]
-            text = self._quick_arena_text(state) + extra + "\n\nویژگی خودت را انتخاب کن. ⏳ ۶۰ ثانیه"
+            text = (
+                self._quick_arena_text(state)
+                + extra
+                + f"\n\n🎴 کارت شما: {preview['card_name']}"
+                + "\nعددهای زیر با اثر زمین، Passive و Ability محاسبه شده‌اند."
+                + "\n\nویژگی خودت را انتخاب کن. ⏳ ۶۰ ثانیه"
+            )
             try:
                 await context.bot.send_message(chat_id=user_id, text=text, reply_markup=InlineKeyboardMarkup(keyboard))
             except Exception as exc:
@@ -484,6 +724,7 @@ class GameModeHandlersMixin:
         request = self.modes.get_request(report["request_id"])
         players = report["players"]
         names = {uid: self.db.get_or_create_player(uid).first_name for uid in players}
+        winner_card = None
         if report.get("forfeit"):
             if report.get("winner_id"):
                 text = f"🏆 {names[report['winner_id']]} برنده شد.\n⏳ حریف در زمان مقرر انتخاب خود را ثبت نکرد."
@@ -494,10 +735,21 @@ class GameModeHandlersMixin:
         else:
             winner_id = report["winner_id"]
             winner = report["breakdown"][str(winner_id)]
-            text = f"🏆 {names[winner_id]} با کارت {winner['card_name']} برنده شد!"
+            winner_card = (
+                self.db.get_card_by_id_for_player(winner["card_id"], winner_id)
+                or self.db.get_card_by_id(winner["card_id"])
+            )
+            victory_line = get_victory_dialog(
+                winner["card_name"],
+                getattr(winner_card, "dialogs", None),
+            )
+            text = f"🏆 پیروزی {names[winner_id]}\n\n💬 «{victory_line}»"
         markup = InlineKeyboardMarkup(
             [[InlineKeyboardButton("📋 مشاهده جزئیات", callback_data=f"gm_report_{report['request_id']}")]]
         )
+        if request and request.get("source") == "inline_private":
+            await self._edit_request_panel(context, request, text, reply_markup=markup)
+            return
         targets = (
             [request["origin_chat_id"]]
             if request and request.get("source") == "group_challenge"
@@ -505,6 +757,8 @@ class GameModeHandlersMixin:
         )
         for chat_id in dict.fromkeys(targets):
             try:
+                if winner_card and hasattr(self, "_send_round_winner_card_media"):
+                    await self._send_round_winner_card_media(context, chat_id, winner_card)
                 await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=markup)
             except Exception as exc:
                 logger.warning("Could not announce Quick result in %s: %s", chat_id, exc)
@@ -545,25 +799,55 @@ class GameModeHandlersMixin:
         ch_id, op_id = request["creator_id"], request["opponent_id"]
         chat_id = request.get("origin_chat_id") or ch_id
         fight_id = self.db.create_fight(ch_id, op_id, chat_id)
+        inline_message_id = request.get("origin_inline_message_id")
+        if inline_message_id:
+            context.bot_data[f"deck_{fight_id}_inline_message_id"] = inline_message_id
         if request["variant"] == "normal":
             deck_system = DeckSystem(self.db)
             missing = [uid for uid in (ch_id, op_id) if not deck_system.get_valid_decks(uid)]
             if missing:
-                await context.bot.send_message(
-                    chat_id=chat_id,
-                    text="⚠️ یکی از بازیکنان دک کامل ندارد؛ ابتدا در پیوی یک دک سه‌کارته بسازید.",
+                await self._edit_request_panel(
+                    context,
+                    request,
+                    "⚠️ یکی از بازیکنان دک کامل ندارد؛ ابتدا در پیوی یک دک سه‌کارته بسازید.",
                 )
                 self.db.delete_fight(fight_id)
                 return
-            await context.bot.send_message(chat_id=chat_id, text="🃏 هر دو بازیکن دک خود را در پیوی انتخاب کنند.")
+            await self._edit_request_panel(
+                context,
+                request,
+                "🃏 هر دو بازیکن دک خود را در گفت‌وگوی خصوصی با ربات انتخاب کنند.\n"
+                "⏳ مهلت انتخاب: ۱ دقیقه",
+            )
+            self.db.update_fight(
+                fight_id,
+                expires_at=(
+                    datetime.now() + timedelta(seconds=DECK_SELECTION_TTL_SECONDS)
+                ).isoformat(),
+            )
             await self._send_deck_selection(context, fight_id, ch_id)
             await self._send_deck_selection(context, fight_id, op_id)
+            self._schedule_mode_job(
+                context,
+                self.deck_selection_timeout_job,
+                DECK_SELECTION_TTL_SECONDS,
+                {
+                    "fight_id": fight_id,
+                    "request_id": request["request_id"],
+                    "player_ids": [ch_id, op_id],
+                },
+                f"gm-deck-selection-{fight_id}",
+            )
             return
 
         ch_cards = self.db.get_player_cards(ch_id)
         op_cards = self.db.get_player_cards(op_id)
         if len(ch_cards) < 3 or len(op_cards) < 3:
-            await context.bot.send_message(chat_id=chat_id, text="⚠️ برای Random Deck هر بازیکن حداقل سه کارت لازم دارد.")
+            await self._edit_request_panel(
+                context,
+                request,
+                "⚠️ برای Random Deck هر بازیکن حداقل سه کارت لازم دارد.",
+            )
             self.db.delete_fight(fight_id)
             return
         ch_ids = [card.card_id for card in random.sample(ch_cards, 3)]
@@ -587,8 +871,39 @@ class GameModeHandlersMixin:
         self.db.update_battle_deck_state(fight_id, "opponent", op_ids, selected=True)
         self.db.init_battle_deck_cards(fight_id, ch_ids, op_ids)
         fight = self.db.get_fight_by_id(fight_id)
-        await context.bot.send_message(chat_id=chat_id, text="🎲 دک‌های تصادفی ساخته شدند؛ نبرد شروع می‌شود.")
         await self._init_3round_battle(context, fight_id, fight)
+
+    async def deck_selection_timeout_job(self, context: ContextTypes.DEFAULT_TYPE):
+        fight_id = context.job.data["fight_id"]
+        deck_state = self.db.get_battle_deck_state(fight_id)
+        if deck_state.get("challenger_deck_selected") and deck_state.get("opponent_deck_selected"):
+            return
+
+        fight = self.db.get_fight_by_id(fight_id)
+        if not fight or fight.status in (FightStatus.COMPLETED, FightStatus.CANCELLED):
+            return
+        self.db.update_fight(fight_id, status=FightStatus.CANCELLED)
+        context.bot_data.pop(f"pvp_{fight_id}_deck_expected_user", None)
+
+        expired_text = "⏳ مهلت یک‌دقیقه‌ای انتخاب دک تمام شد؛ بازی لغو شد."
+        request = self.modes.get_request(context.job.data["request_id"])
+        if request:
+            await self._edit_request_panel(context, request, expired_text)
+        for user_id in context.job.data.get("player_ids", []):
+            message_id = context.bot_data.pop(
+                f"deck_selection_panel_{fight_id}_{user_id}",
+                None,
+            )
+            if not message_id:
+                continue
+            try:
+                await context.bot.edit_message_text(
+                    chat_id=user_id,
+                    message_id=message_id,
+                    text=expired_text,
+                )
+            except Exception as exc:
+                logger.debug("Could not expire Deck selection panel for %s: %s", user_id, exc)
 
     # -------------------- Easy Mode --------------------
 
@@ -620,7 +935,7 @@ class GameModeHandlersMixin:
         return (
             f"🎉 Easy Mode — {state['rounds']} راند\n\n"
             f"بازیکنان آماده: {len(state['players'])}\n"
-            "برای ورود Ready را بزنید. بازی پس از ۳۰ ثانیه خودکار شروع می‌شود."
+            "برای ورود Ready را بزنید. بازی پس از ۳ دقیقه خودکار شروع می‌شود."
         )
 
     @staticmethod
@@ -676,20 +991,99 @@ class GameModeHandlersMixin:
                     "⏳ زمان لابی تمام شد؛ برای شروع Easy Mode حداقل دو بازیکن لازم است.",
                 )
             return
-        await self._edit_request_panel(context, request, "✅ لابی بسته شد؛ Easy Mode شروع شد!")
+        self._cancel_mode_job(context, f"gm-easy-lobby-{request_id}")
         await self._send_easy_question(context, request_id, state)
 
-    async def _send_easy_question(self, context, request_id: str, state: dict):
+    def _easy_match_panel_text(self, state: dict, previous_round: dict = None) -> str:
+        score_lines = []
+        for uid, score in sorted(
+            state.get("scores", {}).items(),
+            key=lambda pair: pair[1],
+            reverse=True,
+        ):
+            name = self.db.get_or_create_player(int(uid)).first_name
+            score_lines.append(f"• {bidi_isolate(f'{name}: {score}')}")
+
+        lines = [
+            f"🎉 Easy Mode — راند {state['current_round']} از {state['rounds']}",
+            "",
+            "📊 امتیازها",
+            *(score_lines or ["هنوز امتیازی ثبت نشده است."]),
+        ]
+        if previous_round:
+            lines.extend(["", f"🏁 نتیجه راند {previous_round['round']}"])
+            entries = previous_round.get("entries", [])
+            for item in entries:
+                name = self.db.get_or_create_player(item["user_id"]).first_name
+                lines.append(
+                    f"+{item['points']} — {bidi_isolate(name)} با "
+                    f"{bidi_isolate(item['card_name'])}"
+                )
+            if not entries:
+                lines.append("هیچ انتخاب معتبری ثبت نشد.")
+        lines.extend(
+            [
+                "",
+                f"🎯 سؤال راند {state['current_round']}",
+                state["question"]["text"],
+                "",
+                "⏳ ۳۰ ثانیه برای انتخاب کارت",
+            ]
+        )
+        return "\n".join(lines)
+
+    @staticmethod
+    def _easy_prompt_key(request_id: str) -> str:
+        return f"easy_round_prompt_{request_id}"
+
+    async def _delete_easy_round_prompt(self, context, request_id: str) -> None:
+        bot_data = getattr(context, "bot_data", None)
+        if bot_data is None:
+            return
+        prompt = bot_data.pop(self._easy_prompt_key(request_id), None)
+        if not prompt:
+            return
+        try:
+            await context.bot.delete_message(
+                chat_id=prompt["chat_id"],
+                message_id=prompt["message_id"],
+            )
+        except Exception as exc:
+            logger.debug("Could not delete Easy round prompt %s: %s", request_id, exc)
+
+    async def _send_easy_question(
+        self,
+        context,
+        request_id: str,
+        state: dict,
+        previous_round: dict = None,
+    ):
         request = self.modes.get_request(request_id)
-        text = (
-            f"🎯 راند {state['current_round']} از {state['rounds']}\n\n"
-            f"{state['question']['text']}\n\n"
-            "کارت را از منوی شخصی زیر انتخاب کن. اولین انتخاب نهایی است. ⏳ ۳۰ ثانیه"
+        await self._delete_easy_round_prompt(context, request_id)
+        await self._edit_request_panel(
+            context,
+            request,
+            self._easy_match_panel_text(state, previous_round),
         )
         markup = InlineKeyboardMarkup(
             [[InlineKeyboardButton("🎴 انتخاب کارت", switch_inline_query_current_chat=f"easy {request_id}")]]
         )
-        await context.bot.send_message(chat_id=request["origin_chat_id"], text=text, reply_markup=markup)
+        send_kwargs = {
+            "chat_id": request["origin_chat_id"],
+            "text": f"🎯 راند {state['current_round']} شروع شد؛ سؤال را جواب بدهید.",
+            "reply_markup": markup,
+        }
+        if request.get("origin_message_id"):
+            send_kwargs["reply_to_message_id"] = request["origin_message_id"]
+        prompt = await context.bot.send_message(**send_kwargs)
+        message_id = getattr(prompt, "message_id", None)
+        if isinstance(message_id, int):
+            if getattr(context, "bot_data", None) is None:
+                context.bot_data = {}
+            context.bot_data[self._easy_prompt_key(request_id)] = {
+                "chat_id": request["origin_chat_id"],
+                "message_id": message_id,
+            }
         self._schedule_mode_job(
             context,
             self.easy_round_timeout_job,
@@ -709,10 +1103,17 @@ class GameModeHandlersMixin:
         results = []
         for card in options:
             result_id = f"ez|{request_id}|{user_id}|{card.card_id}"
+            confirm_markup = InlineKeyboardMarkup(
+                [[InlineKeyboardButton("✅ ثبت انتخاب", callback_data=result_id)]]
+            )
             sticker_file_id = await self._get_inline_card_sticker_file_id(context, user_id, card)
             if sticker_file_id:
                 results.append(
-                    InlineQueryResultCachedSticker(id=result_id, sticker_file_id=sticker_file_id)
+                    InlineQueryResultCachedSticker(
+                        id=result_id,
+                        sticker_file_id=sticker_file_id,
+                        reply_markup=confirm_markup,
+                    )
                 )
                 continue
             photo_file_id = await self._get_inline_card_photo_file_id(context, user_id, card)
@@ -723,6 +1124,7 @@ class GameModeHandlersMixin:
                         photo_file_id=photo_file_id,
                         title=card.name,
                         caption=f"🎴 {card.name}",
+                        reply_markup=confirm_markup,
                     )
                 )
             else:
@@ -732,6 +1134,7 @@ class GameModeHandlersMixin:
                         title=card.name,
                         description="انتخاب نهایی این راند",
                         input_message_content=InputTextMessageContent(f"🎴 {card.name}"),
+                        reply_markup=confirm_markup,
                     )
                 )
         if not results:
@@ -757,10 +1160,73 @@ class GameModeHandlersMixin:
             return
         ok, reason, state = self.modes.select_easy_card(request_id, target_user, card_id)
         if not ok:
+            if reason == "choice_locked" and self._easy_selection_complete(state):
+                await self._resolve_and_announce_easy(context, request_id)
+                return
             logger.info("Ignored Easy selection %s: %s", chosen.result_id, reason)
             return
+        inline_message_id = getattr(chosen, "inline_message_id", None)
+        if inline_message_id:
+            try:
+                await context.bot.edit_message_reply_markup(
+                    inline_message_id=inline_message_id,
+                    reply_markup=None,
+                )
+            except Exception as exc:
+                logger.debug("Could not remove Easy inline confirm button: %s", exc)
         if reason == "all_selected":
             await self._resolve_and_announce_easy(context, request_id)
+
+    async def easy_inline_confirm_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Fallback confirmation when Telegram chosen-inline feedback is unavailable."""
+        query = update.callback_query
+        try:
+            _, request_id, target_user, card_id = query.data.split("|", 3)
+            target_user = int(target_user)
+        except (ValueError, TypeError):
+            await query.answer("انتخاب نامعتبر است.", show_alert=True)
+            return
+        if query.from_user.id != target_user:
+            await query.answer("این کارت برای انتخاب تو نیست.", show_alert=True)
+            return
+
+        ok, reason, state = self.modes.select_easy_card(
+            request_id, target_user, card_id
+        )
+        if not ok:
+            if reason == "choice_locked" and self._easy_selection_complete(state):
+                await query.answer("همه انتخاب کردند؛ راند تمام شد.")
+                try:
+                    await query.edit_message_reply_markup(reply_markup=None)
+                except Exception:
+                    pass
+                await self._resolve_and_announce_easy(context, request_id)
+                return
+            message = (
+                "انتخابت قبلاً ثبت شده است."
+                if reason == "choice_locked"
+                else "این انتخاب دیگر معتبر نیست."
+            )
+            await query.answer(message, show_alert=True)
+            try:
+                await query.edit_message_reply_markup(reply_markup=None)
+            except Exception:
+                pass
+            return
+
+        await query.answer("انتخاب ثبت شد.")
+        try:
+            await query.edit_message_reply_markup(reply_markup=None)
+        except Exception as exc:
+            logger.debug("Could not remove Easy confirm button: %s", exc)
+        if reason == "all_selected":
+            await self._resolve_and_announce_easy(context, request_id)
+
+    @staticmethod
+    def _easy_selection_complete(state: dict) -> bool:
+        players = state.get("players", []) if state else []
+        choices = state.get("choices", {}) if state else {}
+        return bool(players) and all(str(user_id) in choices for user_id in players)
 
     async def easy_round_timeout_job(self, context: ContextTypes.DEFAULT_TYPE):
         request_id = context.job.data["request_id"]
@@ -771,29 +1237,42 @@ class GameModeHandlersMixin:
         await self._resolve_and_announce_easy(context, request_id)
 
     async def _resolve_and_announce_easy(self, context, request_id: str):
+        state = self.modes.get_state(request_id)
+        current_round = state.get("current_round") if state else None
         try:
             result = self.modes.resolve_easy_round(request_id)
         except ValueError:
             return
+        if current_round is not None:
+            self._cancel_mode_job(
+                context,
+                f"gm-easy-round-{request_id}-{current_round}",
+            )
         request = self.modes.get_request(request_id)
-        entries = result["round"]["entries"]
-        lines = [f"🏁 نتیجه راند {result['round']['round']}"]
-        for item in entries:
-            name = self.db.get_or_create_player(item["user_id"]).first_name
-            lines.append(f"+{item['points']} — {name} با {item['card_name']}")
-        if not entries:
-            lines.append("هیچ انتخاب معتبری ثبت نشد.")
-        await context.bot.send_message(chat_id=request["origin_chat_id"], text="\n".join(lines))
         if result["completed"]:
+            await self._delete_easy_round_prompt(context, request_id)
             report = result["report"]
             score_lines = []
             for uid, score in sorted(report["scores"].items(), key=lambda pair: pair[1], reverse=True):
                 name = self.db.get_or_create_player(int(uid)).first_name
-                score_lines.append(f"{name}: {score}")
-            winner_names = [self.db.get_or_create_player(uid).first_name for uid in report["winner_ids"]]
-            await context.bot.send_message(
-                chat_id=request["origin_chat_id"],
-                text="🏆 پایان Easy Mode\n\n" + "\n".join(score_lines) + "\n\nبرنده: " + "، ".join(winner_names),
+                score_lines.append(bidi_isolate(f"{name}: {score}"))
+            winner_names = [
+                bidi_isolate(self.db.get_or_create_player(uid).first_name)
+                for uid in report["winner_ids"]
+            ]
+            await self._edit_request_panel(
+                context,
+                request,
+                "🏆 پایان Easy Mode\n\n"
+                + "📊 نتیجه نهایی\n"
+                + "\n".join(score_lines)
+                + "\n\nبرنده: "
+                + "، ".join(winner_names),
             )
         else:
-            await self._send_easy_question(context, request_id, result["state"])
+            await self._send_easy_question(
+                context,
+                request_id,
+                result["state"],
+                previous_round=result["round"],
+            )

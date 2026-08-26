@@ -498,45 +498,72 @@ class BasicHandlersMixin:
         return self._create_mycards_keyboard(user_id, category=category, page=page)
 
     async def claim_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """مدیریت دستور /claim"""
+        """Handle /claim with the same daily-card flow as the start-menu button."""
         user = update.effective_user
-        
+
         if not await self.is_user_in_channel(user.id, context):
             await self.send_channel_join_message(update)
             return
-            
+
         user_id = user.id
-        success, card, error = self.claim_sys.claim_card(user_id)
-        
+        message = update.effective_message
+        success, card, error = self.game.claim_daily_card(user_id)
+
         if success and card:
-            type_labels = {"POWER_TYPE": "💪", "SPEED_TYPE": "⚡", "IQ_TYPE": "🧠", "POPULARITY_TYPE": "❤️"}
-            type_icon = type_labels.get(getattr(card, 'card_type', ''), "")
-            
+            rarity_colors = {
+                CardRarity.NORMAL: "🟢",
+                CardRarity.EPIC: "🟣",
+                CardRarity.LEGEND: "🟡",
+                CardRarity.RARE: "🔵",
+            }
+            color = rarity_colors.get(card.rarity, "⚪")
+            claim_dialog = get_victory_dialog(card.name, card.dialogs)
+            image_sent = await send_card_image_safely(
+                message,
+                card.name,
+                self.config,
+                f"🎉 {card.name}\n\n“{claim_dialog}”",
+            )
+
             text = (
                 f"🎉 **کارت روزانه دریافت شد!**\n\n"
-                f"🟢 **{card.name}** (Normal) {type_icon}\n\n"
-                f"💪 {card.power}  ⚡ {card.speed}  🧠 {card.iq}  ❤️ {card.popularity}\n"
-                f"📊 مجموع: {card.get_total_stats()}\n\n"
-                f"⏰ کلیم بعدی: فردا ساعت ۰۰:۰۰"
+                f"{color} **{card.name}** ({card.rarity.value.title()})\n\n"
+                f"📊 **آمار کارت:**\n"
+                f"💪 قدرت: {card.power}\n"
+                f"⚡ سرعت: {card.speed}\n"
+                f"🧠 آی‌کیو: {card.iq}\n"
+                f"❤️ محبوبیت: {card.popularity}\n"
+                f"🎯 مجموع: {card.get_total_stats()}\n\n"
+                f"✨ **ابیلیتی‌ها:**\n"
             )
-            
+
+            for ability in card.abilities:
+                text += f"• {ability}\n"
+            text += f"\n🕐 کلیم بعدی: {self.game.CLAIM_COOLDOWN_HOURS} ساعت دیگر"
+
             if not image_sent:
-                text = "🎴 (تصویر در دسترس نیست)\n\n" + text
-            
+                text = f"🎴 (تصویر در دسترس نیست)\n\n{text}"
+
             keyboard = [
-                [InlineKeyboardButton("🎴 کارت‌های من", callback_data="my_cards"),
-                 InlineKeyboardButton("🔮 Fusion", callback_data="fusion_menu")],
+                [InlineKeyboardButton("🎴 مشاهده کارت‌ها", callback_data="my_cards")],
                 [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main")]
             ]
-            await query.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
-            
+            await message.reply_text(
+                text,
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode='Markdown',
+            )
         else:
-            text = f"⚠️ **{error if error else 'خطای نامشخص!'}**"
+            text = f"⚠ **خطا در دریافت کارت**\n\n{error if error else 'خطای نامشخص!'}"
             keyboard = [
-                [InlineKeyboardButton("⛏️ ماینینگ", callback_data="mining_claim")],
+                [InlineKeyboardButton("🎴 مشاهده کارت‌ها", callback_data="my_cards")],
                 [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main")]
             ]
-            await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
+            await message.reply_text(
+                text,
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode='Markdown',
+            )
 
     async def my_cards_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """نمایش کارت‌های کاربر با pagination"""

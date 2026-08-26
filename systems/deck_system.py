@@ -12,6 +12,8 @@ from core.models import Card, CardRarity
 
 logger = logging.getLogger(__name__)
 
+DECK_SELECTION_TTL_SECONDS = 60
+
 # امتیاز هر rarity برای محدودیت دک
 RARITY_POINTS = {
     'normal': 1,

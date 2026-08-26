@@ -61,6 +61,40 @@ class DatabaseManager:
                 FOREIGN KEY (card_id) REFERENCES cards (card_id)
             )
         ''')
+
+        # هر شخصیت یک تعریف مادر در cards دارد؛ فرم‌های قابل‌بازی Normal/Epic/
+        # Legend در این جدول نگهداری می‌شوند. این کار نام و محتوای روایی را
+        # تکرار نمی‌کند و به هر فرم مدیا و آمار مستقل می‌دهد.
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS card_variants (
+                variant_id TEXT PRIMARY KEY,
+                card_id TEXT NOT NULL,
+                rarity TEXT NOT NULL CHECK (rarity IN ('normal', 'epic', 'legend')),
+                power INTEGER NOT NULL,
+                speed INTEGER NOT NULL,
+                iq INTEGER NOT NULL,
+                popularity INTEGER NOT NULL,
+                abilities TEXT NOT NULL DEFAULT '[]',
+                card_effects TEXT NOT NULL DEFAULT '[]',
+                image_path TEXT DEFAULT '',
+                card_type TEXT NOT NULL DEFAULT 'POWER_TYPE',
+                passive TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(card_id, rarity),
+                FOREIGN KEY (card_id) REFERENCES cards (card_id)
+            )
+        ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS card_variant_media_cache (
+                variant_id TEXT NOT NULL,
+                media_kind TEXT NOT NULL,
+                file_id TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                PRIMARY KEY (variant_id, media_kind),
+                FOREIGN KEY (variant_id) REFERENCES card_variants (variant_id)
+            )
+        ''')
         
         # جدول بازیکنان
         cursor.execute('''
@@ -432,9 +466,11 @@ class DatabaseManager:
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_progression_user ON player_progression(user_id)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_progression_last_played ON player_progression(last_played_at)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_card_media_cache_card ON card_media_cache(card_id)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_card_variants_card ON card_variants(card_id)')
         except Exception as e:
             logger.warning(f"Index creation warning: {e}")
         
+        self._ensure_card_variants(conn)
         conn.commit()
         conn.close()
         logger.info("Database initialized successfully")
@@ -444,6 +480,182 @@ class DatabaseManager:
     def _get_connection(self) -> sqlite3.Connection:
         """دریافت connection به دیتابیس"""
         return sqlite3.connect(self.db_path)
+
+    @staticmethod
+    def _variant_rarities():
+        return ("normal", "epic", "legend")
+
+    @staticmethod
+    def _json_list(value):
+        try:
+            parsed = json.loads(value or "[]") if isinstance(value, str) else (value or [])
+            return parsed if isinstance(parsed, list) else []
+        except (TypeError, ValueError):
+            return []
+
+    @staticmethod
+    def _variant_stat(value, source_rarity, target_rarity):
+        ranks = {"normal": 0, "epic": 1, "legend": 2, "rare": 1}
+        delta = (ranks[target_rarity] - ranks.get(source_rarity, 0)) * 8
+        return max(1, min(100, int(value) + delta))
+
+    def _ensure_card_variants(self, conn):
+        """Backfill three editable forms while preserving the legacy form exactly."""
+        cursor = conn.cursor()
+        cards = cursor.execute(
+            "SELECT card_id, rarity, power, speed, iq, popularity, abilities, card_effects, image_path, card_type, created_at FROM cards"
+        ).fetchall()
+        for row in cards:
+            (card_id, source_rarity, power, speed, iq, popularity, abilities,
+             card_effects, image_path, card_type, created_at) = row
+            try:
+                metadata = cursor.execute(
+                    "SELECT passive FROM card_mode_metadata WHERE card_id=?", (card_id,)
+                ).fetchone()
+                inherited_passive = metadata[0] if metadata and metadata[0] else "{}"
+            except sqlite3.OperationalError:
+                inherited_passive = "{}"
+            for rarity in self._variant_rarities():
+                exists = cursor.execute(
+                    "SELECT variant_id FROM card_variants WHERE card_id=? AND rarity=?", (card_id, rarity)
+                ).fetchone()
+                if exists:
+                    continue
+                variant_id = str(uuid.uuid4())
+                timestamp = created_at or datetime.now().isoformat()
+                # فرم اولیه‌ی موجود، آمار/مدیای فعلی را دقیقاً نگه می‌دارد؛
+                # دو فرم دیگر با فاصله‌ی کوچک و قابل‌ویرایش ایجاد می‌شوند.
+                is_source = rarity == source_rarity
+                cursor.execute(
+                    """INSERT INTO card_variants(
+                        variant_id, card_id, rarity, power, speed, iq, popularity,
+                        abilities, card_effects, image_path, card_type, passive, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (
+                        variant_id, card_id, rarity,
+                        power if is_source else self._variant_stat(power, source_rarity, rarity),
+                        speed if is_source else self._variant_stat(speed, source_rarity, rarity),
+                        iq if is_source else self._variant_stat(iq, source_rarity, rarity),
+                        popularity if is_source else self._variant_stat(popularity, source_rarity, rarity),
+                        abilities or "[]", card_effects or "[]", image_path if is_source else "",
+                        card_type or "POWER_TYPE", inherited_passive, timestamp, timestamp,
+                    ),
+                )
+                if is_source:
+                    for media_kind, file_id in cursor.execute(
+                        "SELECT media_kind, file_id FROM card_media_cache WHERE card_id=?", (card_id,)
+                    ).fetchall():
+                        cursor.execute(
+                            """INSERT OR IGNORE INTO card_variant_media_cache(variant_id, media_kind, file_id, updated_at)
+                               VALUES (?, ?, ?, ?)""",
+                            (variant_id, media_kind, file_id, timestamp),
+                        )
+
+    def get_card_variants(self, card_id: str) -> List[Dict]:
+        """Return all three editable forms plus their Telegram media ids."""
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        try:
+            rows = conn.execute(
+                """SELECT variant_id, card_id, rarity, power, speed, iq, popularity, abilities,
+                          card_effects, image_path, card_type, passive, created_at, updated_at
+                   FROM card_variants WHERE card_id=?
+                   ORDER BY CASE rarity WHEN 'normal' THEN 1 WHEN 'epic' THEN 2 WHEN 'legend' THEN 3 END""",
+                (card_id,),
+            ).fetchall()
+            variants = []
+            for row in rows:
+                item = dict(row)
+                item["abilities"] = self._json_list(item["abilities"])
+                item["card_effects"] = self._json_list(item["card_effects"])
+                try:
+                    item["passive"] = json.loads(item["passive"] or "{}")
+                except (TypeError, ValueError):
+                    item["passive"] = {}
+                media_rows = conn.execute(
+                    "SELECT media_kind, file_id FROM card_variant_media_cache WHERE variant_id=?", (item["variant_id"],)
+                ).fetchall()
+                media = {media["media_kind"]: media["file_id"] for media in media_rows}
+                item["photo_file_id"] = media.get("photo", "")
+                item["sticker_file_id"] = media.get("sticker", "")
+                variants.append(item)
+            return variants
+        finally:
+            conn.close()
+
+    def get_card_variant(self, card_id: str, rarity: str) -> Optional[Dict]:
+        return next((item for item in self.get_card_variants(card_id) if item["rarity"] == rarity), None)
+
+    def get_card_variant_media_file_id(self, card_id: str, rarity: str, media_kind: str) -> Optional[str]:
+        variant = self.get_card_variant(card_id, rarity)
+        if not variant:
+            return self.get_card_media_file_id(card_id, media_kind)
+        key = f"{media_kind}_file_id"
+        return variant.get(key) or self.get_card_media_file_id(card_id, media_kind)
+
+    def set_card_variant_media_file_id(self, card_id: str, rarity: str, file_id: str, media_kind: str) -> bool:
+        variant = self.get_card_variant(card_id, rarity)
+        if not variant:
+            return self.set_card_media_file_id(card_id, file_id, media_kind)
+        conn = sqlite3.connect(self.db_path)
+        try:
+            conn.execute(
+                """INSERT INTO card_variant_media_cache(variant_id, media_kind, file_id, updated_at)
+                   VALUES (?, ?, ?, ?)
+                   ON CONFLICT(variant_id, media_kind) DO UPDATE SET file_id=excluded.file_id, updated_at=excluded.updated_at""",
+                (variant["variant_id"], media_kind, file_id, datetime.now().isoformat()),
+            )
+            conn.commit()
+            return True
+        finally:
+            conn.close()
+
+    def save_card_variant(self, card_id: str, rarity: str, data: Dict) -> Dict:
+        """Create/update one form. Shared story data intentionally stays on cards."""
+        if rarity not in self._variant_rarities():
+            raise ValueError("فرم کارت نامعتبر است")
+        conn = sqlite3.connect(self.db_path)
+        try:
+            current = conn.execute(
+                "SELECT variant_id FROM card_variants WHERE card_id=? AND rarity=?", (card_id, rarity)
+            ).fetchone()
+            variant_id = current[0] if current else str(uuid.uuid4())
+            now = datetime.now().isoformat()
+            conn.execute(
+                """INSERT INTO card_variants(
+                    variant_id, card_id, rarity, power, speed, iq, popularity, abilities,
+                    card_effects, image_path, card_type, passive, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(card_id, rarity) DO UPDATE SET
+                    power=excluded.power, speed=excluded.speed, iq=excluded.iq,
+                    popularity=excluded.popularity, abilities=excluded.abilities,
+                    card_effects=excluded.card_effects, image_path=excluded.image_path,
+                    card_type=excluded.card_type, passive=excluded.passive, updated_at=excluded.updated_at""",
+                (
+                    variant_id, card_id, rarity, int(data["power"]), int(data["speed"]), int(data["iq"]),
+                    int(data["popularity"]), json.dumps(data.get("abilities") or [], ensure_ascii=False),
+                    json.dumps(data.get("card_effects") or [], ensure_ascii=False), data.get("image_path") or "",
+                    data.get("card_type") or "POWER_TYPE", json.dumps(data.get("passive") or {}, ensure_ascii=False),
+                    now, now,
+                ),
+            )
+            for media_kind in ("photo", "sticker"):
+                file_id = str(data.get(f"{media_kind}_file_id") or "").strip()
+                if file_id:
+                    conn.execute(
+                        """INSERT INTO card_variant_media_cache(variant_id, media_kind, file_id, updated_at)
+                           VALUES (?, ?, ?, ?)
+                           ON CONFLICT(variant_id, media_kind) DO UPDATE SET file_id=excluded.file_id, updated_at=excluded.updated_at""",
+                        (variant_id, media_kind, file_id, now),
+                    )
+                else:
+                    conn.execute(
+                        "DELETE FROM card_variant_media_cache WHERE variant_id=? AND media_kind=?", (variant_id, media_kind)
+                    )
+            conn.commit()
+        finally:
+            conn.close()
+        return self.get_card_variant(card_id, rarity)
 
     def get_card_media_file_id(self, card_id: str, media_kind: str = "photo") -> Optional[str]:
         """دریافت file_id تلگرام برای رسانه cache شده کارت."""
@@ -504,7 +716,7 @@ class DatabaseManager:
                 card_data['abilities'], card_data['card_effects'], card_data['dialogs'], card_data['biography'],
                 card_data['image_path'], card_data['card_type'], card_data['created_at']
             ))
-            
+            self._ensure_card_variants(conn)
             conn.commit()
             conn.close()
             self.card_cache.invalidate(f"card_{card.card_id}")
@@ -577,15 +789,20 @@ class DatabaseManager:
         return None
     
     def get_card_by_id_for_player(self, card_id: str, user_id: int) -> Optional[Card]:
-        """دریافت کارت با احتساب rarity_override بازیکن"""
+        """دریافت کارت با احتساب فرم ارتقایافتهٔ بازیکن."""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute('''
             SELECT c.card_id, c.name, COALESCE(pc.rarity_override, c.rarity),
-                   c.power, c.speed, c.iq, c.popularity,
-                   c.abilities, c.card_effects, c.dialogs, c.biography, c.image_path, c.card_type, c.created_at
+                   COALESCE(v.power, c.power), COALESCE(v.speed, c.speed),
+                   COALESCE(v.iq, c.iq), COALESCE(v.popularity, c.popularity),
+                   COALESCE(v.abilities, c.abilities), COALESCE(v.card_effects, c.card_effects),
+                   c.dialogs, c.biography, COALESCE(v.image_path, c.image_path),
+                   COALESCE(v.card_type, c.card_type), c.created_at
             FROM cards c
             JOIN player_cards pc ON c.card_id = pc.card_id
+            LEFT JOIN card_variants v ON v.card_id = c.card_id
+                AND v.rarity = COALESCE(pc.rarity_override, c.rarity)
             WHERE c.card_id = ? AND pc.user_id = ?
         ''', (card_id, user_id))
         result = cursor.fetchone()
@@ -594,6 +811,21 @@ class DatabaseManager:
             columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'card_effects', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at']
             return Card.from_dict(dict(zip(columns, result)))
         return None
+
+    def set_player_card_rarity_override(self, user_id: int, card_id: str, rarity: str) -> bool:
+        """Select the owned Normal/Epic/Legend form after a successful upgrade."""
+        if rarity not in self._variant_rarities():
+            raise ValueError("فرم کارت نامعتبر است")
+        conn = sqlite3.connect(self.db_path)
+        try:
+            cursor = conn.execute(
+                "UPDATE player_cards SET rarity_override=? WHERE user_id=? AND card_id=?",
+                (rarity, user_id, card_id),
+            )
+            conn.commit()
+            return cursor.rowcount == 1
+        finally:
+            conn.close()
 
     def get_card_by_name(self, name: str) -> Optional[Card]:
         """دریافت کارت بر اساس نام، بدون حساسیت به بزرگی حروف."""
@@ -737,17 +969,22 @@ class DatabaseManager:
         conn.close()
     
     def get_player_cards(self, user_id: int) -> List[Card]:
-        """دریافت کارت‌های بازیکن — با احتساب rarity_override از Fusion"""
+        """دریافت کارت‌های بازیکن با فرم ارتقایافته و مدیای همان فرم."""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
         cursor.execute('''
             SELECT c.card_id, c.name,
                    COALESCE(pc.rarity_override, c.rarity) as rarity,
-                   c.power, c.speed, c.iq, c.popularity,
-                   c.abilities, c.card_effects, c.dialogs, c.biography, c.image_path, c.card_type, c.created_at
+                   COALESCE(v.power, c.power), COALESCE(v.speed, c.speed),
+                   COALESCE(v.iq, c.iq), COALESCE(v.popularity, c.popularity),
+                   COALESCE(v.abilities, c.abilities), COALESCE(v.card_effects, c.card_effects),
+                   c.dialogs, c.biography, COALESCE(v.image_path, c.image_path),
+                   COALESCE(v.card_type, c.card_type), c.created_at
             FROM cards c
             JOIN player_cards pc ON c.card_id = pc.card_id
+            LEFT JOIN card_variants v ON v.card_id = c.card_id
+                AND v.rarity = COALESCE(pc.rarity_override, c.rarity)
             WHERE pc.user_id = ?
             ORDER BY pc.obtained_at DESC
         ''', (user_id,))
@@ -768,9 +1005,14 @@ class DatabaseManager:
         if rarity:
             cursor.execute('''
                 SELECT c.card_id, c.name, COALESCE(pc.rarity_override, c.rarity),
-                       c.power, c.speed, c.iq, c.popularity,
-                       c.abilities, c.card_effects, c.dialogs, c.biography, c.image_path, c.card_type, c.created_at
+                       COALESCE(v.power, c.power), COALESCE(v.speed, c.speed),
+                       COALESCE(v.iq, c.iq), COALESCE(v.popularity, c.popularity),
+                       COALESCE(v.abilities, c.abilities), COALESCE(v.card_effects, c.card_effects),
+                       c.dialogs, c.biography, COALESCE(v.image_path, c.image_path),
+                       COALESCE(v.card_type, c.card_type), c.created_at
                 FROM cards c JOIN player_cards pc ON c.card_id = pc.card_id
+                LEFT JOIN card_variants v ON v.card_id=c.card_id
+                    AND v.rarity=COALESCE(pc.rarity_override, c.rarity)
                 WHERE pc.user_id = ? AND COALESCE(pc.rarity_override, c.rarity) = ?
                 ORDER BY pc.usage_count DESC, pc.obtained_at DESC
                 LIMIT ? OFFSET ?
@@ -783,9 +1025,14 @@ class DatabaseManager:
         else:
             cursor.execute('''
                 SELECT c.card_id, c.name, COALESCE(pc.rarity_override, c.rarity),
-                       c.power, c.speed, c.iq, c.popularity,
-                       c.abilities, c.card_effects, c.dialogs, c.biography, c.image_path, c.card_type, c.created_at
+                       COALESCE(v.power, c.power), COALESCE(v.speed, c.speed),
+                       COALESCE(v.iq, c.iq), COALESCE(v.popularity, c.popularity),
+                       COALESCE(v.abilities, c.abilities), COALESCE(v.card_effects, c.card_effects),
+                       c.dialogs, c.biography, COALESCE(v.image_path, c.image_path),
+                       COALESCE(v.card_type, c.card_type), c.created_at
                 FROM cards c JOIN player_cards pc ON c.card_id = pc.card_id
+                LEFT JOIN card_variants v ON v.card_id=c.card_id
+                    AND v.rarity=COALESCE(pc.rarity_override, c.rarity)
                 WHERE pc.user_id = ?
                 ORDER BY pc.usage_count DESC, pc.obtained_at DESC
                 LIMIT ? OFFSET ?
@@ -1258,6 +1505,36 @@ class DatabaseManager:
         conn.close()
         
         return success
+
+    def cancel_fight_if_expired(self, fight_id: str) -> bool:
+        """Atomically cancel only the specified fight when its deadline has passed."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        now = datetime.now().isoformat()
+        cursor.execute(
+            """
+            UPDATE active_fights
+               SET status = 'cancelled'
+             WHERE fight_id = ?
+               AND status NOT IN ('completed', 'cancelled')
+               AND expires_at IS NOT NULL
+               AND expires_at < ?
+            """,
+            (fight_id, now),
+        )
+        cancelled = cursor.rowcount > 0
+        if cancelled:
+            cursor.execute(
+                """
+                UPDATE battle_states
+                   SET status = 'completed'
+                 WHERE fight_id = ? AND status != 'completed'
+                """,
+                (fight_id,),
+            )
+        conn.commit()
+        conn.close()
+        return cancelled
     
     def claim_opponent_if_waiting(self, fight_id: str, opponent_id: int) -> bool:
         """تنظیم حریف به صورت اتمی (برای جلوگیری از race condition)"""
@@ -1984,7 +2261,10 @@ class DatabaseManager:
             cursor.execute('''
                 SELECT challenger_deck_cards, opponent_deck_cards,
                        challenger_remaining_cards, opponent_remaining_cards,
-                       challenger_deck_selected, opponent_deck_selected
+                       challenger_deck_selected, opponent_deck_selected,
+                       arena, current_round,
+                       challenger_rounds_won, opponent_rounds_won,
+                       status
                 FROM battle_states WHERE fight_id = ?
             ''', (fight_id,))
             row = cursor.fetchone()
@@ -1996,6 +2276,11 @@ class DatabaseManager:
                     'opponent_remaining_cards':   json.loads(row[3] or '[]'),
                     'challenger_deck_selected':   bool(row[4]),
                     'opponent_deck_selected':     bool(row[5]),
+                    'arena':                       row[6],
+                    'current_round':               int(row[7] or 1),
+                    'challenger_rounds_won':       int(row[8] or 0),
+                    'opponent_rounds_won':         int(row[9] or 0),
+                    'status':                      row[10],
                 }
             return {}
         finally:

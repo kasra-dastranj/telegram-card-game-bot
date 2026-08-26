@@ -152,3 +152,37 @@ def test_card_admin_media_uploads_use_current_asset_layout(tmp_path, monkeypatch
         content_type="multipart/form-data",
     )
     assert wrong_sticker.status_code == 400
+
+
+def test_card_admin_keeps_three_independent_forms_per_character(tmp_path):
+    db, client = _client(tmp_path)
+    created = client.post("/api/cards", json=_payload(name="Variant Hero", rarity="epic"))
+    assert created.status_code == 201, created.get_json()
+    card = created.get_json()["card"]
+    card_id = card["id"]
+    assert [variant["rarity"] for variant in card["variants"]] == ["normal", "epic", "legend"]
+
+    legend_payload = _payload(
+        name="Variant Hero", rarity="legend", power=99, speed=89, iq=96,
+        popularity=94, image_path="assets/card_images/variant-hero_legend.webp",
+        photo_file_id="legend-photo", sticker_file_id="legend-sticker",
+        passive={
+            "name": "اوج قهرمانی",
+            "condition": {"arena": "city"},
+            "effect": {"stat": "popularity", "delta": 1},
+        },
+    )
+    updated = client.put(f"/api/cards/{card_id}/variants/legend", json=legend_payload)
+    assert updated.status_code == 200, updated.get_json()
+    variants = {variant["rarity"]: variant for variant in updated.get_json()["card"]["variants"]}
+    assert variants["legend"]["power"] == 99
+    assert variants["legend"]["image_path"].endswith("_legend.webp")
+    assert variants["legend"]["photo_file_id"] == "legend-photo"
+    assert variants["epic"]["power"] == 64  # original form did not change
+
+    db.get_or_create_player(7001, first_name="Variant Tester")
+    assert db.add_card_to_player(7001, card_id)
+    assert db.set_player_card_rarity_override(7001, card_id, "legend")
+    owned = db.get_card_by_id_for_player(card_id, 7001)
+    assert owned.rarity.value == "legend"
+    assert owned.power == 99

@@ -17,12 +17,16 @@ logger = logging.getLogger(__name__)
 
 class FusionResult:
     """نتیجه Fusion"""
-    def __init__(self, success: bool, upgraded_card: Optional[Card] = None, 
-                 consumed_cards: Optional[List[Card]] = None, error: Optional[str] = None):
+    def __init__(self, success: bool, upgraded_card: Optional[Card] = None,
+                 consumed_cards: Optional[List[Card]] = None, error: Optional[str] = None,
+                 xp_gained: int = 0, old_level: int = 1, new_level: int = 1):
         self.success = success
         self.upgraded_card = upgraded_card
         self.consumed_cards = consumed_cards or []
         self.error = error
+        self.xp_gained = xp_gained
+        self.old_level = old_level
+        self.new_level = new_level
 
 
 class FusionSystem:
@@ -122,9 +126,81 @@ class FusionSystem:
                 return False, f"همه کارت‌ها باید {expected} باشند"
         
         return True, None
+
+    def preview(self, user_id: int, card_ids: List[str], selected_card_id: str, target: str) -> Dict:
+        source = CardRarity.NORMAL if target == "epic" else CardRarity.EPIC if target == "legend" else None
+        if source is None:
+            return {"ok": False, "error_code": "invalid_target", "error": "هدف Fusion نامعتبر است"}
+        ok, error = self.validate_fusion_cards(user_id, card_ids, selected_card_id, source)
+        if not ok:
+            return {"ok": False, "error_code": "invalid_fusion", "error": error}
+        if not self.db.get_card_variant(selected_card_id, target):
+            return {"ok": False, "error_code": "variant_unavailable", "error": f"نسخه {target.title()} کارت انتخاب‌شده آماده نیست"}
+        cards = [self.db.get_card_by_id_for_player(card_id, user_id) for card_id in card_ids]
+        return {
+            "ok": True,
+            "target_rarity": target,
+            "source_rarity": source.value,
+            "retained_card_id": selected_card_id,
+            "consumed_card_ids": [card_id for card_id in card_ids if card_id != selected_card_id],
+            "cards": [card for card in cards if card],
+            "xp": 15 if target == "epic" else 30,
+        }
+
+    def _fuse_atomic(self, user_id: int, card_ids: List[str], selected_card_id: str, target: str) -> FusionResult:
+        source = "normal" if target == "epic" else "epic" if target == "legend" else ""
+        if len(card_ids) != 3 or len(set(card_ids)) != 3 or selected_card_id not in card_ids or not source:
+            return FusionResult(False, error="انتخاب Fusion نامعتبر است")
+        consumed_cards = [self.db.get_card_by_id_for_player(card_id, user_id) for card_id in card_ids]
+        conn = sqlite3.connect(self.db.db_path, timeout=15)
+        conn.row_factory = sqlite3.Row
+        try:
+            conn.execute("PRAGMA foreign_keys=ON")
+            conn.execute("BEGIN IMMEDIATE")
+            placeholders = ",".join("?" for _ in card_ids)
+            rows = conn.execute(
+                f"""SELECT pc.card_id, COALESCE(pc.rarity_override,c.rarity) AS rarity
+                    FROM player_cards pc JOIN cards c ON c.card_id=pc.card_id
+                    WHERE pc.user_id=? AND pc.card_id IN ({placeholders})""",
+                (user_id, *card_ids),
+            ).fetchall()
+            if len(rows) != 3 or any(row["rarity"] != source for row in rows):
+                conn.rollback()
+                return FusionResult(False, error=f"هر سه کارت باید {source.title()} و متعلق به شما باشند")
+            if not conn.execute("SELECT 1 FROM card_variants WHERE card_id=? AND rarity=?", (selected_card_id, target)).fetchone():
+                conn.rollback()
+                return FusionResult(False, error=f"نسخه {target.title()} کارت انتخاب‌شده آماده نیست")
+            conn.execute(f"DELETE FROM player_cards WHERE user_id=? AND card_id IN ({placeholders})", (user_id, *card_ids))
+            conn.execute("INSERT INTO player_cards(user_id,card_id,obtained_at,rarity_override) VALUES (?,?,?,?)", (user_id, selected_card_id, datetime.now().isoformat(), target))
+            consumed_ids = [card_id for card_id in card_ids if card_id != selected_card_id]
+            for card_id in consumed_ids:
+                conn.execute("UPDATE player_decks SET is_valid=0 WHERE player_id=? AND (card_id_1=? OR card_id_2=? OR card_id_3=?)", (user_id, card_id, card_id, card_id))
+            conn.execute(
+                """INSERT INTO fusion_log(user_id,fusion_type,consumed_card_1,consumed_card_2,consumed_card_3,upgraded_card_id,result_rarity,timestamp)
+                   VALUES (?,?,?,?,?,?,?,?)""",
+                (user_id, f"{source.upper()}_TO_{target.upper()}", card_ids[0], card_ids[1], card_ids[2], selected_card_id, target.upper(), datetime.now().isoformat()),
+            )
+            conn.execute("INSERT OR IGNORE INTO player_progression(user_id,level,total_xp,tier_points,current_tier,last_played_at) VALUES (?,1,0,0,'Bronze',CURRENT_TIMESTAMP)", (user_id,))
+            progression = conn.execute("SELECT level,total_xp FROM player_progression WHERE user_id=?", (user_id,)).fetchone()
+            xp_gained = 15 if target == "epic" else 30
+            old_level = int(progression["level"] or 1)
+            total_xp = int(progression["total_xp"] or 0) + xp_gained
+            from systems.phase2_systems import LevelSystem
+            new_level = LevelSystem.get_level_from_xp(total_xp)
+            conn.execute("UPDATE player_progression SET total_xp=?,level=? WHERE user_id=?", (total_xp, new_level, user_id))
+            conn.commit()
+            return FusionResult(True, self.db.get_card_by_id_for_player(selected_card_id, user_id), [card for card in consumed_cards if card], xp_gained=xp_gained, old_level=old_level, new_level=new_level)
+        except Exception as exc:
+            conn.rollback()
+            logger.error("Atomic Fusion failed: %s", exc, exc_info=True)
+            return FusionResult(False, error="Fusion انجام نشد")
+        finally:
+            conn.close()
     
     def fuse_to_epic(self, user_id: int, card_ids: List[str], selected_card_id: str) -> FusionResult:
         """Fusion 3 Normal → 1 Epic"""
+        return self._fuse_atomic(user_id, card_ids, selected_card_id, "epic")
+        # Legacy implementation retained below for migration history.
         logger.info(f"User {user_id} Normal→Epic fusion: {card_ids}, selected: {selected_card_id}")
         
         is_valid, error = self.validate_fusion_cards(user_id, card_ids, selected_card_id, CardRarity.NORMAL)
@@ -180,6 +256,8 @@ class FusionSystem:
     
     def fuse_to_legend(self, user_id: int, card_ids: List[str], selected_card_id: str) -> FusionResult:
         """Fusion 3 Epic → 1 Legend"""
+        return self._fuse_atomic(user_id, card_ids, selected_card_id, "legend")
+        # Legacy implementation retained below for migration history.
         logger.info(f"User {user_id} Epic→Legend fusion: {card_ids}, selected: {selected_card_id}")
         
         is_valid, error = self.validate_fusion_cards(user_id, card_ids, selected_card_id, CardRarity.EPIC)

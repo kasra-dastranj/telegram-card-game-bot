@@ -20,6 +20,7 @@ from game_core import DatabaseManager, GameLogic, CardManager, StatType, Card, C
 from systems.fusion_system import FusionSystem
 from systems.phase2_systems import LevelSystem, TierSystem, format_xp_bar, format_tier_badge
 from systems.economy_system import EconomySystem
+from systems.card_upgrade_system import CardUpgradeSystem
 from systems.tier_decay_system import TierDecaySystem
 from systems.risk_mode_system import RiskModeSystem, RiskTable, RiskAction
 from systems.battle_system_3rounds import BattleSystem3Rounds, BattleState, ARENAS
@@ -390,41 +391,27 @@ class ShopHandlersMixin:
         await query.answer()
         user_id = query.from_user.id
 
-        # shop_confirm_{eco_key}_{card_id}
-        parts = query.data.split("_", 3)
-        eco_key = parts[2]       # normal_to_epic یا epic_to_legend
-        card_id = parts[3]
+        # shop_confirm_{eco_key}_{card_id}; eco_key itself contains underscores.
+        payload = query.data.removeprefix("shop_confirm_")
+        eco_key = next((key for key in CardUpgradeSystem.UPGRADES if payload.startswith(f"{key}_")), "")
+        card_id = payload[len(eco_key) + 1:] if eco_key else ""
 
         card = self.db.get_card_by_id_for_player(card_id, user_id)
         if not card:
             await query.answer("❌ کارت یافت نشد!", show_alert=True)
             return
 
-        # کسر سکه
-        success, error = self.economy.buy_card_upgrade(user_id, eco_key)
-        if not success:
+        result = CardUpgradeSystem(self.db).upgrade(user_id, card_id, eco_key)
+        if not result.get("ok"):
             await query.edit_message_text(
-                f"❌ {error}",
+                f"❌ {result.get('error', 'ارتقای کارت انجام نشد')}",
                 reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 شاپ", callback_data="shop_menu")]]),
                 parse_mode='Markdown'
             )
             return
-
-        # اعمال ارتقا با rarity_override
-        new_rarity = "epic" if eco_key == "normal_to_epic" else "legend"
-        import sqlite3 as _sqlite3
-        conn = _sqlite3.connect(self.db.db_path)
-        cursor = conn.cursor()
-        cursor.execute(
-            'UPDATE player_cards SET rarity_override = ? WHERE user_id = ? AND card_id = ?',
-            (new_rarity, user_id, card_id)
-        )
-        conn.commit()
-        conn.close()
-
-        # XP برای ارتقا
-        xp_amount = 15 if eco_key == "normal_to_epic" else 30
-        old_lv, new_lv = self.db.add_xp(user_id, xp_amount)
+        new_rarity = result["to_rarity"]
+        xp_amount = result["xp_gained"]
+        old_lv, new_lv = result["old_level"], result["new_level"]
         level_text = f"\n⬆️ Level Up! → {new_lv}" if new_lv > old_lv else ""
 
         player = self.db.get_or_create_player(user_id)
@@ -549,5 +536,4 @@ class ShopHandlersMixin:
         await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
 
     # ==================== FUSION HANDLERS ====================
-
 

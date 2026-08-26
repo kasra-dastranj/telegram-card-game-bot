@@ -115,28 +115,32 @@ def get_card_image_path(card_name: str, config: Dict) -> Optional[str]:
     return None
 
 
-def get_victory_dialog(card_name: str) -> str:
+def get_victory_dialog(card_name: str, card_dialogs=None) -> str:
     """Gets a random victory dialog for a card."""
-    dialogs_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "card_dialogs.json")
-
-    if os.path.exists(dialogs_file):
+    if isinstance(card_dialogs, str) and card_dialogs.strip():
         try:
-            with open(dialogs_file, 'r', encoding='utf-8') as f:
-                all_dialogs = json.load(f)
-                entry = all_dialogs.get(card_name)
-                lines: List[str] = []
-                if isinstance(entry, list):
-                    lines = entry
-                elif isinstance(entry, dict):
-                    vl = entry.get('victory_lines', [])
-                    if isinstance(vl, list):
-                        lines = vl
-                    elif isinstance(vl, str) and vl:
-                        lines = [vl]
-                if lines:
-                    return random.choice(lines)
-        except Exception:
-            pass
+            card_dialogs = json.loads(card_dialogs)
+        except json.JSONDecodeError:
+            card_dialogs = [card_dialogs]
+    if isinstance(card_dialogs, list):
+        lines = [str(line).strip() for line in card_dialogs if str(line).strip()]
+        if lines:
+            return random.choice(lines)
+
+    try:
+        from core.card_content import content_for_card, load_card_content
+
+        entry = content_for_card(card_name, load_card_content())
+        if entry:
+            lines = entry.get("victory_lines", [])
+            if isinstance(lines, str):
+                lines = [lines]
+            if isinstance(lines, list):
+                usable_lines = [str(line).strip() for line in lines if str(line).strip()]
+                if usable_lines:
+                    return random.choice(usable_lines)
+    except Exception:
+        pass
 
     generic = [
         "Another victory!",

@@ -22,7 +22,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 QUICK_INVITE_TTL_SECONDS = 5 * 60
 QUICK_GROUP_TTL_SECONDS = 60
 QUICK_CHOICE_TTL_SECONDS = 60
-EASY_LOBBY_TTL_SECONDS = 30
+EASY_LOBBY_TTL_SECONDS = 3 * 60
 EASY_CHOICE_TTL_SECONDS = 30
 
 CORE_STATS = ("power", "speed", "iq", "popularity")
@@ -175,6 +175,11 @@ def _loads(value: Any, default: Any) -> Any:
         return default
 
 
+def bidi_isolate(value: Any) -> str:
+    """Keep dynamic Persian/Latin labels stable inside Telegram RTL text."""
+    return f"\u2068{str(value or '').strip()}\u2069"
+
+
 class GameModeSystem:
     """Owns persistent matchmaking and the deterministic mode state machines."""
 
@@ -202,6 +207,7 @@ class GameModeSystem:
                 source TEXT NOT NULL,
                 origin_chat_id INTEGER,
                 origin_message_id INTEGER,
+                origin_inline_message_id TEXT,
                 status TEXT NOT NULL DEFAULT 'waiting',
                 invite_token TEXT UNIQUE,
                 rounds INTEGER NOT NULL DEFAULT 1,
@@ -255,6 +261,13 @@ class GameModeSystem:
             );
             """
         )
+        request_columns = {
+            row[1] for row in cursor.execute("PRAGMA table_info(game_requests)").fetchall()
+        }
+        if "origin_inline_message_id" not in request_columns:
+            cursor.execute(
+                "ALTER TABLE game_requests ADD COLUMN origin_inline_message_id TEXT"
+            )
         for key, definition in ABILITY_DEFINITIONS.items():
             cursor.execute(
                 """
@@ -373,6 +386,29 @@ class GameModeSystem:
         conn.close()
         return request
 
+    def create_inline_private_challenge(
+        self, creator_id: int, mode: str, variant: str
+    ) -> Dict[str, Any]:
+        """Create a challenge inserted through inline mode into a peer chat."""
+        if mode not in ("quick", "deck") or variant not in ("normal", "random"):
+            raise ValueError("invalid_inline_game")
+        conn = self._connect()
+        request = self._insert_request(
+            conn,
+            creator_id,
+            mode,
+            variant,
+            "inline_private",
+            QUICK_GROUP_TTL_SECONDS,
+            # Telegram does not expose the peer-chat id to inline bots. Keep a
+            # valid service chat for private fallbacks; shared UI uses the
+            # inline_message_id recorded after insertion.
+            origin_chat_id=creator_id,
+        )
+        conn.commit()
+        conn.close()
+        return request
+
     def matchmake_random(
         self, creator_id: int, mode: str, variant: str
     ) -> Tuple[str, Dict[str, Any]]:
@@ -387,6 +423,19 @@ class GameModeSystem:
             """,
             (now, now),
         )
+        existing = conn.execute(
+            """
+            SELECT * FROM game_requests
+            WHERE creator_id=? AND mode=? AND variant=? AND source='random_queue'
+              AND status='waiting' AND expires_at > ?
+            ORDER BY created_at DESC LIMIT 1
+            """,
+            (creator_id, mode, variant, now),
+        ).fetchone()
+        if existing:
+            conn.commit()
+            conn.close()
+            return "waiting", dict(existing)
         row = conn.execute(
             """
             SELECT * FROM game_requests
@@ -486,6 +535,19 @@ class GameModeSystem:
             WHERE request_id=?
             """,
             (chat_id, message_id, _iso(_now()), request_id),
+        )
+        conn.commit()
+        conn.close()
+
+    def update_inline_message_reference(self, request_id: str, inline_message_id: str) -> None:
+        conn = self._connect()
+        conn.execute(
+            """
+            UPDATE game_requests
+               SET origin_inline_message_id=?, updated_at=?
+             WHERE request_id=?
+            """,
+            (inline_message_id, _iso(_now()), request_id),
         )
         conn.commit()
         conn.close()
@@ -729,6 +791,51 @@ class GameModeSystem:
         blocked.update(state.get("locked_stats", {}).get(str(user_id), []))
         return [stat for stat in CORE_STATS if stat not in blocked]
 
+    def quick_stat_preview(self, state: Dict[str, Any], user_id: int) -> Dict[str, Any]:
+        """Return the exact Quick values a player will use during resolution."""
+        players = state.get("players", [])
+        if user_id not in players or len(players) != 2:
+            raise ValueError("invalid_quick_player")
+
+        opponent_id = next(player_id for player_id in players if player_id != user_id)
+        card_id = state.get("cards", {}).get(str(user_id))
+        opponent_card_id = state.get("cards", {}).get(str(opponent_id))
+        if not card_id or not opponent_card_id:
+            raise ValueError("quick_card_not_selected")
+
+        card = self.db.get_card_by_id_for_player(card_id, user_id) or self.db.get_card_by_id(card_id)
+        opponent_card = (
+            self.db.get_card_by_id_for_player(opponent_card_id, opponent_id)
+            or self.db.get_card_by_id(opponent_card_id)
+        )
+        if card is None or opponent_card is None:
+            raise ValueError("card_not_found")
+
+        arena = self._arena(state["arena"])
+        base_values = {stat: int(getattr(card, stat)) for stat in CORE_STATS}
+        final_values = dict(base_values)
+        for stat, delta in arena.get("modifiers", {}).items():
+            final_values[stat] += int(delta)
+
+        passive = self._apply_passive(card, opponent_card, arena, final_values)
+        opponent_ability = state.get("ability_choices", {}).get(str(opponent_id), "skip")
+        ability_effect = ABILITY_DEFINITIONS.get(opponent_ability, {}).get("effect", {})
+        applied_ability = None
+        if ability_effect.get("type") == "weaken_stat":
+            target_stat = ability_effect["stat"]
+            delta = int(ability_effect.get("delta", -2))
+            final_values[target_stat] += delta
+            applied_ability = {"ability": opponent_ability, "stat": target_stat, "delta": delta}
+
+        return {
+            "card_id": card.card_id,
+            "card_name": card.name,
+            "base_values": base_values,
+            "final_values": final_values,
+            "passive": passive,
+            "opponent_ability_effect": applied_ability,
+        }
+
     def select_quick_stat(self, request_id: str, user_id: int, stat: str) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]]]:
         conn = self._connect()
         conn.execute("BEGIN IMMEDIATE")
@@ -792,21 +899,28 @@ class GameModeSystem:
         conn.commit()
         conn.close()
 
-    def get_card_metadata(self, card_id: str) -> Dict[str, Any]:
+    def get_card_metadata(self, card_id: str, rarity: Optional[str] = None) -> Dict[str, Any]:
         conn = self._connect()
         row = conn.execute(
             "SELECT * FROM card_mode_metadata WHERE card_id=?", (card_id,)
         ).fetchone()
         conn.close()
         if not row:
-            return {"card_id": card_id, "traits": [], "series": None, "hidden_stats": {}, "passive": {}}
-        return {
+            metadata = {"card_id": card_id, "traits": [], "series": None, "hidden_stats": {}, "passive": {}}
+        else:
+            metadata = {
             "card_id": card_id,
             "traits": _loads(row["traits"], []),
             "series": row["series"],
             "hidden_stats": _loads(row["hidden_stats"], {}),
             "passive": _loads(row["passive"], {}),
-        }
+            }
+        # Passive is form-specific; story-oriented mode metadata remains shared.
+        if rarity and hasattr(self.db, "get_card_variant"):
+            variant = self.db.get_card_variant(card_id, rarity)
+            if variant and variant.get("passive"):
+                metadata["passive"] = variant["passive"]
+        return metadata
 
     def calculate_deck_synergy(self, card_ids: Iterable[str]) -> Dict[str, Any]:
         """Calculate the initial, data-driven deck-construction bonuses.
@@ -852,7 +966,7 @@ class GameModeSystem:
             if common_traits:
                 trait = next(iter(common_traits.values()))
                 score += 3
-                reasons.append(f"سه کارت با Trait {trait}: +3")
+                reasons.append(f"سه کارت با ویژگی {bidi_isolate(trait)}: +3")
 
         return {"score": score, "reasons": reasons}
 
@@ -865,7 +979,8 @@ class GameModeSystem:
     ) -> Optional[Dict[str, Any]]:
         if not arena.get("passives_enabled", True):
             return None
-        metadata = self.get_card_metadata(card.card_id)
+        rarity = getattr(getattr(card, "rarity", None), "value", getattr(card, "rarity", None))
+        metadata = self.get_card_metadata(card.card_id, rarity)
         passive = metadata.get("passive") or {}
         condition = passive.get("condition") or {}
         effect = passive.get("effect") or {}
@@ -894,38 +1009,21 @@ class GameModeSystem:
         if len(state.get("stat_choices", {})) != len(state.get("players", [])):
             raise ValueError("quick_not_ready")
         players = state["players"]
-        cards = {
-            uid: self.db.get_card_by_id(state["cards"][str(uid)]) for uid in players
-        }
-        if any(card is None for card in cards.values()):
-            raise ValueError("card_not_found")
         arena = self._arena(state["arena"])
+        previews = {user_id: self.quick_stat_preview(state, user_id) for user_id in players}
         breakdown: Dict[str, Any] = {}
         for user_id in players:
-            card = cards[user_id]
-            opponent_id = next(pid for pid in players if pid != user_id)
-            values = {stat: int(getattr(card, stat)) for stat in CORE_STATS}
-            for stat, delta in arena.get("modifiers", {}).items():
-                values[stat] += int(delta)
-            passive = self._apply_passive(card, cards[opponent_id], arena, values)
-            opponent_ability = state["ability_choices"].get(str(opponent_id), "skip")
-            ability_effect = ABILITY_DEFINITIONS.get(opponent_ability, {}).get("effect", {})
-            applied_ability = None
-            if ability_effect.get("type") == "weaken_stat":
-                target_stat = ability_effect["stat"]
-                delta = int(ability_effect.get("delta", -2))
-                values[target_stat] += delta
-                applied_ability = {"ability": opponent_ability, "stat": target_stat, "delta": delta}
+            preview = previews[user_id]
             selected_stat = state["stat_choices"][str(user_id)]
             breakdown[str(user_id)] = {
-                "card_id": card.card_id,
-                "card_name": card.name,
+                "card_id": preview["card_id"],
+                "card_name": preview["card_name"],
                 "selected_stat": selected_stat,
-                "base_value": int(getattr(card, selected_stat)),
-                "final_value": values[selected_stat],
-                "all_final_values": values,
-                "passive": passive,
-                "opponent_ability_effect": applied_ability,
+                "base_value": preview["base_values"][selected_stat],
+                "final_value": preview["final_values"][selected_stat],
+                "all_final_values": preview["final_values"],
+                "passive": preview["passive"],
+                "opponent_ability_effect": preview["opponent_ability_effect"],
                 "ability_used": state["ability_choices"].get(str(user_id), "skip"),
             }
         first, second = players
@@ -1147,7 +1245,7 @@ class GameModeSystem:
             composite.append(
                 {
                     "id": f"trait:{key}:iq",
-                    "text": f"باهوش‌ترین شخصیت با Trait «{label}» کیست؟",
+                    "text": f"باهوش‌ترین شخصیت با ویژگی {bidi_isolate(label)} کیست؟",
                     "attribute": "iq",
                     "trait": label,
                 }
@@ -1157,7 +1255,7 @@ class GameModeSystem:
             composite.append(
                 {
                     "id": f"series:{key}:popularity",
-                    "text": f"محبوب‌ترین شخصیت از مجموعه «{label}» کیست؟",
+                    "text": f"محبوب‌ترین شخصیت از مجموعه {bidi_isolate(label)} کیست؟",
                     "attribute": "popularity",
                     "series": label,
                 }
