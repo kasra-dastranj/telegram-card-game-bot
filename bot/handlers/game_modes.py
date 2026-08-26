@@ -30,6 +30,7 @@ from systems.game_mode_system import (
     EASY_CHOICE_TTL_SECONDS,
     EASY_LOBBY_TTL_SECONDS,
     QUICK_CHOICE_TTL_SECONDS,
+    QUICK_CARD_TYPE_LABELS,
     QUICK_GROUP_TTL_SECONDS,
     QUICK_INVITE_TTL_SECONDS,
     bidi_isolate,
@@ -558,7 +559,7 @@ class GameModeHandlersMixin:
 
     def _quick_arena_text(self, state: dict) -> str:
         arena = self.modes._arena(state["arena"])
-        modifiers = [f"{STAT_LABELS.get(stat, stat)} {delta:+d}" for stat, delta in arena.get("modifiers", {}).items()]
+        effects = self._quick_arena_effect_lines(arena)
         rules = []
         if arena.get("disabled_stats"):
             rules.append("غیرفعال: " + "، ".join(STAT_LABELS.get(stat, stat) for stat in arena["disabled_stats"]))
@@ -566,8 +567,18 @@ class GameModeHandlersMixin:
             rules.append("Ability غیرفعال است")
         if not arena.get("passives_enabled", True):
             rules.append("Passive غیرفعال است")
-        details = "\n".join(modifiers + rules) or "بدون تغییر عددی یا قانون ویژه"
+        details = "\n".join(effects + rules) or "بدون تغییر عددی یا قانون ویژه"
         return f"{arena['emoji']} زمین: {arena['name']}\n{details}"
+
+    @staticmethod
+    def _quick_arena_effect_lines(arena: dict) -> list[str]:
+        lines = []
+        for effect in arena.get("effects", []):
+            card_type = QUICK_CARD_TYPE_LABELS.get(effect.get("card_type"), "نامشخص")
+            stat = STAT_LABELS.get(effect.get("stat"), effect.get("stat", "ویژگی"))
+            delta = bidi_isolate(f"{int(effect.get('delta', 0)):+d}")
+            lines.append(f"کارت‌های {card_type}: {stat} {delta}")
+        return lines
 
     async def _send_quick_random_card_preview(self, context, user_id: int, card) -> None:
         """Show the auto-selected Random card before the player chooses an Ability."""
@@ -777,16 +788,21 @@ class GameModeHandlersMixin:
             if report.get("forfeit"):
                 lines.append("نتیجه با پایان مهلت تعیین شد.")
             else:
-                lines.append(f"زمین اولیه: {report.get('initial_arena')}")
-                lines.append(f"زمین نهایی: {report.get('arena')}")
+                initial_arena = self.modes._arena(report.get("initial_arena"))
+                final_arena = self.modes._arena(report.get("arena"))
+                lines.append(f"زمین اولیه: {initial_arena['emoji']} {initial_arena['name']}")
+                lines.append(f"زمین نهایی: {final_arena['emoji']} {final_arena['name']}")
+                lines.extend(["", "قانون زمین نهایی:", self._quick_arena_text({"arena": final_arena["id"]})])
                 for uid, item in report.get("breakdown", {}).items():
                     name = self.db.get_or_create_player(int(uid)).first_name
+                    applied_arena = self._quick_arena_effect_lines({"effects": item.get("arena_effects", [])})
                     lines.extend(
                         [
                             "",
                             f"{name}: {item['card_name']}",
                             f"ویژگی: {STAT_LABELS.get(item['selected_stat'], item['selected_stat'])}",
                             f"عدد پایه: {item['base_value']} → نهایی: {item['final_value']}",
+                            "اثر عددی زمین: " + ("، ".join(applied_arena) if applied_arena else "روی نوع این کارت اعمال نشد"),
                             f"Ability: {item['ability_used']}",
                             f"Passive: {(item['passive'] or {}).get('name', 'فعال نشد')}",
                         ]

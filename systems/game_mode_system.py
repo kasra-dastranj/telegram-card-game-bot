@@ -27,13 +27,40 @@ EASY_CHOICE_TTL_SECONDS = 30
 
 CORE_STATS = ("power", "speed", "iq", "popularity")
 
+QUICK_CARD_TYPE_LABELS = {
+    "power": "قدرتی",
+    "speed": "سرعتی",
+    "iq": "هوشی",
+    "popularity": "محبوبیتی",
+}
+
+_QUICK_CARD_TYPE_ALIASES = {
+    "POWER_TYPE": "power",
+    "WARRIOR": "power",
+    "SPEED_TYPE": "speed",
+    "SPEEDSTER": "speed",
+    "IQ_TYPE": "iq",
+    "GENIUS": "iq",
+    "POPULARITY_TYPE": "popularity",
+    "CELEBRITY": "popularity",
+}
+
+
+def normalize_quick_card_type(card_type: Any) -> Optional[str]:
+    """Return the Quick type key used by conditional arena effects."""
+    raw = getattr(card_type, "value", card_type)
+    return _QUICK_CARD_TYPE_ALIASES.get(str(raw or "").strip().upper())
+
 
 QUICK_ARENAS: List[Dict[str, Any]] = [
     {
         "id": "city",
         "name": "شهر",
         "emoji": "🏙️",
-        "modifiers": {"power": 1, "iq": 1},
+        "effects": [
+            {"card_type": "power", "stat": "power", "delta": 1},
+            {"card_type": "iq", "stat": "iq", "delta": 1},
+        ],
         "disabled_stats": [],
         "abilities_enabled": True,
         "passives_enabled": True,
@@ -42,7 +69,10 @@ QUICK_ARENAS: List[Dict[str, Any]] = [
         "id": "desert",
         "name": "بیابان",
         "emoji": "🏜️",
-        "modifiers": {"power": 2, "speed": -1},
+        "effects": [
+            {"card_type": "power", "stat": "power", "delta": 2},
+            {"card_type": "speed", "stat": "speed", "delta": -1},
+        ],
         "disabled_stats": [],
         "abilities_enabled": True,
         "passives_enabled": True,
@@ -51,7 +81,10 @@ QUICK_ARENAS: List[Dict[str, Any]] = [
         "id": "ice",
         "name": "یخبندان",
         "emoji": "❄️",
-        "modifiers": {"speed": -2, "iq": 1},
+        "effects": [
+            {"card_type": "speed", "stat": "speed", "delta": -2},
+            {"card_type": "iq", "stat": "iq", "delta": 1},
+        ],
         "disabled_stats": [],
         "abilities_enabled": True,
         "passives_enabled": True,
@@ -60,7 +93,10 @@ QUICK_ARENAS: List[Dict[str, Any]] = [
         "id": "forest",
         "name": "جنگل",
         "emoji": "🌲",
-        "modifiers": {"iq": 1, "popularity": -1},
+        "effects": [
+            {"card_type": "iq", "stat": "iq", "delta": 1},
+            {"card_type": "popularity", "stat": "popularity", "delta": -1},
+        ],
         "disabled_stats": [],
         "abilities_enabled": True,
         "passives_enabled": True,
@@ -69,7 +105,9 @@ QUICK_ARENAS: List[Dict[str, Any]] = [
         "id": "silent_temple",
         "name": "معبد خاموش",
         "emoji": "🏛️",
-        "modifiers": {"iq": 2},
+        "effects": [
+            {"card_type": "iq", "stat": "iq", "delta": 2},
+        ],
         "disabled_stats": ["speed"],
         "abilities_enabled": False,
         "passives_enabled": True,
@@ -78,7 +116,7 @@ QUICK_ARENAS: List[Dict[str, Any]] = [
         "id": "null_zone",
         "name": "منطقه خنثی",
         "emoji": "🌌",
-        "modifiers": {},
+        "effects": [],
         "disabled_stats": [],
         "abilities_enabled": True,
         "passives_enabled": False,
@@ -814,8 +852,21 @@ class GameModeSystem:
         arena = self._arena(state["arena"])
         base_values = {stat: int(getattr(card, stat)) for stat in CORE_STATS}
         final_values = dict(base_values)
-        for stat, delta in arena.get("modifiers", {}).items():
-            final_values[stat] += int(delta)
+        card_type = normalize_quick_card_type(getattr(card, "card_type", None))
+        applied_arena_effects = []
+        for effect in arena.get("effects", []):
+            if effect.get("card_type") != card_type:
+                continue
+            stat = effect.get("stat")
+            if stat not in CORE_STATS:
+                continue
+            delta = int(effect.get("delta", 0))
+            final_values[stat] += delta
+            applied_arena_effects.append({
+                "card_type": card_type,
+                "stat": stat,
+                "delta": delta,
+            })
 
         passive = self._apply_passive(card, opponent_card, arena, final_values)
         opponent_ability = state.get("ability_choices", {}).get(str(opponent_id), "skip")
@@ -830,8 +881,10 @@ class GameModeSystem:
         return {
             "card_id": card.card_id,
             "card_name": card.name,
+            "card_type": card_type,
             "base_values": base_values,
             "final_values": final_values,
+            "arena_effects": applied_arena_effects,
             "passive": passive,
             "opponent_ability_effect": applied_ability,
         }
@@ -1018,10 +1071,12 @@ class GameModeSystem:
             breakdown[str(user_id)] = {
                 "card_id": preview["card_id"],
                 "card_name": preview["card_name"],
+                "card_type": preview["card_type"],
                 "selected_stat": selected_stat,
                 "base_value": preview["base_values"][selected_stat],
                 "final_value": preview["final_values"][selected_stat],
                 "all_final_values": preview["final_values"],
+                "arena_effects": preview["arena_effects"],
                 "passive": preview["passive"],
                 "opponent_ability_effect": preview["opponent_ability_effect"],
                 "ability_used": state["ability_choices"].get(str(user_id), "skip"),

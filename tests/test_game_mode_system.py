@@ -8,7 +8,14 @@ from systems.battle_system_3rounds import BattleSystem3Rounds
 from systems.game_mode_system import GameModeSystem, bidi_isolate
 
 
-def _card(card_id: str, power: int, speed: int, iq: int, popularity: int) -> Card:
+def _card(
+    card_id: str,
+    power: int,
+    speed: int,
+    iq: int,
+    popularity: int,
+    card_type: str = "POWER_TYPE",
+) -> Card:
     return Card(
         card_id=card_id,
         name=card_id.title(),
@@ -18,6 +25,7 @@ def _card(card_id: str, power: int, speed: int, iq: int, popularity: int) -> Car
         iq=iq,
         popularity=popularity,
         abilities=[],
+        card_type=card_type,
     )
 
 
@@ -171,13 +179,75 @@ def test_quick_stat_preview_matches_resolution_math(mode_system):
 
     assert preview["card_name"] == "Alpha"
     assert preview["base_values"] == {"power": 90, "speed": 30, "iq": 40, "popularity": 50}
-    assert preview["final_values"] == {"power": 93, "speed": 29, "iq": 40, "popularity": 50}
+    assert preview["final_values"] == {"power": 93, "speed": 30, "iq": 40, "popularity": 50}
+    assert preview["arena_effects"] == [
+        {"card_type": "power", "stat": "power", "delta": 2}
+    ]
     assert preview["passive"] == {"name": "Desert strength", "stat": "power", "delta": 3}
     assert preview["opponent_ability_effect"] == {
         "ability": "weaken_power",
         "stat": "power",
         "delta": -2,
     }
+
+
+def test_quick_arena_effects_only_apply_to_the_target_card_type(mode_system):
+    speed_card = _card("speedy", 60, 80, 50, 40, card_type="SPEED_TYPE")
+    assert mode_system.db.add_card(speed_card)
+    assert mode_system.db.add_card_to_player(1, speed_card.card_id)
+    state = {
+        "players": [1, 2],
+        "cards": {"1": "speedy", "2": "alpha"},
+        "arena": "desert",
+        "ability_choices": {"1": "skip", "2": "skip"},
+    }
+
+    speed_preview = mode_system.quick_stat_preview(state, 1)
+    power_preview = mode_system.quick_stat_preview(state, 2)
+
+    assert speed_preview["final_values"] == {
+        "power": 60,
+        "speed": 79,
+        "iq": 50,
+        "popularity": 40,
+    }
+    assert speed_preview["arena_effects"] == [
+        {"card_type": "speed", "stat": "speed", "delta": -1}
+    ]
+    assert power_preview["final_values"] == {
+        "power": 92,
+        "speed": 30,
+        "iq": 40,
+        "popularity": 50,
+    }
+
+
+def test_quick_arena_effect_can_change_a_different_stat_for_target_type(mode_system, monkeypatch):
+    monkeypatch.setattr(
+        mode_system,
+        "_arena",
+        lambda _arena_id: {
+            "id": "cross-stat-test",
+            "effects": [
+                {"card_type": "power", "stat": "popularity", "delta": 1}
+            ],
+            "passives_enabled": True,
+        },
+    )
+    state = {
+        "players": [1, 2],
+        "cards": {"1": "alpha", "2": "beta"},
+        "arena": "cross-stat-test",
+        "ability_choices": {"1": "skip", "2": "skip"},
+    }
+
+    preview = mode_system.quick_stat_preview(state, 1)
+
+    assert preview["final_values"]["power"] == 90
+    assert preview["final_values"]["popularity"] == 51
+    assert preview["arena_effects"] == [
+        {"card_type": "power", "stat": "popularity", "delta": 1}
+    ]
 
 
 def test_easy_first_choice_is_final_and_ties_share_points(mode_system):

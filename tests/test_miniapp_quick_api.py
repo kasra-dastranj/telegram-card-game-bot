@@ -4,6 +4,7 @@ import json
 import pytest
 
 from game_core import DatabaseManager
+from core.models import Card, CardRarity
 from systems.game_mode_system import GameModeSystem
 import web.miniapp_api as miniapp
 
@@ -144,3 +145,74 @@ def test_polling_settles_an_expired_choice_phase(quick_client):
     assert settled["phase"] == "completed"
     assert settled["report"]["forfeit"] is True
     assert settled["report"]["reason"] == "card_selection_timeout"
+
+
+def test_quick_snapshot_exposes_conditional_arena_values(quick_client):
+    client, modes = quick_client
+    power_card = Card(
+        card_id="power-card",
+        name="Power Card",
+        rarity=CardRarity.NORMAL,
+        power=80,
+        speed=50,
+        iq=40,
+        popularity=30,
+        abilities=[],
+        card_type="POWER_TYPE",
+    )
+    speed_card = Card(
+        card_id="speed-card",
+        name="Speed Card",
+        rarity=CardRarity.NORMAL,
+        power=60,
+        speed=70,
+        iq=50,
+        popularity=40,
+        abilities=[],
+        card_type="SPEED_TYPE",
+    )
+    for card in (power_card, speed_card):
+        assert modes.db.add_card(card)
+    for user_id, card in ((41, speed_card), (42, power_card)):
+        modes.db.get_or_create_player(user_id)
+        assert modes.db.add_card_to_player(user_id, card.card_id)
+
+    first = client.post(
+        "/api/v1/quick/matchmaking", json={"variant": "normal"}, headers=_headers(41)
+    ).get_json()
+    client.post(
+        "/api/v1/quick/matchmaking", json={"variant": "normal"}, headers=_headers(42)
+    )
+    request_id = first["request_id"]
+    assert client.post(
+        f"/api/v1/quick/matches/{request_id}/card",
+        json={"card_id": speed_card.card_id},
+        headers=_headers(41),
+    ).status_code == 200
+    assert client.post(
+        f"/api/v1/quick/matches/{request_id}/card",
+        json={"card_id": power_card.card_id},
+        headers=_headers(42),
+    ).status_code == 200
+
+    state = modes.get_state(request_id)
+    state["initial_arena"] = "desert"
+    state["arena"] = "desert"
+    conn = modes._connect()
+    modes._save_state(conn, request_id, state)
+    conn.commit()
+    conn.close()
+
+    snapshot = client.get(
+        f"/api/v1/quick/requests/{request_id}", headers=_headers(41)
+    ).get_json()
+
+    assert snapshot["my_final_values"] == {
+        "power": 60,
+        "speed": 69,
+        "iq": 50,
+        "popularity": 40,
+    }
+    assert snapshot["my_arena_effects"] == [
+        {"card_type": "speed", "stat": "speed", "delta": -1}
+    ]

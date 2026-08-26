@@ -476,11 +476,19 @@ def _quick_snapshot(game_request: dict, user_id: int) -> dict:
     )
     opponent_card_id = state.get("cards", {}).get(opponent_key) if reveal_opponent else None
     opponent_card = db.get_card_by_id(opponent_card_id) if opponent_card_id else None
+    preview = None
+    if own_card and opponent_key in state.get("cards", {}):
+        try:
+            preview = quick_modes.quick_stat_preview(state, user_id)
+        except ValueError:
+            preview = None
     response.update({
         "phase": state.get("phase"),
         "deadline": state.get("deadline"),
         "arena": arena,
         "my_card": card_to_dict(own_card) if own_card else None,
+        "my_final_values": preview.get("final_values") if preview else None,
+        "my_arena_effects": preview.get("arena_effects", []) if preview else [],
         "my_card_locked": own_card_id is not None,
         "opponent_card_selected": opponent_key in state.get("cards", {}),
         "opponent_card": card_to_dict(opponent_card) if opponent_card else None,

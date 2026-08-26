@@ -494,14 +494,15 @@ function quickMatchTemplate(): string {
     || (quick?.phase === "stat_selection" && quick.my_stat_locked)
   );
   const phaseTitle = quick?.phase === "ability_selection" ? "توانایی تاکتیکی" : quick?.phase === "stat_selection" ? "ویژگی نهایی" : "انتخاب کارت";
-  const modifiers = Object.entries(arena?.modifiers || {}).map(([key, value]) => `${labels[key as StatKey].title} ${Number(value) > 0 ? "+" : ""}${value}`).join(" · ");
+  const cardTypeLabels: Record<StatKey, string> = { power: "قدرتی", speed: "سرعتی", iq: "هوشی", popularity: "محبوبیتی" };
+  const arenaEffects = (arena?.effects || []).map((effect) => `کارت‌های ${cardTypeLabels[effect.card_type]}: ${labels[effect.stat].title} <bdi dir="ltr">${effect.delta > 0 ? "+" : ""}${effect.delta}</bdi>`).join(" · ");
   return `
     <section class="screen quick-match-screen">
       <header class="quick-match-hud glass-panel">
         <div><small>QUICK</small><strong>${phaseTitle}</strong></div>
         <div class="versus-chip"><span>تو</span><i>VS</i><span>حریف</span></div>
       </header>
-      ${arena ? `<div class="arena-banner"><span>${arena.emoji || "◇"}</span><div><small>میدان</small><strong>${arena.name}</strong><p>${modifiers || "بدون تغییر ویژگی"}</p></div></div>` : ""}
+      ${arena ? `<div class="arena-banner"><span>${arena.emoji || "◇"}</span><div><small>میدان</small><strong>${arena.name}</strong><p>${arenaEffects || "بدون تغییر عددی برای نوع کارت‌ها"}</p></div></div>` : ""}
       ${quick?.opponent_card ? `<div class="reveal-card glass-panel"><span class="reveal-card__art" style="background-image:url('${quick.opponent_card.image_url}')"></span><div><small>کارت حریف آشکار شد</small><strong>${quick.opponent_card.name}</strong></div></div>` : ""}
       <div class="decision-panel glass-panel">
         ${waitingForOpponent ? `
@@ -517,7 +518,7 @@ function quickMatchTemplate(): string {
           <div class="stat-grid quick-stat-grid">
             ${(Object.keys(labels) as StatKey[]).map((key) => {
               const enabled = (quick.allowed_stats || []).includes(key) && !state.loading;
-              return `<button class="stat-button" data-action="quick-stat" data-value="${key}" ${enabled ? "" : "disabled"}><span>${labels[key].short}</span><strong>${quick.my_card?.[key] ?? "—"}</strong><small>${labels[key].title}</small></button>`;
+              return `<button class="stat-button" data-action="quick-stat" data-value="${key}" ${enabled ? "" : "disabled"}><span>${labels[key].short}</span><strong>${quick.my_final_values?.[key] ?? quick.my_card?.[key] ?? "—"}</strong><small>${labels[key].title}</small></button>`;
             }).join("")}
           </div>
         ` : `<div class="choice-locked"><span>✓</span><strong>کارتت ثبت شد</strong><p>منتظر انتخاب کارت حریف…</p></div>`}

@@ -11,6 +11,32 @@ from systems.deck_system import DECK_SELECTION_TTL_SECONDS
 from systems.game_mode_system import EASY_LOBBY_TTL_SECONDS
 
 
+def test_quick_arena_text_names_target_card_type_and_affected_stat():
+    handler = GameModeHandlersMixin()
+    handler.modes = SimpleNamespace(
+        _arena=Mock(
+            return_value={
+                "emoji": "🏜️",
+                "name": "بیابان",
+                "effects": [
+                    {"card_type": "power", "stat": "power", "delta": 2},
+                    {"card_type": "speed", "stat": "speed", "delta": -1},
+                ],
+                "disabled_stats": [],
+                "abilities_enabled": True,
+                "passives_enabled": True,
+            }
+        )
+    )
+
+    text = handler._quick_arena_text({"arena": "desert"})
+
+    assert "کارت‌های قدرتی: 💪 قدرت" in text
+    assert "کارت‌های سرعتی: ⚡ سرعت" in text
+    assert "+2" in text
+    assert "-1" in text
+
+
 def test_quick_random_ability_panel_reveals_auto_selected_card():
     alpha = SimpleNamespace(name="Alpha")
     beta = SimpleNamespace(name="Beta")
@@ -355,6 +381,17 @@ def test_quick_group_details_are_delivered_privately_to_clicking_player():
         get_report=Mock(return_value=report),
         get_request=Mock(
             return_value={"source": "group_challenge", "origin_chat_id": -100123}
+        ),
+        _arena=Mock(
+            return_value={
+                "id": "city",
+                "name": "شهر",
+                "emoji": "🏙️",
+                "effects": [],
+                "disabled_stats": [],
+                "abilities_enabled": True,
+                "passives_enabled": True,
+            }
         ),
     )
     handler.db = SimpleNamespace(

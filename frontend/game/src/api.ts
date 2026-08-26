@@ -188,8 +188,16 @@ export interface QuickState {
   opponent_id?: number;
   phase?: QuickPhase;
   deadline?: string;
-  arena?: { id: string; name: string; emoji: string; modifiers: Partial<Record<StatKey, number>>; abilities_enabled: boolean };
+  arena?: {
+    id: string;
+    name: string;
+    emoji: string;
+    effects: Array<{ card_type: StatKey; stat: StatKey; delta: number }>;
+    abilities_enabled: boolean;
+  };
   my_card?: CardData;
+  my_final_values?: Partial<Record<StatKey, number>>;
+  my_arena_effects?: Array<{ card_type: StatKey; stat: StatKey; delta: number }>;
   my_card_locked?: boolean;
   opponent_card_selected?: boolean;
   opponent_card?: CardData;
@@ -468,7 +476,7 @@ export const api = {
   async quickCard(requestId: string, cardId: string): Promise<QuickState> {
     if (demoMode && demoQuick) {
       const card = demoCards.find((item) => item.card_id === cardId) || demoCards[0];
-      demoQuick = { ...demoQuick, status: "active", phase: "ability_selection", my_card: card, my_card_locked: true, opponent_card_selected: true, arena: { id: "city", name: "شهر نئون", emoji: "", modifiers: { iq: 1, power: 1 }, abilities_enabled: true }, abilities: [{ ability_key: "reveal_opponent", quantity: 1, title: "مشاهده کارت حریف", description: "پیش از انتخاب ویژگی، کارت حریف را می‌بینی." }], deadline: new Date(Date.now() + 30_000).toISOString() };
+      demoQuick = { ...demoQuick, status: "active", phase: "ability_selection", my_card: card, my_card_locked: true, opponent_card_selected: true, arena: { id: "city", name: "شهر نئون", emoji: "", effects: [{ card_type: "power", stat: "power", delta: 1 }, { card_type: "iq", stat: "iq", delta: 1 }], abilities_enabled: true }, abilities: [{ ability_key: "reveal_opponent", quantity: 1, title: "مشاهده کارت حریف", description: "پیش از انتخاب ویژگی، کارت حریف را می‌بینی." }], deadline: new Date(Date.now() + 30_000).toISOString() };
       return { ...demoQuick };
     }
     return request("POST", `/quick/matches/${encodeURIComponent(requestId)}/card`, { card_id: cardId });
