@@ -728,7 +728,11 @@ class GameModeHandlersMixin:
         missing = [uid for uid in state["players"] if str(uid) not in state.get(choice_key, {})]
         if not missing:
             return
-        report = self.modes.forfeit_quick(request_id, missing, reason=f"{expected_phase}_timeout")
+        try:
+            report = self.modes.forfeit_quick(request_id, missing, reason=f"{expected_phase}_timeout")
+        except ValueError:
+            # A choice may have advanced the phase while the job was running.
+            return
         await self._announce_quick_result(context, report)
 
     async def _announce_quick_result(self, context, report: dict):

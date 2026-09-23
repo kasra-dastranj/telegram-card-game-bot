@@ -25,6 +25,7 @@ try {
       hasTouch: true,
       reducedMotion: viewport.name === "375x667" ? "reduce" : "no-preference",
     });
+    await context.addInitScript(() => localStorage.setItem("telbattle:onboarding:v1", "done"));
     const page = await context.newPage();
     const failures = [];
     const placeholderCard = `<svg xmlns="http://www.w3.org/2000/svg" width="360" height="540"><rect width="100%" height="100%" rx="28" fill="#102a25"/><rect x="18" y="18" width="324" height="504" rx="22" fill="none" stroke="#d5aa52" stroke-width="6"/><text x="180" y="280" text-anchor="middle" fill="#f8f2df" font-size="30" font-family="sans-serif">TelBattle</text></svg>`;
@@ -68,7 +69,7 @@ try {
     await page.waitForTimeout(500);
     await page.locator("#collection-rarity").selectOption("epic");
     await page.locator(".collection-card").first().waitFor();
-    const rarityLabels = await page.locator(".collection-card__body small").allTextContents();
+    const rarityLabels = await page.locator(".collection-card__body > small").allTextContents();
     if (rarityLabels.some((label) => !label.includes("EPIC"))) throw new Error("Rarity filter returned a non-Epic card");
 
     await page.locator(".collection-card").first().click();
@@ -149,11 +150,14 @@ try {
           body: JSON.stringify({ first_name: "QA", level: 2, current_tier: "Bronze", hearts: 3, max_hearts: 5, coins: 999, total_score: 20, counts: { cards: 7, decks: 2, missions_ready: 0, rarities: {} } }),
         });
       });
-      await authPage.goto("http://127.0.0.1:4173/miniapp-assets/", { waitUntil: "networkidle" });
+      await authPage.route("**/api/v1/cards?**", route => route.fulfill({ contentType: "application/json", body: JSON.stringify({cards: [], total: 0, page: 1, page_count: 1, limit: 3}) }));
+      const authUrl = new URL(baseUrl);
+      authUrl.search = "";
+      await authPage.goto(authUrl.toString(), { waitUntil: "networkidle" });
       await authPage.locator(".profile-auth-error").waitFor();
       await authPage.getByRole("button", { name: "تلاش دوباره" }).click();
       await authPage.locator(".profile-auth-error").waitFor({ state: "detached" });
-      const recovered = await authPage.locator(".resource-row .resource b").allTextContents();
+      const recovered = await authPage.locator(".lobby-resource b").allTextContents();
       if (recovered.join("|") !== "3/5|۹۹۹|۷|۲") throw new Error(`Retry did not restore resources: ${recovered.join("|")}`);
       await authPage.close();
     }

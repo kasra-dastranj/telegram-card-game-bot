@@ -8,6 +8,7 @@
 import sqlite3
 import logging
 import random
+import uuid
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime
 from enum import Enum
@@ -78,87 +79,55 @@ class RiskModeSystem:
         return True, ""
     
     def create_risk_match(
-        self,
-        challenger_id: int,
-        opponent_id: int,
-        table: RiskTable,
-        chat_id: int = None
+        self, challenger_id: int, opponent_id: int, table: RiskTable, chat_id: int = None
     ) -> Dict:
-        """
-        ایجاد یک بازی Risk
-        
-        Args:
-            challenger_id: شناسه چالنجر
-            opponent_id: شناسه حریف
-            table: میز انتخابی
-            chat_id: شناسه چت گروه
-        
-        Returns:
-            اطلاعات بازی
-        """
-        # بررسی شرایط ورود
-        can_enter_c, reason_c = self.can_enter_risk(challenger_id, table)
-        can_enter_o, reason_o = self.can_enter_risk(opponent_id, table)
-        
-        if not can_enter_c:
-            return {"success": False, "error": f"Challenger: {reason_c}"}
-        if not can_enter_o:
-            return {"success": False, "error": f"Opponent: {reason_o}"}
-        
-        # قفل کردن ورودیه
-        entry_fee = table.value
-        
-        # کسر ورودیه از هر دو بازیکن
-        ok_c, _ = self.db.spend_coins(challenger_id, entry_fee)
-        ok_o, _ = self.db.spend_coins(opponent_id, entry_fee)
-        
-        if not ok_c or not ok_o:
-            # برگشت سکه اگه یکی نتونست
-            if ok_c:
-                self.db.add_coins(challenger_id, entry_fee)
-            if ok_o:
-                self.db.add_coins(opponent_id, entry_fee)
-            return {"success": False, "error": "خطا در کسر ورودیه"}
-        
-        # ایجاد match
-        match_id = f"risk_{challenger_id}_{opponent_id}_{int(datetime.now().timestamp())}"
-        
-        # انتخاب 3 کارت رندوم برای هر بازیکن
-        all_cards = self.db.get_all_cards()
-        
-        challenger_cards = random.sample([c.card_id for c in all_cards], 3)
-        opponent_cards = random.sample([c.card_id for c in all_cards], 3)
-        
-        conn = sqlite3.connect(self.db.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            INSERT INTO risk_matches
-            (match_id, challenger_id, opponent_id, table_value, chat_id,
-             challenger_cards, opponent_cards, current_pot, current_round,
-             status, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 'card_selection', ?)
-        ''', (
-            match_id, challenger_id, opponent_id, table.value, chat_id,
-            ','.join(challenger_cards), ','.join(opponent_cards),
-            entry_fee * 2,  # pot اولیه
-            datetime.now().isoformat()
-        ))
-        
-        conn.commit()
-        conn.close()
-        
-        logger.info(f"Risk match created: {match_id}, table={table.value}")
-        
-        return {
-            "success": True,
-            "match_id": match_id,
-            "table_value": table.value,
-            "current_pot": entry_fee * 2,
-            "challenger_cards": challenger_cards,
-            "opponent_cards": opponent_cards
-        }
-    
+        """Create the match and escrow both entry fees atomically."""
+        if challenger_id == opponent_id:
+            return {"success": False, "error": "نمی‌توانی با خودت بازی کنی"}
+        if not isinstance(table, RiskTable):
+            return {"success": False, "error": "میز نامعتبر است"}
+        for uid in (challenger_id, opponent_id):
+            allowed, reason = self.can_enter_risk(uid, table)
+            if not allowed:
+                return {"success": False, "error": reason}
+        cards = [card.card_id for card in self.db.get_all_cards()]
+        if len(cards) < 3:
+            return {"success": False, "error": "حداقل سه کارت برای بازی لازم است"}
+        challenger_cards = random.sample(cards, 3)
+        opponent_cards = random.sample(cards, 3)
+        # Compact IDs fit Telegram callback_data and contain no field separator.
+        match_id = uuid.uuid4().hex[:16]
+        conn = sqlite3.connect(self.db.db_path, timeout=15)
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            for uid in (challenger_id, opponent_id):
+                changed = conn.execute(
+                    "UPDATE players SET coins=coins-? WHERE user_id=? AND coins>=?",
+                    (table.value, uid, table.value * MIN_BALANCE_MULTIPLIER),
+                )
+                if changed.rowcount != 1:
+                    conn.rollback()
+                    return {"success": False, "error": "موجودی کافی نیست"}
+            conn.execute(
+                """INSERT INTO risk_matches
+                   (match_id,challenger_id,opponent_id,table_value,chat_id,
+                    challenger_cards,opponent_cards,current_pot,current_round,status,created_at)
+                   VALUES (?,?,?,?,?,?,?,?,1,'card_selection',?)""",
+                (match_id, challenger_id, opponent_id, table.value, chat_id,
+                 ','.join(challenger_cards), ','.join(opponent_cards), table.value * 2,
+                 datetime.now().isoformat()),
+            )
+            conn.commit()
+            return {"success": True, "match_id": match_id, "table_value": table.value,
+                    "current_pot": table.value * 2, "challenger_cards": challenger_cards,
+                    "opponent_cards": opponent_cards}
+        except Exception:
+            conn.rollback()
+            logger.exception("Risk match creation failed")
+            return {"success": False, "error": "ایجاد بازی انجام نشد"}
+        finally:
+            conn.close()
+
     def get_risk_match(self, match_id: str) -> Optional[Dict]:
         """
         دریافت اطلاعات بازی Risk
@@ -213,181 +182,156 @@ class RiskModeSystem:
         return None
     
     def select_card(self, match_id: str, user_id: int, card_id: str) -> Dict:
-        """
-        انتخاب کارت برای راوند
-        
-        Args:
-            match_id: شناسه بازی
-            user_id: شناسه بازیکن
-            card_id: شناسه کارت
-        
-        Returns:
-            نتیجه
-        """
-        match = self.get_risk_match(match_id)
-        if not match:
-            return {"success": False, "error": "Match not found"}
-        
-        # تعیین نقش
-        if user_id == match["challenger_id"]:
-            field = "challenger_selected_card"
-            available_cards = match["challenger_cards"]
-        elif user_id == match["opponent_id"]:
-            field = "opponent_selected_card"
-            available_cards = match["opponent_cards"]
+        conn = sqlite3.connect(self.db.db_path, timeout=15)
+        conn.row_factory = sqlite3.Row
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            match = conn.execute("SELECT * FROM risk_matches WHERE match_id=?", (match_id,)).fetchone()
+            if not match or match["status"] == "completed":
+                return {"success": False, "error": "بازی فعال پیدا نشد"}
+            role = "challenger" if user_id == match["challenger_id"] else "opponent" if user_id == match["opponent_id"] else None
+            if not role:
+                return {"success": False, "error": "این بازی مال تو نیست"}
+            if match["bluff_phase"] != "none" or match[f"{role}_selected_card"]:
+                return {"success": False, "error": "انتخاب کارت قبلاً ثبت شده است"}
+            if card_id not in match[f"{role}_cards"].split(","):
+                return {"success": False, "error": "کارت نامعتبر است"}
+            conn.execute(f"UPDATE risk_matches SET {role}_selected_card=? WHERE match_id=?", (card_id, match_id))
+            conn.commit()
+            return {"success": True}
+        finally:
+            conn.close()
+
+    @staticmethod
+    def _settle(conn, match, winner_id):
+        """Settle the escrow once, together with progression and match status."""
+        changed = conn.execute(
+            "UPDATE risk_matches SET status='completed',winner_id=?,bluff_phase='done' WHERE match_id=? AND status!='completed'",
+            (winner_id, match["match_id"]),
+        )
+        if changed.rowcount != 1:
+            return False
+        if winner_id is None:
+            # A completed call leaves equal stakes; split the entire pot,
+            # including raises, without creating or discarding coins.
+            first = match["current_pot"] // 2
+            payouts = ((match["challenger_id"], first), (match["opponent_id"], match["current_pot"] - first))
         else:
-            return {"success": False, "error": "Not your match"}
-        
-        # بررسی کارت
-        if card_id not in available_cards:
-            return {"success": False, "error": "Invalid card"}
-        
-        # ذخیره انتخاب
-        conn = sqlite3.connect(self.db.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute(f'''
-            UPDATE risk_matches
-            SET {field} = ?
-            WHERE match_id = ?
-        ''', (card_id, match_id))
-        
-        conn.commit()
-        conn.close()
-        
-        return {"success": True}
-    
-    def make_action(
-        self,
-        match_id: str,
-        user_id: int,
-        action: RiskAction,
-        raise_amount: int = 0
-    ) -> Dict:
-        """
-        انجام اقدام (Fold/Call/Raise)
-        
-        Args:
-            match_id: شناسه بازی
-            user_id: شناسه بازیکن
-            action: نوع اقدام
-            raise_amount: مقدار Raise
-        
-        Returns:
-            نتیجه
-        """
-        match = self.get_risk_match(match_id)
-        if not match:
-            return {"success": False, "error": "Match not found"}
-        
-        # FOLD - انصراف
-        if action == RiskAction.FOLD:
-            winner_id = match["opponent_id"] if user_id == match["challenger_id"] else match["challenger_id"]
-            
-            # پات به برنده
-            self.db.add_coins(winner_id, match["current_pot"])
-            
-            conn = sqlite3.connect(self.db.db_path)
-            cursor = conn.cursor()
-            cursor.execute('UPDATE risk_matches SET status = ?, winner_id = ? WHERE match_id = ?',
-                           ('completed', winner_id, match_id))
-            conn.commit()
+            payouts = ((winner_id, match["current_pot"]),)
+        for uid, amount in payouts:
+            conn.execute("UPDATE players SET coins=coins+? WHERE user_id=?", (amount, uid))
+        if winner_id is not None:
+            from systems.phase2_systems import LevelSystem
+            for uid in (match["challenger_id"], match["opponent_id"]):
+                conn.execute(
+                    "INSERT OR IGNORE INTO player_progression(user_id,level,total_xp,tier_points,current_tier) VALUES (?,1,0,0,'Bronze')",
+                    (uid,),
+                )
+                xp = conn.execute("SELECT total_xp FROM player_progression WHERE user_id=?", (uid,)).fetchone()[0]
+                xp += 25 if uid == winner_id else 5
+                conn.execute("UPDATE player_progression SET total_xp=?,level=?,last_played_at=? WHERE user_id=?",
+                             (xp, LevelSystem.get_level_from_xp(xp), datetime.now().isoformat(), uid))
+        return True
+
+    def make_action(self, match_id: str, user_id: int, action: RiskAction, raise_amount: int = 0) -> Dict:
+        conn = sqlite3.connect(self.db.db_path, timeout=15)
+        conn.row_factory = sqlite3.Row
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            match = conn.execute("SELECT * FROM risk_matches WHERE match_id=?", (match_id,)).fetchone()
+            if not match or match["status"] == "completed":
+                return {"success": False, "error": "بازی فعال پیدا نشد"}
+            role = "challenger" if user_id == match["challenger_id"] else "opponent" if user_id == match["opponent_id"] else None
+            if not role:
+                return {"success": False, "error": "این بازی مال تو نیست"}
+            if action == RiskAction.FOLD:
+                winner_id = match["opponent_id"] if role == "challenger" else match["challenger_id"]
+                self._settle(conn, match, winner_id)
+                conn.commit()
+                return {"success": True, "action": "fold", "winner_id": winner_id, "pot": match["current_pot"]}
+            if match["bluff_phase"] not in ("waiting", "raise_pending"):
+                return {"success": False, "error": "این مرحله تمام شده است"}
+            if action == RiskAction.RAISE:
+                if match["bluff_phase"] != "waiting" or match[f"{role}_bluff_action"]:
+                    return {"success": False, "error": "اقدام قبلاً ثبت شده است"}
+                if type(raise_amount) is not int or not 0 < raise_amount <= match["table_value"] * MAX_RAISE_MULTIPLIER:
+                    return {"success": False, "error": "مقدار Raise نامعتبر است"}
+                charged = conn.execute("UPDATE players SET coins=coins-? WHERE user_id=? AND coins>=?",
+                                       (raise_amount, user_id, raise_amount))
+                if charged.rowcount != 1:
+                    return {"success": False, "error": "سکه کافی نیست"}
+                conn.execute(
+                    f"""UPDATE risk_matches SET current_pot=current_pot+?,bluff_phase='raise_pending',
+                        raise_amount=?,raise_by=?,{role}_bluff_action='raise' WHERE match_id=?""",
+                    (raise_amount, raise_amount, user_id, match_id),
+                )
+                conn.commit()
+                return {"success": True, "action": "raise", "raise_amount": raise_amount,
+                        "new_pot": match["current_pot"] + raise_amount}
+            if action == RiskAction.CALL:
+                amount = 0
+                ready = False
+                if match["bluff_phase"] == "raise_pending":
+                    if match["raise_by"] == user_id:
+                        return {"success": False, "error": "منتظر پاسخ حریف بمان"}
+                    amount = match["raise_amount"]
+                    charged = conn.execute("UPDATE players SET coins=coins-? WHERE user_id=? AND coins>=?",
+                                           (amount, user_id, amount))
+                    if charged.rowcount != 1:
+                        return {"success": False, "error": "سکه کافی نیست"}
+                    ready = True
+                else:
+                    if match[f"{role}_bluff_action"]:
+                        return {"success": False, "error": "اقدام قبلاً ثبت شده است"}
+                    other = "opponent" if role == "challenger" else "challenger"
+                    ready = match[f"{other}_bluff_action"] == "call"
+                conn.execute(
+                    f"UPDATE risk_matches SET current_pot=current_pot+?,bluff_phase=?,{role}_bluff_action='call' WHERE match_id=?",
+                    (amount, "done" if ready else "waiting", match_id),
+                )
+                conn.commit()
+                return {"success": True, "action": "call", "ready": ready}
+            return {"success": False, "error": "اقدام نامعتبر است"}
+        finally:
             conn.close()
-            
-            return {"success": True, "action": "fold", "winner_id": winner_id, "pot": match["current_pot"]}
-        
-        # CALL - ادامه
-        elif action == RiskAction.CALL:
-            return {"success": True, "action": "call"}
-        
-        # RAISE - افزایش شرط
-        elif action == RiskAction.RAISE:
-            max_raise = match["table_value"] * MAX_RAISE_MULTIPLIER
-            
-            if raise_amount > max_raise:
-                return {"success": False, "error": f"حداکثر Raise: {max_raise}"}
-            
-            ok, err = self.db.spend_coins(user_id, raise_amount)
-            if not ok:
-                return {"success": False, "error": err}
-            
-            new_pot = match["current_pot"] + raise_amount
-            conn = sqlite3.connect(self.db.db_path)
-            cursor = conn.cursor()
-            cursor.execute('UPDATE risk_matches SET current_pot = ? WHERE match_id = ?', (new_pot, match_id))
-            conn.commit()
-            conn.close()
-            
-            return {"success": True, "action": "raise", "raise_amount": raise_amount, "new_pot": new_pot}
-        
-        return {"success": False, "error": "Invalid action"}
-    
+
     def resolve_round(self, match_id: str) -> Dict:
-        """
-        حل راوند (بعد از انتخاب کارت‌ها)
-        
-        Args:
-            match_id: شناسه بازی
-        
-        Returns:
-            نتیجه راوند
-        """
-        match = self.get_risk_match(match_id)
-        if not match:
-            return {"success": False, "error": "Match not found"}
-        
-        # دریافت کارت‌ها
-        c_card = self.db.get_card_by_id(match["challenger_selected_card"])
-        o_card = self.db.get_card_by_id(match["opponent_selected_card"])
-        
-        if not c_card or not o_card:
-            return {"success": False, "error": "Cards not found"}
-        
-        # انتخاب ویژگی رندوم
-        stats = ["power", "speed", "iq", "popularity"]
-        selected_stat = random.choice(stats)
-        
-        c_value = getattr(c_card, selected_stat)
-        o_value = getattr(o_card, selected_stat)
-        
-        # تعیین برنده
-        if c_value > o_value:
-            winner = "challenger"
-        elif o_value > c_value:
-            winner = "opponent"
-        else:
-            winner = "tie"
-        
-        # بروزرسانی امتیاز
-        conn = sqlite3.connect(self.db.db_path)
-        cursor = conn.cursor()
-        
-        if winner == "challenger":
-            cursor.execute('''
-                UPDATE risk_matches
-                SET challenger_rounds_won = challenger_rounds_won + 1,
-                    current_round = current_round + 1
-                WHERE match_id = ?
-            ''', (match_id,))
-        elif winner == "opponent":
-            cursor.execute('''
-                UPDATE risk_matches
-                SET opponent_rounds_won = opponent_rounds_won + 1,
-                    current_round = current_round + 1
-                WHERE match_id = ?
-            ''', (match_id,))
-        
-        conn.commit()
-        conn.close()
-        
-        return {
-            "success": True,
-            "round": match["current_round"],
-            "selected_stat": selected_stat,
-            "challenger_value": c_value,
-            "opponent_value": o_value,
-            "winner": winner
-        }
+        conn = sqlite3.connect(self.db.db_path, timeout=15)
+        conn.row_factory = sqlite3.Row
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute("SELECT * FROM risk_matches WHERE match_id=?", (match_id,)).fetchone()
+            if not row or row["status"] == "completed":
+                return {"success": False, "error": "بازی فعال پیدا نشد"}
+            match = dict(row)
+            c_card = self.db.get_card_by_id(match["challenger_selected_card"])
+            o_card = self.db.get_card_by_id(match["opponent_selected_card"])
+            if not c_card or not o_card:
+                return {"success": False, "error": "هر دو کارت باید انتخاب شوند"}
+            selected_stat = random.choice(["power", "speed", "iq", "popularity"])
+            c_value, o_value = getattr(c_card, selected_stat), getattr(o_card, selected_stat)
+            winner = "challenger" if c_value > o_value else "opponent" if o_value > c_value else "tie"
+            c_won = match["challenger_rounds_won"] + (winner == "challenger")
+            o_won = match["opponent_rounds_won"] + (winner == "opponent")
+            next_round = match["current_round"] + 1
+            conn.execute(
+                """UPDATE risk_matches SET challenger_rounds_won=?,opponent_rounds_won=?,current_round=?,
+                   challenger_selected_card=NULL,opponent_selected_card=NULL,bluff_phase='none',
+                   challenger_bluff_action=NULL,opponent_bluff_action=NULL,raise_amount=0,raise_by=NULL
+                   WHERE match_id=?""",
+                (c_won, o_won, next_round, match_id),
+            )
+            game_over = c_won >= 2 or o_won >= 2 or next_round > 3
+            final_winner_id = None
+            if game_over:
+                final_winner_id = match["challenger_id"] if c_won > o_won else match["opponent_id"] if o_won > c_won else None
+                self._settle(conn, match, final_winner_id)
+            conn.commit()
+            return {"success": True, "round": match["current_round"], "selected_stat": selected_stat,
+                    "challenger_value": c_value, "opponent_value": o_value, "winner": winner,
+                    "game_over": game_over, "winner_id": final_winner_id}
+        finally:
+            conn.close()
 
 
 # ==================== DATABASE OPERATIONS ====================

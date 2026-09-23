@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import type { CardData, FightData, RoundData } from "./api";
 
 type CardView = Phaser.GameObjects.Container;
+export type ArenaVisual = string | { arena_id?: string; id?: string; version?: number | null; background_url?: string | null };
 
 const ARENA_ASSETS = {
   city: "/miniapp-assets/arena-backgrounds/city.webp",
@@ -33,7 +34,8 @@ export class BattleScene extends Phaser.Scene {
   private beam?: Phaser.GameObjects.Rectangle;
   private resultOverlay?: Phaser.GameObjects.Container;
   private quickSignature = "";
-  private activeArenaId: ArenaAssetId = "city";
+  private activeArenaId = "city";
+  private activeArenaKey = "arena-bg-city";
   private handCards: CardData[] = [];
   private handViews: CardView[] = [];
   private handUi: Phaser.GameObjects.GameObject[] = [];
@@ -82,12 +84,12 @@ export class BattleScene extends Phaser.Scene {
   }
 
   showCardHand(cards: CardData[], arenaId = "city", force = false): void {
-    const resolvedArena = this.resolveArenaId(arenaId);
+    const resolvedArena = this.arenaIdentity(arenaId);
     const signature = `hand:${resolvedArena}:${cards.map((card) => card.card_id).join(",")}`;
     if (!force && signature === this.quickSignature && this.handViews.length) return;
     this.quickSignature = signature;
     this.clearCards();
-    this.setArena(resolvedArena);
+    this.setArena(arenaId);
     this.handCards = cards;
     this.handPage = 0;
     this.renderHandPage();
@@ -101,7 +103,7 @@ export class BattleScene extends Phaser.Scene {
   showBattle(fight: FightData): void {
     this.quickSignature = "";
     this.clearCards();
-    this.setArena(fight.arena.arena_id);
+    this.setArena(fight.arena);
     const entries = [
       { key: `player-${fight.player_card.card_id}`, card: fight.player_card },
       { key: `ai-${fight.ai_card.card_id}`, card: fight.ai_card },
@@ -109,12 +111,12 @@ export class BattleScene extends Phaser.Scene {
     this.withCardTextures(entries, () => this.placeCards(fight));
   }
 
-  showQuickDuel(playerCard: CardData, opponentCard?: CardData, arenaId = "city"): void {
-    const resolvedArena = this.resolveArenaId(arenaId);
+  showQuickDuel(playerCard: CardData, opponentCard?: CardData, arenaId: ArenaVisual = "city"): void {
+    const resolvedArena = this.arenaIdentity(arenaId);
     const signature = `duel:${resolvedArena}:${playerCard.card_id}:${opponentCard?.card_id || "hidden"}`;
     if (signature === this.quickSignature) return;
     this.quickSignature = signature;
-    this.setArena(resolvedArena);
+    this.setArena(arenaId);
     const entries = [{ key: `quick-player-${playerCard.card_id}`, card: playerCard }];
     if (opponentCard) entries.push({ key: `quick-opponent-${opponentCard.card_id}`, card: opponentCard });
     this.withCardTextures(entries, () => {
@@ -123,12 +125,12 @@ export class BattleScene extends Phaser.Scene {
     });
   }
 
-  showQuickResult(playerCard: CardData, opponentCard: CardData, visual: QuickResultVisual, arenaId = "city"): void {
-    const resolvedArena = this.resolveArenaId(arenaId);
+  showQuickResult(playerCard: CardData, opponentCard: CardData, visual: QuickResultVisual, arenaId: ArenaVisual = "city"): void {
+    const resolvedArena = this.arenaIdentity(arenaId);
     const signature = `result:${resolvedArena}:${playerCard.card_id}:${opponentCard.card_id}:${visual.outcome}:${visual.playerValue}:${visual.opponentValue}`;
     if (signature === this.quickSignature) return;
     this.quickSignature = signature;
-    this.setArena(resolvedArena);
+    this.setArena(arenaId);
     const entries = [
       { key: `quick-player-${playerCard.card_id}`, card: playerCard },
       { key: `quick-opponent-${opponentCard.card_id}`, card: opponentCard },
@@ -174,22 +176,44 @@ export class BattleScene extends Phaser.Scene {
     this.tweens.add({ targets: target, scale: 1.06, y: target.y - 16, duration: 520, ease: "Back.easeOut" });
   }
 
-  private resolveArenaId(arenaId?: string): ArenaAssetId {
-    const normalized = String(arenaId || "city").toLowerCase().replace("arenatype.", "");
-    if (normalized === "neon") return "city";
-    return normalized in ARENA_ASSETS ? normalized as ArenaAssetId : "city";
+  private arenaIdentity(arena: ArenaVisual = "city"): string {
+    if (typeof arena === "string") return arena.toLowerCase().replace("arenatype.", "") || "neutral";
+    return `${arena.arena_id || arena.id || "neutral"}:v${arena.version ?? "legacy"}`;
   }
 
-  private setArena(arenaId?: string): void {
-    const resolved = this.resolveArenaId(arenaId);
-    this.activeArenaId = resolved;
-    const texture = `arena-bg-${resolved}`;
-    if (!this.textures.exists(texture)) return;
+  private setArena(arena: ArenaVisual = "city"): void {
+    const details = typeof arena === "string" ? { arena_id: arena } : arena;
+    let id = String(details.arena_id || details.id || "neutral").toLowerCase().replace("arenatype.", "");
+    if (id === "neon") id = "city"; // legacy demo identifier only
+    const versionedKey = details.background_url ? `arena-bg-${id}-v${details.version ?? "asset"}` : `arena-bg-${id}`;
+    this.activeArenaId = id;
+    this.activeArenaKey = versionedKey;
+    if (details.background_url && !this.textures.exists(versionedKey)) {
+      if (!this.load.isLoading()) {
+        this.load.once(Phaser.Loader.Events.COMPLETE, () => {
+          if (this.activeArenaKey === versionedKey) this.setArena(details);
+        });
+        this.load.image(versionedKey, details.background_url);
+        this.load.start();
+      }
+      this.showNeutralArena();
+      return;
+    }
+    const texture = this.textures.exists(versionedKey)
+      ? versionedKey
+      : (id in ARENA_ASSETS && this.textures.exists(`arena-bg-${id}`) ? `arena-bg-${id}` : undefined);
+    if (!texture) { this.showNeutralArena(); return; }
     this.arenaBackdrop?.destroy();
-    const image = this.add.image(360, 640, texture).setDepth(1);
+    // Keep the arena recognizable without competing with the card faces.
+    const image = this.add.image(360, 640, texture).setDepth(1).setTint(0x829080);
     const scale = Math.max(720 / image.width, 1280 / image.height);
     image.setScale(scale);
     this.arenaBackdrop = image;
+  }
+
+  private showNeutralArena(): void {
+    this.arenaBackdrop?.destroy();
+    this.arenaBackdrop = undefined;
   }
 
   private createDragInteractions(): void {
@@ -436,13 +460,20 @@ export class BattleScene extends Phaser.Scene {
 
   private placeCards(fight: FightData): void {
     this.clearCards();
-    this.setArena(fight.arena.arena_id);
+    // Preserve background_url and version while card textures finish loading.
+    // Reducing this payload to arena_id replaces custom registry media.
+    this.setArena(fight.arena);
     this.aiView = this.makeCard(fight.ai_card, `ai-${fight.ai_card.card_id}`, 360, 330, false);
     this.playerView = this.makeCard(fight.player_card, `player-${fight.player_card.card_id}`, 360, 760, true);
+    if (this.reducedMotion()) {
+      this.aiView.setScale(0.62).setAngle(2);
+      this.playerView.setScale(0.74).setAngle(-2);
+      return;
+    }
     this.aiView.setAlpha(0).setY(255).setScale(0.44).setAngle(8);
     this.playerView.setAlpha(0).setY(860).setScale(0.48).setAngle(-8);
-    this.tweens.add({ targets: this.aiView, alpha: 1, y: 330, scale: 0.55, angle: 2, duration: 520, ease: "Back.easeOut" });
-    this.tweens.add({ targets: this.playerView, alpha: 1, y: 760, scale: 0.66, angle: -2, duration: 520, delay: 90, ease: "Back.easeOut", onComplete: () => this.floatCard(this.playerView, 1) });
+    this.tweens.add({ targets: this.aiView, alpha: 1, y: 330, scale: 0.62, angle: 2, duration: 520, ease: "Back.easeOut" });
+    this.tweens.add({ targets: this.playerView, alpha: 1, y: 760, scale: 0.74, angle: -2, duration: 520, delay: 90, ease: "Back.easeOut", onComplete: () => this.floatCard(this.playerView, 1) });
     this.floatCard(this.aiView, -1, 560);
   }
 
@@ -542,7 +573,7 @@ export class BattleScene extends Phaser.Scene {
 
   private makeCard(card: CardData, texture: string, x: number, y: number, player: boolean): CardView {
     const rarityColor = this.rarityColor(card.rarity);
-    const rarityLabel = card.rarity === "legend" ? "LEGEND" : card.rarity === "epic" ? "EPIC" : "NORMAL";
+    const rarityLabel = card.rarity.toUpperCase();
     const strongest = this.strongestStat(card);
     const floorShadow = this.add.ellipse(9, 222, 260, 48, 0x000000, 0.62);
     const aura = this.add.ellipse(0, -18, 320, 370, rarityColor, 0.035)
@@ -577,10 +608,10 @@ export class BattleScene extends Phaser.Scene {
       this.add.rectangle(0, 132, 270, 102, 0x050a12, 0.96).setStrokeStyle(1, rarityColor, 0.22),
       this.add.rectangle(-83, -168, 94, 25, rarityColor, 0.17).setStrokeStyle(1, rarityColor, 0.72),
       this.add.text(-83, -168, rarityLabel, { fontFamily: "Segoe UI", fontSize: "11px", color: Phaser.Display.Color.IntegerToColor(rarityColor).rgba, fontStyle: "bold" }).setOrigin(0.5),
-      this.add.text(0, 104, card.name, { fontFamily: "Tahoma", fontSize: "24px", color: "#ffffff", fontStyle: "bold", align: "center" }).setOrigin(0.5),
-      this.add.text(0, 139, player ? "کارت شما" : "حریف", { fontFamily: "Tahoma", fontSize: "16px", color: player ? "#63f5d2" : "#ff8792" }).setOrigin(0.5),
+      this.add.text(0, 104, card.name, { fontFamily: "Vazirmatn, Tahoma", fontSize: "24px", color: "#fff1d5", fontStyle: "bold", align: "center" }).setOrigin(0.5),
+      this.add.text(0, 139, player ? "کارت شما" : "حریف", { fontFamily: "Vazirmatn, Tahoma", fontSize: "18px", color: player ? "#d8c697" : "#e3a59a" }).setOrigin(0.5),
       this.add.rectangle(0, 171, 226, 24, 0x111a29, 0.96).setStrokeStyle(1, rarityColor, 0.26),
-      this.add.text(0, 171, `${strongest.label}  ${strongest.value}`, { fontFamily: "Tahoma", fontSize: "12px", color: "#dce8f4", fontStyle: "bold" }).setOrigin(0.5),
+      this.add.text(0, 171, `${strongest.label}  ${strongest.value}`, { fontFamily: "Vazirmatn, Tahoma", fontSize: "18px", color: "#e4d7b8", fontStyle: "bold" }).setOrigin(0.5),
     );
     const container = this.add.container(x, y, objects).setDepth(12);
     if (!this.reducedMotion()) {
@@ -591,9 +622,10 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private rarityColor(rarity: string): number {
-    if (rarity === "legend") return 0xf2b94b;
-    if (rarity === "epic") return 0x9d7cff;
-    return 0x45e8d0;
+    if (rarity === "legend") return 0xd5b773;
+    if (rarity === "epic") return 0xb49ac5;
+    if (rarity === "rare") return 0x8caec4;
+    return 0x9ba794;
   }
 
   private strongestStat(card: CardData): { label: string; value: number } {

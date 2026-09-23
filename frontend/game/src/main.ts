@@ -1,16 +1,21 @@
 import Phaser from "phaser";
 import "./styles.css";
+import "./tabletop.css";
 import { ApiError, api, type CardData, type CardPage, type ClaimStatus, type DeckData, type Difficulty, type FightData, type FusionPreview, type MissionData, type ProfileData, type QuickState, type RoundData, type SkinCollection, type StatKey, type UpgradePreview } from "./api";
 import { BattleScene } from "./BattleScene";
 
-type Screen = "lobby" | "profileHub" | "collection" | "decks" | "progress" | "shop" | "quickMenu" | "quickWait" | "cards" | "quickMatch" | "quickResult" | "battle" | "result";
+type Screen = "splash" | "onboarding" | "lobby" | "profileHub" | "collection" | "decks" | "progress" | "shop" | "quickMenu" | "quickWait" | "cards" | "quickMatch" | "quickResult" | "battle" | "result";
 
 const state: {
   screen: Screen;
+  onboardingStep: number;
+  bootProgress: number;
+  bootLabel: string;
   profile?: ProfileData;
   profileStatus: "loading" | "ready" | "error";
   profileError?: string;
   cards: CardData[];
+  featuredCards: CardData[];
   selected?: CardData;
   difficulty: Difficulty;
   fight?: FightData;
@@ -35,9 +40,13 @@ const state: {
   skinPanel?: { cardId: string; data: SkinCollection };
   fusion: { target: "epic" | "legend"; cardIds: string[]; retainedId?: string; preview?: FusionPreview };
 } = {
-  screen: "lobby",
+  screen: "splash",
+  onboardingStep: 0,
+  bootProgress: 12,
+  bootLabel: "در حال بیدار کردن میدان…",
   profileStatus: "loading",
   cards: [],
+  featuredCards: [],
   difficulty: "medium",
   loading: false,
   playMode: "solo",
@@ -51,6 +60,34 @@ const state: {
 };
 
 let quickPollTimer: number | undefined;
+const onboardingStorageKey = "telbattle:onboarding:v1";
+
+const onboardingSlides = [
+  {
+    eyebrow: "فراخوان میدان",
+    title: "فرمانده، نوبت توست",
+    body: "سال‌هاست قهرمانان در کارت‌ها خاموش مانده‌اند. میدان دوباره بیدار شده و فقط یک فرمانده می‌تواند قدرت واقعی آن‌ها را آشکار کند.",
+    mode: "mentor",
+  },
+  {
+    eyebrow: "قانون اول",
+    title: "هر کارت، یک قهرمان است",
+    body: "قدرت، سرعت، هوش و محبوبیت چهار مسیر پیروزی‌اند. کارت مناسب را بشناس و ویژگی‌ای را انتخاب کن که حریف در آن نقطه‌ضعف دارد.",
+    mode: "stats",
+  },
+  {
+    eyebrow: "راهنمای نبرد",
+    title: "سه انتخاب تا پیروزی",
+    body: "وارد میدان شو، قهرمانت را انتخاب کن و بهترین ویژگی را در لحظه‌ی درست به کار ببر. هر تصمیم، نتیجه‌ی راند را عوض می‌کند.",
+    mode: "guide",
+  },
+  {
+    eyebrow: "آغاز فصل اول",
+    title: "افسانه‌ات را بساز",
+    body: "کارت جمع کن، دک بساز، مأموریت‌ها را کامل کن و در نبردهای واقعی رتبه‌ات را بالا ببر. میدان منتظر اولین حرکت توست.",
+    mode: "ready",
+  },
+] as const;
 
 const labels: Record<StatKey, { title: string; short: string }> = {
   power: { title: "قدرت", short: "POW" },
@@ -103,6 +140,9 @@ game.events.on("card-dropped", (cardId: string) => {
 
 function render(): void {
   ui.dataset.screen = state.screen;
+  document.body.dataset.appScreen = state.screen;
+  if (state.screen === "splash") ui.innerHTML = splashTemplate();
+  if (state.screen === "onboarding") ui.innerHTML = onboardingTemplate();
   if (state.screen === "lobby") ui.innerHTML = lobbyTemplate();
   if (state.screen === "profileHub") ui.innerHTML = profileHubTemplate();
   if (state.screen === "collection") ui.innerHTML = collectionTemplate();
@@ -116,6 +156,95 @@ function render(): void {
   if (state.screen === "quickResult") ui.innerHTML = quickResultTemplate();
   if (state.screen === "battle") ui.innerHTML = battleTemplate();
   if (state.screen === "result") ui.innerHTML = resultTemplate();
+}
+
+function splashTemplate(): string {
+  return `<section class="splash-screen" aria-label="در حال ورود به TelBattle Arena">
+    <div class="splash-screen__art" aria-hidden="true"></div>
+    <div class="splash-screen__veil" aria-hidden="true"></div>
+    <header class="splash-brand">
+      <span class="splash-brand__sigil" aria-hidden="true">
+        <svg viewBox="0 0 48 48"><path d="M14 10h20l6 8-16 21L8 18l6-8Z"/><path d="m15 18 9-5 9 5-9 13-9-13Z"/></svg>
+      </span>
+      <span>یک میدان. هزار افسانه.</span>
+    </header>
+    <div class="splash-copy">
+      <p class="splash-copy__chapter">CHAPTER 01 · AWAKENING</p>
+      <h1><span>TelBattle</span> Arena</h1>
+      <p>قهرمانت را انتخاب کن؛ سرنوشت میدان با اولین کارت تو آغاز می‌شود.</p>
+    </div>
+    <footer class="splash-loading" role="status" aria-live="polite">
+      <div><span>${escapeHtml(state.bootLabel)}</span><b>${state.bootProgress.toLocaleString("fa-IR")}٪</b></div>
+      <i style="--boot-progress:${state.bootProgress}%"><b></b></i>
+    </footer>
+  </section>`;
+}
+
+function onboardingVisual(mode: typeof onboardingSlides[number]["mode"]): string {
+  if (mode === "mentor") {
+    return `<div class="onboarding-mentor" aria-hidden="true"></div>`;
+  }
+  if (mode === "stats") {
+    return `<div class="onboarding-stats" aria-hidden="true">
+      <span class="stat-orb stat-orb--power"><b>POW</b><small>قدرت</small></span>
+      <span class="stat-orb stat-orb--speed"><b>SPD</b><small>سرعت</small></span>
+      <span class="stat-orb stat-orb--iq"><b>IQ</b><small>هوش</small></span>
+      <span class="stat-orb stat-orb--pop"><b>POP</b><small>محبوبیت</small></span>
+    </div>`;
+  }
+  if (mode === "guide") {
+    return `<div class="onboarding-guide" aria-label="مراحل نبرد">
+      <article><span>۱</span><div><b>ورود به میدان</b><small>حالت نبرد را انتخاب کن</small></div></article>
+      <i aria-hidden="true"></i>
+      <article><span>۲</span><div><b>انتخاب قهرمان</b><small>کارت مناسب زمین را بردار</small></div></article>
+      <i aria-hidden="true"></i>
+      <article><span>۳</span><div><b>ضربه‌ی نهایی</b><small>بهترین ویژگی را بازی کن</small></div></article>
+    </div>`;
+  }
+  return `<div class="onboarding-ready" aria-hidden="true">
+    <span class="onboarding-ready__card onboarding-ready__card--one"></span>
+    <span class="onboarding-ready__card onboarding-ready__card--two"></span>
+    <span class="onboarding-ready__card onboarding-ready__card--three"></span>
+    <span class="onboarding-ready__sigil">T</span>
+  </div>`;
+}
+
+function onboardingTemplate(): string {
+  const slide = onboardingSlides[state.onboardingStep] || onboardingSlides[0];
+  const isLast = state.onboardingStep === onboardingSlides.length - 1;
+  return `<section class="onboarding-screen onboarding-screen--${slide.mode}" aria-label="معرفی TelBattle، مرحله ${state.onboardingStep + 1} از ${onboardingSlides.length}">
+    <div class="onboarding-screen__art" aria-hidden="true"></div>
+    <header class="onboarding-topbar">
+      <span class="onboarding-logo"><b>T</b><small>TELBATTLE</small></span>
+      <button data-action="onboarding-skip" aria-label="رد کردن معرفی">رد کردن</button>
+    </header>
+    <div class="onboarding-visual">${onboardingVisual(slide.mode)}</div>
+    <div class="story-panel">
+      ${slide.mode === "mentor" ? `<div class="story-speaker"><span>راهنمای شما</span><strong>استاد رادمان</strong></div>` : ""}
+      <p class="eyebrow">${slide.eyebrow}</p>
+      <h1>${slide.title}</h1>
+      <p class="story-panel__body">${slide.body}</p>
+      <div class="story-progress" aria-label="پیشرفت معرفی">${onboardingSlides.map((_, index) => `<i class="${index === state.onboardingStep ? "is-active" : index < state.onboardingStep ? "is-done" : ""}"></i>`).join("")}</div>
+      <div class="story-actions">
+        ${state.onboardingStep > 0 ? `<button class="story-back" data-action="onboarding-back" aria-label="مرحله قبل">←</button>` : `<span></span>`}
+        <button class="primary-button story-next" data-action="onboarding-next">${isLast ? "ورود به میدان" : "ادامه"}<span class="button-arrow" aria-hidden="true">←</span></button>
+      </div>
+    </div>
+  </section>`;
+}
+
+function onboardingSeen(): boolean {
+  try { return localStorage.getItem(onboardingStorageKey) === "done"; }
+  catch { return false; }
+}
+
+function finishOnboarding(): void {
+  try { localStorage.setItem(onboardingStorageKey, "done"); } catch { /* Storage may be unavailable in private mode. */ }
+  state.screen = "lobby";
+  state.onboardingStep = 0;
+  scene.showIdle();
+  haptic("success");
+  render();
 }
 
 function escapeHtml(value: unknown): string {
@@ -138,11 +267,25 @@ function formatDuration(totalSeconds = 0): string {
 
 function navIcon(kind: "game" | "cards" | "decks" | "progress" | "shop"): string {
   const paths = {
-    game: '<path d="M8 12h8M12 8v8M5 7.5 3.8 16a3 3 0 0 0 5.1 2.5l1.1-1h4l1.1 1a3 3 0 0 0 5.1-2.5L19 7.5A4 4 0 0 0 15 4H9a4 4 0 0 0-4 3.5Z"/>',
+    game: '<path d="m4 3 4 1 11 13-3 3L4 7V3Zm16 0-4 1-3 4M4 17l5-6M8 20l3-4M14 16l6 5M10 16l-6 5"/>',
     cards: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="m9 8 3-2 3 2-3 4-3-4Z"/>',
     decks: '<path d="m6 4 12 3-12 3-3-3 3-3Z"/><path d="m3 12 3 3 12-3M3 17l3 3 12-3"/>',
-    progress: '<path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/>',
-    shop: '<path d="M4 9h16l-1 12H5L4 9Z"/><path d="M8 9a4 4 0 0 1 8 0"/>',
+    progress: '<path d="M7 3h10v6a5 5 0 0 1-10 0V3Zm0 2H3v3a4 4 0 0 0 4 4m10-7h4v3a4 4 0 0 1-4 4M12 14v6m-5 1h10"/>',
+    shop: '<path d="m14 3 7 7-3 3-7-7 3-3Zm-2 5-8 9a2 2 0 0 0 3 3l8-9M3 22h18"/>',
+  };
+  return `<svg viewBox="0 0 24 24" aria-hidden="true">${paths[kind]}</svg>`;
+}
+
+function lobbyIcon(kind: "heart" | "coin" | "cards" | "decks" | "quick" | "solo" | "shield" | "arrow"): string {
+  const paths = {
+    heart: '<path d="M12 20.2 4.8 13a4.7 4.7 0 0 1 6.6-6.7l.6.6.6-.6a4.7 4.7 0 1 1 6.6 6.7L12 20.2Z"/>',
+    coin: '<circle cx="12" cy="12" r="8.5"/><path d="M14.8 8.8c-.7-.7-1.6-1-2.8-1-1.5 0-2.7.7-2.7 1.8 0 2.9 5.5 1.2 5.5 4.2 0 1.3-1.2 2.2-2.9 2.2-1.3 0-2.4-.4-3.1-1.2M12 6.2v11.6"/>',
+    cards: '<rect x="6" y="4" width="12" height="16" rx="2"/><path d="m9.5 10 2.5-2 2.5 2-2.5 3-2.5-3ZM4 7.5v9"/>',
+    decks: '<path d="m5 6 7-3 7 3-7 3-7-3Z"/><path d="m5 11 7 3 7-3M5 16l7 3 7-3"/>',
+    quick: '<path d="m13 2-7 11h5l-1 9 8-12h-5V2Z"/>',
+    solo: '<path d="M12 3 5 6v5c0 4.6 2.9 8.1 7 10 4.1-1.9 7-5.4 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-5"/>',
+    shield: '<path d="M12 3 5 6v5c0 4.6 2.9 8.1 7 10 4.1-1.9 7-5.4 7-10V6l-7-3Z"/>',
+    arrow: '<path d="M19 12H5m6-6-6 6 6 6"/>',
   };
   return `<svg viewBox="0 0 24 24" aria-hidden="true">${paths[kind]}</svg>`;
 }
@@ -153,7 +296,7 @@ function bottomNav(active?: "game" | "cards" | "decks" | "progress" | "shop"): s
     ["cards", "کارت‌ها", "open-collection"],
     ["decks", "دک‌ها", "hub-decks"],
     ["progress", "پیشرفت", "hub-progress"],
-    ["shop", "فروشگاه", "hub-shop"],
+    ["shop", "کارگاه", "hub-shop"],
   ];
   return `<nav class="hub-nav glass-panel" aria-label="مرکز بازیکن">
     ${items.map(([key, label, action]) => `<button data-action="${action}" class="${active === key ? "is-active" : ""}" aria-current="${active === key ? "page" : "false"}">${navIcon(key)}<span>${label}</span></button>`).join("")}
@@ -168,13 +311,13 @@ function resourceHud(): string {
   const pending = state.profileStatus === "loading" && !p;
   const value = (amount?: number) => pending ? "…" : amount === undefined ? "—" : amount.toLocaleString("fa-IR");
   return `<header class="hub-hud glass-panel">
-    <button class="hub-avatar" data-action="open-profile" aria-label="نمایش پروفایل">${escapeHtml((p?.first_name || "T").slice(0, 1))}</button>
-    <div class="hub-level"><span><b>LV ${p?.level ?? 1}</b><small>${escapeHtml(p?.current_tier ?? "Bronze")}</small></span><i><b style="width:${percent}%"></b></i></div>
+    <button class="hub-avatar" data-action="open-profile" aria-label="نمایش پروفایل ${escapeHtml(p?.first_name || "بازیکن")}">${escapeHtml((p?.first_name || "T").slice(0, 1))}<i aria-hidden="true"></i></button>
+    <div class="hub-level"><span><span><small>فرمانده</small><strong>${escapeHtml(p?.first_name || "بازیکن")}</strong></span><span><b>LV ${p?.level ?? 1}</b><small>${escapeHtml(p?.current_tier ?? "Bronze")}</small></span></span><i><b style="width:${percent}%"></b></i></div>
     <div class="hub-resources">
-      <span class="hub-resource hub-heart"><small>جان</small><b dir="ltr">${p ? `${p.hearts}/${p.max_hearts}` : value()}</b></span>
-      <span class="hub-resource hub-coin"><small>سکه</small><b>${value(p?.coins)}</b></span>
-      <span class="hub-resource hub-cards"><small>کارت</small><b>${value(p?.counts?.cards)}</b></span>
-      <span class="hub-resource hub-decks"><small>دک</small><b>${value(p?.counts?.decks)}</b></span>
+      <span class="hub-resource hub-heart">${lobbyIcon("heart")}<span><small>جان</small><b dir="ltr">${p ? `${p.hearts}/${p.max_hearts}` : value()}</b></span></span>
+      <span class="hub-resource hub-coin">${lobbyIcon("coin")}<span><small>سکه</small><b>${value(p?.coins)}</b></span></span>
+      <span class="hub-resource hub-cards">${lobbyIcon("cards")}<span><small>کارت</small><b>${value(p?.counts?.cards)}</b></span></span>
+      <span class="hub-resource hub-decks">${lobbyIcon("decks")}<span><small>دک</small><b>${value(p?.counts?.decks)}</b></span></span>
     </div>
   </header>${profileStatusNotice()}`;
 }
@@ -229,7 +372,7 @@ function collectionTemplate(): string {
   const cards = (page?.cards || []).map((card) => `
     <button class="collection-card rarity-${escapeHtml(card.rarity)}" data-action="card-detail" data-id="${escapeHtml(card.card_id)}">
       <span class="collection-card__art" style="background-image:url('${escapeHtml(card.image_url)}')"></span>
-      <span class="collection-card__body"><strong dir="auto">${escapeHtml(card.name)}</strong><small>${escapeHtml(card.rarity.toUpperCase())} · ${card.score ?? card.power + card.speed + card.iq + card.popularity}</small></span>
+      <span class="collection-card__body"><small>${escapeHtml(card.rarity.toUpperCase())}</small><strong dir="auto">${escapeHtml(card.name)}</strong>${cardStatStrip(card)}</span>
       ${card.is_in_cooldown ? '<i class="cooldown-badge">COOLDOWN</i>' : ""}
     </button>`).join("");
   const detail = state.detailCard ? cardDetailSheet(state.detailCard) : state.skinPanel ? skinsSheet() : "";
@@ -241,7 +384,7 @@ function collectionTemplate(): string {
         <div class="collection-tools glass-panel">
           <label class="search-field"><span class="sr-only">جستجوی کارت</span><input id="collection-query" value="${escapeHtml(state.collectionQuery)}" placeholder="نام کارت را جستجو کن" autocomplete="off"></label>
           <div>
-            <label><span>Rarity</span><select id="collection-rarity"><option value="all">همه</option><option value="normal" ${state.collectionRarity === "normal" ? "selected" : ""}>Normal</option><option value="rare" ${state.collectionRarity === "rare" ? "selected" : ""}>Rare</option><option value="epic" ${state.collectionRarity === "epic" ? "selected" : ""}>Epic</option><option value="legend" ${state.collectionRarity === "legend" ? "selected" : ""}>Legend</option></select></label>
+            <label><span>کمیابی</span><select id="collection-rarity"><option value="all">همه کارت‌ها</option><option value="normal" ${state.collectionRarity === "normal" ? "selected" : ""}>معمولی</option><option value="rare" ${state.collectionRarity === "rare" ? "selected" : ""}>کمیاب</option><option value="epic" ${state.collectionRarity === "epic" ? "selected" : ""}>حماسی</option><option value="legend" ${state.collectionRarity === "legend" ? "selected" : ""}>افسانه‌ای</option></select></label>
             <label><span>مرتب‌سازی</span><select id="collection-sort"><option value="rarity">Rarity</option><option value="score" ${state.collectionSort === "score" ? "selected" : ""}>امتیاز کل</option><option value="power" ${state.collectionSort === "power" ? "selected" : ""}>قدرت</option><option value="speed" ${state.collectionSort === "speed" ? "selected" : ""}>سرعت</option><option value="iq" ${state.collectionSort === "iq" ? "selected" : ""}>هوش</option><option value="popularity" ${state.collectionSort === "popularity" ? "selected" : ""}>محبوبیت</option><option value="name" ${state.collectionSort === "name" ? "selected" : ""}>نام</option></select></label>
           </div>
         </div>
@@ -294,8 +437,8 @@ function decksTemplate(): string {
     ${resourceHud()}
     <div class="hub-scroll">
       <header class="hub-title"><div><p class="eyebrow">DECK LAB</p><h1>دک‌های من</h1></div><button class="compact-cta" data-action="new-deck">دک جدید</button></header>
-      <p class="section-note">هر دک دقیقاً سه کارت دارد. هم‌افزایی فقط روی سرور محاسبه می‌شود.</p>
-      <div class="deck-list">${state.loading ? skeletons() : decks || '<p class="empty-state">هنوز دکی نساختی.</p>'}</div>
+      <p class="section-note">سه کارت انتخاب کن؛ ترکیبی بساز که نقطه‌ضعف‌های هم را پوشش بدهند.</p>
+      <div class="deck-list">${state.loading ? skeletons() : decks || `<div class="empty-deck"><div class="empty-deck__cards" aria-hidden="true"><i></i><i>${lobbyIcon("decks")}</i><i></i></div><h2>ترکیب برنده‌ات را بساز</h2><p>هنوز دکی نساختی.</p><button class="secondary-button" data-action="new-deck">ساخت اولین دک</button></div>`}</div>
     </div>
     ${bottomNav("decks")}
     ${state.deckEditor ? deckEditorSheet() : ""}
@@ -365,40 +508,57 @@ function fusionConfirmDialog(): string {
   return `<div class="sheet-backdrop" data-action="cancel-fusion"></div><aside class="fusion-confirm glass-panel" role="alertdialog" aria-modal="true" aria-label="تأیید نهایی Fusion"><p class="eyebrow">FINAL CHECK</p><h2>این عملیات قابل برگشت نیست</h2><div class="fusion-result-card"><span style="background-image:url('${escapeHtml(retained?.image_url)}')"></span><div><small>کارت باقی‌مانده</small><strong dir="auto">${escapeHtml(retained?.name)}</strong><b dir="ltr">${preview.target_rarity.toUpperCase()} · +${preview.xp} XP</b></div></div><p>کارت‌های مصرفی: ${consumed.map((card) => `<b dir="auto">${escapeHtml(card.name)}</b>`).join("، ")}</p><div><button class="secondary-button" data-action="cancel-fusion">بازبینی</button><button class="danger-button" data-action="execute-fusion" ${state.loading ? "disabled" : ""}>${state.loading ? "در حال Fusion…" : "تأیید و مصرف کارت‌ها"}</button></div></aside>`;
 }
 
+function cardStatStrip(card: CardData): string {
+  return `<span class="card-stat-strip">${(Object.keys(labels) as StatKey[]).map((key) => `<span><b>${card[key].toLocaleString("fa-IR")}</b><small>${labels[key].title}</small></span>`).join("")}</span>`;
+}
+
 function lobbyTemplate(): string {
   const p = state.profile;
+  const featured = state.featuredCards.length ? state.featuredCards : [undefined, undefined, undefined];
   const pending = state.profileStatus === "loading" && !p;
   const value = (amount?: number) => pending ? "…" : amount === undefined ? "—" : amount.toLocaleString("fa-IR");
+  const firstName = escapeHtml(p?.first_name || "بازیکن");
+  const initial = escapeHtml((p?.first_name || "T").slice(0, 1));
   return `
     <section class="screen lobby-screen hub-screen">
-      <header class="topbar">
-        <button class="brand-mark" data-action="open-profile" aria-label="نمایش پروفایل">TB</button>
-        <div class="resource-row" aria-label="منابع بازیکن">
-          <span class="resource resource--heart"><small>جان</small><b dir="ltr">${p ? `${p.hearts}/${p.max_hearts}` : value()}</b></span>
-          <span class="resource resource--coin"><small>سکه</small><b>${value(p?.coins)}</b></span>
-          <span class="resource resource--cards"><small>کارت</small><b>${value(p?.counts?.cards)}</b></span>
-          <span class="resource resource--decks"><small>دک</small><b>${value(p?.counts?.decks)}</b></span>
+      <header class="lobby-command-bar glass-panel">
+        <button class="lobby-identity" data-action="open-profile" aria-label="نمایش پروفایل ${firstName}">
+          <span class="lobby-identity__avatar">${initial}<i aria-hidden="true"></i></span>
+          <span class="lobby-identity__copy"><small>فرمانده</small><strong>${firstName}</strong></span>
+          <span class="lobby-identity__level" dir="ltr">LV ${p?.level ?? 1}</span>
+        </button>
+        <div class="lobby-resource-grid" aria-label="منابع بازیکن">
+          <span class="lobby-resource lobby-resource--heart">${lobbyIcon("heart")}<span><small>جان</small><b dir="ltr">${p ? `${p.hearts}/${p.max_hearts}` : value()}</b></span></span>
+          <span class="lobby-resource lobby-resource--coin">${lobbyIcon("coin")}<span><small>سکه</small><b>${value(p?.coins)}</b></span></span>
+          <span class="lobby-resource lobby-resource--cards">${lobbyIcon("cards")}<span><small>کارت</small><b>${value(p?.counts?.cards)}</b></span></span>
+          <span class="lobby-resource lobby-resource--decks">${lobbyIcon("decks")}<span><small>دک</small><b>${value(p?.counts?.decks)}</b></span></span>
         </div>
       </header>
       ${profileStatusNotice()}
-      <div class="hero-copy">
-        <p class="eyebrow">TACTICAL CARD BATTLE</p>
-        <h1>فرماندهی را<br><span>به دست بگیر</span></h1>
-        <p>سه راند. چهار ویژگی. فقط یک تصمیم درست بین تو و پیروزی فاصله دارد.</p>
+      <div class="lobby-table">
+        <header class="table-heading"><span class="table-heading__line"></span><span dir="ltr">TELBATTLE <b>ARENA</b></span><span class="table-heading__line"></span></header>
+        <div class="table-copy"><p>کلکسیون تو. سبک نبرد تو.</p><h1>با کدام کارت وارد می‌شوی؟</h1></div>
+        <button class="featured-hand" style="--card-count:${featured.length}" data-action="open-collection" aria-label="دیدن کلکسیون کارت‌ها">
+          <span class="table-orbit" aria-hidden="true"></span>
+          ${featured.map((card, index) => card ? `<span class="featured-card rarity-${escapeHtml(card.rarity)}" style="--card-index:${index}"><span class="featured-card__art" style="background-image:url('${escapeHtml(card.image_url)}')"></span><span class="featured-card__rarity">${escapeHtml(card.rarity.toUpperCase())}</span><span class="featured-card__name" dir="auto">${escapeHtml(card.name)}</span>${cardStatStrip(card)}</span>` : `<span class="featured-card featured-card--back" style="--card-index:${index}" aria-hidden="true"><span>${lobbyIcon("cards")}</span><b dir="ltr">TB</b></span>`).join("")}
+        </button>
+        <button class="collection-link" data-action="open-collection">${state.featuredCards.length ? "مشاهده کلکسیون" : "کارت‌هایت را کشف کن"} ${lobbyIcon("arrow")}</button>
       </div>
-      <div class="command-panel glass-panel">
-        <div class="commander-row">
-          <div><small>فرمانده</small><strong>${p?.first_name ?? "بازیکن"}</strong></div>
-          <div class="tier-badge">${p?.current_tier ?? "ROOKIE"} · LV ${p?.level ?? 1}</div>
-        </div>
-        <div class="mode-actions">
-          <button class="primary-button" data-action="enter-quick" ${state.loading ? "disabled" : ""}>
-            <span>Quick با بازیکن واقعی</span><span class="live-dot" aria-hidden="true"></span>
+      <div class="battle-console">
+        <div class="battle-mode-list">
+          <button class="battle-mode battle-mode--quick" data-action="enter-quick" ${state.loading ? "disabled" : ""}>
+            <span class="battle-mode__icon">${lobbyIcon("quick")}</span>
+            <span class="battle-mode__copy"><strong>ورود به نبرد</strong><small>حریف واقعی · یک راند · یک انتخاب</small></span>
+            <span class="battle-mode__meta"><em>${lobbyIcon("arrow")}</em></span>
           </button>
-          <button class="secondary-button" data-action="enter-arena" ${state.loading ? "disabled" : ""}>تمرین Solo با ASO</button>
+          <button class="battle-mode battle-mode--solo" data-action="enter-arena" ${state.loading ? "disabled" : ""}>
+            <span class="battle-mode__icon">${lobbyIcon("solo")}</span>
+            <span class="battle-mode__copy"><strong>تمرین با ASO</strong><small>سه راند برای آزمودن استراتژی‌ات</small></span>
+            <span class="battle-mode__meta"><em>${lobbyIcon("arrow")}</em></span>
+          </button>
         </div>
-        <p class="demo-note">Quick: مسابقه تصادفی یا دعوت دوست · انتخاب‌ها نهایی هستند</p>
       </div>
+      <button class="lobby-reward" data-action="hub-progress"><span class="lobby-reward__icon">${lobbyIcon("cards")}</span><span><strong>پاداش روزانه</strong><small>${p?.claim?.can_claim ? "کارت تازه‌ات منتظر توست" : p?.claim ? "مأموریت‌ها و زمان پاداش بعدی" : "پاداش‌ها و مأموریت‌های کارت"}</small></span>${lobbyIcon("arrow")}</button>
       ${bottomNav("game")}
     </section>`;
 }
@@ -467,8 +627,9 @@ function cardsTemplate(): string {
     return `<button class="card-choice rarity-${card.rarity} ${selected ? "is-selected" : ""}" data-action="select-card" data-id="${card.card_id}" aria-pressed="${selected}">
       <span class="card-choice__art" style="background-image:url('${card.image_url}')"></span>
       <span class="card-choice__shade"></span>
-      <span class="card-choice__name">${card.name}</span>
-      <span class="card-choice__score">${Math.round((card.power + card.speed + card.iq + card.popularity) / 4)}</span>
+      <span class="card-choice__name" dir="auto">${escapeHtml(card.name)}</span>
+      <span class="card-choice__rarity">${escapeHtml(card.rarity.toUpperCase())}</span>
+      ${cardStatStrip(card)}
     </button>`;
   }).join("");
   return `
@@ -560,11 +721,11 @@ function battleTemplate(): string {
       <div class="opponent-callout"><span>ASO</span><p>${round?.aso_dialog ?? fight?.aso_dialog ?? "در حال ورود حریف..."}</p></div>
       <div class="versus-label">VS</div>
       <div class="stat-console glass-panel">
-        <div class="console-title"><div><small>حرکت بعدی</small><strong>ویژگی حمله را انتخاب کن</strong></div><span>BOOST: ${fight ? labels[fight.arena.boost_stat].title : "—"}</span></div>
+        <div class="console-title"><div><small>حرکت بعدی</small><strong>ویژگی حمله را انتخاب کن</strong></div><span>تقویت زمین: ${fight ? labels[fight.arena.boost_stat].title : "—"}</span></div>
         <div class="stat-grid">
           ${(Object.keys(labels) as StatKey[]).map((key) => {
             const value = fight?.player_card[key] ?? 0;
-            const enabled = available.includes(key) && !state.loading;
+            const enabled = available.includes(key) && !state.loading && !round?.game_over;
             return `<button class="stat-button ${fight?.arena.boost_stat === key ? "is-boosted" : ""}" data-action="stat" data-value="${key}" ${enabled ? "" : "disabled"}><span>${labels[key].short}</span><strong>${value}</strong><small>${labels[key].title}</small></button>`;
           }).join("")}
         </div>
@@ -612,11 +773,23 @@ async function refreshProfile(): Promise<void> {
   try {
     state.profile = await api.profile();
     state.profileStatus = "ready";
+    refreshFeaturedCards();
   } catch (error) {
     state.profileStatus = "error";
     state.profileError = profileErrorMessage(error);
     throw error;
   }
+}
+
+let featuredRequest = 0;
+function refreshFeaturedCards(): void {
+  const request = ++featuredRequest;
+  // Optional artwork must never block authentication, startup, or navigation.
+  void api.cardPage({ limit: 3, sort: "rarity" }).then((page) => {
+    if (request !== featuredRequest) return;
+    state.featuredCards = page.cards.slice(0, 3);
+    if (state.screen === "lobby") render();
+  }).catch(() => undefined);
 }
 
 async function retryProfile(): Promise<void> {
@@ -899,11 +1072,11 @@ function syncQuickScreen(): void {
         outcome,
         playerValue: mine?.final_value,
         opponentValue: opponent?.final_value,
-      }, quick.arena?.id);
+      }, quick.arena);
     }
   } else {
     state.screen = "quickMatch";
-    if (quick.my_card) scene.showQuickDuel(quick.my_card, quick.opponent_card, quick.arena?.id);
+    if (quick.my_card) scene.showQuickDuel(quick.my_card, quick.opponent_card, quick.arena);
   }
 }
 
@@ -1057,7 +1230,7 @@ async function startFight(): Promise<void> {
 }
 
 async function playStat(stat: StatKey): Promise<void> {
-  if (!state.fight || state.loading) return;
+  if (!state.fight || state.loading || state.lastRound?.game_over) return;
   state.loading = true;
   render();
   try {
@@ -1082,6 +1255,17 @@ ui.addEventListener("click", (event) => {
   if (!button || button.hasAttribute("disabled")) return;
   const action = button.dataset.action;
   haptic();
+  if (action === "onboarding-skip") { finishOnboarding(); return; }
+  if (action === "onboarding-back") {
+    state.onboardingStep = Math.max(0, state.onboardingStep - 1);
+    render();
+    return;
+  }
+  if (action === "onboarding-next") {
+    if (state.onboardingStep >= onboardingSlides.length - 1) finishOnboarding();
+    else { state.onboardingStep += 1; render(); }
+    return;
+  }
   if (action === "enter-arena") void enterArena();
   if (action === "retry-profile") void retryProfile();
   if (action === "open-profile") void openProfileHub();
@@ -1092,7 +1276,7 @@ ui.addEventListener("click", (event) => {
   if (action === "cancel-upgrade") { state.pendingUpgrade = undefined; render(); }
   if (action === "confirm-upgrade") void confirmUpgrade();
   if (action === "collection-page") void loadCollection(Number(button.dataset.page || 1));
-  if (action === "hub-game") { state.screen = "lobby"; state.detailCard = undefined; scene.showIdle(); render(); }
+  if (action === "hub-game") { state.screen = "lobby"; state.detailCard = undefined; scene.showIdle(); refreshFeaturedCards(); render(); }
   if (action === "hub-decks") void openDecks();
   if (action === "new-deck") editDeck();
   if (action === "edit-deck") editDeck(button.dataset.id);
@@ -1183,16 +1367,33 @@ async function boot(): Promise<void> {
   const tg = window.Telegram?.WebApp;
   tg?.ready();
   tg?.expand();
-  tg?.setHeaderColor?.("#07110e");
-  tg?.setBackgroundColor?.("#07110e");
+  tg?.setHeaderColor?.("#131714");
+  tg?.setBackgroundColor?.("#131714");
   state.incomingInvite = new URLSearchParams(location.search).get("invite") || undefined;
-  if (state.incomingInvite) state.screen = "quickMenu";
+  state.screen = "splash";
+  state.bootProgress = 18;
+  state.bootLabel = "در حال بیدار کردن میدان…";
+  render();
+  const minimumSplash = new Promise<void>((resolve) => window.setTimeout(resolve, 1500));
+  state.bootProgress = 44;
+  state.bootLabel = "در حال همگام‌سازی فرمانده…";
   render();
   try {
     await refreshProfile();
   } catch {
     // The lobby remains usable and renders a visible retryable auth error.
   }
+  state.bootProgress = 78;
+  state.bootLabel = "در حال چیدن کارت‌ها…";
+  render();
+  await minimumSplash;
+  state.bootProgress = 100;
+  state.bootLabel = "میدان آماده است";
+  render();
+  await new Promise<void>((resolve) => window.setTimeout(resolve, 320));
+  if (state.incomingInvite) state.screen = "quickMenu";
+  else state.screen = onboardingSeen() ? "lobby" : "onboarding";
+  scene.showIdle();
   render();
 }
 

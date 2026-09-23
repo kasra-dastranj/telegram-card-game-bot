@@ -7,13 +7,13 @@
 import sys
 import os
 
-def test_risk_mode_integration():
+def run_legacy_risk_mode_diagnostic():
     """تست یکپارچه‌سازی Risk Mode"""
     print("🧪 Testing Risk Mode UI Integration...")
     
     # 1. بررسی import
     try:
-        from risk_mode_system import RiskModeSystem, RiskTable, RiskAction
+        from systems.risk_mode_system import RiskModeSystem, RiskTable, RiskAction
         print("✅ Risk Mode System imported successfully")
     except Exception as e:
         print(f"❌ Failed to import Risk Mode System: {e}")
@@ -75,5 +75,5 @@ def test_risk_mode_integration():
 
 
 if __name__ == '__main__':
-    success = test_risk_mode_integration()
+    success = run_legacy_risk_mode_diagnostic()
     sys.exit(0 if success else 1)

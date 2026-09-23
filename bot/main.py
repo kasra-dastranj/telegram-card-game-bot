@@ -303,6 +303,7 @@ from bot.handlers.fusion import FusionHandlersMixin
 from bot.handlers.risk import RiskHandlersMixin
 from bot.handlers.pvp import PvPHandlersMixin
 from bot.handlers.deck import DeckHandlersMixin
+from systems.arena_registry import ArenaRegistry
 from bot.handlers.game_modes import GameModeHandlersMixin, GAME_INLINE_QUERY_PATTERN
 
 
@@ -340,6 +341,7 @@ class TelegramCardBot(
         self.tier_decay = TierDecaySystem(self.db)
         self.risk = RiskModeSystem(self.db)
         self.battle3 = BattleSystem3Rounds(self.db)
+        self.arena_registry = ArenaRegistry(self.db)
         self.claim_sys = ClaimSystem(self.db)
         self.missions = CardMissionsSystem(self.db)
         self.skins = SkinsSystem(self.db)
@@ -358,7 +360,7 @@ class TelegramCardBot(
         if self.bot_token == "YOUR_BOT_TOKEN_HERE":
             raise ValueError("⚠ لطفاً توکن ربات را در game_config.json تنظیم کنید!")
         
-        print(f"✅ ربات آماده شد با {len(self.admin_ids)} ادمین")
+        logger.info("Bot initialized with %s admins", len(self.admin_ids))
     
     def _load_config(self, config_path: str) -> Dict:
         """بارگیری یا ایجاد فایل تنظیمات"""

@@ -9,7 +9,7 @@ import sqlite3
 import json
 from game_core import DatabaseManager, GameLogic, Card, CardRarity
 
-def test_3round_simulation():
+def run_legacy_3round_simulation():
     """شبیه‌سازی یک بازی ۳ راوندی کامل"""
     
     print("🧪 شبیه‌سازی بازی ۳ راوندی\n")
@@ -175,7 +175,7 @@ def test_3round_simulation():
 
 if __name__ == "__main__":
     try:
-        success = test_3round_simulation()
+        success = run_legacy_3round_simulation()
         sys.exit(0 if success else 1)
     except Exception as e:
         print(f"\n💥 خطا: {e}")

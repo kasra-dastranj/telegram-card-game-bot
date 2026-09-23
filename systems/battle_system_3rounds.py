@@ -89,10 +89,10 @@ BEATS_REASON = {
 }
 
 
-def get_dominant_attr_from_stats(stats: Dict[str, int], arena: str) -> str:
+def get_dominant_attr_from_stats(stats: Dict[str, int], arena: str, arena_snapshot: Optional[Dict] = None) -> str:
     """محاسبه صفت غالب از روی stats خام پس از اعمال boost زمین."""
     boosted = dict(stats)
-    arena_info = ARENAS.get(arena, {})
+    arena_info = arena_snapshot or ARENAS.get(arena, {})
     boost_stat = arena_info.get("boost_stat")
     boost_amount = arena_info.get("boost_amount", 0)
     if boost_stat and boost_stat in boosted:
@@ -105,7 +105,7 @@ def get_dominant_attr_from_stats(stats: Dict[str, int], arena: str) -> str:
     return "power"
 
 
-def get_dominant_attr(card, arena: str) -> str:
+def get_dominant_attr(card, arena: str, arena_snapshot: Optional[Dict] = None) -> str:
     """محاسبه صفت غالب کارت پس از اعمال boost زمین.
 
     card_type ذخیره‌شده نادیده گرفته می‌شود — فقط مقادیر عددی ملاک هستند.
@@ -122,7 +122,7 @@ def get_dominant_attr(card, arena: str) -> str:
         "speed":      card.speed,
         "iq":         card.iq,
         "popularity": card.popularity,
-    }, arena)
+    }, arena, arena_snapshot)
 
 
 def beats(attr_a: str, attr_b: str) -> bool:
@@ -408,9 +408,9 @@ class BattleSystem3Rounds:
         except (TypeError, ValueError):
             return []
 
-    def resolve_deck_cards(self, challenger_card: Card, opponent_card: Card, arena: str) -> Dict:
+    def resolve_deck_cards(self, challenger_card: Card, opponent_card: Card, arena: str, arena_snapshot: Optional[Dict] = None) -> Dict:
         """Resolve one Deck round: trait tier first, then the arena's numeric stat."""
-        arena_info = ARENAS.get(arena, ARENAS["power_arena"])
+        arena_info = arena_snapshot or ARENAS.get(arena, ARENAS["power_arena"])
         ranks = arena_info.get("trait_ranks", [])
 
         def best_rank(card: Card) -> Optional[int]:
@@ -423,7 +423,7 @@ class BattleSystem3Rounds:
         challenger_rank = best_rank(challenger_card)
         opponent_rank = best_rank(opponent_card)
         winner = None
-        reason = "stat"
+        reason = "tie"
         if challenger_rank is not None and (
             opponent_rank is None or challenger_rank < opponent_rank
         ):
@@ -436,7 +436,8 @@ class BattleSystem3Rounds:
         compare_stat = arena_info.get("compare_stat", arena_info.get("boost_stat", "power"))
         challenger_value = int(getattr(challenger_card, compare_stat, 0))
         opponent_value = int(getattr(opponent_card, compare_stat, 0))
-        if winner is None:
+        if winner is None and arena_info.get("stat_tiebreak_enabled", True):
+            reason = "stat"
             if challenger_value > opponent_value:
                 winner = "challenger"
             elif opponent_value > challenger_value:
@@ -452,7 +453,7 @@ class BattleSystem3Rounds:
             "opponent_trait_rank": opponent_rank,
         }
     
-    def calculate_boost(self, card: Card, arena: str, selected_stat: str) -> int:
+    def calculate_boost(self, card: Card, arena: str, selected_stat: str, arena_snapshot: Optional[Dict] = None) -> int:
         """
         محاسبه boost زمین برای یک کارت
         
@@ -468,7 +469,9 @@ class BattleSystem3Rounds:
         Returns:
             مقدار boost (معمولاً 0 یا 1)
         """
-        arena_info = ARENAS.get(arena)
+        # A snapshot wins over the current registry/legacy definition so a
+        # published edit can never alter an in-progress Solo or PvP match.
+        arena_info = arena_snapshot or ARENAS.get(arena)
         if not arena_info:
             return 0
         
@@ -479,6 +482,9 @@ class BattleSystem3Rounds:
         if selected_stat != boost_stat:
             return 0
         
+        if not arena_info.get("requires_card_type_match", True):
+            return boost_amount
+
         # بررسی اینکه تایپ کارت با زمین match می‌کند
         card_type = getattr(card, 'card_type', None)
         if not card_type:
@@ -577,7 +583,8 @@ class BattleSystem3Rounds:
         challenger_card: Card,
         opponent_card: Card,
         challenger_stat: str,
-        opponent_stat: str
+        opponent_stat: str,
+        arena_snapshot: Optional[Dict] = None,
     ) -> RoundResult:
         """
         حل و فصل یک راوند
@@ -595,8 +602,8 @@ class BattleSystem3Rounds:
         active_effects = []
 
         # محاسبه dominant attribute هر کارت (پس از arena boost)
-        dom_ch_initial = get_dominant_attr_from_stats(battle_state.challenger_current_stats, battle_state.arena)
-        dom_op_initial = get_dominant_attr_from_stats(battle_state.opponent_current_stats, battle_state.arena)
+        dom_ch_initial = get_dominant_attr_from_stats(battle_state.challenger_current_stats, battle_state.arena, arena_snapshot)
+        dom_op_initial = get_dominant_attr_from_stats(battle_state.opponent_current_stats, battle_state.arena, arena_snapshot)
 
         # Drain قبل از resolve روی صفت غالب حریف اعمال می‌شود.
         battle_state.opponent_current_stats, drained_attr = apply_drain_to_stats(
@@ -610,16 +617,16 @@ class BattleSystem3Rounds:
         if drained_attr:
             active_effects.append(f"drain:opponent:{drained_attr}")
 
-        dom_ch = get_dominant_attr_from_stats(battle_state.challenger_current_stats, battle_state.arena)
-        dom_op = get_dominant_attr_from_stats(battle_state.opponent_current_stats, battle_state.arena)
+        dom_ch = get_dominant_attr_from_stats(battle_state.challenger_current_stats, battle_state.arena, arena_snapshot)
+        dom_op = get_dominant_attr_from_stats(battle_state.opponent_current_stats, battle_state.arena, arena_snapshot)
         challenger_stat = dom_ch
         opponent_stat = dom_op
 
         # محاسبه مجموع
         challenger_base = battle_state.challenger_current_stats[challenger_stat]
         opponent_base = battle_state.opponent_current_stats[opponent_stat]
-        challenger_boost = self.calculate_boost(challenger_card, battle_state.arena, challenger_stat)
-        opponent_boost = self.calculate_boost(opponent_card, battle_state.arena, opponent_stat)
+        challenger_boost = self.calculate_boost(challenger_card, battle_state.arena, challenger_stat, arena_snapshot)
+        opponent_boost = self.calculate_boost(opponent_card, battle_state.arena, opponent_stat, arena_snapshot)
         challenger_total = challenger_base + challenger_boost
         opponent_total   = opponent_base   + opponent_boost
 

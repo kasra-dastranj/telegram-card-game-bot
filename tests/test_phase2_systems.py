@@ -4,18 +4,11 @@
 تست سیستم‌های فاز ۲
 """
 
-import sys
-import io
-
-# تنظیم encoding برای ویندوز
-if sys.platform == 'win32':
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
-
-from phase2_systems import (
+from systems.phase2_systems import (
     LevelSystem, TierSystem, DecaySystem, ProgressionDB,
     XP_SOURCES, format_xp_bar, format_tier_badge
 )
+from core.database import DatabaseManager
 from datetime import datetime, timedelta
 
 def test_level_system():
@@ -91,17 +84,20 @@ def test_decay_system():
     
     print("\n✅ تست Decay System موفق")
 
-def test_database_operations():
+def test_database_operations(tmp_path):
     """تست عملیات دیتابیس"""
     print("\n" + "=" * 50)
     print("💾 تست عملیات دیتابیس")
     print("=" * 50)
     
-    db = ProgressionDB('game_bot_test.db')
+    path = str(tmp_path / 'progression.db')
+    manager = DatabaseManager(path)
+    db = ProgressionDB(path)
     
     # تست دریافت progression
     print("\n📊 تست دریافت Progression:")
-    test_user_id = 5735941901  # user ID شما
+    test_user_id = 5735941901
+    manager.get_or_create_player(test_user_id, 'phase2', 'Phase Two')
     
     progression = db.get_progression(test_user_id)
     if progression:
@@ -112,11 +108,12 @@ def test_database_operations():
         print(f"  TP: {progression.tier_points}")
         print(f"  Last Played: {progression.last_played_at}")
     else:
-        print(f"  ❌ Progression not found for user {test_user_id}")
+        raise AssertionError(f"Progression not found for user {test_user_id}")
     
     # تست اضافه کردن XP
     print("\n📈 تست اضافه کردن XP:")
     success, old_level, new_level = db.add_xp(test_user_id, 50, "test")
+    assert success and new_level >= old_level
     if success:
         print(f"  ✅ XP اضافه شد: Level {old_level} → {new_level}")
     else:
@@ -125,6 +122,7 @@ def test_database_operations():
     # تست اضافه کردن TP
     print("\n🏆 تست اضافه کردن TP:")
     success, old_tier, new_tier = db.add_tp(test_user_id, 20)
+    assert success and old_tier and new_tier
     if success:
         print(f"  ✅ TP اضافه شد: {old_tier} → {new_tier}")
     else:

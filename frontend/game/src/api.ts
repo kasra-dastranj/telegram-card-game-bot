@@ -128,7 +128,7 @@ export interface FightData {
   ai_card: CardData;
   ai_name: string;
   aso_dialog: string;
-  arena: { arena_id: string; name_fa: string; boost_stat: StatKey; emoji: string };
+  arena: { arena_id: string; name_fa: string; boost_stat: StatKey; emoji: string; version?: number | null; background_url?: string | null };
   current_round: number;
   available_stats: StatKey[];
 }
@@ -190,6 +190,9 @@ export interface QuickState {
   deadline?: string;
   arena?: {
     id: string;
+    arena_id?: string;
+    version?: number | null;
+    background_url?: string | null;
     name: string;
     emoji: string;
     effects: Array<{ card_type: StatKey; stat: StatKey; delta: number }>;

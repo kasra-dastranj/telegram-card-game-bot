@@ -1,61 +1,35 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Test to check group type and bot permissions
+"""Opt-in live Telegram connectivity check.
+
+The default suite is offline. Set RUN_LIVE_TELEGRAM_TESTS=1 explicitly to
+contact Telegram and verify the configured bot plus command scopes.
 """
 
 import asyncio
-from telegram import Bot
 import json
+import os
 
-async def test_bot():
-    print("=" * 50)
-    print("  Testing Bot Permissions")
-    print("=" * 50)
-    print()
-    
-    # Load config
-    with open('game_config.json', 'r', encoding='utf-8') as f:
-        config = json.load(f)
-    
-    token = config['bot_settings']['token']
+import pytest
+from telegram import Bot, BotCommandScopeAllGroupChats
+
+
+async def _check_live_bot():
+    with open("game_config.json", "r", encoding="utf-8") as config_file:
+        config = json.load(config_file)
+
+    token = os.getenv("BOT_TOKEN") or config["bot_settings"]["token"]
     bot = Bot(token=token)
-    
-    try:
-        # Get bot info
-        me = await bot.get_me()
-        print(f"✅ Bot connected: @{me.username}")
-        print(f"   Name: {me.first_name}")
-        print(f"   ID: {me.id}")
-        print()
-        
-        # Get bot commands
-        commands = await bot.get_my_commands()
-        print(f"📋 Bot commands (default): {len(commands)}")
-        for cmd in commands:
-            print(f"   /{cmd.command} - {cmd.description}")
-        print()
-        
-        # Get group commands
-        from telegram import BotCommandScopeAllGroupChats
-        group_commands = await bot.get_my_commands(scope=BotCommandScopeAllGroupChats())
-        print(f"📋 Bot commands (groups): {len(group_commands)}")
-        for cmd in group_commands:
-            print(f"   /{cmd.command} - {cmd.description}")
-        print()
-        
-        print("✅ Bot is working correctly!")
-        print()
-        print("💡 To test in a group:")
-        print("   1. Add bot to group")
-        print("   2. Make bot admin with 'Delete Messages' permission")
-        print("   3. Type / in group to see commands")
-        print("   4. Type /fight to test")
-        
-    except Exception as e:
-        print(f"❌ Error: {e}")
-        import traceback
-        traceback.print_exc()
+    me = await bot.get_me()
+    default_commands = await bot.get_my_commands()
+    group_commands = await bot.get_my_commands(scope=BotCommandScopeAllGroupChats())
+    return me, default_commands, group_commands
 
-if __name__ == '__main__':
-    asyncio.run(test_bot())
+
+def test_live_bot_permissions():
+    if os.getenv("RUN_LIVE_TELEGRAM_TESTS") != "1":
+        pytest.skip("live Telegram check; set RUN_LIVE_TELEGRAM_TESTS=1 to enable")
+
+    me, default_commands, group_commands = asyncio.run(_check_live_bot())
+    assert me.id > 0
+    assert me.username
+    assert isinstance(default_commands, tuple)
+    assert isinstance(group_commands, tuple)

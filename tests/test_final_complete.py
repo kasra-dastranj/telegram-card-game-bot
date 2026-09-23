@@ -7,7 +7,7 @@
 import sys
 import os
 
-def test_all_systems():
+def run_legacy_phase2_audit():
     """تست تمام سیستم‌های Phase 2"""
     print("=" * 60)
     print("🧪 PHASE 2 FINAL COMPLETE TEST")
@@ -217,5 +217,5 @@ def test_all_systems():
 
 
 if __name__ == '__main__':
-    success = test_all_systems()
+    success = run_legacy_phase2_audit()
     sys.exit(0 if success else 1)

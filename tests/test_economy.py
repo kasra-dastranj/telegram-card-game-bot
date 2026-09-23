@@ -11,9 +11,9 @@ import sys
 os.environ['ENV_FILE'] = '.env.test'
 
 from game_core import DatabaseManager, CardRarity
-from economy_system import EconomySystem
+from systems.economy_system import EconomySystem
 
-def test_economy():
+def run_legacy_economy_diagnostic():
     """تست سیستم Economy"""
     print("🧪 شروع تست Economy System...")
     
@@ -208,7 +208,7 @@ def test_economy():
 
 if __name__ == "__main__":
     try:
-        success = test_economy()
+        success = run_legacy_economy_diagnostic()
         sys.exit(0 if success else 1)
     except Exception as e:
         print(f"\n❌ خطا در تست: {e}")

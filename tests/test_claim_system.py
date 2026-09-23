@@ -4,16 +4,8 @@
 تست سیستم Claim جدید
 """
 
-import sys
-import io
-
-# تنظیم encoding برای ویندوز
-if sys.platform == 'win32':
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
-
 from game_core import DatabaseManager, GameLogic, CardRarity
-from claim_system import ClaimSystem, format_pool_stats
+from systems.claim_system import ClaimSystem, format_pool_stats
 
 def test_claim_pool():
     """تست pool management"""

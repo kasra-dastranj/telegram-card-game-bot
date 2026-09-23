@@ -12,9 +12,9 @@ from datetime import datetime, timedelta
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from game_core import DatabaseManager, Card, CardRarity
-from tier_decay_system import TierDecaySystem
-from rare_cards_system import RareCardsSystem, create_rare_cards_tables
-from card_missions_system import CardMissionsSystem, create_missions_tables
+from systems.tier_decay_system import TierDecaySystem
+from systems.rare_cards_system import RareCardsSystem, create_rare_cards_tables
+from systems.card_missions_system import CardMissionsSystem, create_missions_tables
 
 
 def test_tier_decay():
@@ -47,14 +47,13 @@ def test_tier_decay():
     # اضافه کردن بازیکن تست
     cursor.execute('''
         INSERT INTO player_progression
-        (user_id, tier_points, current_tier, last_played_at, created_at)
-        VALUES (?, ?, ?, ?, ?)
+        (user_id, tier_points, current_tier, last_played_at)
+        VALUES (?, ?, ?, ?)
     ''', (
         123,
         1500,  # Diamond
         'Diamond',
-        (datetime.now() - timedelta(days=10)).isoformat(),
-        datetime.now().isoformat()
+        (datetime.now() - timedelta(days=10)).isoformat()
     ))
     conn.commit()
     conn.close()

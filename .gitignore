@@ -71,3 +71,6 @@ htmlcov/
 .test-tmp*/
 .deploy-staging-*/
 telbattle-deploy-*.tar.gz
+
+# Generated deployment bundles (source and release notes remain versioned)
+deployment/artifacts/

@@ -451,6 +451,11 @@ class DatabaseManager:
                 cursor.execute(f'ALTER TABLE {table} ADD COLUMN {column} {col_def}')
             except sqlite3.OperationalError:
                 pass  # ستون قبلاً وجود دارد
+
+        # Arena Registry is additive: legacy arena_id columns remain available
+        # during the rollout while new matches can persist an immutable snapshot.
+        from systems.arena_registry import ensure_arena_registry_schema
+        ensure_arena_registry_schema(conn)
         
         # ==================== Indexes ====================
         try:
@@ -1218,17 +1223,22 @@ class DatabaseManager:
     
     def spend_coins(self, user_id: int, amount: int) -> Tuple[bool, str]:
         """خرج کردن سکه — برمی‌گرداند (success, error_msg)"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute('SELECT COALESCE(coins, 0) FROM players WHERE user_id = ?', (user_id,))
-        row = cursor.fetchone()
-        if not row or row[0] < amount:
+        if type(amount) is not int or amount <= 0:
+            return False, "مقدار نامعتبر"
+        conn = sqlite3.connect(self.db_path, timeout=15)
+        try:
+            cursor = conn.execute(
+                'UPDATE players SET coins = coins - ? WHERE user_id = ? AND coins >= ?',
+                (amount, user_id, amount),
+            )
+            if cursor.rowcount != 1:
+                row = conn.execute('SELECT COALESCE(coins, 0) FROM players WHERE user_id = ?', (user_id,)).fetchone()
+                conn.rollback()
+                return False, f"سکه کافی نیست (موجودی: {row[0] if row else 0}، نیاز: {amount})"
+            conn.commit()
+            return True, ""
+        finally:
             conn.close()
-            return False, f"سکه کافی نیست (موجودی: {row[0] if row else 0}، نیاز: {amount})"
-        cursor.execute('UPDATE players SET coins = coins - ? WHERE user_id = ?', (amount, user_id))
-        conn.commit()
-        conn.close()
-        return True, ""
     
     # ==================== CARD COOLDOWN SETTINGS ====================
     

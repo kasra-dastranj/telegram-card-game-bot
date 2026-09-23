@@ -113,7 +113,7 @@ class EconomySystem:
         Returns:
             (success, error_message)
         """
-        if amount <= 0:
+        if type(amount) is not int or amount <= 0:
             return False, "مقدار نامعتبر"
         
         current_coins = self.get_coins(user_id)
@@ -128,8 +128,12 @@ class EconomySystem:
             cursor.execute('''
                 UPDATE players 
                 SET coins = coins - ?
-                WHERE user_id = ?
-            ''', (amount, user_id))
+                WHERE user_id = ? AND coins >= ?
+            ''', (amount, user_id, amount))
+
+            if cursor.rowcount != 1:
+                conn.rollback()
+                return False, "سکه کافی نیست"
             
             conn.commit()
             
@@ -237,7 +241,13 @@ class EconomySystem:
                 SET coins = coins + ?,
                     last_mining_claim = ?
                 WHERE user_id = ?
-            ''', (coins, datetime.now().isoformat(), user_id))
+                  AND (last_mining_claim IS NULL OR last_mining_claim <= ?)
+            ''', (coins, datetime.now().isoformat(), user_id,
+                  (datetime.now() - timedelta(hours=24)).isoformat()))
+
+            if cursor.rowcount != 1:
+                conn.rollback()
+                return False, 0, "ماینینگ امروز دریافت شده است یا بازیکن پیدا نشد"
             
             conn.commit()
             
@@ -266,7 +276,7 @@ class EconomySystem:
         Returns:
             (success, coins_earned, error_message)
         """
-        if score_amount < self.SCORE_TO_COIN_RATE:
+        if type(score_amount) is not int or score_amount < self.SCORE_TO_COIN_RATE:
             return False, 0, f"حداقل {self.SCORE_TO_COIN_RATE} امتیاز نیاز است!"
         
         # دریافت امتیاز فعلی
@@ -294,7 +304,12 @@ class EconomySystem:
                 SET total_score = total_score - ?,
                     coins = coins + ?
                 WHERE user_id = ?
-            ''', (score_amount, coins, user_id))
+                  AND total_score >= ?
+            ''', (score_amount, coins, user_id, score_amount))
+
+            if cursor.rowcount != 1:
+                conn.rollback()
+                return False, 0, "امتیاز کافی نیست"
             
             conn.commit()
             
@@ -311,65 +326,30 @@ class EconomySystem:
     # ==================== SHOP ====================
     
     def buy_heart_increase(self, user_id: int) -> Tuple[bool, Optional[str]]:
-        """
-        خرید افزایش قلب دائمی (+1 قلب)
-        
-        قیمت: 200 سکه
-        حداکثر: 15 قلب
-        
-        Returns:
-            (success, error_message)
-        """
+        """Debit the price and increase the heart cap in one transaction."""
         price = self.PRICES['heart_increase']
-        
-        # بررسی موجودی
-        success, error = self.spend_coins(user_id, price, "buy_heart_increase")
-        if not success:
-            return False, error
-        
-        # دریافت قلب فعلی
-        conn = sqlite3.connect(self.db.db_path)
-        cursor = conn.cursor()
-        
+        conn = sqlite3.connect(self.db.db_path, timeout=15)
         try:
-            cursor.execute('SELECT max_hearts FROM players WHERE user_id = ?', (user_id,))
-            row = cursor.fetchone()
-            
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute("SELECT coins,max_hearts FROM players WHERE user_id=?", (user_id,)).fetchone()
             if not row:
-                # بازگشت سکه
-                self.add_coins(user_id, price, "refund_heart_increase")
                 return False, "بازیکن پیدا نشد!"
-            
-            current_hearts = row[0] if row[0] else self.DEFAULT_HEARTS
-            
+            current_hearts = row[1] or self.DEFAULT_HEARTS
             if current_hearts >= self.MAX_HEARTS:
-                # بازگشت سکه
-                self.add_coins(user_id, price, "refund_heart_increase")
                 return False, f"حداکثر قلب ({self.MAX_HEARTS}) است!"
-            
-            # افزایش قلب
-            new_hearts = current_hearts + 1
-            
-            cursor.execute('''
-                UPDATE players 
-                SET max_hearts = ?
-                WHERE user_id = ?
-            ''', (new_hearts, user_id))
-            
+            if (row[0] or 0) < price:
+                return False, "سکه کافی نیست"
+            conn.execute("UPDATE players SET coins=coins-?,max_hearts=? WHERE user_id=?",
+                         (price, current_hearts + 1, user_id))
             conn.commit()
-            
-            logger.info(f"User {user_id} bought heart increase: {current_hearts} → {new_hearts}")
             return True, None
-            
-        except Exception as e:
+        except Exception as exc:
             conn.rollback()
-            # بازگشت سکه
-            self.add_coins(user_id, price, "refund_heart_increase")
-            logger.error(f"Failed to buy heart increase: {e}")
-            return False, f"خطا: {str(e)}"
+            logger.error("Failed to buy heart increase: %s", exc)
+            return False, "خرید قلب انجام نشد"
         finally:
             conn.close()
-    
+
     def buy_card_upgrade(self, user_id: int, upgrade_type: str) -> Tuple[bool, Optional[str]]:
         """
         خرید ارتقای کارت با سکه

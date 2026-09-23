@@ -185,9 +185,17 @@ class RiskHandlersMixin:
         await query.answer()
         user_id = query.from_user.id
 
-        parts = query.data.split("_", 3)
-        match_id = parts[2]
-        card_id = parts[3]
+        try:
+            payload = query.data.removeprefix("risk_card_")
+            if payload.startswith("risk_"):
+                # Already-sent buttons use risk_<challenger>_<opponent>_<time>.
+                parts = payload.split("_", 4)
+                match_id, card_id = "_".join(parts[:4]), parts[4]
+            else:
+                match_id, card_id = payload.split("_", 1)
+        except (ValueError, IndexError, AttributeError):
+            await query.answer("❌ دکمه نامعتبر است", show_alert=True)
+            return
 
         result = self.risk.select_card(match_id, user_id, card_id)
         if not result['success']:
@@ -208,9 +216,16 @@ class RiskHandlersMixin:
         """شروع Bluff phase — Fold/Call/Raise"""
         import sqlite3 as _sq
         conn = _sq.connect(self.db.db_path)
-        conn.execute("UPDATE risk_matches SET bluff_phase='waiting', challenger_bluff_action=NULL, opponent_bluff_action=NULL WHERE match_id=?", (match_id,))
+        changed = conn.execute(
+            """UPDATE risk_matches SET bluff_phase='waiting',challenger_bluff_action=NULL,opponent_bluff_action=NULL
+               WHERE match_id=? AND status!='completed' AND bluff_phase='none'
+               AND challenger_selected_card IS NOT NULL AND opponent_selected_card IS NOT NULL""",
+            (match_id,),
+        ).rowcount
         conn.commit()
         conn.close()
+        if changed != 1:
+            return
 
         pot = match['current_pot']
         table = match['table_value']
@@ -241,94 +256,42 @@ class RiskHandlersMixin:
                 logger.warning(f"Failed to send bluff UI to {pid}: {e}")
 
     async def risk_bluff_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """مدیریت Fold/Call/Raise در Risk"""
+        """Persist an action before sending messages or advancing the round."""
         query = update.callback_query
         await query.answer()
         user_id = query.from_user.id
-
-        # risk_bluff_{match_id}_{action} یا risk_bluff_{match_id}_raise_{amount}
-        parts = query.data.split("_")
-        match_id = parts[2]
-        action = parts[3]
-        raise_amount = int(parts[4]) if action == "raise" and len(parts) > 4 else 0
+        try:
+            payload = query.data.removeprefix("risk_bluff_")
+            match_id, action = payload.rsplit("_", 1)
+            raise_amount = 0
+            if action.isdigit() or action.startswith("-"):
+                match_id, action, amount = payload.rsplit("_", 2)
+                raise_amount = int(amount)
+            risk_action = RiskAction(action)
+        except (ValueError, AttributeError):
+            await query.answer("❌ دکمه نامعتبر است", show_alert=True)
+            return
 
         match = self.risk.get_risk_match(match_id)
-        if not match:
-            await query.answer("❌ بازی یافت نشد!", show_alert=True)
+        if not match or match["status"] == "completed" or match["bluff_phase"] not in ("waiting", "raise_pending"):
+            await query.answer("❌ این مرحله تمام شده است", show_alert=True)
+            return
+        result = self.risk.make_action(match_id, user_id, risk_action, raise_amount)
+        if not result["success"]:
+            await query.answer(f"❌ {result['error']}", show_alert=True)
             return
 
-        if match['bluff_phase'] not in ('waiting', 'raise_pending'):
-            await query.answer("❌ این مرحله تموم شده!", show_alert=True)
-            return
-
-        is_challenger = user_id == match['challenger_id']
-        is_opponent = user_id == match['opponent_id']
-        if not is_challenger and not is_opponent:
-            await query.answer("❌ این بازی مال تو نیست!", show_alert=True)
-            return
-
-        role = 'challenger' if is_challenger else 'opponent'
-        other_id = match['opponent_id'] if is_challenger else match['challenger_id']
-        other_role = 'opponent' if is_challenger else 'challenger'
-
-        import sqlite3 as _sq
-
-        # ── FOLD ──
-        if action == "fold":
-            winner_id = other_id
-            self.db.add_coins(winner_id, match['current_pot'])
-            self.db.add_xp(winner_id, 25)
-            self.db.add_xp(user_id, 5)
-
-            conn = _sq.connect(self.db.db_path)
-            conn.execute("UPDATE risk_matches SET status='completed', winner_id=?, bluff_phase='done' WHERE match_id=?",
-                         (winner_id, match_id))
-            conn.commit()
-            conn.close()
-
-            fold_text = (
-                f"🏳️ **Fold!**\n\n"
-                f"بازیکن انصراف داد.\n"
-                f"💰 برنده: {match['current_pot']} سکه!"
-            )
-            if match.get('chat_id'):
+        if risk_action == RiskAction.FOLD:
+            text = f"🏳️ **Fold!**\n\nبازیکن انصراف داد.\n💰 برنده: {result['pot']} سکه!"
+            if match.get("chat_id"):
                 try:
-                    await context.bot.send_message(chat_id=match['chat_id'], text=fold_text, parse_mode='Markdown')
+                    await context.bot.send_message(chat_id=match["chat_id"], text=text, parse_mode="Markdown")
                 except Exception:
                     pass
-            await query.edit_message_text(fold_text, parse_mode='Markdown')
-            return
-
-        # ── RAISE ──
-        if action == "raise":
-            # بررسی موجودی
-            ok, err = self.db.spend_coins(user_id, raise_amount)
-            if not ok:
-                await query.answer(f"❌ {err}", show_alert=True)
-                return
-
-            new_pot = match['current_pot'] + raise_amount
-            conn = _sq.connect(self.db.db_path)
-            conn.execute(
-                "UPDATE risk_matches SET current_pot=?, bluff_phase='raise_pending', raise_amount=?, raise_by=?, "
-                f"{role}_bluff_action='raise' WHERE match_id=?",
-                (new_pot, raise_amount, user_id, match_id)
-            )
-            conn.commit()
-            conn.close()
-
-            await query.edit_message_text(
-                f"📈 Raise {raise_amount} سکه زدی!\n⏳ منتظر جواب حریف...",
-                parse_mode='Markdown'
-            )
-
-            # ارسال UI به حریف
-            raise_text = (
-                f"📈 **حریف Raise زد!**\n\n"
-                f"مقدار: +{raise_amount} سکه\n"
-                f"💰 پات جدید: {new_pot} سکه\n\n"
-                f"جواب بده:"
-            )
+            await query.edit_message_text(text, parse_mode="Markdown")
+        elif risk_action == RiskAction.RAISE:
+            other_id = match["opponent_id"] if user_id == match["challenger_id"] else match["challenger_id"]
+            await query.edit_message_text(f"📈 Raise {raise_amount} سکه زدی!\n⏳ منتظر جواب حریف...")
             keyboard = [
                 [InlineKeyboardButton("✅ Call", callback_data=f"risk_bluff_{match_id}_call")],
                 [InlineKeyboardButton("🏳️ Fold", callback_data=f"risk_bluff_{match_id}_fold")],
@@ -336,139 +299,49 @@ class RiskHandlersMixin:
             try:
                 await context.bot.send_message(
                     chat_id=other_id,
-                    text=raise_text,
+                    text=f"📈 حریف Raise زد!\nمقدار: +{raise_amount} سکه\n💰 پات: {result['new_pot']} سکه",
                     reply_markup=InlineKeyboardMarkup(keyboard),
-                    parse_mode='Markdown'
                 )
-            except Exception as e:
-                logger.warning(f"Failed to send raise UI: {e}")
-            return
-
-        # ── CALL ──
-        if action == "call":
-            # اگه raise_pending بود، باید مقدار raise رو هم بپردازه
-            if match['bluff_phase'] == 'raise_pending' and match['raise_by'] != user_id:
-                call_amount = match['raise_amount']
-                ok, err = self.db.spend_coins(user_id, call_amount)
-                if not ok:
-                    await query.answer(f"❌ {err}", show_alert=True)
-                    return
-                new_pot = match['current_pot'] + call_amount
-                conn = _sq.connect(self.db.db_path)
-                conn.execute(
-                    f"UPDATE risk_matches SET current_pot=?, bluff_phase='done', {role}_bluff_action='call' WHERE match_id=?",
-                    (new_pot, match_id)
-                )
-                conn.commit()
-                conn.close()
-            else:
-                conn = _sq.connect(self.db.db_path)
-                conn.execute(
-                    f"UPDATE risk_matches SET {role}_bluff_action='call' WHERE match_id=?",
-                    (match_id,)
-                )
-                conn.commit()
-                conn.close()
-
-            await query.edit_message_text("✅ Call کردی!\n⏳ در حال resolve راوند...", parse_mode='Markdown')
-
-            # بررسی اینکه هر دو Call کردن یا bluff_phase=done شده
-            match = self.risk.get_risk_match(match_id)
-            if match['bluff_phase'] == 'done' or \
-               (match['challenger_bluff_action'] == 'call' and match['opponent_bluff_action'] == 'call'):
+            except Exception as exc:
+                logger.warning("Failed to send raise UI: %s", exc)
+        else:
+            await query.edit_message_text("✅ Call کردی!\n⏳ منتظر نتیجه...")
+            if result.get("ready"):
                 await self._resolve_risk_round(context, match_id)
-            # اگه فقط یکی Call کرده، منتظر دیگری
 
     async def _resolve_risk_round(self, context, match_id: str):
-        """حل راوند Risk و اعلام نتیجه"""
+        """The engine settles coins and progression; this handler only presents it."""
         result = self.risk.resolve_round(match_id)
         match = self.risk.get_risk_match(match_id)
-        if not match or not result['success']:
+        if not match or not result["success"]:
             return
-
         stat_names = {'power': '💪 قدرت', 'speed': '⚡ سرعت', 'iq': '🧠 هوش', 'popularity': '❤️ محبوبیت'}
-        stat_label = stat_names.get(result['selected_stat'], result['selected_stat'])
-        winner_text = "🏆 Challenger برنده!" if result['winner'] == 'challenger' else \
-                      "🏆 Opponent برنده!" if result['winner'] == 'opponent' else "🤝 مساوی!"
-
+        winner_text = "🏆 Challenger برنده!" if result["winner"] == "challenger" else "🏆 Opponent برنده!" if result["winner"] == "opponent" else "🤝 مساوی!"
         text = (
             f"⚔️ **راوند {result['round']}**\n\n"
-            f"ویژگی: {stat_label}\n"
-            f"Challenger: {result['challenger_value']}\n"
-            f"Opponent: {result['opponent_value']}\n\n"
+            f"ویژگی: {stat_names[result['selected_stat']]}\n"
+            f"Challenger: {result['challenger_value']}\nOpponent: {result['opponent_value']}\n"
             f"{winner_text}\n\n"
             f"امتیاز: Challenger {match['challenger_rounds_won']} — Opponent {match['opponent_rounds_won']}\n"
             f"💰 پات: {match['current_pot']} سکه"
         )
-
-        c_won = match['challenger_rounds_won']
-        o_won = match['opponent_rounds_won']
-        round_num = match['current_round']
-
-        if c_won >= 2 or o_won >= 2 or round_num > 3:
-            # تعیین برنده نهایی
-            if c_won > o_won:
-                final_winner_id = match['challenger_id']
-            elif o_won > c_won:
-                final_winner_id = match['opponent_id']
-            else:
-                self.db.add_coins(match['challenger_id'], match['table_value'])
-                self.db.add_coins(match['opponent_id'], match['table_value'])
-                final_winner_id = None
-
-            if final_winner_id:
-                self.db.add_coins(final_winner_id, match['current_pot'])
-                self.db.add_xp(final_winner_id, 25)
-                loser_id = match['opponent_id'] if final_winner_id == match['challenger_id'] else match['challenger_id']
-                self.db.add_xp(loser_id, 5)
-                text += f"\n\n🎉 **بازی تموم شد!**\n💰 برنده: {match['current_pot']} سکه!"
-
-            import sqlite3 as _sq
-            conn = _sq.connect(self.db.db_path)
-            conn.execute('UPDATE risk_matches SET status=?, winner_id=? WHERE match_id=?',
-                         ('completed', final_winner_id, match_id))
-            conn.commit()
-            conn.close()
-
-            if match.get('chat_id'):
-                try:
-                    await context.bot.send_message(chat_id=match['chat_id'], text=text, parse_mode='Markdown')
-                except Exception:
-                    pass
-        else:
-            # reset کارت‌های انتخاب‌شده برای راوند بعدی
-            import sqlite3 as _sq
-            conn = _sq.connect(self.db.db_path)
-            conn.execute(
-                "UPDATE risk_matches SET challenger_selected_card=NULL, opponent_selected_card=NULL, "
-                "bluff_phase='none', challenger_bluff_action=NULL, opponent_bluff_action=NULL WHERE match_id=?",
-                (match_id,)
-            )
-            conn.commit()
-            conn.close()
-
-            if match.get('chat_id'):
-                try:
-                    await context.bot.send_message(chat_id=match['chat_id'], text=text, parse_mode='Markdown')
-                except Exception:
-                    pass
-
-            # ارسال کارت‌ها برای راوند بعدی
-            for pid, card_ids in [(match['challenger_id'], match['challenger_cards']),
-                                   (match['opponent_id'], match['opponent_cards'])]:
-                cards = [self.db.get_card_by_id(cid) for cid in card_ids]
-                cards = [c for c in cards if c]
-                keyboard = [[InlineKeyboardButton(
-                    f"🃏 {c.name}", callback_data=f"risk_card_{match_id}_{c.card_id}"
-                )] for c in cards]
-                try:
-                    await context.bot.send_message(
-                        chat_id=pid,
-                        text=f"🎲 **راوند {round_num + 1}** — کارت انتخاب کن:",
-                        reply_markup=InlineKeyboardMarkup(keyboard),
-                        parse_mode='Markdown'
-                    )
-                except Exception:
-                    pass
-
-
+        if result["game_over"]:
+            text += f"\n\n🎉 بازی تمام شد! برنده: {match['current_pot']} سکه" if result["winner_id"] else "\n\n🤝 بازی مساوی شد؛ کل پات تقسیم شد."
+        if match.get("chat_id"):
+            try:
+                await context.bot.send_message(chat_id=match["chat_id"], text=text, parse_mode="Markdown")
+            except Exception:
+                pass
+        if result["game_over"]:
+            return
+        for pid, card_ids in ((match["challenger_id"], match["challenger_cards"]), (match["opponent_id"], match["opponent_cards"])):
+            cards = [self.db.get_card_by_id(cid) for cid in card_ids]
+            keyboard = [[InlineKeyboardButton(f"🃏 {card.name}", callback_data=f"risk_card_{match_id}_{card.card_id}")]
+                        for card in cards if card]
+            try:
+                await context.bot.send_message(
+                    chat_id=pid, text=f"🎲 **راوند {match['current_round']}** — کارت انتخاب کن:",
+                    reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown",
+                )
+            except Exception:
+                pass

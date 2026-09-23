@@ -10,7 +10,12 @@ import re
 import sys
 import uuid
 import sqlite3
+import hashlib
+import hmac
+import time
+from collections import defaultdict, deque
 from datetime import datetime
+from io import BytesIO
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -20,22 +25,59 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
+from PIL import Image, UnidentifiedImageError
 
 from game_core import DatabaseManager, Card, CardRarity, CardManager, GameLogic
-from systems.game_mode_system import CORE_STATS, QUICK_ARENAS, GameModeSystem
+from systems.game_mode_system import CORE_STATS, GameModeSystem
+from systems.arena_registry import ArenaRegistry, ArenaValidationError, MODE_KEYS, PLATFORMS
 
 class WebAPI:
     def __init__(self, db_manager: DatabaseManager):
         self.app = Flask(__name__)
         self.app.config['MAX_CONTENT_LENGTH'] = 8 * 1024 * 1024
-        CORS(self.app)
+        allowed_origins = [item.strip() for item in os.getenv('ADMIN_CORS_ORIGINS', '').split(',') if item.strip()]
+        if allowed_origins:
+            CORS(self.app, resources={r"/api/*": {"origins": allowed_origins}})
+        self._arena_rate_buckets = defaultdict(deque)
         
         self.db = db_manager
         self.card_manager = CardManager(db_manager)
         self.game_logic = GameLogic(db_manager)
         self.modes = GameModeSystem(db_manager)
+        self.arena_registry = ArenaRegistry(db_manager)
         
         self.setup_routes()
+
+    def _arena_admin_actor(self, scope='write'):
+        """Fail-closed token auth with optional independent high-risk scopes."""
+        base = os.getenv('ARENA_ADMIN_TOKEN') or os.getenv('ADMIN_API_TOKEN')
+        if scope == 'publish':
+            expected = os.getenv('ARENA_ADMIN_PUBLISH_TOKEN') or base
+        elif scope == 'archive':
+            expected = os.getenv('ARENA_ADMIN_ARCHIVE_TOKEN') or os.getenv('ARENA_ADMIN_PUBLISH_TOKEN') or base
+        else:
+            expected = base
+        supplied = request.headers.get('X-Admin-Token', '')
+        if expected:
+            if not hmac.compare_digest(supplied, expected):
+                raise PermissionError('unauthorized_admin')
+            configured_actor = os.getenv(f'ARENA_ADMIN_{scope.upper()}_ACTOR') or os.getenv('ARENA_ADMIN_ACTOR')
+            return configured_actor or f"token-admin:{hashlib.sha256(expected.encode()).hexdigest()[:10]}"
+        local_dev = os.getenv('ARENA_ADMIN_LOCAL_DEV', '0').strip().casefold() in {'1', 'true', 'on', 'yes'}
+        if not local_dev or request.remote_addr not in {'127.0.0.1', '::1', None}:
+            raise PermissionError('admin_auth_not_configured')
+        return request.headers.get('X-Admin-Id', 'local-admin')
+
+    def _arena_rate_limit(self, action: str, limit: int, window_seconds: int = 60) -> None:
+        identity = request.headers.get('X-Admin-Token') or request.remote_addr or 'unknown'
+        key = (action, hashlib.sha256(identity.encode()).hexdigest())
+        now = time.monotonic()
+        bucket = self._arena_rate_buckets[key]
+        while bucket and bucket[0] <= now - window_seconds:
+            bucket.popleft()
+        if len(bucket) >= limit:
+            raise ValueError('rate_limit_exceeded')
+        bucket.append(now)
 
     @staticmethod
     def _string_list(value, field_name):
@@ -111,10 +153,8 @@ class WebAPI:
             }
             if unknown_conditions or len(clean_condition) != 1:
                 raise ValueError('Passive باید دقیقاً یک شرط معتبر داشته باشد')
-            if clean_condition.get('arena') not in (
-                None,
-                *(arena['id'] for arena in QUICK_ARENAS),
-            ):
+            passive_arena = clean_condition.get('arena')
+            if passive_arena and not self.arena_registry.arena_exists_for_mode(passive_arena, 'quick', include_draft=True):
                 raise ValueError('میدان Passive نامعتبر است')
             if effect.get('stat') not in CORE_STATS:
                 raise ValueError('Passive باید یکی از چهار Stat اصلی را تغییر دهد')
@@ -169,6 +209,23 @@ class WebAPI:
                 self.db.set_card_media_file_id(card_id, file_id, kind)
             else:
                 self.db.clear_card_media_file_id(card_id, kind)
+
+    @staticmethod
+    def _arena_rule_summary(arena):
+        rules = arena.get('rules') or {}
+        if arena.get('mode') == 'quick':
+            parts = []
+            for effect in rules.get('effects', []):
+                sign = '+' if int(effect.get('delta', 0)) >= 0 else ''
+                parts.append(f"{effect.get('target_stat')}: {sign}{effect.get('delta')}")
+            if rules.get('disabled_stats'):
+                parts.append('قفل: ' + '، '.join(rules['disabled_stats']))
+            if not rules.get('abilities_enabled', True): parts.append('Ability غیرفعال')
+            if not rules.get('passives_enabled', True): parts.append('Passive غیرفعال')
+            return ' · '.join(parts) or 'بدون تغییر عددی'
+        if arena.get('mode') == 'three_round':
+            return f"{rules.get('boost_stat')} +{rules.get('boost_amount', 0)}"
+        return f"مقایسه {rules.get('compare_stat', '-') }"
 
     def _serialize_card(self, card):
         metadata = self.modes.get_card_metadata(card.card_id)
@@ -718,6 +775,191 @@ class WebAPI:
             except Exception as e:
                 return jsonify({'success': False, 'message': str(e)}), 500
         
+        # ==================== ARENA REGISTRY APIs ====================
+
+        def arena_error(error):
+            if isinstance(error, ArenaValidationError):
+                return jsonify({'success': False, 'error': 'arena_validation_failed', 'issues': error.issues}), 422
+            code = str(error)
+            status = 403 if code in {'unauthorized_admin', 'admin_auth_not_configured'} else 429 if code == 'rate_limit_exceeded' else 409 if code in {'arena_id_locked', 'draft_conflict', 'arena_already_archived', 'published_media_immutable'} else 404 if code in {'arena_not_found', 'draft_not_found'} else 400
+            return jsonify({'success': False, 'error': code}), status
+
+        @self.app.route('/arenas')
+        def serve_arena_frontend():
+            return send_from_directory(str(WEB_ROOT), 'arena_management.html')
+
+        @self.app.route('/api/arenas', methods=['GET'])
+        def list_arenas():
+            try:
+                self._arena_admin_actor('read')
+                include_archived = request.args.get('include_archived', '1').strip().casefold() not in {'0', 'false', 'off'}
+                return jsonify({'success': True, 'arenas': self.arena_registry.list_arenas(include_archived), 'registry_version': self.arena_registry.registry_version()})
+            except Exception as error:
+                return arena_error(error)
+
+        @self.app.route('/api/arenas/<arena_id>', methods=['GET'])
+        def get_arena(arena_id):
+            try:
+                self._arena_admin_actor('read')
+                published = self.arena_registry.get_current_version(arena_id)
+                versions = self.arena_registry.list_versions(arena_id)
+                if not versions: raise ValueError('arena_not_found')
+                draft = next((item for item in versions if item['version_status'] == 'draft'), None)
+                return jsonify({'success': True, 'arena_id': arena_id, 'published': published, 'draft': self.arena_registry.get_version(arena_id, draft['version']) if draft else None, 'versions': versions})
+            except Exception as error:
+                return arena_error(error)
+
+        @self.app.route('/api/arenas/<arena_id>/versions', methods=['GET'])
+        def arena_versions(arena_id):
+            try:
+                self._arena_admin_actor('read')
+                versions = self.arena_registry.list_versions(arena_id)
+                if not versions: raise ValueError('arena_not_found')
+                return jsonify({'success': True, 'versions': versions})
+            except Exception as error:
+                return arena_error(error)
+
+        @self.app.route('/api/arenas/<arena_id>/dependencies', methods=['GET'])
+        def arena_dependencies(arena_id):
+            try:
+                self._arena_admin_actor('read')
+                if not self.arena_registry.list_versions(arena_id): raise ValueError('arena_not_found')
+                return jsonify({'success': True, 'dependencies': self.arena_registry.list_dependencies(arena_id)})
+            except Exception as error:
+                return arena_error(error)
+
+        @self.app.route('/api/arenas/<arena_id>/audit', methods=['GET'])
+        def arena_audit(arena_id):
+            try:
+                self._arena_admin_actor('read')
+                if not self.arena_registry.list_versions(arena_id): raise ValueError('arena_not_found')
+                return jsonify({'success': True, 'audit': self.arena_registry.list_audit(arena_id, request.args.get('limit', 100, type=int))})
+            except Exception as error:
+                return arena_error(error)
+
+        @self.app.route('/api/arenas/<arena_id>/preview', methods=['GET'])
+        def arena_preview(arena_id):
+            try:
+                self._arena_admin_actor('read')
+                mode = request.args.get('mode', 'quick')
+                platform = request.args.get('platform', 'telegram')
+                if mode not in MODE_KEYS or platform not in PLATFORMS: raise ValueError('invalid_mode_profile')
+                version_raw = request.args.get('version')
+                arena = self.arena_registry.preview(arena_id, mode, platform, int(version_raw) if version_raw else None)
+                if not arena: raise ValueError('arena_not_found')
+                summary = self._arena_rule_summary(arena)
+                return jsonify({'success': True, 'arena': arena, 'telegram_preview': f"{arena['emoji']} {arena['name_fa']}\n{summary}", 'rules_summary': summary})
+            except Exception as error:
+                return arena_error(error)
+
+        @self.app.route('/api/arenas', methods=['POST'])
+        def create_arena():
+            try:
+                actor = self._arena_admin_actor('write'); data = request.get_json(silent=True) or {}
+                arena_id = str(data.pop('arena_id', '')).strip()
+                data.setdefault('platform', {'telegram': {'enabled': True}, 'miniapp': {'enabled': False}})
+                created = self.arena_registry.create_draft(arena_id, data, actor, request.headers.get('X-Request-Id'))
+                return jsonify({'success': True, 'arena': created}), 201
+            except Exception as error:
+                return arena_error(error)
+
+        @self.app.route('/api/arenas/<arena_id>/draft', methods=['PUT'])
+        def update_arena_draft(arena_id):
+            try:
+                actor = self._arena_admin_actor('write'); data = request.get_json(silent=True) or {}
+                revision = data.pop('draft_revision', None)
+                if revision is None: raise ValueError('draft_conflict')
+                updated = self.arena_registry.update_draft(arena_id, data, actor, int(revision), request.headers.get('X-Request-Id'))
+                return jsonify({'success': True, 'arena': updated})
+            except Exception as error:
+                return arena_error(error)
+
+        @self.app.route('/api/arenas/<arena_id>/validate', methods=['POST'])
+        def validate_arena(arena_id):
+            try:
+                self._arena_admin_actor('read')
+                result = self.arena_registry.validate_draft_for_publish(arena_id)
+                return jsonify({'success': True, **result})
+            except Exception as error:
+                return arena_error(error)
+
+        @self.app.route('/api/arenas/<arena_id>/publish', methods=['POST'])
+        def publish_arena(arena_id):
+            try:
+                actor = self._arena_admin_actor('publish'); self._arena_rate_limit('publish', 20); data = request.get_json(silent=True) or {}
+                result = self.arena_registry.publish(arena_id, actor, int(data.get('draft_revision', -1)), request.headers.get('X-Request-Id'))
+                return jsonify({'success': True, 'arena': result, 'registry_version': self.arena_registry.registry_version()})
+            except Exception as error:
+                return arena_error(error)
+
+        @self.app.route('/api/arenas/<arena_id>/archive', methods=['POST'])
+        def archive_arena(arena_id):
+            try:
+                actor = self._arena_admin_actor('archive'); self._arena_rate_limit('archive', 10); self.arena_registry.archive(arena_id, actor, request.headers.get('X-Request-Id'))
+                return jsonify({'success': True, 'arena_id': arena_id, 'lifecycle_status': 'archived'})
+            except Exception as error:
+                return arena_error(error)
+
+        @self.app.route('/api/arenas/<arena_id>/versions/<int:version>/clone-as-draft', methods=['POST'])
+        def clone_arena_version(arena_id, version):
+            try:
+                actor = self._arena_admin_actor('write'); draft = self.arena_registry.create_next_draft(arena_id, actor, version, request.headers.get('X-Request-Id'))
+                return jsonify({'success': True, 'arena': draft}), 201
+            except Exception as error:
+                return arena_error(error)
+
+        @self.app.route('/api/arenas/<arena_id>/media', methods=['POST'])
+        def upload_arena_media(arena_id):
+            try:
+                actor = self._arena_admin_actor('write')
+                self._arena_rate_limit('upload', 10)
+                file = request.files.get('background')
+                version = int(request.form.get('version', '0'))
+                if not file or not version: raise ValueError('invalid_media')
+                data = file.read()
+                if len(data) > 3 * 1024 * 1024 or len(data) < 16 or data[:4] != b'RIFF' or data[8:12] != b'WEBP':
+                    raise ValueError('invalid_media')
+                try:
+                    with Image.open(BytesIO(data)) as image:
+                        image.verify()
+                    with Image.open(BytesIO(data)) as image:
+                        width, height = image.size
+                        image_format = image.format
+                except (UnidentifiedImageError, OSError, ValueError) as exc:
+                    raise ValueError('invalid_media') from exc
+                if image_format != 'WEBP' or width < 720 or height < 1280 or abs((width / height) - (9 / 16)) > 0.04:
+                    raise ValueError('invalid_media_dimensions')
+                digest = hashlib.sha256(data).hexdigest(); safe_id = re.sub(r'[^a-z0-9_]', '', arena_id)
+                # A durable directory is served by miniapp_api before bundled
+                # Vite assets, so a frontend rebuild cannot delete live media.
+                media_root = Path(os.getenv('MINIAPP_ARENA_MEDIA_DIR', str(PROJECT_ROOT / 'media' / 'arena-backgrounds')))
+                folder = media_root / safe_id
+                folder.mkdir(parents=True, exist_ok=True)
+                filename = f'v{version}-{digest[:16]}.webp'; target = folder / filename
+                created_file = not target.exists()
+                if created_file:
+                    temporary = target.with_suffix('.tmp')
+                    temporary.write_bytes(data)
+                    os.replace(temporary, target)
+                try:
+                    item = self.arena_registry.add_media(arena_id, version, 'miniapp', 'background', f'/miniapp-assets/arena-backgrounds/{safe_id}/{filename}', 'image/webp', len(data), digest, width, height, actor, 'ready')
+                except Exception:
+                    if created_file and target.exists():
+                        target.unlink()
+                    raise
+                return jsonify({'success': True, 'media': {**item, 'width': width, 'height': height}}), 201
+            except Exception as error:
+                return arena_error(error)
+
+        @self.app.route('/api/v1/arenas/manifest', methods=['GET'])
+        def miniapp_arena_manifest():
+            mode = request.args.get('mode', 'quick')
+            if mode not in MODE_KEYS: return jsonify({'success': False, 'error': 'invalid_mode_profile'}), 400
+            manifest = self.arena_registry.manifest(mode)
+            response = jsonify({'success': True, **manifest})
+            response.set_etag(f"arena-{manifest['registry_version']}-{mode}")
+            return response
+
         # ==================== PLAYER MANAGEMENT APIs ====================
         
         @self.app.route('/api/players', methods=['GET'])

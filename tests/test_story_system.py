@@ -7,7 +7,7 @@
 import sys
 from game_core import DatabaseManager, Card, CardRarity
 
-def test_story_system():
+def run_legacy_story_diagnostic():
     """تست کامل سیستم داستان"""
     
     print("=" * 60)
@@ -150,7 +150,7 @@ def test_story_system():
 
 if __name__ == "__main__":
     try:
-        success = test_story_system()
+        success = run_legacy_story_diagnostic()
         sys.exit(0 if success else 1)
     except Exception as e:
         print(f"\n❌ خطای غیرمنتظره: {e}")

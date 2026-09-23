@@ -11,6 +11,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
+from contextlib import closing
+import os
 import random
 import secrets
 import sqlite3
@@ -18,6 +21,9 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
+from systems.arena_registry import ArenaRegistry
+
+logger = logging.getLogger(__name__)
 
 QUICK_INVITE_TTL_SECONDS = 5 * 60
 QUICK_GROUP_TTL_SECONDS = 60
@@ -224,11 +230,19 @@ class GameModeSystem:
     def __init__(self, db):
         self.db = db
         self.db_path = db.db_path
+        # Keep a flag for fast rollback during the gradual rollout.  New installs
+        # use the registry by default; setting ARENA_REGISTRY_READS=0 restores
+        # only the legacy read path without deleting data.
+        self.arena_registry_enabled = os.getenv("ARENA_REGISTRY_READS", "1").strip().lower() not in {"0", "false", "off"}
+        self.arena_registry_fallback = os.getenv("ARENA_REGISTRY_FALLBACK_SEED", "1").strip().lower() not in {"0", "false", "off"}
+        self.arena_registry_shadow = os.getenv("ARENA_REGISTRY_SHADOW_COMPARE", "0").strip().lower() not in {"0", "false", "off"}
+        self.arena_registry = ArenaRegistry(db)
         self.init_schema()
 
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_path, timeout=10)
         conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys=ON")
         return conn
 
     def init_schema(self) -> None:
@@ -637,59 +651,111 @@ class GameModeSystem:
         )
 
     def _arena(self, arena_id: str) -> Dict[str, Any]:
+        if self.arena_registry_enabled:
+            runtime = self.arena_registry.runtime(str(arena_id or ""), "quick", "telegram")
+            if runtime:
+                self._shadow_compare_quick(runtime)
+                return runtime
+            if not self.arena_registry_fallback:
+                raise ValueError("arena_not_available")
+        logger.warning("arena_registry_static_fallback arena=%s mode=quick", arena_id)
         return next((a for a in QUICK_ARENAS if a["id"] == arena_id), QUICK_ARENAS[0])
 
     def _random_arena(self, exclude: Optional[str] = None) -> Dict[str, Any]:
+        if self.arena_registry_enabled:
+            runtime = self.arena_registry.select_for_match("quick", "telegram", [exclude] if exclude else None)
+            if runtime:
+                logger.info("arena_selected arena=%s mode=quick platform=telegram reroll=%s", runtime["arena_id"], bool(exclude))
+                self._shadow_compare_quick(runtime)
+                return runtime
+            if not self.arena_registry_fallback:
+                raise ValueError("arena_pool_empty")
+        logger.warning("arena_registry_static_fallback mode=quick exclude=%s", exclude)
         choices = [a for a in QUICK_ARENAS if a["id"] != exclude] or QUICK_ARENAS
         return random.choice(choices)
 
+    def _shadow_compare_quick(self, runtime: Mapping[str, Any]) -> None:
+        if not self.arena_registry_shadow:
+            return
+        legacy = next((item for item in QUICK_ARENAS if item["id"] == runtime.get("arena_id")), None)
+        if not legacy:
+            return
+        fields = ("effects", "disabled_stats", "abilities_enabled", "passives_enabled")
+        mismatches = [field for field in fields if legacy.get(field) != runtime.get(field)]
+        if mismatches:
+            logger.warning("arena_registry_shadow_mismatch arena=%s fields=%s", runtime.get("arena_id"), ",".join(mismatches))
+
+    def arena_for_state(self, state: Dict[str, Any]) -> Dict[str, Any]:
+        """Return the immutable Quick arena snapshot when a match has one."""
+        snapshot = state.get("arena_snapshot")
+        if isinstance(snapshot, dict) and snapshot.get("mode") == "quick" and snapshot.get("arena_id", snapshot.get("id")) == state.get("arena"):
+            return snapshot
+        return self._arena(state.get("arena") or state.get("arena_id") or "")
+
+    @staticmethod
+    def _store_arena_snapshot(state: Dict[str, Any], arena: Dict[str, Any], replaced: bool = False) -> None:
+        snapshot = {key: arena.get(key) for key in (
+            "id", "arena_id", "version", "name", "name_fa", "name_en", "description_fa", "emoji", "mode",
+            "rules", "effects", "disabled_stats", "abilities_enabled", "passives_enabled", "background_url",
+        ) if key in arena}
+        snapshot.setdefault("id", arena.get("arena_id"))
+        snapshot.setdefault("arena_id", snapshot.get("id"))
+        snapshot.setdefault("mode", "quick")
+        if replaced and state.get("arena_snapshot"):
+            state.setdefault("arena_history", []).append(state["arena_snapshot"])
+        state["arena"] = snapshot["arena_id"]
+        state["arena_id"] = snapshot["arena_id"]
+        state["arena_version"] = snapshot.get("version")
+        state["arena_snapshot"] = snapshot
+
     def start_quick_match(self, request_id: str) -> Dict[str, Any]:
-        request = self.get_request(request_id)
-        if not request or request["status"] not in ("accepted", "active"):
-            raise ValueError("request_not_accepted")
-        players = [request["creator_id"], request["opponent_id"]]
-        if not all(players):
-            raise ValueError("missing_opponent")
-        state = self.get_state(request_id)
-        if state:
-            return state
+        with closing(self._connect()) as conn:
+            with conn:
+                conn.execute("BEGIN IMMEDIATE")
+                request = self.get_request(request_id)
+                if not request or request["status"] not in ("accepted", "active"):
+                    raise ValueError("request_not_accepted")
+                players = [request["creator_id"], request["opponent_id"]]
+                if not all(players):
+                    raise ValueError("missing_opponent")
+                row = conn.execute("SELECT state_json FROM game_match_states WHERE request_id=?", (request_id,)).fetchone()
+                state = _loads(row[0], {}) if row else None
+                if state:
+                    return state
 
-        state = {
-            "mode": "quick",
-            "variant": request["variant"],
-            "players": players,
-            "phase": "card_selection",
-            "cards": {},
-            "ability_choices": {},
-            "stat_choices": {},
-            "locked_stats": {str(uid): [] for uid in players},
-            "arena": None,
-            "initial_arena": None,
-            "deadline": _iso(_now() + timedelta(seconds=QUICK_CHOICE_TTL_SECONDS)),
-        }
-        if request["variant"] == "random":
-            for user_id in players:
-                cards = self.db.get_player_cards(user_id)
-                if not cards:
-                    raise ValueError(f"player_has_no_cards:{user_id}")
-                state["cards"][str(user_id)] = random.choice(cards).card_id
-            self._advance_quick_after_cards(state)
+                state = {
+                    "mode": "quick",
+                    "variant": request["variant"],
+                    "players": players,
+                    "phase": "card_selection",
+                    "cards": {},
+                    "ability_choices": {},
+                    "stat_choices": {},
+                    "locked_stats": {str(uid): [] for uid in players},
+                    "arena": None,
+                    "initial_arena": None,
+                    "deadline": _iso(_now() + timedelta(seconds=QUICK_CHOICE_TTL_SECONDS)),
+                }
+                if request["variant"] == "random":
+                    for user_id in players:
+                        cards = self.db.get_player_cards(user_id)
+                        if not cards:
+                            raise ValueError(f"player_has_no_cards:{user_id}")
+                        state["cards"][str(user_id)] = random.choice(cards).card_id
+                    self._advance_quick_after_cards(state)
 
-        conn = self._connect()
-        conn.execute("BEGIN IMMEDIATE")
-        self._save_state(conn, request_id, state)
-        conn.execute(
-            "UPDATE game_requests SET status='active', updated_at=? WHERE request_id=?",
-            (_iso(_now()), request_id),
-        )
-        conn.commit()
-        conn.close()
-        return state
+                self._save_state(conn, request_id, state)
+                conn.execute(
+                    "UPDATE game_requests SET status='active', updated_at=? WHERE request_id=?",
+                    (_iso(_now()), request_id),
+                )
+                return state
 
     def _advance_quick_after_cards(self, state: Dict[str, Any]) -> None:
         arena = self._random_arena()
+        self._store_arena_snapshot(state, arena)
         state["initial_arena"] = arena["id"]
-        state["arena"] = arena["id"]
+        state["initial_arena_snapshot"] = dict(state["arena_snapshot"])
         state["phase"] = "ability_selection"
         state["deadline"] = _iso(_now() + timedelta(seconds=30))
 
@@ -784,7 +850,7 @@ class GameModeSystem:
             conn.rollback()
             conn.close()
             raise ValueError("choice_locked")
-        arena = self._arena(state["arena"])
+        arena = self.arena_for_state(state)
         if ability_key != "skip":
             if not arena.get("abilities_enabled", True):
                 conn.rollback()
@@ -809,7 +875,7 @@ class GameModeSystem:
         advanced = len(state["ability_choices"]) == len(state["players"])
         if advanced:
             if "reroll_arena" in state["ability_choices"].values():
-                state["arena"] = self._random_arena(exclude=state["arena"])["id"]
+                self._store_arena_snapshot(state, self._random_arena(exclude=state["arena"]), replaced=True)
             for actor_id in state["players"]:
                 selected = state["ability_choices"].get(str(actor_id), "skip")
                 effect = ABILITY_DEFINITIONS.get(selected, {}).get("effect", {})
@@ -824,7 +890,7 @@ class GameModeSystem:
         return state, advanced
 
     def allowed_quick_stats(self, state: Dict[str, Any], user_id: int) -> List[str]:
-        arena = self._arena(state["arena"])
+        arena = self.arena_for_state(state)
         blocked = set(arena.get("disabled_stats", []))
         blocked.update(state.get("locked_stats", {}).get(str(user_id), []))
         return [stat for stat in CORE_STATS if stat not in blocked]
@@ -849,7 +915,7 @@ class GameModeSystem:
         if card is None or opponent_card is None:
             raise ValueError("card_not_found")
 
-        arena = self._arena(state["arena"])
+        arena = self.arena_for_state(state)
         base_values = {stat: int(getattr(card, stat)) for stat in CORE_STATS}
         final_values = dict(base_values)
         card_type = normalize_quick_card_type(getattr(card, "card_type", None))
@@ -930,6 +996,11 @@ class GameModeSystem:
         hidden_stats: Optional[Dict[str, int]] = None,
         passive: Optional[Dict[str, Any]] = None,
     ) -> None:
+        passive_value = passive or {}
+        condition = passive_value.get("condition") or {} if isinstance(passive_value, dict) else {}
+        arena_id = condition.get("arena") if isinstance(condition, dict) else None
+        if arena_id and not self.arena_registry.arena_exists_for_mode(str(arena_id), "quick", include_draft=True):
+            raise ValueError("passive_arena_not_found")
         conn = self._connect()
         conn.execute(
             """
@@ -946,7 +1017,7 @@ class GameModeSystem:
                 json.dumps(list(traits or []), ensure_ascii=False),
                 series,
                 json.dumps(hidden_stats or {}, ensure_ascii=False),
-                json.dumps(passive or {}, ensure_ascii=False),
+                json.dumps(passive_value, ensure_ascii=False),
             ),
         )
         conn.commit()
@@ -1056,108 +1127,118 @@ class GameModeSystem:
         return {"name": passive.get("name", "Passive"), "stat": stat, "delta": delta}
 
     def resolve_quick(self, request_id: str) -> Dict[str, Any]:
-        state = self.get_state(request_id)
-        if not state or state.get("phase") != "stat_selection":
-            raise ValueError("quick_not_ready")
-        if len(state.get("stat_choices", {})) != len(state.get("players", [])):
-            raise ValueError("quick_not_ready")
-        players = state["players"]
-        arena = self._arena(state["arena"])
-        previews = {user_id: self.quick_stat_preview(state, user_id) for user_id in players}
-        breakdown: Dict[str, Any] = {}
-        for user_id in players:
-            preview = previews[user_id]
-            selected_stat = state["stat_choices"][str(user_id)]
-            breakdown[str(user_id)] = {
-                "card_id": preview["card_id"],
-                "card_name": preview["card_name"],
-                "card_type": preview["card_type"],
-                "selected_stat": selected_stat,
-                "base_value": preview["base_values"][selected_stat],
-                "final_value": preview["final_values"][selected_stat],
-                "all_final_values": preview["final_values"],
-                "arena_effects": preview["arena_effects"],
-                "passive": preview["passive"],
-                "opponent_ability_effect": preview["opponent_ability_effect"],
-                "ability_used": state["ability_choices"].get(str(user_id), "skip"),
-            }
-        first, second = players
-        first_value = breakdown[str(first)]["final_value"]
-        second_value = breakdown[str(second)]["final_value"]
-        winner_id = first if first_value > second_value else second if second_value > first_value else None
-        report = {
-            "request_id": request_id,
-            "mode": "quick",
-            "players": players,
-            "winner_id": winner_id,
-            "is_tie": winner_id is None,
-            "initial_arena": state["initial_arena"],
-            "arena": state["arena"],
-            "arena_data": arena,
-            "breakdown": breakdown,
-            "completed_at": _iso(_now()),
-        }
-        conn = self._connect()
-        conn.execute("BEGIN IMMEDIATE")
-        state["phase"] = "completed"
-        state["report"] = report
-        self._save_state(conn, request_id, state)
-        conn.execute(
-            "UPDATE game_requests SET status='completed', updated_at=? WHERE request_id=?",
-            (_iso(_now()), request_id),
-        )
-        conn.execute(
-            """
-            INSERT OR REPLACE INTO game_match_reports(request_id, report_json, created_at)
-            VALUES (?, ?, ?)
-            """,
-            (request_id, json.dumps(report, ensure_ascii=False), _iso(_now())),
-        )
-        conn.commit()
-        conn.close()
-        return report
+        with closing(self._connect()) as conn:
+            with conn:
+                conn.execute("BEGIN IMMEDIATE")
+                row = conn.execute("SELECT state_json FROM game_match_states WHERE request_id=?", (request_id,)).fetchone()
+                state = _loads(row[0], {}) if row else None
+                if state and state.get("phase") == "completed":
+                    return state["report"]
+                if not state or state.get("phase") != "stat_selection":
+                    raise ValueError("quick_not_ready")
+                if len(state.get("stat_choices", {})) != len(state.get("players", [])):
+                    raise ValueError("quick_not_ready")
+                players = state["players"]
+                arena = self.arena_for_state(state)
+                previews = {user_id: self.quick_stat_preview(state, user_id) for user_id in players}
+                breakdown: Dict[str, Any] = {}
+                for user_id in players:
+                    preview = previews[user_id]
+                    selected_stat = state["stat_choices"][str(user_id)]
+                    breakdown[str(user_id)] = {
+                        "card_id": preview["card_id"],
+                        "card_name": preview["card_name"],
+                        "card_type": preview["card_type"],
+                        "selected_stat": selected_stat,
+                        "base_value": preview["base_values"][selected_stat],
+                        "final_value": preview["final_values"][selected_stat],
+                        "all_final_values": preview["final_values"],
+                        "arena_effects": preview["arena_effects"],
+                        "passive": preview["passive"],
+                        "opponent_ability_effect": preview["opponent_ability_effect"],
+                        "ability_used": state["ability_choices"].get(str(user_id), "skip"),
+                    }
+                first, second = players
+                first_value = breakdown[str(first)]["final_value"]
+                second_value = breakdown[str(second)]["final_value"]
+                winner_id = first if first_value > second_value else second if second_value > first_value else None
+                report = {
+                    "request_id": request_id,
+                    "mode": "quick",
+                    "players": players,
+                    "winner_id": winner_id,
+                    "is_tie": winner_id is None,
+                    "initial_arena": state["initial_arena"],
+                    "arena": state["arena"],
+                    "arena_data": arena,
+                    "breakdown": breakdown,
+                    "completed_at": _iso(_now()),
+                }
+                state["phase"] = "completed"
+                state["report"] = report
+                self._save_state(conn, request_id, state)
+                conn.execute(
+                    "UPDATE game_requests SET status='completed', updated_at=? WHERE request_id=?",
+                    (_iso(_now()), request_id),
+                )
+                conn.execute(
+                    """
+                    INSERT OR REPLACE INTO game_match_reports(request_id, report_json, created_at)
+                    VALUES (?, ?, ?)
+                    """,
+                    (request_id, json.dumps(report, ensure_ascii=False), _iso(_now())),
+                )
+                return report
 
     def forfeit_quick(
         self, request_id: str, loser_ids: Iterable[int], reason: str = "timeout"
     ) -> Dict[str, Any]:
         """Finish an unfinished Quick match when a required choice times out."""
-        state = self.get_state(request_id)
-        if not state or state.get("phase") == "completed":
-            raise ValueError("quick_not_active")
-        losers = {int(user_id) for user_id in loser_ids}
-        players = [int(user_id) for user_id in state.get("players", [])]
-        eligible_winners = [user_id for user_id in players if user_id not in losers]
-        winner_id = eligible_winners[0] if len(eligible_winners) == 1 else None
-        report = {
-            "request_id": request_id,
-            "mode": "quick",
-            "players": players,
-            "winner_id": winner_id,
-            "is_tie": winner_id is None,
-            "forfeit": True,
-            "loser_ids": sorted(losers),
-            "reason": reason,
-            "initial_arena": state.get("initial_arena"),
-            "arena": state.get("arena"),
-            "breakdown": {},
-            "completed_at": _iso(_now()),
-        }
-        state["phase"] = "completed"
-        state["report"] = report
-        conn = self._connect()
-        conn.execute("BEGIN IMMEDIATE")
-        self._save_state(conn, request_id, state)
-        conn.execute(
-            "UPDATE game_requests SET status='completed', updated_at=? WHERE request_id=?",
-            (_iso(_now()), request_id),
-        )
-        conn.execute(
-            "INSERT OR REPLACE INTO game_match_reports VALUES (?, ?, ?)",
-            (request_id, json.dumps(report, ensure_ascii=False), _iso(_now())),
-        )
-        conn.commit()
-        conn.close()
-        return report
+        with closing(self._connect()) as conn:
+            with conn:
+                conn.execute("BEGIN IMMEDIATE")
+                row = conn.execute("SELECT state_json FROM game_match_states WHERE request_id=?", (request_id,)).fetchone()
+                state = _loads(row[0], {}) if row else None
+                if not state or state.get("phase") == "completed":
+                    raise ValueError("quick_not_active")
+                if reason in ("card_selection_timeout", "stat_selection_timeout"):
+                    expected_phase = reason.removesuffix("_timeout")
+                    if state.get("phase") != expected_phase or datetime.fromisoformat(state["deadline"]) > _now():
+                        raise ValueError("quick_timeout_stale")
+                    choice_key = "cards" if expected_phase == "card_selection" else "stat_choices"
+                    loser_ids = [uid for uid in state["players"] if str(uid) not in state.get(choice_key, {})]
+                    if not loser_ids:
+                        raise ValueError("quick_timeout_stale")
+                losers = {int(user_id) for user_id in loser_ids}
+                players = [int(user_id) for user_id in state.get("players", [])]
+                eligible_winners = [user_id for user_id in players if user_id not in losers]
+                winner_id = eligible_winners[0] if len(eligible_winners) == 1 else None
+                report = {
+                    "request_id": request_id,
+                    "mode": "quick",
+                    "players": players,
+                    "winner_id": winner_id,
+                    "is_tie": winner_id is None,
+                    "forfeit": True,
+                    "loser_ids": sorted(losers),
+                    "reason": reason,
+                    "initial_arena": state.get("initial_arena"),
+                    "arena": state.get("arena"),
+                    "breakdown": {},
+                    "completed_at": _iso(_now()),
+                }
+                state["phase"] = "completed"
+                state["report"] = report
+                self._save_state(conn, request_id, state)
+                conn.execute(
+                    "UPDATE game_requests SET status='completed', updated_at=? WHERE request_id=?",
+                    (_iso(_now()), request_id),
+                )
+                conn.execute(
+                    "INSERT OR REPLACE INTO game_match_reports VALUES (?, ?, ?)",
+                    (request_id, json.dumps(report, ensure_ascii=False), _iso(_now())),
+                )
+                return report
 
     def get_report(self, request_id: str) -> Optional[Dict[str, Any]]:
         conn = self._connect()

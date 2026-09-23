@@ -6,7 +6,7 @@ import json
 from datetime import datetime
 from game_core import GameLogic, DatabaseManager
 
-def test_complete_pvp_flow():
+def run_legacy_complete_pvp_flow():
     """تست کامل فلوی PvP"""
     print("=" * 60)
     print("🧪 تست کامل فلوی PvP - سیستم ۳ راوندی")
@@ -150,7 +150,7 @@ def test_complete_pvp_flow():
 
 if __name__ == "__main__":
     try:
-        success = test_complete_pvp_flow()
+        success = run_legacy_complete_pvp_flow()
         print("\n" + "=" * 60)
         if success:
             print("✅ تست با موفقیت انجام شد!")

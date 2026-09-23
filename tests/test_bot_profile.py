@@ -4,21 +4,14 @@
 تست profile command با سیستم‌های جدید
 """
 
-import sys
-import io
 import os
-
-# تنظیم encoding برای ویندوز
-if sys.platform == 'win32':
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 # تنظیم ENV_FILE
 os.environ['ENV_FILE'] = '.env.test'
 
 from game_core import DatabaseManager, GameLogic
 from config_loader import load_config
-from phase2_systems import LevelSystem, format_xp_bar, format_tier_badge
+from systems.phase2_systems import LevelSystem, format_xp_bar, format_tier_badge
 
 def simulate_profile_display(user_id: int):
     """شبیه‌سازی نمایش پروفایل"""

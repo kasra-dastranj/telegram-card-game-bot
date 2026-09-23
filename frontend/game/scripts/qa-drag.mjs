@@ -1,12 +1,12 @@
 import { chromium } from "playwright";
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 
 const root = path.resolve(import.meta.dirname, "../../..");
 const artifacts = path.resolve(import.meta.dirname, "../qa-artifacts");
 mkdirSync(artifacts, { recursive: true });
 
-const chrome = "C:/Program Files/Google/Chrome/Application/chrome.exe";
+const chrome = process.env.PLAYWRIGHT_BROWSER_PATH || (existsSync("C:/Program Files/Google/Chrome/Application/chrome.exe") ? "C:/Program Files/Google/Chrome/Application/chrome.exe" : "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe");
 const cardImages = {
   "heisenberg.png": path.join(root, "assets/card_images/heisenberg.png"),
   "batman.png": path.join(root, "assets/card_images/batman.png"),
@@ -18,6 +18,7 @@ function assert(condition, message) {
 }
 
 async function openQuick(page, { dense = false } = {}) {
+  await page.addInitScript(() => localStorage.setItem("telbattle:onboarding:v1", "done"));
   const bootErrors = [];
   page.on("pageerror", (error) => bootErrors.push(`pageerror: ${error.message}`));
   page.on("console", (message) => {
@@ -34,7 +35,7 @@ async function openQuick(page, { dense = false } = {}) {
     else await route.abort();
   });
   const query = dense ? "?demo=1&dense=1" : "?demo=1";
-  await page.goto(`http://127.0.0.1:4173/miniapp-assets/${query}`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${process.env.QA_URL || "http://127.0.0.1:4173/miniapp-assets/"}${query}`, { waitUntil: "domcontentloaded" });
   try {
     await page.locator('[data-action="enter-quick"]').waitFor({ state: "visible", timeout: 12_000 });
   } catch (error) {

@@ -12,6 +12,7 @@ import sys
 import random
 import sqlite3
 import logging
+from contextlib import closing
 from io import BytesIO
 from functools import lru_cache
 from datetime import datetime, timedelta, timezone
@@ -26,6 +27,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from game_core import DatabaseManager, CardRarity
 from systems.ai_opponent import AsoAI, DAILY_SOLO_LIMIT
 from systems.battle_system_3rounds import BattleSystem3Rounds, ARENAS
+from systems.arena_registry import ArenaRegistry
 from systems.game_mode_system import GameModeSystem
 from systems.player_hub_system import PlayerHubSystem
 from systems.card_upgrade_system import CardUpgradeSystem
@@ -42,6 +44,13 @@ PROJECT_ROOT = os.path.dirname(BASE_DIR)
 MINIAPP_DIST_DIR = os.environ.get(
     "MINIAPP_DIST_DIR",
     os.path.join(PROJECT_ROOT, "frontend", "game", "dist"),
+)
+# Dynamic Arena backgrounds must survive a Vite rebuild.  The asset route below
+# checks this durable directory first, then falls back to the bundled `dist`
+# backgrounds that ship with the Mini App.
+ARENA_MEDIA_DIR = os.environ.get(
+    "MINIAPP_ARENA_MEDIA_DIR",
+    os.path.join(PROJECT_ROOT, "media", "arena-backgrounds"),
 )
 CARD_IMAGES_DIR = os.environ.get(
     "CARD_IMAGES_DIR",
@@ -77,6 +86,7 @@ app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 db = DatabaseManager(DB_PATH)
 battle_system = BattleSystem3Rounds(db)
 quick_modes = GameModeSystem(db)
+arena_registry = ArenaRegistry(db)
 
 # ==================== احراز هویت ====================
 
@@ -313,6 +323,11 @@ def serve_miniapp():
 
 @app.route("/miniapp-assets/<path:filename>")
 def serve_miniapp_asset(filename):
+    if filename.startswith("arena-backgrounds/"):
+        dynamic_filename = filename.split("/", 1)[1]
+        dynamic_path = os.path.join(ARENA_MEDIA_DIR, dynamic_filename)
+        if os.path.isfile(dynamic_path):
+            return send_from_directory(ARENA_MEDIA_DIR, dynamic_filename)
     return send_from_directory(MINIAPP_DIST_DIR, filename)
 
 
@@ -464,7 +479,7 @@ def _quick_snapshot(game_request: dict, user_id: int) -> dict:
     user_key = str(user_id)
     opponent_id = next((pid for pid in state.get("players", []) if pid != user_id), None)
     opponent_key = str(opponent_id) if opponent_id is not None else ""
-    arena = quick_modes._arena(state["arena"]) if state.get("arena") else None
+    arena = quick_modes.arena_for_state(state) if state.get("arena") else None
     own_card_id = state.get("cards", {}).get(user_key)
     own_card = db.get_card_by_id(own_card_id) if own_card_id else None
     reveal_opponent = (
@@ -946,7 +961,7 @@ def solo_start():
     if not player_card_id:
         return jsonify({"error": "کارت انتخاب‌شده معتبر نیست"}), 400
 
-    player_card = db.get_card_by_id(player_card_id)
+    player_card = db.get_card_by_id_for_player(player_card_id, user_id)
     if not player_card:
         return jsonify({"error": "کارت انتخاب‌شده معتبر نیست"}), 400
 
@@ -960,12 +975,22 @@ def solo_start():
     if not ai_card:
         return jsonify({"error": "کارت AI پیدا نشد"}), 500
 
-    # انتخاب arena — قوی‌تر انتخاب می‌کنه
-    arena_id, selector = battle_system.select_arena(player_card, ai_card)
-    if arena_id is None:
+    # Solo has no manual arena picker, so it chooses from the published Mini App
+    # pool and records its immutable version immediately.
+    arena_info = arena_registry.select_for_match("three_round", "miniapp")
+    if not arena_info:
+        fallback_enabled = os.getenv("ARENA_REGISTRY_FALLBACK_SEED", "1").strip().casefold() not in {"0", "false", "off", "no"}
+        if not fallback_enabled:
+            logger.error("solo_start_blocked_empty_arena_pool mode=three_round platform=miniapp")
+            return jsonify({"error": "فعلاً زمین فعالی برای بازی وجود ندارد؛ کمی بعد دوباره تلاش کنید.", "code": "arena_pool_empty"}), 503
+        logger.warning("arena_registry_static_fallback mode=three_round platform=miniapp")
         arena_id = random.choice(list(ARENAS.keys()))
-
-    arena_info = ARENAS[arena_id]
+        arena_info = ARENAS[arena_id]
+        arena_snapshot = {"arena_id": arena_id, "version": None, "mode": "three_round", **arena_info}
+    else:
+        arena_id = arena_info["arena_id"]
+        logger.info("arena_selected arena=%s mode=three_round platform=miniapp", arena_id)
+        arena_snapshot = arena_registry.snapshot_for_match(arena_id, "three_round", "miniapp", arena_info["version"])
 
     fight_id = db.create_solo_fight(user_id, difficulty)
     db.update_solo_fight(
@@ -973,6 +998,8 @@ def solo_start():
         player_card_id=player_card_id,
         ai_card_id=ai_card.card_id,
         arena=arena_id,
+        arena_version=arena_snapshot.get("version"),
+        arena_snapshot=json.dumps(arena_snapshot, ensure_ascii=False),
         status="in_progress",
         player_current_stats=json.dumps({
             "power": player_card.power,
@@ -994,12 +1021,7 @@ def solo_start():
         "ai_card": card_to_dict(ai_card),
         "ai_name": aso.mode["name"],
         "aso_dialog": aso.get_greeting(),
-        "arena": {
-            "arena_id": arena_id,
-            "name_fa": arena_info["name_fa"],
-            "boost_stat": arena_info["boost_stat"],
-            "emoji": arena_info["emoji"],
-        },
+        "arena": arena_snapshot,
         "current_round": 1,
         "available_stats": ["power", "speed", "iq", "popularity"],
     })
@@ -1017,12 +1039,31 @@ def solo_round():
     if not fight_id or not player_stat:
         return jsonify({"error": "fight_id و player_stat الزامی است"}), 400
 
-    fight = db.get_solo_fight(fight_id)
+    # One transaction owns the round, rewards and history across processes.
+    with closing(sqlite3.connect(db.db_path, timeout=15)) as conn:
+        conn.row_factory = sqlite3.Row
+        with conn:
+            conn.execute("BEGIN IMMEDIATE")
+            return _play_solo_round(conn, user_id, fight_id, player_stat)
+
+
+def _play_solo_round(conn, user_id, fight_id, player_stat):
+    row = conn.execute("SELECT * FROM solo_fights WHERE fight_id=?", (fight_id,)).fetchone()
+    fight = dict(row) if row else None
     if not fight or fight["player_id"] != user_id:
         return jsonify({"error": "Fight پیدا نشد"}), 404
 
     if fight["status"] != "in_progress":
         return jsonify({"error": "این fight تموم شده"}), 400
+
+    daily = conn.execute("SELECT count FROM daily_solo_count WHERE user_id=? AND date=?",
+                         (user_id, datetime.now().strftime("%Y-%m-%d"))).fetchone()
+    if daily and daily[0] >= DAILY_SOLO_LIMIT:
+        return jsonify({"error": "سهمیه بازی امروز تمام شده است"}), 429
+
+    player = conn.execute("SELECT hearts FROM players WHERE user_id=?", (user_id,)).fetchone()
+    if not player or player["hearts"] <= 0:
+        return jsonify({"error": "برای ادامه نبرد قلب کافی نداری"}), 400
 
     player_used = json.loads(fight["player_used_stats"] or "[]")
     ai_used = json.loads(fight["ai_used_stats"] or "[]")
@@ -1031,8 +1072,10 @@ def solo_round():
     if player_stat not in available_stats:
         return jsonify({"error": "این stat قبلاً استفاده شده"}), 400
 
-    player_card = db.get_card_by_id(fight["player_card_id"])
+    player_card = db.get_card_by_id_for_player(fight["player_card_id"], user_id)
     ai_card = db.get_card_by_id(fight["ai_card_id"])
+    if not player_card or not ai_card:
+        return jsonify({"error": "کارت این نبرد دیگر در دسترس نیست"}), 409
 
     aso = AsoAI(fight["difficulty"])
     ai_available = [s for s in ["power", "speed", "iq", "popularity"] if s not in ai_used]
@@ -1046,8 +1089,9 @@ def solo_round():
 
     # محاسبه boost از arena
     arena_id = fight["arena"]
-    player_boost = battle_system.calculate_boost(player_card, arena_id, player_stat)
-    ai_boost = battle_system.calculate_boost(ai_card, arena_id, ai_stat)
+    arena_snapshot = json.loads(fight.get("arena_snapshot") or "{}")
+    player_boost = battle_system.calculate_boost(player_card, arena_id, player_stat, arena_snapshot or None)
+    ai_boost = battle_system.calculate_boost(ai_card, arena_id, ai_stat, arena_snapshot or None)
 
     player_total = player_base + player_boost
     ai_total = ai_base + ai_boost
@@ -1102,7 +1146,8 @@ def solo_round():
         update_data["status"] = "completed"
         update_data["completed_at"] = datetime.now().isoformat()
 
-    db.update_solo_fight(fight_id, **update_data)
+    fields = ", ".join(f"{key}=?" for key in update_data)
+    conn.execute(f"UPDATE solo_fights SET {fields} WHERE fight_id=?", (*update_data.values(), fight_id))
 
     remaining_stats = [s for s in ["power", "speed", "iq", "popularity"] if s not in player_used]
 
@@ -1134,7 +1179,7 @@ def solo_round():
             winner = "ai"
         else:
             winner = "tie"
-        rewards = _finalize_solo_fight(user_id, fight_id, winner, aso, player_card, ai_card)
+        rewards = _finalize_solo_fight(user_id, fight_id, winner, aso, player_card, ai_card, conn)
         response["final_result"] = {
             "winner": winner,
             "aso_dialog": aso.get_result_dialog(winner == "ai"),
@@ -1145,72 +1190,63 @@ def solo_round():
     return jsonify(response)
 
 
-def _finalize_solo_fight(user_id, fight_id, winner, aso: AsoAI, player_card, ai_card) -> dict:
-    """محاسبه و اعمال جوایز/جریمه‌های solo fight"""
-    player = db.get_or_create_player(user_id)
+def _finalize_solo_fight(user_id, fight_id, winner, aso: AsoAI, player_card, ai_card, conn) -> dict:
+    """Apply the result on the transaction that completed this fight."""
+    from systems.phase2_systems import LevelSystem, TierSystem
 
+    player = conn.execute("SELECT hearts FROM players WHERE user_id=?", (user_id,)).fetchone()
     if winner == "player":
-        rewards = aso.calculate_rewards()
-        player.total_score += rewards["score"]
-        db.save_player(player)
-        old_level, new_level = db.add_xp(user_id, rewards["xp"])
-        old_tier, new_tier = db.add_tier_points(user_id, rewards["tier_points"])
-        db.increment_daily_solo_count(user_id)
-        _record_solo_history(user_id, player_card, ai_card, "win", rewards["score"], 0, rewards["xp"])
-        return {
-            "score_gained": rewards["score"],
-            "xp_gained": rewards["xp"],
-            "tier_points_change": rewards["tier_points"],
-            "hearts_lost": 0,
-            "level_up": new_level > old_level,
-            "new_level": new_level if new_level > old_level else None,
-            "tier_change": new_tier if new_tier != old_tier else None,
-        }
+        award = aso.calculate_rewards()
+        score, xp, tp, hearts_lost = award["score"], award["xp"], award["tier_points"], 0
+        result = "win"
     elif winner == "ai":
         penalty = aso.calculate_defeat_penalty()
-        player.hearts = max(0, player.hearts - penalty["hearts_lost"])
-        db.save_player(player)
-        old_level, new_level = db.add_xp(user_id, penalty["xp"])
-        db.increment_daily_solo_count(user_id)
-        _record_solo_history(user_id, player_card, ai_card, "loss", 0, penalty["hearts_lost"], penalty["xp"])
-        return {
-            "score_gained": 0,
-            "xp_gained": penalty["xp"],
-            "tier_points_change": -5,
-            "hearts_lost": penalty["hearts_lost"],
-            "hearts_remaining": player.hearts,
-            "level_up": False,
-            "new_level": None,
-            "tier_change": None,
-        }
-    else:  # tie
-        db.increment_daily_solo_count(user_id)
-        _record_solo_history(user_id, player_card, ai_card, "tie", 0, 0, 2)
-        db.add_xp(user_id, 2)
-        return {
-            "score_gained": 0,
-            "xp_gained": 2,
-            "tier_points_change": 0,
-            "hearts_lost": 0,
-            "level_up": False,
-            "new_level": None,
-            "tier_change": None,
-        }
+        score, xp, tp = 0, penalty["xp"], -5
+        hearts_lost = min(player["hearts"], penalty["hearts_lost"])
+        result = "loss"
+    else:
+        score, xp, tp, hearts_lost, result = 0, 2, 0, 0, "tie"
 
-
-def _record_solo_history(user_id, player_card, ai_card, result, score, hearts_lost, xp):
-    """ذخیره در fight_history"""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('''
-        INSERT INTO fight_history
-        (user_id, user_card_id, opponent_card_id, result, score_gained,
-         hearts_lost, fought_at, fight_type, xp_gained)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 'solo', ?)
-    ''', (user_id, player_card.card_id, ai_card.card_id, result,
-          score, hearts_lost, datetime.now().isoformat(), xp))
-    conn.commit()
-    conn.close()
+    now = datetime.now()
+    conn.execute(
+        "UPDATE players SET total_score=total_score+?, hearts=MAX(0,hearts-?) WHERE user_id=?",
+        (score, hearts_lost, user_id),
+    )
+    conn.execute(
+        "INSERT OR IGNORE INTO player_progression(user_id,level,total_xp,tier_points,current_tier) VALUES (?,1,0,0,'Bronze')",
+        (user_id,),
+    )
+    prog = conn.execute("SELECT * FROM player_progression WHERE user_id=?", (user_id,)).fetchone()
+    new_xp = prog["total_xp"] + xp
+    new_tp = max(0, prog["tier_points"] + tp)
+    new_level = LevelSystem.get_level_from_xp(new_xp)
+    new_tier = TierSystem.get_tier_from_tp(new_tp)
+    conn.execute(
+        "UPDATE player_progression SET total_xp=?,level=?,tier_points=?,current_tier=?,last_played_at=? WHERE user_id=?",
+        (new_xp, new_level, new_tp, new_tier, now.isoformat(), user_id),
+    )
+    conn.execute(
+        """INSERT INTO daily_solo_count(user_id,date,count) VALUES (?,?,1)
+           ON CONFLICT(user_id,date) DO UPDATE SET count=count+1""",
+        (user_id, now.strftime("%Y-%m-%d")),
+    )
+    conn.execute(
+        """INSERT INTO fight_history
+           (user_id,user_card_id,opponent_card_id,result,score_gained,hearts_lost,fought_at,fight_type,xp_gained)
+           VALUES (?,?,?,?,?,?,?,'solo',?)""",
+        (user_id, player_card.card_id, ai_card.card_id, result, score, hearts_lost, now.isoformat(), xp),
+    )
+    rewards = {
+        "score_gained": score, "xp_gained": xp,
+        "tier_points_change": new_tp - prog["tier_points"],
+        "hearts_lost": hearts_lost,
+        "level_up": new_level > prog["level"],
+        "new_level": new_level if new_level > prog["level"] else None,
+        "tier_change": new_tier if new_tier != prog["current_tier"] else None,
+    }
+    if winner == "ai":
+        rewards["hearts_remaining"] = player["hearts"] - hearts_lost
+    return rewards
 
 
 @app.route("/api/v1/solo/result/<fight_id>", methods=["GET"])

@@ -14,11 +14,11 @@ from datetime import datetime, timedelta
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from game_core import DatabaseManager, CardRarity
-from tier_decay_system import TierDecaySystem
-from card_missions_system import CardMissionsSystem
+from systems.tier_decay_system import TierDecaySystem
+from systems.card_missions_system import CardMissionsSystem
 
 
-def test_tier_decay_integration():
+def run_tier_decay_integration():
     """  Tier Decay"""
     print("\n" + "="*50)
     print(" Testing Tier Decay Integration")
@@ -26,11 +26,11 @@ def test_tier_decay_integration():
     
     #  migrations
     print("\n Running migrations...")
-    from phase2_migration import Phase2Migration
+    from migrations.phase2_migration import Phase2Migration
     migration = Phase2Migration('test_integration.db')
     migration.run()
     
-    from migrate_optional_features import migrate_optional_features
+    from migrations.migrate_optional_features import migrate_optional_features
     migrate_optional_features('test_integration.db')
     
     db = DatabaseManager('test_integration.db')
@@ -84,7 +84,7 @@ def test_tier_decay_integration():
     return True
 
 
-def test_missions_integration():
+def run_missions_integration():
     """  Card Missions"""
     print("\n" + "="*50)
     print(" Testing Card Missions Integration")
@@ -108,14 +108,14 @@ def test_missions_integration():
     #  
     cursor.execute('''
         INSERT INTO cards 
-        (card_id, name, rarity, power, speed, iq, popularity, abilities, biography, image_path, card_type)
-        VALUES (?, 'Test Epic', 'epic', 8, 8, 8, 8, '["Test Ability"]', 'Test Bio', '', 'POWER')
+        (card_id, name, rarity, power, speed, iq, popularity, abilities, biography, image_path, card_type, created_at)
+        VALUES (?, 'Test Epic', 'epic', 8, 8, 8, 8, '["Test Ability"]', 'Test Bio', '', 'POWER', CURRENT_TIMESTAMP)
     ''', (test_card_id,))
     
     #    
     cursor.execute('''
-        INSERT INTO player_cards (user_id, card_id)
-        VALUES (?, ?)
+        INSERT INTO player_cards (user_id, card_id, obtained_at)
+        VALUES (?, ?, CURRENT_TIMESTAMP)
     ''', (test_user_id, test_card_id))
     
     conn.commit()
@@ -152,7 +152,7 @@ def test_missions_integration():
     return True
 
 
-def test_profile_display():
+def run_profile_display():
     """    Profile"""
     print("\n" + "="*50)
     print(" Testing Profile Display")
@@ -203,9 +203,9 @@ def main():
     
     try:
         #  
-        test_tier_decay_integration()
-        test_missions_integration()
-        test_profile_display()
+        run_tier_decay_integration()
+        run_missions_integration()
+        run_profile_display()
         
         print("\n" + "="*50)
         print("ALL INTEGRATION TESTS PASSED!")

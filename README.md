@@ -42,9 +42,35 @@ python telegram_bot.py
 ## پنل ادمین
 
 ```bash
-python web_api.py
+python web/web_api.py
 # http://localhost:5000
 ```
+
+## Arena Registry (زمین‌های نسخه‌دار)
+
+پنل زمین‌ها در `/arenas` قرار دارد. اجرای معمول `DatabaseManager` جدول‌های جدید را
+به‌صورت additive می‌سازد و ده زمین فعلی را بدون تغییر Balance seed می‌کند. برای اجرای
+صریح migration نیز می‌توان از دستور زیر استفاده کرد:
+
+```bash
+python migrations/migrate_arena_registry.py game_bot.db
+```
+
+تنظیمات Production مهم:
+
+- `ARENA_ADMIN_TOKEN` — توکن پایه و اجباری پنل برای خواندن و ویرایش Draft؛ فقط روی سرور تنظیم شود.
+- `ARENA_ADMIN_PUBLISH_TOKEN` — توکن مستقل انتشار (اختیاری ولی توصیه‌شده)؛ در نبود آن توکن پایه استفاده می‌شود.
+- `ARENA_ADMIN_ARCHIVE_TOKEN` — توکن مستقل آرشیو (اختیاری ولی توصیه‌شده)؛ در نبود آن توکن انتشار/پایه استفاده می‌شود.
+- `ARENA_ADMIN_ACTOR`، `ARENA_ADMIN_PUBLISH_ACTOR` و `ARENA_ADMIN_ARCHIVE_ACTOR` — شناسه ثابت عامل برای Audit Log.
+- `ADMIN_CORS_ORIGINS` — فهرست comma-separated مبداهای مجاز پنل؛ اگر خالی باشد CORS برای API فعال نمی‌شود.
+- `ARENA_ADMIN_LOCAL_DEV=1` — فقط برای توسعه محلی روی loopback و بدون توکن؛ هرگز در Production فعال نشود.
+- `ARENA_REGISTRY_READS=0` — Rollback خواندن Runtime به ثابت‌های قدیمی، بدون حذف داده‌ها.
+- `ARENA_REGISTRY_FALLBACK_SEED=0` — جلوگیری از fallback به زمین‌های seed در Mini App وقتی هیچ زمین فعالی نیست.
+- `MINIAPP_ARENA_MEDIA_DIR` — مسیر پایدار پس‌زمینه‌های نسخه‌دار Mini App؛ پیش‌فرض `media/arena-backgrounds` است و API آن را پیش از فایل‌های Build سرو می‌کند.
+
+در Production قبل از migration از SQLite backup بگیرید. زمین Published حذف نمی‌شود؛ برای
+تغییر آن از «ساخت Draft از نسخه منتشرشده» استفاده کنید. Matchهای تازه Snapshot Arena را
+می‌گیرند و Publish بعدی روی Match فعال اثر نمی‌گذارد.
 
 ## تنظیمات
 

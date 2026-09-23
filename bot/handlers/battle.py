@@ -61,6 +61,78 @@ from bot.utils import (check_user_started_bot, handle_user_not_started, ensure_t
 class BattleHandlersMixin:
     """Battle 3 Rounds Handlers"""
 
+    @staticmethod
+    def _env_flag(name: str, default: bool = True) -> bool:
+        fallback = "1" if default else "0"
+        return os.getenv(name, fallback).strip().casefold() not in {"0", "false", "off", "no"}
+
+    def _arena_runtime(self, arena_id: str, mode: str = "three_round") -> Dict[str, Any]:
+        registry = getattr(self, "arena_registry", None)
+        if registry and self._env_flag("ARENA_REGISTRY_READS"):
+            runtime = registry.runtime(arena_id, mode, "telegram")
+            if runtime:
+                return runtime
+        if registry and self._env_flag("ARENA_REGISTRY_READS") and not self._env_flag("ARENA_REGISTRY_FALLBACK_SEED"):
+            return {}
+        logger.warning("arena_registry_static_fallback arena=%s mode=%s", arena_id, mode)
+        return ARENAS.get(arena_id, ARENAS["power_arena"])
+
+    def _active_arenas(self, mode: str = "three_round") -> Dict[str, Dict[str, Any]]:
+        registry = getattr(self, "arena_registry", None)
+        if registry and self._env_flag("ARENA_REGISTRY_READS"):
+            active = registry.list_active(mode, "telegram")
+            if active:
+                return {item["arena_id"]: item for item in active}
+            logger.error("arena_registry_empty_pool mode=%s platform=telegram", mode)
+            if not self._env_flag("ARENA_REGISTRY_FALLBACK_SEED"):
+                return {}
+        return ARENAS
+
+    def _random_arena_id(self, mode: str, exclude_ids: Optional[List[str]] = None) -> Optional[str]:
+        registry = getattr(self, "arena_registry", None)
+        if registry and self._env_flag("ARENA_REGISTRY_READS"):
+            selected = registry.select_for_match(mode, "telegram", exclude_ids=exclude_ids)
+            if selected:
+                logger.info("arena_selected arena=%s mode=%s platform=telegram", selected["arena_id"], mode)
+                return selected["arena_id"]
+            if not self._env_flag("ARENA_REGISTRY_FALLBACK_SEED"):
+                return None
+        pool = [key for key in ARENAS if key not in set(exclude_ids or [])] or list(ARENAS)
+        return random.choice(pool) if pool else None
+
+    def _fight_arena_mode(self, fight_id: str) -> str:
+        """Keep Deck-only arena rules out of classic three-round matches."""
+        try:
+            deck_state = self.db.get_battle_deck_state(fight_id)
+            if deck_state.get("challenger_deck_cards") or deck_state.get("opponent_deck_cards"):
+                return "deck"
+        except Exception:
+            pass
+        return "three_round"
+
+    def _should_use_deck_resolver(self, fight_id: str, challenger_card: Any, opponent_card: Any) -> bool:
+        return self._fight_arena_mode(fight_id) == "deck" and challenger_card is not None and opponent_card is not None
+
+    def _battle_arena_snapshot(self, fight_id: str) -> Optional[Dict[str, Any]]:
+        import sqlite3
+        db_path = getattr(getattr(self, "db", None), "db_path", None)
+        if not db_path:
+            return None
+        conn = sqlite3.connect(db_path)
+        try:
+            row = conn.execute("SELECT arena_snapshot FROM battle_states WHERE fight_id=?", (fight_id,)).fetchone()
+            return json.loads(row[0]) if row and row[0] else None
+        except (sqlite3.Error, TypeError, ValueError):
+            return None
+        finally:
+            conn.close()
+
+    def _arena_runtime_for_fight(self, fight_id: str, arena_id: str, mode: str) -> Dict[str, Any]:
+        snapshot = self._battle_arena_snapshot(fight_id)
+        if snapshot and snapshot.get("arena_id") == arena_id and snapshot.get("mode") == mode:
+            return snapshot
+        return self._arena_runtime(arena_id, mode)
+
     def _battle_player_name(self, user_id: int, fallback: str = "Player") -> str:
         """Short display name for compact group battle messages."""
         try:
@@ -73,8 +145,8 @@ class BattleHandlersMixin:
     def _battle_attr_label(self, attr: str) -> str:
         return ATTR_NAMES_FA.get(attr, attr)
 
-    def _deck_arena_rule_text(self, arena_id: str) -> str:
-        arena = ARENAS.get(arena_id, ARENAS["power_arena"])
+    def _deck_arena_rule_text(self, arena_id: str, fight_id: Optional[str] = None) -> str:
+        arena = self._arena_runtime_for_fight(fight_id, arena_id, "deck") if fight_id else self._arena_runtime(arena_id, "deck")
         compare_stat = arena.get("compare_stat", arena.get("boost_stat", "power"))
         tiers = []
         for index, tier in enumerate(arena.get("trait_ranks", []), start=1):
@@ -102,7 +174,7 @@ class BattleHandlersMixin:
             "⚔️ Deck Battle\n"
             f"📊 🔵 {ch_name} {challenger_wins} — {opponent_wins} {op_name} 🔴\n"
             f"🎴 راند {round_num} از ۳\n\n"
-            f"{self._deck_arena_rule_text(arena_id)}"
+            f"{self._deck_arena_rule_text(arena_id, fight_id)}"
         )
 
     async def _upsert_deck_status_message(
@@ -359,8 +431,11 @@ class BattleHandlersMixin:
             return
 
         # Deck همیشه یک زمین تصادفی و ثابت برای هر سه راوند دارد.
-        import random as _random
-        arena_id = _random.choice(list(ARENAS.keys()))
+        arena_mode = self._fight_arena_mode(fight_id)
+        arena_id = self._random_arena_id(arena_mode)
+        if not arena_id:
+            logger.error("battle_start_blocked_empty_arena_pool fight_id=%s mode=%s", fight_id, arena_mode)
+            return
         await self._start_battle_with_arena(context, fight_id, fight, challenger_card, opponent_card, arena_id, query)
 
     async def _send_arena_selection(self, context, fight_id: str, selector_id: int, chat_id: int):
@@ -371,7 +446,8 @@ class BattleHandlersMixin:
             "کدام زمین؟"
         )
         keyboard = []
-        for arena_id, info in ARENAS.items():
+        arena_mode = self._fight_arena_mode(fight_id)
+        for arena_id, info in self._active_arenas(arena_mode).items():
             keyboard.append([InlineKeyboardButton(
                 f"{info['emoji']} {info['name_fa']} — Boost: {info['boost_stat']}",
                 callback_data=f"arena_pick_{fight_id}_{arena_id}"
@@ -387,10 +463,9 @@ class BattleHandlersMixin:
         except Exception as e:
             logger.error(f"Failed to send arena selection to {selector_id}: {e}")
             # fallback: random arena
-            import random as _random
-            arena_id = _random.choice(list(ARENAS.keys()))
+            arena_id = self._random_arena_id(self._fight_arena_mode(fight_id))
             data = context.bot_data.get(f"arena_selector_{fight_id}", {})
-            if data:
+            if data and arena_id:
                 await self._start_battle_with_arena(
                     context, fight_id, data['fight'],
                     data['challenger_card'], data['opponent_card'],
@@ -424,7 +499,7 @@ class BattleHandlersMixin:
         challenger_card = data['challenger_card']
         opponent_card = data['opponent_card']
 
-        arena_info = ARENAS[arena_id]
+        arena_info = self._arena_runtime_for_fight(fight_id, arena_id, "three_round")
         await query.edit_message_text(
             f"✅ زمین انتخاب شد: {arena_info['emoji']} **{arena_info['name_fa']}**",
             parse_mode='Markdown'
@@ -437,7 +512,11 @@ class BattleHandlersMixin:
         import json as _json
         import sqlite3 as _sq
 
-        arena_info = ARENAS[arena_id]
+        arena_mode = self._fight_arena_mode(fight_id)
+        arena_info = self._arena_runtime(arena_id, arena_mode)
+        registry = getattr(self, "arena_registry", None)
+        arena_snapshot = registry.snapshot_for_match(arena_id, arena_mode, "telegram") if registry and self._env_flag("ARENA_REGISTRY_READS") else None
+        arena_snapshot = arena_snapshot or {"arena_id": arena_id, "version": None, "mode": arena_mode, **arena_info}
 
         ch_stats = {"power": challenger_card.power, "speed": challenger_card.speed,
                     "iq": challenger_card.iq, "popularity": challenger_card.popularity}
@@ -455,26 +534,31 @@ class BattleHandlersMixin:
             # deck data موجود است — فقط arena و status را آپدیت کن، remaining_cards دست نخور
             cursor.execute('''
                 UPDATE battle_states SET
-                    arena=?, current_round=1,
+                    arena=?, arena_version=?, arena_snapshot=?, current_round=1,
                     challenger_rounds_won=0, opponent_rounds_won=0,
                     challenger_used_stats='[]', opponent_used_stats='[]',
                     challenger_current_stats=?, opponent_current_stats=?,
-                    status='round_1'
+                    status='round_1', arena_history='[]'
                 WHERE fight_id=?
-            ''', (arena_id, _json.dumps(ch_stats), _json.dumps(op_stats), fight_id))
+            ''', (arena_id, arena_snapshot.get("version"), _json.dumps(arena_snapshot, ensure_ascii=False), _json.dumps(ch_stats), _json.dumps(op_stats), fight_id))
         else:
             # اولین بار — INSERT کامل (بدون deck data)
             cursor.execute('''
                 INSERT INTO battle_states
                 (fight_id, challenger_id, opponent_id, challenger_card_id, opponent_card_id,
-                 arena, current_round, challenger_rounds_won, opponent_rounds_won,
+                 arena, arena_version, arena_snapshot, current_round, challenger_rounds_won, opponent_rounds_won,
                  challenger_used_stats, opponent_used_stats,
                  challenger_current_stats, opponent_current_stats, status, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, 1, 0, 0, '[]', '[]', ?, ?, 'round_1', ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 0, 0, '[]', '[]', ?, ?, 'round_1', ?)
             ''', (fight_id, fight.challenger_id, fight.opponent_id,
                   fight.challenger_card_id, fight.opponent_card_id,
-                  arena_id, _json.dumps(ch_stats), _json.dumps(op_stats),
+                  arena_id, arena_snapshot.get("version"), _json.dumps(arena_snapshot, ensure_ascii=False), _json.dumps(ch_stats), _json.dumps(op_stats),
                   datetime.now().isoformat()))
+
+        cursor.execute(
+            "UPDATE active_fights SET arena_type=?, arena_version=?, arena_snapshot=? WHERE fight_id=?",
+            (arena_id, arena_snapshot.get("version"), _json.dumps(arena_snapshot, ensure_ascii=False), fight_id),
+        )
 
         conn.commit()
         conn.close()
@@ -538,7 +622,8 @@ class BattleHandlersMixin:
         """ارسال UI انتخاب stat برای یک راوند"""
         from systems.battle_system_3rounds import ABILITIES, get_card_ability
         
-        arena_info = ARENAS[arena_id]
+        arena_mode = self._fight_arena_mode(fight_id)
+        arena_info = self._arena_runtime_for_fight(fight_id, arena_id, arena_mode)
         boost_stat = arena_info['boost_stat']
 
         stat_labels = {
@@ -553,7 +638,11 @@ class BattleHandlersMixin:
             if stat in used_stats:
                 continue  # stat locking
             val = getattr(card, stat)
-            boost_hint = " 🔥+8" if stat == boost_stat and getattr(card, 'card_type', '') == f"{stat.upper()}_TYPE" else ""
+            type_matches = (
+                not arena_info.get("requires_card_type_match", True)
+                or getattr(card, 'card_type', '') == f"{stat.upper()}_TYPE"
+            )
+            boost_hint = f" 🔥+{arena_info.get('boost_amount', 0)}" if stat == boost_stat and type_matches else ""
             keyboard.append([InlineKeyboardButton(
                 f"{emoji} {name}: {val}{boost_hint}",
                 callback_data=f"r3_stat_{fight_id}_{stat}"
@@ -806,7 +895,7 @@ class BattleHandlersMixin:
         import json as _json
         import sqlite3 as _sq
 
-        arena_info = ARENAS[arena_id]
+        arena_info = self._arena_runtime_for_fight(fight_id, arena_id, "three_round")
         boost_stat = arena_info['boost_stat']
 
         ch_card = self.db.get_card_by_id_for_player(ch_card_id, ch_id) or self.db.get_card_by_id(ch_card_id)
@@ -818,7 +907,7 @@ class BattleHandlersMixin:
 
         # مسیر Deck فقط Trait tier و Stat ثابت زمین را مقایسه می‌کند.
         # هیچ Card Effect، Ability، Passive، Boost یا تغییر زمینی در آن دخیل نیست.
-        if ch_card and op_card:
+        if self._should_use_deck_resolver(fight_id, ch_card, op_card):
             await self._resolve_deck_round(
                 context, fight_id, ch_id, op_id, ch_card, op_card,
                 arena_id, current_round, ch_rounds_won, op_rounds_won,
@@ -827,8 +916,9 @@ class BattleHandlersMixin:
             return
 
         # Drain قبل از resolve، صفت غالب حریف را هدف می‌گیرد.
-        dom_ch_initial = get_dominant_attr_from_stats(ch_stats, arena_id)
-        dom_op_initial = get_dominant_attr_from_stats(op_stats, arena_id)
+        arena_snapshot = self._battle_arena_snapshot(fight_id)
+        dom_ch_initial = get_dominant_attr_from_stats(ch_stats, arena_id, arena_snapshot)
+        dom_op_initial = get_dominant_attr_from_stats(op_stats, arena_id, arena_snapshot)
 
         if ch_effect_key == "drain":
             before_value = op_stats.get(dom_op_initial, 0)
@@ -849,8 +939,8 @@ class BattleHandlersMixin:
 
         # محاسبه dominant attribute بعد از Drain
         from systems.battle_system_3rounds import beats, BEATS_REASON, ABILITIES
-        dom_ch = get_dominant_attr_from_stats(ch_stats, arena_id)
-        dom_op = get_dominant_attr_from_stats(op_stats, arena_id)
+        dom_ch = get_dominant_attr_from_stats(ch_stats, arena_id, arena_snapshot)
+        dom_op = get_dominant_attr_from_stats(op_stats, arena_id, arena_snapshot)
         ch_stat = dom_ch
         op_stat = dom_op
 
@@ -859,8 +949,8 @@ class BattleHandlersMixin:
         op_base = op_stats.get(op_stat, 0)
 
         # محاسبه boost
-        ch_boost = self.battle3.calculate_boost(ch_card, arena_id, ch_stat)
-        op_boost = self.battle3.calculate_boost(op_card, arena_id, op_stat)
+        ch_boost = self.battle3.calculate_boost(ch_card, arena_id, ch_stat, arena_snapshot)
+        op_boost = self.battle3.calculate_boost(op_card, arena_id, op_stat, arena_snapshot)
 
         ch_total = ch_base + ch_boost
         op_total = op_base + op_boost
@@ -1143,7 +1233,8 @@ class BattleHandlersMixin:
                 remaining_names.append(card.name)
 
         keyboard = []
-        for arena_id, info in ARENAS.items():
+        arena_mode = self._fight_arena_mode(fight_id)
+        for arena_id, info in self._active_arenas(arena_mode).items():
             if arena_id == current_arena_id:
                 continue
             boost_label = self._battle_attr_label(info.get('boost_stat', ''))
@@ -1152,7 +1243,7 @@ class BattleHandlersMixin:
                 callback_data=f"arena_shift_pick_{fight_id}_{arena_id}"
             )])
 
-        current = ARENAS.get(current_arena_id, {})
+        current = self._arena_runtime_for_fight(fight_id, current_arena_id, arena_mode)
         remaining_line = "، ".join(remaining_names) if remaining_names else "نامشخص"
         text = (
             f"🌀 تغییر زمین\n\n"
@@ -1190,7 +1281,8 @@ class BattleHandlersMixin:
         if pending.get("selector_id") != user_id:
             await query.answer("❌ این انتخاب مال تو نیست.", show_alert=True)
             return
-        if arena_id not in ARENAS:
+        arena_mode = self._fight_arena_mode(fight_id)
+        if arena_id not in self._active_arenas(arena_mode):
             await query.answer("❌ زمین نامعتبر است.", show_alert=True)
             return
 
@@ -1199,11 +1291,34 @@ class BattleHandlersMixin:
         import sqlite3 as _sq
         conn = _sq.connect(self.db.db_path)
         cursor = conn.cursor()
-        cursor.execute("UPDATE battle_states SET arena=? WHERE fight_id=?", (arena_id, fight_id))
+        registry = getattr(self, "arena_registry", None)
+        snapshot = registry.snapshot_for_match(arena_id, arena_mode, "telegram") if registry and self._env_flag("ARENA_REGISTRY_READS") else None
+        if not snapshot:
+            snapshot = {"arena_id": arena_id, "version": None, "mode": arena_mode, **self._arena_runtime(arena_id, arena_mode)}
+        prior_row = cursor.execute("SELECT arena_snapshot, arena_history FROM battle_states WHERE fight_id=?", (fight_id,)).fetchone()
+        history = []
+        if prior_row:
+            try:
+                history = json.loads(prior_row[1] or "[]")
+            except (TypeError, ValueError):
+                history = []
+            if prior_row[0]:
+                try:
+                    history.append(json.loads(prior_row[0]))
+                except (TypeError, ValueError):
+                    pass
+        cursor.execute(
+            "UPDATE battle_states SET arena=?, arena_version=?, arena_snapshot=?, arena_history=? WHERE fight_id=?",
+            (arena_id, snapshot.get("version"), json.dumps(snapshot, ensure_ascii=False), json.dumps(history, ensure_ascii=False), fight_id),
+        )
+        cursor.execute(
+            "UPDATE active_fights SET arena_type=?, arena_version=?, arena_snapshot=? WHERE fight_id=?",
+            (arena_id, snapshot.get("version"), json.dumps(snapshot, ensure_ascii=False), fight_id),
+        )
         conn.commit()
         conn.close()
 
-        arena_info = ARENAS[arena_id]
+        arena_info = self._arena_runtime_for_fight(fight_id, arena_id, arena_mode)
         try:
             await query.edit_message_text(f"✅ زمین جدید: {arena_info['emoji']} {arena_info['name_fa']}")
         except Exception:
@@ -1238,7 +1353,7 @@ class BattleHandlersMixin:
         import json as _json
         import sqlite3 as _sq
 
-        result = self.battle3.resolve_deck_cards(ch_card, op_card, arena_id)
+        result = self.battle3.resolve_deck_cards(ch_card, op_card, arena_id, self._battle_arena_snapshot(fight_id))
         round_winner = result["winner"]
         if round_winner == "challenger":
             ch_rounds_won += 1
@@ -1250,7 +1365,7 @@ class BattleHandlersMixin:
         op_used.append(compare_stat)
         ch_name = self._battle_player_name(ch_id, "Blue")
         op_name = self._battle_player_name(op_id, "Red")
-        arena_info = ARENAS[arena_id]
+        arena_info = self._arena_runtime_for_fight(fight_id, arena_id, "deck")
         stat_label = self._battle_attr_label(compare_stat)
         ch_rank = result["challenger_trait_rank"]
         op_rank = result["opponent_trait_rank"]
@@ -1343,7 +1458,7 @@ class BattleHandlersMixin:
                 context, fight_id, fight, ch_card, op_card,
                 winner_id, loser_id, result_type, ch_points, op_points,
                 deck_summary=(
-                    self._deck_arena_rule_text(arena_id)
+                    self._deck_arena_rule_text(arena_id, fight_id)
                     + "\n\n"
                     + round_text
                     + score_text
@@ -1745,7 +1860,7 @@ class BattleHandlersMixin:
             winner_id, loser_id, result_type,
             ch_points, op_points,
             deck_summary=(
-                f"{self._deck_arena_rule_text(arena_id)}\n\n"
+                f"{self._deck_arena_rule_text(arena_id, fight_id)}\n\n"
                 f"⏱ زمان ۶۰ ثانیه‌ای انتخاب {loser_name} تمام شد؛ کل بازی را باخت.\n"
                 f"📊 امتیاز نهایی: 🔵 {ch_points} — {op_points} 🔴"
             ),
@@ -1763,7 +1878,7 @@ class BattleHandlersMixin:
         )
         from systems.battle_system_3rounds import ABILITIES, get_card_ability
 
-        arena_info = ARENAS[arena_id]
+        arena_info = self._arena_runtime_for_fight(fight_id, arena_id, "deck")
         rarity_emoji = {'normal': '🟢', 'epic': '🟣', 'legend': '🟡', 'rare': '🔵'}
 
         player_name = self._battle_player_name(user_id, "Player")

@@ -11,9 +11,9 @@ import sys
 os.environ['ENV_FILE'] = '.env.test'
 
 from game_core import DatabaseManager, CardRarity
-from fusion_system import FusionSystem
+from systems.fusion_system import FusionSystem
 
-def test_fusion_ui():
+def run_legacy_fusion_diagnostic():
     """تست سیستم Fusion"""
     print("🧪 شروع تست Fusion UI...")
     
@@ -148,7 +148,7 @@ def test_fusion_ui():
 
 if __name__ == "__main__":
     try:
-        success = test_fusion_ui()
+        success = run_legacy_fusion_diagnostic()
         sys.exit(0 if success else 1)
     except Exception as e:
         print(f"\n❌ خطا در تست: {e}")

@@ -47,6 +47,7 @@ def test_card_admin_create_read_and_update_current_schema(tmp_path):
     home = client.get("/")
     assert home.status_code == 200
     assert b"<!doctype html>" in home.data.lower()
+    home.close()
 
     created = client.post("/api/cards", json=_payload())
     assert created.status_code == 201, created.get_json()
