@@ -1714,6 +1714,12 @@ class BattleHandlersMixin:
             "challenger": bool(context.bot_data.get(f"r3_{fight_id}_challenger_card")),
             "opponent": bool(context.bot_data.get(f"r3_{fight_id}_opponent_card")),
         }
+        final_deck_round = (
+            round_num == 3
+            and len(challenger_remaining_card_ids) == 1
+            and len(opponent_remaining_card_ids) == 1
+            and self._fight_arena_mode(fight_id) == "deck"
+        )
 
         if selected["challenger"] and selected["opponent"]:
             await self._advance_round_card_turn_or_start_effects(context, fight_id)
@@ -1745,6 +1751,16 @@ class BattleHandlersMixin:
         op_last = opponent_played_cards[-1] if opponent_played_cards else None
         ch_status = "انتخاب شد" if selected["challenger"] else f"{len(challenger_remaining_card_ids)} کارت"
         op_status = "انتخاب شد" if selected["opponent"] else f"{len(opponent_remaining_card_ids)} کارت"
+        if final_deck_round:
+            for role in ("challenger", "opponent"):
+                if not selected[role]:
+                    continue
+                card_id = context.bot_data[f"r3_{fight_id}_{role}_card"]
+                card = self.db.get_card_by_id(card_id)
+                if role == "challenger":
+                    ch_status = card.name if card else card_id
+                else:
+                    op_status = card.name if card else card_id
 
         lines = [
             self._deck_status_header(fight_id, arena_id, round_num, ch_wins, op_wins),
@@ -1766,13 +1782,10 @@ class BattleHandlersMixin:
                 lines.append(f"آخرین 🔵 {ch_last}")
             if op_last:
                 lines.append(f"آخرین 🔴 {op_last}")
-        if (
-            len(challenger_remaining_card_ids) == 1
-            and len(opponent_remaining_card_ids) == 1
-        ):
+        if final_deck_round:
             lines.extend([
                 "",
-                "کارت آخر را دستی تأیید کنید؛ نام و تصویر کارت‌ها پس از انتخاب هر دو بازیکن نمایش داده می‌شود.",
+                "کارت آخر را انتخاب کنید؛ نام و تصویر هر کارت پس از انتخاب همان بازیکن نمایش داده می‌شود.",
             ])
         else:
             lines.extend(["", "انتخاب بازیکن شروع‌کننده در گروه دیده می‌شود؛ انتخاب نهایی است."])
@@ -2046,7 +2059,13 @@ class BattleHandlersMixin:
     async def _after_round_card_selected(
         self, context, fight_id: str, user_id: int, role: str, card
     ):
-        """Continue the round after a hidden card choice is recorded."""
+        """Show a final Deck fallback pick immediately, then continue the round."""
+        media_key = f"r3_{fight_id}_{role}_media_sent"
+        if not context.bot_data.get(media_key) and self._fight_arena_mode(fight_id) == "deck":
+            deck_state = self.db.get_battle_deck_state(fight_id)
+            if deck_state.get("current_round") == 3:
+                await self._send_selected_round_card_media(context, fight_id, user_id, card)
+                context.bot_data[media_key] = True
         await self._advance_round_card_turn_or_start_effects(context, fight_id)
 
     async def _send_round_effect_prompt(
@@ -2734,7 +2753,12 @@ class BattleHandlersMixin:
 
         player_name = self._battle_player_name(user_id, "Player")
         generic_message = f"🎴 انتخاب کارت {player_name} ثبت شد."
-        hide_single_remaining_card = len(remaining) == 1
+        final_deck_pick = (
+            round_num == 3
+            and len(remaining) == 1
+            and self._fight_arena_mode(fight_id) == "deck"
+        )
+        hide_single_remaining_card = len(remaining) == 1 and not final_deck_pick
 
         for card_id in remaining:
             card = (
@@ -2754,10 +2778,16 @@ class BattleHandlersMixin:
                 )
             ]])
             media_key = f"r3_{fight_id}_{user_id}_{card_id}_inline_media"
-            context.bot_data[media_key] = False
+            # A visible final-round article is already a reveal even when no
+            # cached sticker/photo is available; do not reveal it a second time.
+            context.bot_data[media_key] = final_deck_pick
+            if final_deck_pick:
+                context.bot_data.pop(
+                    f"r3_{fight_id}_{user_id}_{card_id}_explicit_confirm", None
+                )
 
-            # The final card still needs an explicit player action, but it must
-            # remain hidden in the chat until the opponent confirms theirs.
+            # Keep the old hidden result for non-Deck flows and in-progress
+            # battles started before the visible final Deck pick change.
             if hide_single_remaining_card:
                 context.bot_data[
                     f"r3_{fight_id}_{user_id}_{card_id}_explicit_confirm"
@@ -2797,7 +2827,10 @@ class BattleHandlersMixin:
                     id=result_id,
                     title=card.name,
                     description=description,
-                    input_message_content=InputTextMessageContent(generic_message),
+                    input_message_content=InputTextMessageContent(
+                        f"🎴 {player_name}: {card.name}\nراوند {round_num} انتخاب شد."
+                        if final_deck_pick else generic_message
+                    ),
                     reply_markup=confirm_markup,
                 ))
 

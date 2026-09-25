@@ -3,7 +3,8 @@ import sqlite3
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
-from telegram import InlineQueryResultArticle
+import pytest
+from telegram import InlineQueryResultArticle, InlineQueryResultCachedSticker
 
 from bot.handlers.battle import (
     BattleHandlersMixin,
@@ -163,8 +164,11 @@ def test_deck_final_card_is_not_auto_selected_and_requires_manual_confirmation()
     handler.db = SimpleNamespace(
         get_fight_by_id=Mock(return_value=fight),
         get_or_create_player=Mock(side_effect=lambda user_id: players[user_id]),
+        get_card_by_id=Mock(return_value=SimpleNamespace(name="Blue Last")),
         get_battle_deck_state=Mock(
-            return_value={"challenger_rounds_won": 1, "opponent_rounds_won": 1}
+            return_value={"challenger_rounds_won": 1, "opponent_rounds_won": 1,
+                          "challenger_deck_cards": ["first-blue", "second-blue", "last-blue"],
+                          "opponent_deck_cards": ["first-red", "second-red", "last-red"]}
         ),
     )
     handler._upsert_deck_status_message = AsyncMock(return_value=77)
@@ -188,14 +192,24 @@ def test_deck_final_card_is_not_auto_selected_and_requires_manual_confirmation()
     assert context.bot_data["r3_fight-1_expected_role"] == "challenger"
     status_text = handler._upsert_deck_status_message.await_args.args[3]
     markup = handler._upsert_deck_status_message.await_args.args[4]
-    assert "کارت آخر را دستی تأیید کنید" in status_text
-    assert "پس از انتخاب هر دو بازیکن" in status_text
+    assert "کارت آخر را انتخاب کنید" in status_text
+    assert "پس از انتخاب همان بازیکن" in status_text
     assert markup.inline_keyboard[0][0].switch_inline_query_current_chat.startswith(
         "r3pick fight-1 "
     )
 
+    context.bot_data["r3_fight-1_challenger_card"] = "last-blue"
+    asyncio.run(
+        handler._send_round_card_selection_panel(
+            context, "fight-1", 1, 2, ["last-blue"], ["last-red"],
+            "power_arena", 3,
+        )
+    )
+    assert "🔵 Blue — Blue Last" in handler._upsert_deck_status_message.await_args.args[3]
 
-def test_deck_final_inline_pick_hides_card_until_both_players_confirm(tmp_path):
+
+@pytest.mark.parametrize("mode", ["deck", "three_round"])
+def test_final_inline_pick_reveals_immediately_only_in_deck(tmp_path, mode):
     db_path = tmp_path / "deck-final-pick.sqlite"
     conn = sqlite3.connect(db_path)
     conn.execute(
@@ -234,6 +248,7 @@ def test_deck_final_inline_pick_hides_card_until_both_players_confirm(tmp_path):
         get_card_by_id=Mock(return_value=final_card),
     )
     handler._battle_player_name = Mock(return_value="Blue")
+    handler._fight_arena_mode = Mock(return_value=mode)
     handler._round_card_description = Mock(return_value="قدرت")
     handler._get_inline_card_sticker_file_id = AsyncMock(return_value="sticker-id")
     handler._get_inline_card_photo_file_id = AsyncMock(return_value="photo-id")
@@ -252,6 +267,12 @@ def test_deck_final_inline_pick_hides_card_until_both_players_confirm(tmp_path):
 
     results = inline_query.answer.await_args.args[0]
     assert len(results) == 1
+    if mode == "deck":
+        assert isinstance(results[0], InlineQueryResultCachedSticker)
+        handler._get_inline_card_sticker_file_id.assert_awaited_once()
+        assert context.bot_data["r3_final123_1_secret-blue_inline_media"] is True
+        assert "r3_final123_1_secret-blue_explicit_confirm" not in context.bot_data
+        return
     assert isinstance(results[0], InlineQueryResultArticle)
     assert results[0].title == "Final Secret"
     assert "Final Secret" not in results[0].input_message_content.message_text
@@ -263,6 +284,91 @@ def test_deck_final_inline_pick_hides_card_until_both_players_confirm(tmp_path):
     assert context.bot_data[
         "r3_final123_1_secret-blue_explicit_confirm"
     ] is True
+
+
+def test_deck_final_text_fallback_names_card_without_delayed_reveal(tmp_path):
+    db_path = tmp_path / "deck-final-text.sqlite"
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("""CREATE TABLE battle_states (
+            fight_id TEXT PRIMARY KEY, challenger_id INTEGER, opponent_id INTEGER,
+            challenger_remaining_cards TEXT, opponent_remaining_cards TEXT,
+            arena TEXT, current_round INTEGER, status TEXT)""")
+        conn.execute("INSERT INTO battle_states VALUES (?,?,?,?,?,?,?,?)",
+                     ("final123", 1, 2, '["secret-blue"]', '["secret-red"]',
+                      "power_arena", 3, "round_3"))
+    card = SimpleNamespace(card_id="secret-blue", name="Final Card")
+    handler = BattleHandlersMixin()
+    handler.db = SimpleNamespace(
+        db_path=str(db_path), get_card_by_id_for_player=Mock(return_value=card),
+        get_card_by_id=Mock(return_value=card),
+    )
+    handler._fight_arena_mode = Mock(return_value="deck")
+    handler._battle_player_name = Mock(return_value="Blue")
+    handler._round_card_description = Mock(return_value="قدرت")
+    handler._get_inline_card_sticker_file_id = AsyncMock(return_value=None)
+    handler._get_inline_card_photo_file_id = AsyncMock(return_value=None)
+    inline_query = SimpleNamespace(
+        query=f"r3pick final123 {handler._inline_user_token(1)}",
+        from_user=SimpleNamespace(id=1), answer=AsyncMock(),
+    )
+    context = SimpleNamespace(bot_data={"r3_final123_expected_role": "challenger"})
+
+    asyncio.run(handler.r3_inline_card_query_handler(SimpleNamespace(inline_query=inline_query), context))
+
+    result = inline_query.answer.await_args.args[0][0]
+    assert isinstance(result, InlineQueryResultArticle)
+    assert "Final Card" in result.input_message_content.message_text
+    assert context.bot_data["r3_final123_1_secret-blue_inline_media"] is True
+    assert "r3_final123_1_secret-blue_explicit_confirm" not in context.bot_data
+
+
+def test_deck_final_visible_inline_pick_records_without_extra_confirmation():
+    handler = BattleHandlersMixin()
+    card = SimpleNamespace(name="Blue Card")
+    handler._record_round_card_selection = AsyncMock(return_value=(True, card, "challenger"))
+    handler._after_round_card_selected = AsyncMock()
+    chosen = SimpleNamespace(
+        result_id=handler._inline_card_result_id("final123", 1, "secret-blue"),
+        from_user=SimpleNamespace(id=1), inline_message_id="inline-blue",
+    )
+    context = SimpleNamespace(
+        bot_data={"r3_final123_1_secret-blue_inline_media": True},
+        bot=SimpleNamespace(edit_message_reply_markup=AsyncMock()),
+    )
+
+    asyncio.run(handler.r3_chosen_inline_card_handler(SimpleNamespace(chosen_inline_result=chosen), context))
+
+    handler._record_round_card_selection.assert_awaited_once_with(
+        context, "final123", 1, "secret-blue"
+    )
+    handler._after_round_card_selected.assert_awaited_once()
+    assert context.bot_data["r3_final123_challenger_media_sent"] is True
+    assert "r3_final123_challenger_hidden_inline_message_id" not in context.bot_data
+
+
+@pytest.mark.parametrize("already_visible", [False, True])
+def test_final_deck_fallback_reveals_each_confirmed_card_immediately(already_visible):
+    handler = BattleHandlersMixin()
+    handler._fight_arena_mode = Mock(return_value="deck")
+    handler.db = SimpleNamespace(
+        get_battle_deck_state=Mock(return_value={"current_round": 3})
+    )
+    handler._send_selected_round_card_media = AsyncMock()
+    handler._advance_round_card_turn_or_start_effects = AsyncMock()
+    card = SimpleNamespace(card_id="last-blue", name="Blue Card")
+    media_key = "r3_final123_challenger_media_sent"
+    context = SimpleNamespace(bot_data={media_key: True} if already_visible else {})
+
+    asyncio.run(handler._after_round_card_selected(context, "final123", 1, "challenger", card))
+
+    if already_visible:
+        handler._send_selected_round_card_media.assert_not_awaited()
+    else:
+        handler._send_selected_round_card_media.assert_awaited_once_with(
+            context, "final123", 1, card
+        )
+    assert context.bot_data[media_key] is True
+    handler._advance_round_card_turn_or_start_effects.assert_awaited_once_with(context, "final123")
 
 
 def test_deck_final_chosen_inline_waits_for_explicit_button_confirmation():
