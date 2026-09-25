@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import sqlite3
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Tuple
 
 from systems.economy_system import EconomySystem
@@ -44,18 +46,45 @@ class CardUpgradeSystem:
         except sqlite3.OperationalError:
             pass
         try:
-            row = conn.execute(
+            rows = conn.execute(
                 """
-                SELECT 1 FROM game_requests
-                WHERE (creator_id=? OR opponent_id=?)
-                  AND status IN ('accepted', 'active')
-                LIMIT 1
+                SELECT r.mode, r.status, r.expires_at, s.state_json
+                FROM game_requests r
+                LEFT JOIN game_match_states s ON s.request_id=r.request_id
+                WHERE (r.creator_id=? OR r.opponent_id=?)
+                  AND r.status IN ('accepted', 'active')
                 """,
                 (user_id, user_id),
-            ).fetchone()
+            ).fetchall()
         except sqlite3.OperationalError:
-            row = None
-        return bool(row)
+            rows = []
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        for mode, status, expires_at, state_json in rows:
+            if status == "accepted":
+                # Deck matches live in active_fights; their accepted request
+                # is not advanced when the fight finishes.
+                if mode == "deck":
+                    continue
+                deadline = expires_at
+            else:
+                try:
+                    state = json.loads(state_json or "{}")
+                    if state.get("phase") in ("completed", "finished"):
+                        continue
+                    deadline = state.get("deadline")
+                except (TypeError, ValueError):
+                    continue
+            try:
+                if not deadline:
+                    continue
+                expires = datetime.fromisoformat(str(deadline))
+                if expires.tzinfo is not None:
+                    expires = expires.astimezone(timezone.utc).replace(tzinfo=None)
+                if expires > now:
+                    return True
+            except (TypeError, ValueError):
+                continue
+        return False
 
     def is_management_locked(self, user_id: int) -> bool:
         conn = sqlite3.connect(self.db.db_path)

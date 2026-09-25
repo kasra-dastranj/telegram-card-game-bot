@@ -1,9 +1,12 @@
+import json
 import sqlite3
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
 from game_core import CardManager, DatabaseManager
 from systems.card_upgrade_system import CardUpgradeSystem
+from systems.game_mode_system import GameModeSystem
 
 
 @pytest.fixture()
@@ -81,3 +84,58 @@ def test_upgrade_rejects_while_a_match_is_active(upgrade_db):
 
     assert result["error_code"] == "active_match"
     assert _snapshot(database, 501, card_id) == (1000, None, 0)
+
+
+def test_accepted_deck_request_uses_actual_fight_to_lock_collection(upgrade_db):
+    database, _ = upgrade_db
+    modes = GameModeSystem(database)
+    request = modes.create_invite(501, "deck", "normal")
+    accepted, _, _ = modes.accept_request(request["request_id"], 502)
+    assert accepted
+    upgrades = CardUpgradeSystem(database)
+    assert not upgrades.is_management_locked(501)
+    fight_id = database.create_fight(501, 502, -100)
+    assert upgrades.is_management_locked(501)
+    with sqlite3.connect(database.db_path) as conn:
+        conn.execute("UPDATE active_fights SET status='completed' WHERE fight_id=?", (fight_id,))
+    assert not upgrades.is_management_locked(501)
+    assert not upgrades.is_management_locked(502)
+
+
+def test_expired_accepted_quick_request_does_not_lock_collection(upgrade_db):
+    database, _ = upgrade_db
+    modes = GameModeSystem(database)
+    request = modes.create_invite(501, "quick", "normal")
+    accepted, _, _ = modes.accept_request(request["request_id"], 502)
+    assert accepted
+    upgrades = CardUpgradeSystem(database)
+    assert upgrades.is_management_locked(501)
+    with sqlite3.connect(database.db_path) as conn:
+        conn.execute(
+            "UPDATE game_requests SET expires_at=? WHERE request_id=?",
+            ((datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat(), request["request_id"]),
+        )
+    assert not upgrades.is_management_locked(501)
+
+
+def test_expired_quick_choice_does_not_lock_collection(upgrade_db):
+    database, _ = upgrade_db
+    modes = GameModeSystem(database)
+    request = modes.create_invite(501, "quick", "normal")
+    accepted, _, _ = modes.accept_request(request["request_id"], 502)
+    assert accepted
+    modes.start_quick_match(request["request_id"])
+    upgrades = CardUpgradeSystem(database)
+    assert upgrades.is_management_locked(501)
+    with sqlite3.connect(database.db_path) as conn:
+        state = json.loads(conn.execute(
+            "SELECT state_json FROM game_match_states WHERE request_id=?",
+            (request["request_id"],),
+        ).fetchone()[0])
+        state["deadline"] = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat()
+        conn.execute(
+            "UPDATE game_match_states SET state_json=? WHERE request_id=?",
+            (json.dumps(state), request["request_id"]),
+        )
+    assert not upgrades.is_management_locked(501)
+    assert not upgrades.is_management_locked(502)
