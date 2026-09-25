@@ -9,6 +9,7 @@ from typing import Dict, List, Optional, Tuple
 from core.game_logic import GameLogic
 from systems.claim_system import ClaimSystem
 from systems.phase2_systems import LevelSystem
+from systems.player_rewards_system import PlayerRewardsSystem
 
 
 class PlayerHubSystem:
@@ -50,17 +51,7 @@ class PlayerHubSystem:
             return 0
 
     def _claim_status(self, player) -> Dict:
-        can_claim, message = self.claims.can_claim_today(player.user_id)
-        remaining = 0
-        if not can_claim and player.last_claim:
-            now = datetime.now()
-            midnight = datetime.combine(now.date() + timedelta(days=1), datetime.min.time())
-            remaining = max(0, int((midnight - now).total_seconds()))
-        return {
-            "can_claim": can_claim,
-            "remaining_seconds": remaining,
-            "message": message,
-        }
+        return PlayerRewardsSystem(self.db).claim_status(player.user_id)
 
     def get_overview(self, user_id: int) -> Dict:
         player = self.game.check_and_reset_hearts(self.db.get_or_create_player(user_id))

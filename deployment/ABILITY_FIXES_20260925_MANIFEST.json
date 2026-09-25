@@ -1,0 +1,18 @@
+{
+  "bot/handlers/basic.py": "5b7b2d924ed493dcadcb332e19dc4af63b7aa6d8ab65326e6a033a8fb040fe09",
+  "bot/handlers/battle.py": "a94b5cbc64fbf0b5cf0ac5893aea78c5b96713c9e8b9318e07d6529454e20c60",
+  "bot/handlers/pvp.py": "53bf9c22fa4e92c87df34c2fc360842546616a52ea037eb9e4dea4982ab43cfc",
+  "core/database.py": "230e83a60511cc2c180fb4771ef0f7fc00d3faaa658dab513ab8623014698bcb",
+  "core/game_logic.py": "5d78c4ff8c3b6c53abe4518f6546b45ed2bcb5ae93ef1acf5d3f9969ef8367cd",
+  "systems/player_hub_system.py": "f5dc8d2484cafd7587db98524abbdd34bab0342c9e9afd8db33686378f15810a",
+  "systems/player_rewards_system.py": "90054859525ef30660bcf4fd34dc072a78e839c85378303b94c60b9381491de5",
+  "web/miniapp_api.py": "4a008d22cc45d935a17946df03c9a2018321d2c6895be37bfb51fa5807f96b02",
+  "frontend/game/src/api.ts": "8b90be91eb49a92f927710fbd0182d12c071b6c0b56eb0c2b586c4800113ca82",
+  "frontend/game/src/main.ts": "ea0ab42aae28fa0176d921ed337e80e18ec13b30c41ff8bdb99362593ef085d4",
+  "deployment/deploy_ability_fixes_20260925.py": "4453b6ad44c9da1d008c3000fad7970e6ebeada85d8517d2b3dc424c5071be5d",
+  "deployment/smoke_ability_fixes_20260925.py": "245159251c1d517b33c08fd6a64608f6dba066c703ba9f185dd406e80edb01d5",
+  "frontend/game/dist/index.html": "55e2e7e28df1902a724fc1b9ba2be503340f8d21a9e362c2205a3178835a8de7",
+  "frontend/game/dist/assets/index-BGAzyMW_.js": "24904501541c53806c572ddcf9d6042514e64dc3a4133b08292dd6e1572870a9",
+  "frontend/game/dist/assets/phaser-DFK5Ua9d.js": "f9025c1a29bc3ae097dd886ce07717b297466da1ce8f032c8294252ce6cf5cdb",
+  "frontend/game/dist/assets/index-Cy32u_uY.css": "48b5b60fda843cb30d7530c654e4e63647612201cb7ae8c317bfbada4f366839"
+}

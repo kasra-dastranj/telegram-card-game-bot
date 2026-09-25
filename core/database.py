@@ -433,6 +433,10 @@ class DatabaseManager:
             # Phase 1: Ability System
             ('battle_states', 'challenger_ability_used', 'INTEGER DEFAULT 0'),
             ('battle_states', 'opponent_ability_used', 'INTEGER DEFAULT 0'),
+            ('battle_states', 'challenger_pending_ability', 'TEXT'),
+            ('battle_states', 'opponent_pending_ability', 'TEXT'),
+            ('battle_states', 'challenger_pending_ability_round', 'INTEGER'),
+            ('battle_states', 'opponent_pending_ability_round', 'INTEGER'),
             # Solo fights ability tracking
             ('solo_fights', 'player_ability_used', 'INTEGER DEFAULT 0'),
             ('solo_fights', 'ai_ability_used', 'INTEGER DEFAULT 0'),

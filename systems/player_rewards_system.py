@@ -5,25 +5,32 @@ from __future__ import annotations
 import json
 import random
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List
+from zoneinfo import ZoneInfo
 
 from systems.card_missions_system import MISSION_TYPES
 from systems.phase2_systems import LevelSystem
+from systems.game_mode_system import ABILITY_DEFINITIONS, GameModeSystem
 
 
 class PlayerRewardsSystem:
+    CLAIM_TIMEZONE = ZoneInfo("Asia/Tehran")
+
     def __init__(self, db):
         self.db = db
 
     @staticmethod
     def _claim_status_from(last_claim: str | None) -> Dict[str, Any]:
-        now = datetime.now()
+        now = datetime.now(PlayerRewardsSystem.CLAIM_TIMEZONE)
         if last_claim:
             try:
                 claimed = datetime.fromisoformat(last_claim)
+                if claimed.tzinfo is None:
+                    claimed = claimed.replace(tzinfo=timezone.utc)
+                claimed = claimed.astimezone(PlayerRewardsSystem.CLAIM_TIMEZONE)
                 if claimed.date() == now.date():
-                    midnight = datetime.combine(now.date() + timedelta(days=1), datetime.min.time())
+                    midnight = datetime.combine(now.date() + timedelta(days=1), datetime.min.time(), tzinfo=PlayerRewardsSystem.CLAIM_TIMEZONE)
                     return {"can_claim": False, "remaining_seconds": max(0, int((midnight - now).total_seconds()))}
             except ValueError:
                 pass
@@ -50,6 +57,9 @@ class PlayerRewardsSystem:
             conn.close()
 
     def claim_daily(self, user_id: int) -> Dict[str, Any]:
+        # The Quick inventory and its definitions must exist before the claim
+        # transaction, including when the Telegram bot starts before the web app.
+        GameModeSystem(self.db)
         conn = sqlite3.connect(self.db.db_path, timeout=15)
         conn.row_factory = sqlite3.Row
         try:
@@ -81,11 +91,22 @@ class PlayerRewardsSystem:
             card_id = random.choice(rows)["card_id"]
             conn.execute(
                 "INSERT OR IGNORE INTO player_cards(user_id,card_id,obtained_at) VALUES (?,?,?)",
-                (user_id, card_id, datetime.now().isoformat()),
+                (user_id, card_id, datetime.now(timezone.utc).isoformat()),
             )
-            conn.execute("UPDATE players SET last_claim=? WHERE user_id=?", (datetime.now().isoformat(), user_id))
+            conn.execute("UPDATE players SET last_claim=? WHERE user_id=?", (datetime.now(timezone.utc).isoformat(), user_id))
+            ability_key = random.choice(tuple(ABILITY_DEFINITIONS))
+            conn.execute(
+                """INSERT INTO player_ability_inventory(user_id, ability_key, quantity)
+                   VALUES (?, ?, 1)
+                   ON CONFLICT(user_id, ability_key)
+                   DO UPDATE SET quantity=quantity+1""",
+                (user_id, ability_key),
+            )
             conn.commit()
-            return {"ok": True, "card_id": card_id}
+            return {"ok": True, "card_id": card_id, "ability": {
+                "key": ability_key,
+                "title": ABILITY_DEFINITIONS[ability_key]["title"],
+            }}
         except Exception:
             conn.rollback()
             return {"ok": False, "error_code": "claim_failed", "error": "دریافت کارت انجام نشد"}

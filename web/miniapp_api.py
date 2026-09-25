@@ -696,7 +696,7 @@ def claim_daily_card():
     if not result.get("ok"):
         return jsonify(result), 409
     card = db.get_card_by_id_for_player(result["card_id"], g.user_id) or db.get_card_by_id(result["card_id"])
-    return jsonify({"ok": True, "message": "کارت روزانه دریافت شد", "data": {"card": card_to_dict(card)}, "profile": _player_hub().get_overview(g.user_id)})
+    return jsonify({"ok": True, "message": "کارت روزانه و یک Ability دریافت شد", "data": {"card": card_to_dict(card), "ability": result["ability"]}, "profile": _player_hub().get_overview(g.user_id)})
 
 
 @app.route("/api/v1/missions", methods=["GET"])

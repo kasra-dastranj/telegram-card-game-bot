@@ -434,8 +434,8 @@ export const api = {
     if (demoMode) return { can_claim: !demoClaimed, remaining_seconds: demoClaimed ? 3600 : 0, pool_count: 12 };
     return request("GET", "/claim");
   },
-  async claimDaily(): Promise<{ message: string; data: { card: CardData }; profile: ProfileData }> {
-    if (demoMode) { demoClaimed = true; return { message: "کارت روزانه دریافت شد", data: { card: demoCards[0] }, profile: await this.profile() }; }
+  async claimDaily(): Promise<{ message: string; data: { card: CardData; ability?: { key: string; title: string } }; profile: ProfileData }> {
+    if (demoMode) { demoClaimed = true; return { message: "کارت روزانه و یک Ability دریافت شد", data: { card: demoCards[0], ability: { key: "reveal_opponent", title: "👁 مشاهده کارت حریف" } }, profile: await this.profile() }; }
     return request("POST", "/claim");
   },
   async missions(): Promise<MissionData[]> {

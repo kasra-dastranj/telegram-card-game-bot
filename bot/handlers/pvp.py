@@ -168,7 +168,7 @@ class PvPHandlersMixin:
             return
         
         user_id = query.from_user.id
-        success, card, error = self.game.claim_daily_card(user_id)
+        success, card, error, quick_ability = self.game.claim_daily_card_with_ability(user_id)
         
         if success and card:
             rarity_colors = {
@@ -198,7 +198,8 @@ class PvPHandlersMixin:
             for ability in card.abilities:
                 text += f"• {ability}\n"
             
-            text += f"\n🕐 کلیم بعدی: {self.game.CLAIM_COOLDOWN_HOURS} ساعت دیگر"
+            text += f"\n🎁 Ability مصرفی Quick: {quick_ability['title']} ×۱"
+            text += "\n🕐 کارت بعدی: پس از نیمه‌شب"
             
             if not image_sent:
                 text = f"🎴 (تصویر در دسترس نیست)\n\n" + text
@@ -1027,7 +1028,7 @@ class PvPHandlersMixin:
             return
         
         user_id = query.from_user.id
-        success, card, error = self.game.claim_daily_card(user_id)
+        success, card, error, quick_ability = self.game.claim_daily_card_with_ability(user_id)
         
         if success and card:
             rarity_colors = {
@@ -1057,7 +1058,8 @@ class PvPHandlersMixin:
             for ability in card.abilities:
                 text += f"• {ability}\n"
             
-            text += f"\n🕐 کلیم بعدی: {self.game.CLAIM_COOLDOWN_HOURS} ساعت دیگر"
+            text += f"\n🎁 Ability مصرفی Quick: {quick_ability['title']} ×۱"
+            text += "\n🕐 کارت بعدی: پس از نیمه‌شب"
             
             if not image_sent:
                 text = f"🎴 (تصویر در دسترس نیست)\n\n" + text

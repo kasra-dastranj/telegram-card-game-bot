@@ -34,7 +34,7 @@ def test_claim_command_uses_same_daily_claim_flow_as_start_menu_button():
     )
     handler.game = SimpleNamespace(
         CLAIM_COOLDOWN_HOURS=24,
-        claim_daily_card=Mock(return_value=(True, card, None)),
+        claim_daily_card_with_ability=Mock(return_value=(True, card, None, {"title": "👁 مشاهده کارت حریف"})),
     )
     update, message = _claim_update()
     context = SimpleNamespace(bot=SimpleNamespace())
@@ -51,12 +51,13 @@ def test_claim_command_uses_same_daily_claim_flow_as_start_menu_button():
     ):
         asyncio.run(handler.claim_command(update, context))
 
-    handler.game.claim_daily_card.assert_called_once_with(1)
+    handler.game.claim_daily_card_with_ability.assert_called_once_with(1)
     send_image.assert_awaited_once()
     reply = message.reply_text.await_args
     assert "کارت روزانه دریافت شد" in reply.args[0]
     assert "Test Hero" in reply.args[0]
     assert "Skip" in reply.args[0]
+    assert "مشاهده کارت حریف" in reply.args[0]
     assert reply.kwargs["parse_mode"] == "Markdown"
 
 
@@ -64,8 +65,8 @@ def test_claim_command_replies_with_cooldown_error_without_callback_query():
     handler = BasicHandlersMixin()
     handler.is_user_in_channel = AsyncMock(return_value=True)
     handler.game = SimpleNamespace(
-        claim_daily_card=Mock(
-            return_value=(False, None, "هنوز امکان دریافت کارت روزانه نیست")
+        claim_daily_card_with_ability=Mock(
+            return_value=(False, None, "هنوز امکان دریافت کارت روزانه نیست", None)
         )
     )
     update, message = _claim_update()

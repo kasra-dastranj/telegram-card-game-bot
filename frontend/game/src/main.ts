@@ -39,6 +39,7 @@ const state: {
   claimStatus?: ClaimStatus;
   missions: MissionData[];
   rewardCard?: CardData;
+  rewardAbility?: { key: string; title: string };
   skinPanel?: { cardId: string; data: SkinCollection };
   fusion: { target: "epic" | "legend"; cardIds: string[]; retainedId?: string; preview?: FusionPreview };
 } = {
@@ -481,7 +482,7 @@ function progressTemplate(): string {
   return `<section class="screen hub-screen progress-screen">
     ${resourceHud()}<div class="hub-scroll"><header class="hub-title"><div><p class="eyebrow">PROGRESS</p><h1>پیشرفت و پاداش</h1></div></header>
     <article class="daily-claim glass-panel"><div><small>DAILY CARD</small><h2>${claim?.can_claim ? "کارت روزانه آماده است" : "کارت امروز دریافت شده"}</h2><p>${claim?.can_claim ? `${claim.pool_count} کارت در Pool` : `دریافت بعدی: ${formatDuration(claim?.remaining_seconds)}`}</p></div><button data-action="claim-daily" ${!claim?.can_claim || state.loading ? "disabled" : ""}>${state.loading ? "…" : "دریافت کارت"}</button></article>
-    ${state.rewardCard ? `<article class="reward-reveal glass-panel"><span style="background-image:url('${escapeHtml(state.rewardCard.image_url)}')"></span><div><small>پاداش تازه</small><h2 dir="auto">${escapeHtml(state.rewardCard.name)}</h2><b dir="ltr">${escapeHtml(state.rewardCard.rarity.toUpperCase())}</b></div></article>` : ""}
+    ${state.rewardCard ? `<article class="reward-reveal glass-panel"><span style="background-image:url('${escapeHtml(state.rewardCard.image_url)}')"></span><div><small>پاداش تازه</small><h2 dir="auto">${escapeHtml(state.rewardCard.name)}</h2><b dir="ltr">${escapeHtml(state.rewardCard.rarity.toUpperCase())}</b>${state.rewardAbility ? `<p>🎁 Ability مصرفی Quick: ${escapeHtml(state.rewardAbility.title)} ×۱</p>` : ""}</div></article>` : ""}
     <header class="subsection-title"><h2>مأموریت‌های کارت</h2><span>${state.missions.length}</span></header><div class="mission-list">${state.loading ? skeletons() : missions || '<p class="empty-state">برای کارت‌های فعلی مأموریتی ثبت نشده است.</p>'}</div></div>${bottomNav("progress")}
   </section>`;
 }
@@ -1056,14 +1057,14 @@ async function openProgress(): Promise<void> {
 async function claimDaily(): Promise<void> {
   if (state.loading || !state.claimStatus?.can_claim) return;
   state.loading = true; render();
-  try { const result = await api.claimDaily(); state.rewardCard = result.data.card; state.profile = { ...(state.profile || {} as ProfileData), ...result.profile }; state.claimStatus = await api.claimStatus(); haptic("success"); showToast(result.message); }
+  try { const result = await api.claimDaily(); state.rewardCard = result.data.card; state.rewardAbility = result.data.ability; state.profile = { ...(state.profile || {} as ProfileData), ...result.profile }; state.claimStatus = await api.claimStatus(); haptic("success"); showToast(result.message); }
   catch (error) { showToast(error instanceof Error ? error.message : "دریافت کارت انجام نشد"); }
   finally { state.loading = false; render(); }
 }
 
 async function claimMission(missionId: string): Promise<void> {
   if (state.loading) return; state.loading = true; render();
-  try { const result = await api.claimMission(missionId); state.rewardCard = result.data.card; state.missions = await api.missions(); await refreshProfile(); haptic("success"); showToast(result.message); }
+  try { const result = await api.claimMission(missionId); state.rewardCard = result.data.card; state.rewardAbility = undefined; state.missions = await api.missions(); await refreshProfile(); haptic("success"); showToast(result.message); }
   catch (error) { showToast(error instanceof Error ? error.message : "دریافت پاداش انجام نشد"); }
   finally { state.loading = false; render(); }
 }
@@ -1101,7 +1102,7 @@ async function executeFusion(): Promise<void> {
   const fusion = state.fusion;
   if (state.loading || !fusion.retainedId || !fusion.preview) return;
   state.loading = true; render();
-  try { const result = await api.executeFusion(fusion.cardIds, fusion.retainedId, fusion.target); state.rewardCard = result.data.card; state.profile = { ...(state.profile || {} as ProfileData), ...result.profile }; state.cards = await api.cards(); state.fusion = { target: fusion.target, cardIds: [] }; haptic("success"); showToast(result.message); }
+  try { const result = await api.executeFusion(fusion.cardIds, fusion.retainedId, fusion.target); state.rewardCard = result.data.card; state.rewardAbility = undefined; state.profile = { ...(state.profile || {} as ProfileData), ...result.profile }; state.cards = await api.cards(); state.fusion = { target: fusion.target, cardIds: [] }; haptic("success"); showToast(result.message); }
   catch (error) { showToast(error instanceof Error ? error.message : "Fusion انجام نشد"); }
   finally { state.loading = false; render(); }
 }

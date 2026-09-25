@@ -809,90 +809,128 @@ class BattleHandlersMixin:
                                         ch_used, op_used, ch_stats, op_stats)
 
     async def r3_ability_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """فعال‌سازی ابیلیتی کارت (یک‌بار مصرف در کل نبرد)"""
+        """Activate the card's one-use ability and retain the stat buttons."""
         query = update.callback_query
-        await query.answer()
-        user_id = query.from_user.id
+        payload = (query.data or "").removeprefix("r3_ability_")
+        fight_id, separator, ability_key = payload.partition("_")
+        if not separator or not fight_id or not ability_key:
+            await query.answer("❌ ابیلیتی نامعتبر است.", show_alert=True)
+            return
+        try:
+            result = self._activate_r3_ability(
+                fight_id, query.from_user.id, ability_key, context.bot_data
+            )
+        except ValueError as exc:
+            await query.answer(f"❌ {exc}", show_alert=True)
+            return
 
-        import json as _json
-        import sqlite3 as _sq
+        from systems.battle_system_3rounds import ABILITIES
+        ab = ABILITIES[ability_key]
+        await query.answer(f"🪄 {ab['name_fa']} فعال شد!", show_alert=True)
+        peek = result.get("peek")
+        peek_text = (
+            f"\n\n👁️ {self._battle_attr_label(peek['stat'])} حریف: {peek['value']}"
+            if peek else ""
+        )
+        markup = getattr(getattr(query, "message", None), "reply_markup", None)
+        stat_rows = [list(row) for row in getattr(markup, "inline_keyboard", [])
+                     if not any((button.callback_data or "").startswith("r3_ability_") for button in row)]
+        text = (
+            f"🪄 {ab['emoji']} {ab['name_fa']} فعال شد!\n"
+            f"💡 {ab['description']}{peek_text}\n\n"
+            "حالا ویژگی این راند را انتخاب کن:"
+        )
+        if stat_rows:
+            try:
+                await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(stat_rows))
+                return
+            except Exception as exc:
+                logger.warning("Could not refresh ability panel for %s: %s", fight_id, exc)
+        await self._send_round_stat_selection(
+            context, fight_id, query.from_user.id, result["card"], result["arena"],
+            result["round"], result["used_stats"], result["opponent_card"], ability_used=True
+        )
+        if peek:
+            await context.bot.send_message(chat_id=query.from_user.id, text=peek_text.strip())
 
-        # r3_ability_{fight_id}_{ability_key}
-        parts = query.data.split("_", 3)
-        # data format: r3_ability_FIGHTID_ABILITYKEY
-        # split on "_" max 3: ['r3', 'ability', 'FIGHTID_ABILITYKEY']
-        # better: split manually
-        prefix = "r3_ability_"
-        rest = query.data[len(prefix):]
-        # fight_id is 8 chars, ability_key is the rest
-        # safer: find last underscore-separated ability key
-        # fight_id could contain underscores... let's use a different approach
-        # format is actually: r3_ability_{fight_id}_{ability_key} where fight_id is 8 chars
-        fight_id = rest[:8]
-        ability_key = rest[9:]  # skip the underscore after fight_id
-
+    def _activate_r3_ability(self, fight_id: str, user_id: int, ability_key: str, bot_data: dict) -> dict:
+        """Atomically validate a callback and persist its effect for this round."""
+        import sqlite3
         from systems.battle_system_3rounds import ABILITIES, get_card_ability
 
         if ability_key not in ABILITIES:
-            await query.answer("❌ ابیلیتی نامعتبر!", show_alert=True)
-            return
-
-        # دریافت battle_state
-        conn = _sq.connect(self.db.db_path)
-        cursor = conn.cursor()
-        cursor.execute('''
-            SELECT challenger_id, opponent_id, challenger_ability_used, opponent_ability_used
-            FROM battle_states WHERE fight_id = ?
-        ''', (fight_id,))
-        row = cursor.fetchone()
-
-        if not row:
-            conn.close()
-            await query.answer("❌ بازی یافت نشد!", show_alert=True)
-            return
-
-        ch_id, op_id, ch_ab_used, op_ab_used = row
-
-        # تعیین نقش
-        if user_id == ch_id:
-            role = 'challenger'
-            already_used = bool(ch_ab_used)
-        elif user_id == op_id:
-            role = 'opponent'
-            already_used = bool(op_ab_used)
-        else:
-            conn.close()
-            await query.answer("❌ این بازی مال تو نیست!", show_alert=True)
-            return
-
-        if already_used:
-            conn.close()
-            await query.answer("❌ ابیلیتی قبلاً مصرف شده!", show_alert=True)
-            return
-
-        # ثبت ابیلیتی pending (برای اعمال در resolve)
-        context.bot_data[f"r3_{fight_id}_{role}_ability"] = ability_key
-
-        # ثبت در DB که ابیلیتی مصرف شد
-        col = "challenger_ability_used" if role == "challenger" else "opponent_ability_used"
-        cursor.execute(f'UPDATE battle_states SET {col} = 1 WHERE fight_id = ?', (fight_id,))
-        conn.commit()
-        conn.close()
-
-        ab = ABILITIES[ability_key]
-        await query.answer(f"🪄 {ab['name_fa']} فعال شد! حالا stat رو انتخاب کن.", show_alert=True)
-
-        # دکمه ابیلیتی حذف شود — re-edit message بدون دکمه ابیلیتی
-        # فقط متن تأیید بزنیم
+            raise ValueError("ابیلیتی نامعتبر است")
+        conn = sqlite3.connect(self.db.db_path, timeout=15)
+        conn.row_factory = sqlite3.Row
         try:
-            await query.edit_message_text(
-                f"🪄 **{ab['emoji']} {ab['name_fa']} فعال شد!**\n\n"
-                f"💡 {ab['description']}\n\n"
-                f"حالا ویژگی راوند رو انتخاب کن ↓",
-                parse_mode='Markdown'
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute("SELECT * FROM battle_states WHERE fight_id=?", (fight_id,)).fetchone()
+            if not row:
+                raise ValueError("بازی یافت نشد")
+            if row["status"] != f"round_{row['current_round']}" or row["current_round"] not in (1, 2, 3):
+                raise ValueError("این راند دیگر فعال نیست")
+            if json.loads(row["challenger_deck_cards"] or "[]") or json.loads(row["opponent_deck_cards"] or "[]"):
+                raise ValueError("Ability در Deck فعال نیست")
+            if user_id == row["challenger_id"]:
+                role, other = "challenger", "opponent"
+            elif user_id == row["opponent_id"]:
+                role, other = "opponent", "challenger"
+            else:
+                raise ValueError("این بازی مال تو نیست")
+            if row[f"{role}_ability_used"]:
+                raise ValueError("Ability قبلاً مصرف شده است")
+            if bot_data.get(f"r3_{fight_id}_{role}_stat"):
+                raise ValueError("اول انتخاب ویژگی این راند ثبت شده است")
+            card = self.db.get_card_by_id_for_player(row[f"{role}_card_id"], user_id)
+            if not card or get_card_ability(card) != ability_key:
+                raise ValueError("این Ability متعلق به کارت تو نیست")
+            opponent_card = self.db.get_card_by_id_for_player(
+                row[f"{other}_card_id"], row[f"{other}_id"]
             )
+            peek = None
+            if ability_key == "peek":
+                current = json.loads(row[f"{other}_current_stats"] or "{}")
+                used = set(json.loads(row[f"{other}_used_stats"] or "[]"))
+                candidates = [stat for stat in ("power", "speed", "iq", "popularity")
+                              if stat in current and stat not in used]
+                if not candidates:
+                    raise ValueError("ویژگی قابل مشاهده‌ای باقی نمانده است")
+                stat = random.choice(candidates)
+                peek = {"stat": stat, "value": int(current[stat])}
+            result = conn.execute(
+                f"UPDATE battle_states SET {role}_ability_used=1,"
+                f"{role}_pending_ability=?, {role}_pending_ability_round=? "
+                f"WHERE fight_id=? AND {role}_ability_used=0 AND status=? AND current_round=?",
+                (ability_key, row["current_round"], fight_id, row["status"], row["current_round"]),
+            )
+            if result.rowcount != 1:
+                raise ValueError("Ability قبلاً مصرف شده است")
+            conn.commit()
+            return {"role": role, "round": row["current_round"], "arena": row["arena"],
+                    "card": card, "opponent_card": opponent_card,
+                    "used_stats": json.loads(row[f"{role}_used_stats"] or "[]"), "peek": peek}
         except Exception:
-            pass
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
+    def _r3_pending_abilities(self, fight_id: str, round_number: int) -> tuple:
+        """Read abilities from persistent round state, even after a bot restart."""
+        import sqlite3
+        conn = sqlite3.connect(self.db.db_path)
+        try:
+            row = conn.execute('''
+                SELECT challenger_pending_ability, challenger_pending_ability_round,
+                       opponent_pending_ability, opponent_pending_ability_round
+                FROM battle_states WHERE fight_id=?
+            ''', (fight_id,)).fetchone()
+        finally:
+            conn.close()
+        if not row:
+            return None, None
+        return (row[0] if row[1] == round_number else None,
+                row[2] if row[3] == round_number else None)
 
     async def _resolve_3round(self, context, fight_id: str,
                                ch_stat: str, op_stat: str,
@@ -966,9 +1004,10 @@ class BattleHandlersMixin:
         ch_total = ch_base + ch_boost
         op_total = op_base + op_boost
 
-        # اعمال ابیلیتی‌های pending
-        ch_ability_key = context.bot_data.pop(f"r3_{fight_id}_challenger_ability", None)
-        op_ability_key = context.bot_data.pop(f"r3_{fight_id}_opponent_ability", None)
+        # Ability choices survive a bot restart and belong only to this round.
+        ch_ability_key, op_ability_key = self._r3_pending_abilities(fight_id, current_round)
+        context.bot_data.pop(f"r3_{fight_id}_challenger_ability", None)
+        context.bot_data.pop(f"r3_{fight_id}_opponent_ability", None)
 
         ability_texts = []
         if ch_ability_key:
@@ -1113,7 +1152,9 @@ class BattleHandlersMixin:
             cursor = conn.cursor()
             cursor.execute('''
                 UPDATE battle_states SET status='completed',
-                challenger_rounds_won=?, opponent_rounds_won=?
+                challenger_rounds_won=?, opponent_rounds_won=?,
+                challenger_pending_ability=NULL, opponent_pending_ability=NULL,
+                challenger_pending_ability_round=NULL, opponent_pending_ability_round=NULL
                 WHERE fight_id=?
             ''', (ch_rounds_won, op_rounds_won, fight_id))
             conn.commit()
@@ -1147,6 +1188,8 @@ class BattleHandlersMixin:
                 current_round=?, challenger_rounds_won=?, opponent_rounds_won=?,
                 challenger_used_stats=?, opponent_used_stats=?,
                 challenger_current_stats=?, opponent_current_stats=?,
+                challenger_pending_ability=NULL, opponent_pending_ability=NULL,
+                challenger_pending_ability_round=NULL, opponent_pending_ability_round=NULL,
                 status=?
                 WHERE fight_id=?
             ''', (next_round, ch_rounds_won, op_rounds_won,

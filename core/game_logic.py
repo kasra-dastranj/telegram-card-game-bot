@@ -179,55 +179,19 @@ class GameLogic:
             conn.close()
     
     def claim_daily_card(self, user_id: int) -> Tuple[bool, Optional[Card], Optional[str]]:
-        """دریافت کارت روزانه — سیستم pool فاز ۲ (احتمال برابر، همیشه Normal)"""
-        player = self.db.get_or_create_player(user_id)
-        
-        # بررسی cooldown (ریست در ساعت 00:00 ایران)
-        if player.last_claim and player.last_claim.year > 2000:
-            try:
-                from zoneinfo import ZoneInfo
-                iran_tz = ZoneInfo("Asia/Tehran")
-                now = datetime.now(iran_tz)
-                lc = player.last_claim
-                if lc.tzinfo is None:
-                    lc = lc.replace(tzinfo=ZoneInfo("UTC")).astimezone(iran_tz)
-                else:
-                    lc = lc.astimezone(iran_tz)
-                
-                if lc.date() == now.date():
-                    midnight = datetime.combine(now.date() + timedelta(days=1), datetime.min.time()).replace(tzinfo=iran_tz)
-                    remaining = midnight - now
-                    h = int(remaining.total_seconds() // 3600)
-                    m = int((remaining.total_seconds() % 3600) // 60)
-                    return False, None, f"شما امروز کارت دریافت کرده‌اید. کارت بعدی در {h} ساعت و {m} دقیقه دیگر (ساعت 00:00)"
-            except Exception:
-                # fallback به روش ساده
-                if (datetime.now() - player.last_claim).total_seconds() < self.CLAIM_COOLDOWN_HOURS * 3600:
-                    return False, None, "هنوز زمان کلیم نرسیده"
-        
-        # محاسبه pool: همه Normal هایی که بازیکن در Epic یا Legend ندارد
-        all_cards = self.db.get_all_cards()
-        normal_cards = [c for c in all_cards if c.rarity == CardRarity.NORMAL]
-        
-        if not normal_cards:
-            return False, None, "هیچ کارت Normal در دیتابیس موجود نیست"
-        
-        player_cards = self.db.get_player_cards(user_id)
-        excluded_ids = {c.card_id for c in player_cards if c.rarity in [CardRarity.EPIC, CardRarity.LEGEND, CardRarity.RARE]}
-        
-        pool = [c for c in normal_cards if c.card_id not in excluded_ids]
-        
-        # fallback اگر pool خالی شد
-        if not pool:
-            pool = normal_cards
-        
-        card = random.choice(pool)
-        self.db.add_card_to_player(user_id, card.card_id)
-        
-        player.last_claim = datetime.now()
-        self.db.update_player(player)
-        
-        return True, card, None
+        success, card, error, _ability = self.claim_daily_card_with_ability(user_id)
+        return success, card, error
+
+    def claim_daily_card_with_ability(self, user_id: int):
+        """Atomically award the daily card and one consumable Quick Ability."""
+        from systems.player_rewards_system import PlayerRewardsSystem
+
+        self.db.get_or_create_player(user_id)
+        result = PlayerRewardsSystem(self.db).claim_daily(user_id)
+        if not result["ok"]:
+            return False, None, result["error"], None
+        card = self.db.get_card_by_id_for_player(result["card_id"], user_id)
+        return True, card, None, result["ability"]
     
     def get_heart_reset_time_remaining(self, player: Player) -> Optional[timedelta]:
         """محاسبه زمان باقی‌مانده تا ریست جان‌ها"""
