@@ -11,6 +11,8 @@ from bot.handlers.battle import (
     DECK_TURN_TIMEOUT_SECONDS,
 )
 from core.database import DatabaseManager
+from core.models import CardRarity
+from systems.battle_system_3rounds import BattleSystem3Rounds
 
 
 def test_battle_deck_state_exposes_live_score_and_arena(tmp_path):
@@ -164,7 +166,10 @@ def test_deck_final_card_is_not_auto_selected_and_requires_manual_confirmation()
     handler.db = SimpleNamespace(
         get_fight_by_id=Mock(return_value=fight),
         get_or_create_player=Mock(side_effect=lambda user_id: players[user_id]),
-        get_card_by_id=Mock(return_value=SimpleNamespace(name="Blue Last")),
+        get_card_by_id_for_player=Mock(
+            return_value=SimpleNamespace(name="Blue Last", rarity=CardRarity.NORMAL)
+        ),
+        get_card_by_id=Mock(return_value=None),
         get_battle_deck_state=Mock(
             return_value={"challenger_rounds_won": 1, "opponent_rounds_won": 1,
                           "challenger_deck_cards": ["first-blue", "second-blue", "last-blue"],
@@ -205,7 +210,63 @@ def test_deck_final_card_is_not_auto_selected_and_requires_manual_confirmation()
             "power_arena", 3,
         )
     )
-    assert "🔵 Blue — Blue Last" in handler._upsert_deck_status_message.await_args.args[3]
+    assert "🔵 Blue — Blue Last (🟢 Normal)" in handler._upsert_deck_status_message.await_args.args[3]
+
+
+def test_deck_result_explains_different_forms_of_the_same_character(tmp_path):
+    db = DatabaseManager(str(tmp_path / "deck-result.sqlite"))
+    with sqlite3.connect(db.db_path) as conn:
+        conn.execute(
+            """INSERT INTO battle_states
+               (fight_id, challenger_id, opponent_id, challenger_card_id, opponent_card_id,
+                arena, current_round, challenger_rounds_won, opponent_rounds_won,
+                challenger_used_stats, opponent_used_stats,
+                challenger_current_stats, opponent_current_stats, status, created_at,
+                challenger_deck_cards, opponent_deck_cards)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            ("fight-1", 1, 2, "wick", "wick", "stage", 3, 1, 1,
+             "[]", "[]", "{}", "{}", "round_3", "2026-09-25T00:00:00",
+             '["wick"]', '["wick"]'),
+        )
+    normal = SimpleNamespace(card_id="wick", name="John Wick", rarity=CardRarity.NORMAL, popularity=85)
+    legend = SimpleNamespace(card_id="wick", name="John Wick", rarity=CardRarity.LEGEND, popularity=100)
+    arena = {
+        "name_fa": "صحنه", "emoji": "⭐", "compare_stat": "popularity",
+        "trait_ranks": [["hero"]], "stat_tiebreak_enabled": True,
+    }
+    battle = BattleSystem3Rounds(db)
+    battle._get_card_traits = Mock(return_value=["hero"])
+    same_form = battle.resolve_deck_cards(normal, normal, "stage", arena)
+    assert same_form["winner"] is None
+    assert (same_form["challenger_value"], same_form["opponent_value"]) == (85, 85)
+    handler = BattleHandlersMixin()
+    handler.db = db
+    handler.battle3 = battle
+    handler.modes = SimpleNamespace(
+        calculate_deck_synergy=Mock(return_value={"score": 0, "reasons": []})
+    )
+    handler._battle_arena_snapshot = Mock(return_value=arena)
+    handler._arena_runtime_for_fight = Mock(return_value=arena)
+    handler._deck_arena_rule_text = Mock(return_value="قانون زمین")
+    handler._battle_player_name = Mock(side_effect=["MH", "Ka"])
+    handler._finalize_3round_battle = AsyncMock()
+
+    asyncio.run(handler._resolve_deck_round(
+        SimpleNamespace(bot_data={}), "fight-1", 1, 2, normal, legend,
+        "stage", 3, 1, 1, [], [], {}, {},
+    ))
+
+    summary = handler._finalize_3round_battle.await_args.kwargs["deck_summary"]
+    assert "🔵 John Wick (🟢 Normal)" in summary
+    assert "🔴 John Wick (🟡 Legend)" in summary
+    assert "❤️ محبوبیت: 🔵 85 | 🔴 100" in summary
+    assert "فرم کارت‌ها متفاوت است" in summary
+    assert "🏆 Ka برنده‌ی راند شد" in summary
+    with sqlite3.connect(db.db_path) as conn:
+        assert conn.execute(
+            "SELECT challenger_value, opponent_value, winner FROM round_history WHERE fight_id=?",
+            ("fight-1",),
+        ).fetchone() == (85, 100, "opponent")
 
 
 @pytest.mark.parametrize("mode", ["deck", "three_round"])

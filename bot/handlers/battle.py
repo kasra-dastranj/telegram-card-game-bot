@@ -145,6 +145,17 @@ class BattleHandlersMixin:
     def _battle_attr_label(self, attr: str) -> str:
         return ATTR_NAMES_FA.get(attr, attr)
 
+    def _deck_card_label(self, card) -> str:
+        """Show the owned card form whenever a Deck result names a card."""
+        rarity = getattr(getattr(card, "rarity", None), "value", getattr(card, "rarity", None))
+        form = {
+            "normal": "🟢 Normal",
+            "epic": "🟣 Epic",
+            "legend": "🟡 Legend",
+            "rare": "🔵 Rare",
+        }.get(rarity, str(rarity or "?"))
+        return f"{card.name} ({form})"
+
     def _deck_arena_rule_text(self, arena_id: str, fight_id: Optional[str] = None) -> str:
         arena = self._arena_runtime_for_fight(fight_id, arena_id, "deck") if fight_id else self._arena_runtime(arena_id, "deck")
         compare_stat = arena.get("compare_stat", arena.get("boost_stat", "power"))
@@ -1381,6 +1392,15 @@ class BattleHandlersMixin:
                 f"🔴 {result['opponent_value']}"
             )
 
+        same_character_different_form = (
+            ch_card.card_id == op_card.card_id
+            and ch_card.rarity != op_card.rarity
+        )
+        form_note = (
+            "\nℹ️ شخصیت یکسان است، اما فرم کارت‌ها متفاوت است؛ عدد هر فرم جدا حساب می‌شود."
+            if same_character_different_form and result["reason"] == "stat" else ""
+        )
+
         if round_winner == "challenger":
             result_line = f"🏆 {ch_name} برنده‌ی راند شد"
         elif round_winner == "opponent":
@@ -1389,9 +1409,9 @@ class BattleHandlersMixin:
             result_line = "🤝 این راند مساوی شد"
         round_text = (
             f"⚔️ راند {current_round} — {arena_info['name_fa']} {arena_info['emoji']}\n\n"
-            f"🔵 {ch_card.name}\n"
-            f"🔴 {op_card.name}\n\n"
-            f"{comparison_line}\n"
+            f"🔵 {self._deck_card_label(ch_card)}\n"
+            f"🔴 {self._deck_card_label(op_card)}\n\n"
+            f"{comparison_line}{form_note}\n"
             f"{result_line}\n"
             f"برد راندها: {ch_rounds_won} — {op_rounds_won}"
         )
@@ -1756,11 +1776,12 @@ class BattleHandlersMixin:
                 if not selected[role]:
                     continue
                 card_id = context.bot_data[f"r3_{fight_id}_{role}_card"]
-                card = self.db.get_card_by_id(card_id)
+                user_id = challenger_id if role == "challenger" else opponent_id
+                card = self.db.get_card_by_id_for_player(card_id, user_id) or self.db.get_card_by_id(card_id)
                 if role == "challenger":
-                    ch_status = card.name if card else card_id
+                    ch_status = self._deck_card_label(card) if card else card_id
                 else:
-                    op_status = card.name if card else card_id
+                    op_status = self._deck_card_label(card) if card else card_id
 
         lines = [
             self._deck_status_header(fight_id, arena_id, round_num, ch_wins, op_wins),
