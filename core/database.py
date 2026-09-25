@@ -1057,9 +1057,15 @@ class DatabaseManager:
         columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'card_effects', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at']
         
         cursor.execute('''
-            SELECT c.card_id, c.name, c.rarity, c.power, c.speed, c.iq, c.popularity,
-                   c.abilities, c.card_effects, c.dialogs, c.biography, c.image_path, c.card_type, c.created_at
+            SELECT c.card_id, c.name, COALESCE(pc.rarity_override,c.rarity),
+                   COALESCE(v.power,c.power), COALESCE(v.speed,c.speed),
+                   COALESCE(v.iq,c.iq), COALESCE(v.popularity,c.popularity),
+                   COALESCE(v.abilities,c.abilities), COALESCE(v.card_effects,c.card_effects),
+                   c.dialogs, c.biography, COALESCE(v.image_path,c.image_path),
+                   COALESCE(v.card_type,c.card_type), c.created_at
             FROM cards c JOIN player_cards pc ON c.card_id = pc.card_id
+            LEFT JOIN card_variants v ON v.card_id=c.card_id
+                AND v.rarity=COALESCE(pc.rarity_override,c.rarity)
             WHERE pc.user_id = ? AND (pc.is_favorite = 1 OR pc.usage_count >= 5)
             ORDER BY pc.is_favorite DESC, pc.usage_count DESC
             LIMIT ? OFFSET ?
@@ -1111,11 +1117,11 @@ class DatabaseManager:
         cursor = conn.cursor()
         
         cursor.execute('''
-            SELECT c.rarity, COUNT(*)
+            SELECT COALESCE(pc.rarity_override,c.rarity), COUNT(*)
             FROM cards c
             JOIN player_cards pc ON c.card_id = pc.card_id
             WHERE pc.user_id = ?
-            GROUP BY c.rarity
+            GROUP BY COALESCE(pc.rarity_override,c.rarity)
         ''', (user_id,))
         
         results = cursor.fetchall()

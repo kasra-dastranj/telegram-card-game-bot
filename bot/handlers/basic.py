@@ -8,6 +8,8 @@ import json
 import os
 import logging
 import random
+import sqlite3
+from html import escape
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 
@@ -390,7 +392,7 @@ class BasicHandlersMixin:
             # نمایش منوی دسته‌بندی با pagination
             keyboard = self._create_my_cards_keyboard(user_id, category="menu", page=1)
             text = f"🎴 **کارت‌های شما ({len(cards)} کارت)**\n\nلطفاً دسته مورد نظر را انتخاب کنید:"
-            reply_markup = InlineKeyboardMarkup(keyboard)
+            reply_markup = keyboard
             await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown')
     
     async def mycards_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -440,6 +442,11 @@ class BasicHandlersMixin:
                     callback_data=f"mycards_normal_1"
                 )
             ])
+            if rarity_counts.get(CardRarity.RARE.value, 0):
+                keyboard.append([InlineKeyboardButton(
+                    f"🌟 Rare ({rarity_counts[CardRarity.RARE.value]})", callback_data="mycards_rare_1"
+                )])
+            keyboard.append([InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main")])
             
         else:
             # نمایش کارت‌های یک دسته
@@ -449,7 +456,8 @@ class BasicHandlersMixin:
                 rarity_map = {
                     "legend": CardRarity.LEGEND,
                     "epic": CardRarity.EPIC,
-                    "normal": CardRarity.NORMAL
+                    "normal": CardRarity.NORMAL,
+                    "rare": CardRarity.RARE,
                 }
                 rarity = rarity_map.get(category)
                 cards, total_count = self.db.get_player_cards_by_rarity(user_id, rarity=rarity, page=page, per_page=6)
@@ -570,11 +578,6 @@ class BasicHandlersMixin:
         query = update.callback_query
         await query.answer()
         
-        # Check panel expiration
-        if not ensure_not_expired(query, self.db, context):
-            await query.answer("⏰ این پنل منقضی شده است. لطفاً دوباره /start بزنید.", show_alert=True)
-            return
-        
         user_id = query.from_user.id
         cards = self.db.get_player_cards(user_id)
         
@@ -593,7 +596,7 @@ class BasicHandlersMixin:
             # نمایش منوی دسته‌بندی
             keyboard = self._create_my_cards_keyboard(user_id, category="menu", page=1)
             text = f"🎴 **کارت‌های شما ({len(cards)} کارت)**\n\nلطفاً دسته مورد نظر را انتخاب کنید:"
-            reply_markup = InlineKeyboardMarkup(keyboard)
+            reply_markup = keyboard
             await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
 
     def _get_card_bio(self, name: str) -> str:
@@ -619,8 +622,8 @@ class BasicHandlersMixin:
             for res, cnt in cursor.fetchall():
                 if res == 'win':
                     wins = cnt
-                elif res == 'lose':
-                    losses = cnt
+                elif res in ('lose', 'loss'):
+                    losses += cnt
                 elif res == 'tie':
                     ties = cnt
             conn.close()
@@ -635,37 +638,34 @@ class BasicHandlersMixin:
     async def card_view_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
         await query.answer()
-        if not ensure_not_expired(query, self.db, context):
-            await query.answer("⏰ این پنل منقضی شده است.", show_alert=True)
-            return
-        parts = query.data.split("_")
-        card_id = parts[-1]
-        card = self.db.get_card_by_id(card_id)
+        card_id = query.data.removeprefix("card_view_")
+        user_id = query.from_user.id
+        card = self.db.get_card_by_id_for_player(card_id, user_id)
         if not card:
             await query.edit_message_text("❌ کارت یافت نشد!")
             return
-        user_id = query.from_user.id
         stats = self.db.get_player_card_stats(card_id, user_id)
         rarity_map = {
             CardRarity.NORMAL: "🟢 Normal",
+            CardRarity.RARE: "🌟 Rare",
             CardRarity.EPIC: "🟣 Epic",
             CardRarity.LEGEND: "🟡 Legend"
         }
-        header = f"{rarity_map.get(card.rarity, '🔶 Card')} — {card.name}"
+        header = f"{rarity_map.get(card.rarity, '🔶 Card')} — {escape(card.name)}"
         text = (
             f"{header}\n"
             f"💪 {card.power} ⚡ {card.speed} 🧠 {card.iq} ❤️ {card.popularity}\n"
             f"📊 بازی‌ها: {stats['games_played']}\n"
             f"🏆 برد: {stats['wins']} | ❌ باخت: {stats['losses']} | 🤝 مساوی: {stats['ties']}\n"
             f"📈 Win Rate: {int(stats['win_rate'])}%\n\n"
-            f"📝 **Biography:**\n{card.biography}"
+            f"📝 <b>Biography:</b>\n{escape(card.biography or '')}"
         )
         # ارسال تصویر
         await send_card_image_safely(query.message, card.name, self.config)
         keyboard = [
             [InlineKeyboardButton("🔙 بازگشت", callback_data="my_cards")]
         ]
-        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
+        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
 
     # AI fight handler removed - AI fights are no longer supported
 
@@ -1199,12 +1199,16 @@ class BasicHandlersMixin:
         await query.answer()
         
         # mycards_{category}_{page}
-        parts = query.data.split("_")
-        category = parts[1]
-        page = int(parts[2])
+        payload = query.data.removeprefix("my_cards_nav_") if query.data.startswith("my_cards_nav_") else query.data.removeprefix("mycards_")
+        try:
+            category, raw_page = payload.rsplit("_", 1)
+            page = max(1, int(raw_page))
+            if category not in {"menu", "favorite", "normal", "epic", "legend", "rare"}:
+                raise ValueError("invalid_category")
+        except ValueError:
+            await query.message.reply_text("❌ دسته کارت نامعتبر است؛ دوباره کارت‌های من را باز کن.")
+            return
         user_id = query.from_user.id
-        
-        keyboard = self._create_mycards_keyboard(user_id, category=category, page=page)
         
         if category == "menu":
             text = "📋 **مدیریت کارت‌های من**\n\nلطفاً دسته مورد نظر را انتخاب کنید:"
@@ -1213,7 +1217,8 @@ class BasicHandlersMixin:
                 "favorite": "⭐ مورد علاقه",
                 "legend": "🟡 Legendary",
                 "epic": "🟣 Epic",
-                "normal": "🟢 Normal"
+                "normal": "🟢 Normal",
+                "rare": "🌟 Rare",
             }
             category_name = category_names.get(category, category)
             
@@ -1223,25 +1228,35 @@ class BasicHandlersMixin:
                 rarity_map = {
                     "legend": CardRarity.LEGEND,
                     "epic": CardRarity.EPIC,
-                    "normal": CardRarity.NORMAL
+                    "normal": CardRarity.NORMAL,
+                    "rare": CardRarity.RARE,
                 }
                 rarity = rarity_map.get(category)
                 cards, total_count = self.db.get_player_cards_by_rarity(user_id, rarity=rarity, page=page, per_page=6)
             
-            total_pages = (total_count + 5) // 6
+            total_pages = max(1, (total_count + 5) // 6)
+            page = min(page, total_pages)
             text = f"📋 **{category_name}** (صفحه {page}/{total_pages})\n\nروی کارت کلیک کنید تا جزئیات آن را ببینید:"
+            if not total_count:
+                text = f"📋 **{category_name}**\n\nهنوز کارتی در این دسته نداری."
         
+        keyboard = self._create_mycards_keyboard(user_id, category=category, page=page)
         try:
             await query.edit_message_text(text=text, reply_markup=keyboard, parse_mode='Markdown')
-        except Exception:
-            pass
+        except telegram.error.BadRequest as exc:
+            if "message is not modified" not in str(exc).lower():
+                raise
     
     async def cardinfo_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """نمایش اطلاعات کارت با امکان favorite"""
         query = update.callback_query
         await query.answer()
         
-        card_id = query.data.split("_")[1]
+        card_id = query.data.removeprefix("cardinfo_")
+        await self._show_card_info(query, card_id)
+
+    async def _show_card_info(self, query, card_id: str):
+        """Render a card without re-parsing or mutating the triggering callback."""
         user_id = query.from_user.id
         
         # با rarity_override بازیکن
@@ -1276,10 +1291,10 @@ class BasicHandlersMixin:
         
         # بیوگرافی کوتاه
         bio = getattr(card, 'biography', '') or ''
-        bio_text = f"\n📖 _{bio[:80]}{'...' if len(bio) > 80 else ''}_\n" if bio else ""
+        bio_text = f"\n📖 <i>{escape(bio[:80])}{'...' if len(bio) > 80 else ''}</i>\n" if bio else ""
         
         text = (
-            f"{color} **{card.name}** ({card.rarity.value.title()})\n"
+            f"{color} <b>{escape(card.name)}</b> ({card.rarity.value.title()})\n"
             f"🏷️ تایپ: {type_label}\n"
             f"{bio_text}\n"
             f"💪 قدرت: {card.power}  ⚡ سرعت: {card.speed}\n"
@@ -1302,7 +1317,7 @@ class BasicHandlersMixin:
                 prog = mission_progress['current_progress']
                 tgt = mission_progress['target']
                 pct = mission_progress['progress_percent']
-                mission_line = f"\n\n🎯 **ماموریت:** {mission_progress['description']}\n📈 پیشرفت: {prog}/{tgt} ({pct}%)"
+                mission_line = f"\n\n🎯 <b>ماموریت:</b> {escape(mission_progress['description'])}\n📈 پیشرفت: {prog}/{tgt} ({pct}%)"
                 text += mission_line
                 
                 if mission_progress['completed'] and not mission_progress.get('reward_claimed'):
@@ -1318,15 +1333,16 @@ class BasicHandlersMixin:
         keyboard.append([InlineKeyboardButton("🔙 بازگشت", callback_data="mycards_menu_1")])
         
         try:
-            await query.edit_message_text(text=text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
-        except Exception:
-            pass
+            await query.edit_message_text(text=text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+        except telegram.error.BadRequest as exc:
+            if "message is not modified" not in str(exc).lower():
+                raise
     
     async def toggle_favorite_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """تغییر وضعیت favorite کارت"""
         query = update.callback_query
         
-        card_id = query.data.split("_")[2]
+        card_id = query.data.removeprefix("toggle_fav_")
         user_id = query.from_user.id
         
         success = self.db.toggle_favorite_card(user_id, card_id)
@@ -1334,7 +1350,7 @@ class BasicHandlersMixin:
         if success:
             await query.answer("✅ وضعیت کارت تغییر کرد!", show_alert=False)
             # بروزرسانی پیام
-            await self.cardinfo_handler(update, context)
+            await self._show_card_info(query, card_id)
         else:
             await query.answer("❌ خطا در تغییر وضعیت!", show_alert=True)
 

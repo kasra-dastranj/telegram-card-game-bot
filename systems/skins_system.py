@@ -201,60 +201,16 @@ class SkinsSystem:
         return skins
     
     def unlock_skin(self, user_id: int, skin_id: str) -> Dict:
-        """
-        باز کردن یک پوسته برای بازیکن
-        
-        Args:
-            user_id: شناسه بازیکن
-            skin_id: شناسه پوسته
-        
-        Returns:
-            نتیجه
-        """
-        # دریافت اطلاعات پوسته
+        """Use the same atomic purchase as the Mini App, including free skins."""
+        from systems.player_rewards_system import PlayerRewardsSystem
         skin = self.get_skin(skin_id)
         if not skin:
             return {"success": False, "error": "پوسته یافت نشد"}
-        
-        # بررسی اینکه قبلاً باز نشده باشد
-        if self.has_skin(user_id, skin_id):
-            return {"success": False, "error": "شما قبلاً این پوسته را دارید"}
-        
-        # بررسی سکه
-        player = self.db.get_or_create_player(user_id)
-        coins = getattr(player, 'coins', 0)
-        
-        if coins < skin["price"]:
-            return {
-                "success": False,
-                "error": f"سکه کافی ندارید! نیاز: {skin['price']}, دارید: {coins}"
-            }
-        
-        # کسر سکه
-        ok, err = self.db.spend_coins(user_id, skin["price"])
-        if not ok:
-            return {"success": False, "error": err}
-        
-        # باز کردن پوسته
-        conn = sqlite3.connect(self.db.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            INSERT INTO player_skins (user_id, skin_id, unlocked_at)
-            VALUES (?, ?, ?)
-        ''', (user_id, skin_id, datetime.now().isoformat()))
-        
-        conn.commit()
-        conn.close()
-        
-        logger.info(f"Skin unlocked: {skin_id} for user {user_id}")
-        
-        return {
-            "success": True,
-            "skin_id": skin_id,
-            "coins_spent": skin["price"],
-            "remaining_coins": coins - skin["price"]
-        }
+        result = PlayerRewardsSystem(self.db).purchase_skin(user_id, skin["card_id"], skin_id)
+        if not result["ok"]:
+            return {"success": False, "error": result["error"]}
+        return {"success": True, "skin_id": skin_id,
+                "coins_spent": result["coins_spent"], "remaining_coins": result["coins"]}
     
     def has_skin(self, user_id: int, skin_id: str) -> bool:
         """
@@ -329,49 +285,11 @@ class SkinsSystem:
         
         return skins
     
-    def set_active_skin(self, user_id: int, card_id: str, skin_id: str) -> Dict:
-        """
-        تنظیم پوسته فعال برای یک کارت
-        
-        Args:
-            user_id: شناسه بازیکن
-            card_id: شناسه کارت
-            skin_id: شناسه پوسته (None = پیش‌فرض)
-        
-        Returns:
-            نتیجه
-        """
-        # بررسی اینکه بازیکن پوسته را دارد
-        if skin_id and not self.has_skin(user_id, skin_id):
-            return {"success": False, "error": "شما این پوسته را ندارید"}
-        
-        conn = sqlite3.connect(self.db.db_path)
-        cursor = conn.cursor()
-        
-        if skin_id:
-            # تنظیم پوسته فعال
-            cursor.execute('''
-                INSERT OR REPLACE INTO active_skins
-                (user_id, card_id, skin_id)
-                VALUES (?, ?, ?)
-            ''', (user_id, card_id, skin_id))
-        else:
-            # حذف پوسته فعال (بازگشت به پیش‌فرض)
-            cursor.execute('''
-                DELETE FROM active_skins
-                WHERE user_id = ? AND card_id = ?
-            ''', (user_id, card_id))
-        
-        conn.commit()
-        conn.close()
-        
-        logger.info(f"Active skin set: card={card_id}, skin={skin_id}, user={user_id}")
-        
-        return {
-            "success": True,
-            "card_id": card_id,
-            "skin_id": skin_id
-        }
+    def set_active_skin(self, user_id: int, card_id: str, skin_id: Optional[str]) -> Dict:
+        """Validate card ownership and skin/card association before activation."""
+        from systems.player_rewards_system import PlayerRewardsSystem
+        result = PlayerRewardsSystem(self.db).activate_skin(user_id, card_id, skin_id)
+        return {**result, "success": result["ok"]}
     
     def get_active_skin(self, user_id: int, card_id: str) -> Optional[str]:
         """

@@ -8,6 +8,7 @@ import json
 import os
 import logging
 import random
+from html import escape
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 
@@ -44,10 +45,12 @@ class ShopHandlersMixin:
         """منوی اسکین‌های یک کارت"""
         query = update.callback_query
         await query.answer()
-        user_id = query.from_user.id
-
         # skins_menu_{card_id}
         card_id = query.data.split("_", 2)[2]
+        await self._show_skins_menu(query, card_id)
+
+    async def _show_skins_menu(self, query, card_id: str):
+        user_id = query.from_user.id
         card = self.db.get_card_by_id_for_player(card_id, user_id) or self.db.get_card_by_id(card_id)
         if not card:
             await query.answer("❌ کارت یافت نشد!", show_alert=True)
@@ -63,16 +66,16 @@ class ShopHandlersMixin:
 
         if not all_skins:
             text = (
-                f"🎨 **اسکین‌های {card.name}**\n\n"
+                f"🎨 <b>اسکین‌های {escape(card.name)}</b>\n\n"
                 f"هنوز هیچ اسکینی برای این کارت موجود نیست."
             )
             keyboard = [[InlineKeyboardButton("🔙 بازگشت", callback_data=f"cardinfo_{card_id}")]]
-            await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
+            await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
             return
 
         type_emoji = {"normal": "🎨", "special": "✨", "seasonal": "🌸", "event": "🎁", "premium": "💎"}
         text = (
-            f"🎨 **اسکین‌های {card.name}**\n\n"
+            f"🎨 <b>اسکین‌های {escape(card.name)}</b>\n\n"
             f"💰 موجودی: {coins:,} سکه\n\n"
         )
 
@@ -87,14 +90,27 @@ class ShopHandlersMixin:
             if is_active:
                 cb = f"skin_deactivate_{card_id}"
             elif owned:
-                cb = f"skin_activate_{card_id}_{skin['skin_id']}"
+                cb = f"skin_activate_{skin['skin_id']}"
             else:
-                cb = f"skin_buy_{card_id}_{skin['skin_id']}"
+                cb = f"skin_buy_{skin['skin_id']}"
 
             keyboard.append([InlineKeyboardButton(btn_text, callback_data=cb)])
 
         keyboard.append([InlineKeyboardButton("🔙 بازگشت", callback_data=f"cardinfo_{card_id}")])
-        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
+        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+
+    def _skin_callback_target(self, data: str, prefix: str):
+        """New buttons carry only skin_id; resolve old compound buttons too."""
+        payload = data.removeprefix(prefix)
+        skin = self.skins.get_skin(payload)
+        if skin:
+            return skin
+        for index, character in enumerate(payload):
+            if character == "_":
+                skin = self.skins.get_skin(payload[index + 1:])
+                if skin and skin["card_id"] == payload[:index]:
+                    return skin
+        return None
 
     async def skin_buy_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """خرید اسکین"""
@@ -102,37 +118,38 @@ class ShopHandlersMixin:
         await query.answer()
         user_id = query.from_user.id
 
-        # skin_buy_{card_id}_{skin_id}
-        parts = query.data.split("_", 3)
-        card_id = parts[2]
-        skin_id = parts[3]
+        skin = self._skin_callback_target(query.data, "skin_buy_")
+        if not skin:
+            await query.message.reply_text("❌ اسکین پیدا نشد.")
+            return
+        card_id, skin_id = skin["card_id"], skin["skin_id"]
 
         result = self.skins.unlock_skin(user_id, skin_id)
 
         if result['success']:
             skin = self.skins.get_skin(skin_id)
             text = (
-                f"✅ **اسکین خریداری شد!**\n\n"
-                f"🎨 {skin['name']}\n"
+                f"✅ <b>اسکین خریداری شد!</b>\n\n"
+                f"🎨 {escape(skin['name'])}\n"
                 f"💰 هزینه: {result['coins_spent']} سکه\n"
                 f"💵 موجودی: {result['remaining_coins']:,} سکه"
             )
         else:
-            text = f"❌ {result['error']}"
+            text = f"❌ {escape(result['error'])}"
 
         keyboard = [[InlineKeyboardButton("🔙 بازگشت", callback_data=f"skins_menu_{card_id}")]]
-        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
+        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
 
     async def skin_activate_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """فعال کردن اسکین"""
         query = update.callback_query
-        await query.answer()
         user_id = query.from_user.id
 
-        # skin_activate_{card_id}_{skin_id}
-        parts = query.data.split("_", 3)
-        card_id = parts[2]
-        skin_id = parts[3]
+        skin = self._skin_callback_target(query.data, "skin_activate_")
+        if not skin:
+            await query.answer("❌ اسکین پیدا نشد.", show_alert=True)
+            return
+        card_id, skin_id = skin["card_id"], skin["skin_id"]
 
         result = self.skins.set_active_skin(user_id, card_id, skin_id)
 
@@ -143,23 +160,21 @@ class ShopHandlersMixin:
             await query.answer(f"❌ {result['error']}", show_alert=True)
 
         # بازگشت به منوی اسکین
-        query.data = f"skins_menu_{card_id}"
-        await self.skins_menu_handler(update, context)
+        await self._show_skins_menu(query, card_id)
 
     async def skin_deactivate_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """غیرفعال کردن اسکین (بازگشت به پیش‌فرض)"""
         query = update.callback_query
-        await query.answer()
         user_id = query.from_user.id
 
         # skin_deactivate_{card_id}
         card_id = query.data.split("_", 2)[2]
 
-        self.skins.set_active_skin(user_id, card_id, None)
-        await query.answer("✅ اسکین پیش‌فرض فعال شد!", show_alert=False)
+        result = self.skins.set_active_skin(user_id, card_id, None)
+        await query.answer("✅ اسکین پیش‌فرض فعال شد!" if result['success'] else result['error'],
+                           show_alert=not result['success'])
 
-        query.data = f"skins_menu_{card_id}"
-        await self.skins_menu_handler(update, context)
+        await self._show_skins_menu(query, card_id)
 
     # ==================== MISSION HANDLERS ====================
 
@@ -169,7 +184,7 @@ class ShopHandlersMixin:
         await query.answer()
         user_id = query.from_user.id
 
-        card_id = query.data.split("_")[2]
+        card_id = query.data.removeprefix("mission_claim_")
 
         result = self.missions.claim_mission_reward(user_id, card_id)
 
@@ -177,18 +192,18 @@ class ShopHandlersMixin:
             # XP برای ارتقا به Legend
             self.db.add_xp(user_id, 30)
             text = (
-                f"🏆 **پاداش ماموریت دریافت شد!**\n\n"
-                f"🟡 **{result['card_name']}** حالا Legend شد!\n"
+                f"🏆 <b>پاداش ماموریت دریافت شد!</b>\n\n"
+                f"🟡 <b>{escape(result['card_name'])}</b> حالا Legend شد!\n"
                 f"⭐ +30 XP"
             )
         else:
-            text = f"❌ {result['error']}"
+            text = f"❌ {escape(result['error'])}"
 
         keyboard = [
             [InlineKeyboardButton("🎴 کارت‌های من", callback_data="my_cards")],
             [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main")],
         ]
-        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
+        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
 
     # ==================== MINING HANDLER ====================
 
@@ -536,4 +551,3 @@ class ShopHandlersMixin:
         await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
 
     # ==================== FUSION HANDLERS ====================
-

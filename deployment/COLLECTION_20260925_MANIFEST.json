@@ -1,0 +1,9 @@
+{
+  "bot/handlers/basic.py": "68cf18b1bf6370c1d2e747e51a0bda5f5ec9317a001e21003415a9d1af8e1fe8",
+  "bot/handlers/pvp.py": "9ce7c55e52501b6645ac20011e37ee291e693cf43ed4d6d3ae6b553090fa4a68",
+  "bot/handlers/shop.py": "c65c75b388b707c7ca6c4cf916f83df8b7fd1a6c0afd6952630f793a563cabb4",
+  "core/database.py": "0901251849fe99a09835d23bd475223c8073315197692fdc5f9d45a6655a628c",
+  "systems/player_rewards_system.py": "6d434ff6a2c01ba7daba8579bf17b7a833b2e7809bf108dfe03e2bffd4dbd288",
+  "systems/skins_system.py": "fc840190711d753f4dca04f138109040615e63c1ef2169f30185b392a3fa2502",
+  "tests/test_bot_collection_flow.py": "a05132b86016528ba715a62d98f58057887c0db293bff3be7ea82a3a9bdf70b9"
+}

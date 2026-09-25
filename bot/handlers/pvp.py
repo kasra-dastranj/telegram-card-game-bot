@@ -224,55 +224,8 @@ class PvPHandlersMixin:
 
 
     async def my_cards_navigation_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """مدیریت navigation بین دسته‌بندی‌ها و صفحات کارت‌های من"""
-        query = update.callback_query
-        await query.answer()
-        
-        if not ensure_not_expired(query, self.db, context):
-            await query.answer("⏰ این پنل منقضی شده است. لطفاً دوباره /start بزنید.", show_alert=True)
-            return
-        
-        # my_cards_nav_{category}_{page}
-        parts = query.data.split("_")
-        category = parts[3]
-        page = int(parts[4])
-        user_id = query.from_user.id
-        
-        # ساخت کیبورد جدید
-        keyboard = self._create_my_cards_keyboard(user_id, category=category, page=page)
-        
-        # متن پیام
-        if category == "menu":
-            cards = self.db.get_player_cards(user_id)
-            text = f"🎴 **کارت‌های شما ({len(cards)} کارت)**\n\nلطفاً دسته مورد نظر را انتخاب کنید:"
-        else:
-            category_names = {
-                "favorite": "⭐ مورد علاقه",
-                "legend": "🟡 Legendary",
-                "epic": "🟣 Epic",
-                "normal": "🟢 Normal"
-            }
-            category_name = category_names.get(category, category)
-            
-            if category == "favorite":
-                cards, total_count = self.db.get_favorite_cards(user_id, page=page, per_page=6)
-            else:
-                rarity_map = {
-                    "legend": CardRarity.LEGEND,
-                    "epic": CardRarity.EPIC,
-                    "normal": CardRarity.NORMAL
-                }
-                rarity = rarity_map.get(category)
-                cards, total_count = self.db.get_player_cards_by_rarity(user_id, rarity=rarity, page=page, per_page=6)
-            
-            total_pages = (total_count + 5) // 6
-            text = f"🎴 **{category_name}** (صفحه {page}/{total_pages})\n\nلطفاً کارت را انتخاب کنید:"
-        
-        try:
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            await query.edit_message_text(text=text, reply_markup=reply_markup, parse_mode='Markdown')
-        except Exception:
-            pass
+        # Old buttons share the current collection renderer.
+        await self.mycards_navigation_handler(update, context)
 
 
     async def request_pvp_fight_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1130,55 +1083,8 @@ class PvPHandlersMixin:
 
 
     async def my_cards_navigation_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """مدیریت navigation بین دسته‌بندی‌ها و صفحات کارت‌های من"""
-        query = update.callback_query
-        await query.answer()
-        
-        if not ensure_not_expired(query, self.db, context):
-            await query.answer("⏰ این پنل منقضی شده است. لطفاً دوباره /start بزنید.", show_alert=True)
-            return
-        
-        # my_cards_nav_{category}_{page}
-        parts = query.data.split("_")
-        category = parts[3]
-        page = int(parts[4])
-        user_id = query.from_user.id
-        
-        # ساخت کیبورد جدید
-        keyboard = self._create_my_cards_keyboard(user_id, category=category, page=page)
-        
-        # متن پیام
-        if category == "menu":
-            cards = self.db.get_player_cards(user_id)
-            text = f"🎴 **کارت‌های شما ({len(cards)} کارت)**\n\nلطفاً دسته مورد نظر را انتخاب کنید:"
-        else:
-            category_names = {
-                "favorite": "⭐ مورد علاقه",
-                "legend": "🟡 Legendary",
-                "epic": "🟣 Epic",
-                "normal": "🟢 Normal"
-            }
-            category_name = category_names.get(category, category)
-            
-            if category == "favorite":
-                cards, total_count = self.db.get_favorite_cards(user_id, page=page, per_page=6)
-            else:
-                rarity_map = {
-                    "legend": CardRarity.LEGEND,
-                    "epic": CardRarity.EPIC,
-                    "normal": CardRarity.NORMAL
-                }
-                rarity = rarity_map.get(category)
-                cards, total_count = self.db.get_player_cards_by_rarity(user_id, rarity=rarity, page=page, per_page=6)
-            
-            total_pages = (total_count + 5) // 6
-            text = f"🎴 **{category_name}** (صفحه {page}/{total_pages})\n\nلطفاً کارت را انتخاب کنید:"
-        
-        try:
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            await query.edit_message_text(text=text, reply_markup=reply_markup, parse_mode='Markdown')
-        except Exception:
-            pass
+        # Old buttons share the current collection renderer.
+        await self.mycards_navigation_handler(update, context)
 
 
     async def request_pvp_fight_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):

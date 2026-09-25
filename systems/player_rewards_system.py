@@ -199,6 +199,8 @@ class PlayerRewardsSystem:
             ).fetchone()
             if not row:
                 conn.rollback(); return {"ok": False, "error_code": "skin_not_accessible", "error": "پوسته برای این کارت در دسترس نیست"}
+            if row["price"] < 0:
+                conn.rollback(); return {"ok": False, "error_code": "invalid_price", "error": "قیمت پوسته نامعتبر است"}
             if conn.execute("SELECT 1 FROM player_skins WHERE user_id=? AND skin_id=?", (user_id, skin_id)).fetchone():
                 conn.rollback(); return {"ok": False, "error_code": "already_owned", "error": "این پوسته را قبلاً گرفته‌ای"}
             if row["coins"] < row["price"]:
