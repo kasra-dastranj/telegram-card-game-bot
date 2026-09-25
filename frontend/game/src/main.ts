@@ -676,6 +676,7 @@ function quickMatchTemplate(): string {
           </div>
         ` : quick?.phase === "stat_selection" ? `
           <div class="decision-title"><small>انتخاب نهایی و غیرقابل تغییر</small><strong>با کدام ویژگی حمله می‌کنی؟</strong></div>
+          ${quick.scoring_rule === "sum_selected_stats_v1" ? "<p>امتیاز هر کارت از جمع ویژگی انتخابی تو و حریف به دست می‌آید؛ عدد هر دکمه فقط سهم آن ویژگی است.</p>" : ""}
           <div class="stat-grid quick-stat-grid">
             ${(Object.keys(labels) as StatKey[]).map((key) => {
               const enabled = (quick.allowed_stats || []).includes(key) && !state.loading;
@@ -695,13 +696,22 @@ function quickResultTemplate(): string {
   const won = !tie && report?.winner_id === quick?.user_id;
   const mine = quick && report?.breakdown?.[String(quick.user_id)];
   const opponent = quick?.opponent_id != null ? report?.breakdown?.[String(quick.opponent_id)] : undefined;
+  const calculation = mine?.scored_stats && opponent?.scored_stats
+    ? `<details class="glass-panel" style="padding: 12px; margin-bottom: 16px;">
+        <summary>محاسبهٔ امتیاز Quick</summary>
+        <p>ویژگی‌های انتخاب‌شده برای هر دو کارت جمع می‌شوند. اثر زمین، Passive و Ability پیش از جمع اعمال شده است.</p>
+        <p>کارت تو: ${mine.scored_stats.map((stat, index) => `${labels[stat].title} ${mine.final_components?.[index] ?? "—"}`).join(" + ")} = ${mine.final_value}</p>
+        <p>کارت حریف: ${opponent.scored_stats.map((stat, index) => `${labels[stat].title} ${opponent.final_components?.[index] ?? "—"}`).join(" + ")} = ${opponent.final_value}</p>
+      </details>`
+    : "";
   return `
     <section class="screen result-screen quick-result-screen">
       <div class="result-emblem ${won ? "result-emblem--win" : "result-emblem--lose"}"><span>${tie ? "=" : won ? "W" : "L"}</span></div>
       <p class="eyebrow">QUICK COMPLETE</p>
       <h2>${tie ? "نبرد مساوی شد" : won ? "تصمیم تو برنده شد" : "حریف این نبرد را برد"}</h2>
-      <p>${report?.forfeit ? "نتیجه به‌خاطر پایان مهلت انتخاب ثبت شد." : "انتخاب‌های نهایی هر دو بازیکن مقایسه شدند."}</p>
-      <div class="reward-panel glass-panel"><div><small>ویژگی تو</small><strong>${mine ? labels[mine.selected_stat].short : "—"}</strong></div><div class="reward-list"><span><small>YOU</small><strong>${mine?.final_value ?? "—"}</strong></span><span><small>RIVAL</small><strong>${opponent?.final_value ?? "—"}</strong></span></div></div>
+      <p>${report?.forfeit ? "نتیجه به‌خاطر پایان مهلت انتخاب ثبت شد." : mine?.scored_stats ? "امتیاز هر کارت از جمع ویژگی انتخابی دو بازیکن به دست آمد. برای توضیح بیشتر، محاسبهٔ امتیاز را باز کن." : "ویژگی انتخابی هر بازیکن مقایسه شد."}</p>
+      <div class="reward-panel glass-panel"><div><small>امتیاز Quick</small><strong>${mine?.scored_stats ? "جمع دو ویژگی" : mine ? labels[mine.selected_stat].short : "—"}</strong></div><div class="reward-list"><span><small>YOU</small><strong>${mine?.final_value ?? "—"}</strong></span><span><small>RIVAL</small><strong>${opponent?.final_value ?? "—"}</strong></span></div></div>
+      ${calculation}
       <button class="primary-button" data-action="enter-quick">Quick دوباره</button>
       <button class="secondary-button" data-action="home">بازگشت به پایگاه</button>
     </section>`;

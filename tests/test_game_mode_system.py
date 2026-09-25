@@ -191,6 +191,88 @@ def test_quick_stat_preview_matches_resolution_math(mode_system):
     }
 
 
+@pytest.mark.parametrize(
+    "first_stat,second_stat,first_parts,second_parts,winner",
+    [
+        ("power", "iq", [90, 40], [95, 20], 1),
+        ("power", "power", [90, 90], [20, 20], 1),
+    ],
+)
+def test_quick_adds_both_selected_stats_for_each_card(
+    mode_system, monkeypatch, first_stat, second_stat, first_parts, second_parts, winner
+):
+    monkeypatch.setattr(mode_system, "_random_arena", lambda exclude=None: mode_system._arena("null_zone"))
+    request = mode_system.create_group_challenge(1, "quick", "normal", -100)
+    assert mode_system.accept_request(request["request_id"], 2)[0]
+    mode_system.start_quick_match(request["request_id"])
+    mode_system.select_quick_card(request["request_id"], 1, "alpha")
+    mode_system.select_quick_card(request["request_id"], 2, "beta")
+    mode_system.select_quick_ability(request["request_id"], 1, "skip")
+    mode_system.select_quick_ability(request["request_id"], 2, "skip")
+    mode_system.select_quick_stat(request["request_id"], 1, first_stat)
+    _, report = mode_system.select_quick_stat(request["request_id"], 2, second_stat)
+
+    assert report["winner_id"] == winner
+    assert report["breakdown"]["1"]["scored_stats"] == [first_stat, second_stat]
+    assert report["breakdown"]["2"]["scored_stats"] == [second_stat, first_stat]
+    assert report["breakdown"]["1"]["base_components"] == first_parts
+    assert report["breakdown"]["2"]["base_components"] == second_parts
+    assert report["breakdown"]["1"]["final_value"] == sum(first_parts)
+    assert report["breakdown"]["2"]["final_value"] == sum(second_parts)
+
+
+def test_quick_effects_apply_to_both_stats_before_sum(mode_system, monkeypatch):
+    mode_system.set_card_metadata(
+        "alpha",
+        passive={"name": "Desert strength", "condition": {"arena": "desert"},
+                 "effect": {"stat": "power", "delta": 3}},
+    )
+    monkeypatch.setattr(mode_system, "_random_arena", lambda exclude=None: mode_system._arena("desert"))
+    request = mode_system.create_group_challenge(1, "quick", "normal", -100)
+    assert mode_system.accept_request(request["request_id"], 2)[0]
+    mode_system.start_quick_match(request["request_id"])
+    mode_system.select_quick_card(request["request_id"], 1, "alpha")
+    mode_system.select_quick_card(request["request_id"], 2, "beta")
+    mode_system.grant_ability(2, "weaken_power")
+    mode_system.select_quick_ability(request["request_id"], 1, "skip")
+    mode_system.select_quick_ability(request["request_id"], 2, "weaken_power")
+    mode_system.select_quick_stat(request["request_id"], 1, "power")
+    _, report = mode_system.select_quick_stat(request["request_id"], 2, "iq")
+
+    first = report["breakdown"]["1"]
+    second = report["breakdown"]["2"]
+    assert first["base_components"] == [90, 40]
+    assert first["final_components"] == [93, 40]  # +2 arena, +3 passive, -2 ability
+    assert first["final_value"] == 133
+    assert second["final_components"] == [95, 22]  # Beta's power also gets desert +2.
+    assert second["final_value"] == 117
+
+
+def test_quick_match_started_before_rule_change_keeps_original_scoring(mode_system, monkeypatch):
+    import json
+    from contextlib import closing
+
+    monkeypatch.setattr(mode_system, "_random_arena", lambda exclude=None: mode_system._arena("null_zone"))
+    request = mode_system.create_group_challenge(1, "quick", "normal", -100)
+    assert mode_system.accept_request(request["request_id"], 2)[0]
+    state = mode_system.start_quick_match(request["request_id"])
+    state.pop("scoring_rule")
+    with closing(mode_system._connect()) as conn:
+        with conn:
+            conn.execute("UPDATE game_match_states SET state_json=? WHERE request_id=?",
+                         (json.dumps(state), request["request_id"]))
+    mode_system.select_quick_card(request["request_id"], 1, "alpha")
+    mode_system.select_quick_card(request["request_id"], 2, "beta")
+    mode_system.select_quick_ability(request["request_id"], 1, "skip")
+    mode_system.select_quick_ability(request["request_id"], 2, "skip")
+    mode_system.select_quick_stat(request["request_id"], 1, "power")
+    _, report = mode_system.select_quick_stat(request["request_id"], 2, "iq")
+
+    assert report["winner_id"] == 2  # Original rule compares 90 against 95.
+    assert report["breakdown"]["1"]["final_value"] == 90
+    assert "scored_stats" not in report["breakdown"]["1"]
+
+
 def test_quick_arena_effects_only_apply_to_the_target_card_type(mode_system):
     speed_card = _card("speedy", 60, 80, 50, 40, card_type="SPEED_TYPE")
     assert mode_system.db.add_card(speed_card)

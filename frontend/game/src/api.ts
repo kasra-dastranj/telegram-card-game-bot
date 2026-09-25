@@ -171,7 +171,15 @@ export interface QuickReport {
   is_tie: boolean;
   forfeit?: boolean;
   reason?: string;
-  breakdown: Record<string, { card_name: string; selected_stat: StatKey; final_value: number }>;
+  breakdown: Record<string, {
+    card_name: string;
+    selected_stat: StatKey;
+    scored_stats?: StatKey[];
+    base_components?: number[];
+    final_components?: number[];
+    base_value?: number;
+    final_value: number;
+  }>;
 }
 
 export interface QuickState {
@@ -187,6 +195,7 @@ export interface QuickState {
   message?: string;
   opponent_id?: number;
   phase?: QuickPhase;
+  scoring_rule?: string;
   deadline?: string;
   arena?: {
     id: string;

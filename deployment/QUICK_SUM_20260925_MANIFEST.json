@@ -1,0 +1,11 @@
+{
+  "systems/game_mode_system.py": "ce768a67c51d33d5fc10b307e219d81823141d2c4943e242abdb9dc644f76a32",
+  "bot/handlers/game_modes.py": "80f1b19588e778fd6c70defb1e2308d7085fab4b4b3e2328350e98b12acbc0ef",
+  "web/miniapp_api.py": "b4e7bbbace3334b64f60ad625b18bbe013e408ac00a53f4e492d008f2e89305a",
+  "frontend/game/src/api.ts": "91d3df8561964704e69fbed6b0b0c5f48f50e5a1b68c2964dc82323686cd2530",
+  "frontend/game/src/main.ts": "fe37c87128a502006e17bb10748b7a740a7355f6532e030da908bdf81cd0248a",
+  "tests/test_game_mode_system.py": "4844e43c80f19c2785c9625ed27662d79374a866e352d6e55fc9f11e9add1dc8",
+  "tests/test_game_mode_handlers.py": "c35e7a1f70225ecf38ef97b1208be4a8c16222852a14df020f0b3b17fda4d6c8",
+  "frontend/game/dist/index.html": "c63986304e570144cf7bb09eade9f3dd9013ad9033953320ecad464f0c39bcd8",
+  "frontend/game/dist/assets/index-DZjA8w8w.js": "922604148db854ef2a6c14692ecbc3a591d31f0706b9e7fc1b14e3f9cb461399"
+}

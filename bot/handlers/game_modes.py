@@ -558,7 +558,7 @@ class GameModeHandlersMixin:
             await self._send_quick_ability_panels(context, request_id, state)
 
     def _quick_arena_text(self, state: dict) -> str:
-        arena = self.modes._arena(state["arena"])
+        arena = state.get("arena_snapshot") or self.modes._arena(state["arena"])
         effects = self._quick_arena_effect_lines(arena)
         rules = []
         if arena.get("disabled_stats"):
@@ -680,6 +680,8 @@ class GameModeHandlersMixin:
                 + extra
                 + f"\n\n🎴 کارت شما: {preview['card_name']}"
                 + "\nعددهای زیر با اثر زمین، Passive و Ability محاسبه شده‌اند."
+                + ("\nامتیاز نهایی کارت، جمع ویژگی انتخابی شما و حریف است."
+                   if state.get("scoring_rule") == "sum_selected_stats_v1" else "")
                 + "\n\nویژگی خودت را انتخاب کن. ⏳ ۶۰ ثانیه"
             )
             try:
@@ -762,6 +764,8 @@ class GameModeHandlersMixin:
         markup = InlineKeyboardMarkup(
             [[InlineKeyboardButton("📋 مشاهده جزئیات", callback_data=f"gm_report_{report['request_id']}")]]
         )
+        if any(item.get("scored_stats") for item in report.get("breakdown", {}).values()):
+            text += "\n\nامتیاز هر کارت از جمع دو ویژگی انتخابی به دست آمد. برای دیدن محاسبه، «📋 مشاهده جزئیات» را بزن."
         if request and request.get("source") == "inline_private":
             await self._edit_request_panel(context, request, text, reply_markup=markup)
             return
@@ -792,25 +796,43 @@ class GameModeHandlersMixin:
             if report.get("forfeit"):
                 lines.append("نتیجه با پایان مهلت تعیین شد.")
             else:
-                initial_arena = self.modes._arena(report.get("initial_arena"))
-                final_arena = self.modes._arena(report.get("arena"))
+                initial_arena = report.get("initial_arena_data") or self.modes._arena(report.get("initial_arena"))
+                final_arena = report.get("arena_data") or self.modes._arena(report.get("arena"))
                 lines.append(f"زمین اولیه: {initial_arena['emoji']} {initial_arena['name']}")
                 lines.append(f"زمین نهایی: {final_arena['emoji']} {final_arena['name']}")
-                lines.extend(["", "قانون زمین نهایی:", self._quick_arena_text({"arena": final_arena["id"]})])
+                lines.extend(["", "قانون زمین نهایی:", self._quick_arena_text({"arena": final_arena["id"],
+                                                                             "arena_snapshot": final_arena})])
+                if any(item.get("scored_stats") for item in report.get("breakdown", {}).values()):
+                    lines.extend(["", "امتیاز هر کارت = جمع دو ویژگی انتخابی، پس از اثر زمین، Passive و Ability.",
+                                  "اگر هر دو نفر یک ویژگی را انتخاب کنند، همان ویژگی دو بار حساب می‌شود."])
                 for uid, item in report.get("breakdown", {}).items():
                     name = self.db.get_or_create_player(int(uid)).first_name
                     applied_arena = self._quick_arena_effect_lines({"effects": item.get("arena_effects", [])})
-                    lines.extend(
-                        [
-                            "",
-                            f"{name}: {item['card_name']}",
-                            f"ویژگی: {STAT_LABELS.get(item['selected_stat'], item['selected_stat'])}",
-                            f"عدد پایه: {item['base_value']} → نهایی: {item['final_value']}",
-                            "اثر عددی زمین: " + ("، ".join(applied_arena) if applied_arena else "روی نوع این کارت اعمال نشد"),
-                            f"Ability: {item['ability_used']}",
-                            f"Passive: {(item['passive'] or {}).get('name', 'فعال نشد')}",
-                        ]
-                    )
+                    lines.extend(["", f"{name}: {item['card_name']}"])
+                    if item.get("scored_stats"):
+                        for stat, base, final in zip(item["scored_stats"], item["base_components"], item["final_components"]):
+                            lines.append(f"{STAT_LABELS.get(stat, stat)}: پایه {base} → نهایی {final}")
+                        lines.append("جمع پایه: " + " + ".join(map(str, item["base_components"])) + f" = {item['base_value']}")
+                        lines.append("امتیاز نهایی: " + " + ".join(map(str, item["final_components"])) + f" = {item['final_value']}")
+                    else:
+                        # Reports persisted before the scoring change keep their original meaning.
+                        lines.append(f"ویژگی: {STAT_LABELS.get(item['selected_stat'], item['selected_stat'])}")
+                        lines.append(f"عدد پایه: {item['base_value']} → نهایی: {item['final_value']}")
+                    lines.extend([
+                        "اثر عددی زمین: " + ("، ".join(applied_arena) if applied_arena else "روی نوع این کارت اعمال نشد"),
+                        f"Ability: {item['ability_used']}",
+                        "Passive: " + (
+                            f"{item['passive'].get('name', 'Passive')} — "
+                            f"{STAT_LABELS.get(item['passive']['stat'], item['passive']['stat'])} {item['passive']['delta']:+d}"
+                            if item.get("passive") else "فعال نشد"
+                        ),
+                    ])
+                    opponent_ability = item.get("opponent_ability_effect")
+                    if opponent_ability:
+                        stat = opponent_ability["stat"]
+                        lines.append(
+                            f"اثر Ability حریف: {STAT_LABELS.get(stat, stat)} {opponent_ability['delta']:+d}"
+                        )
             await context.bot.send_message(chat_id=query.from_user.id, text="\n".join(lines))
 
     # -------------------- Deck Mode --------------------

@@ -725,6 +725,7 @@ class GameModeSystem:
 
                 state = {
                     "mode": "quick",
+                    "scoring_rule": "sum_selected_stats_v1",
                     "variant": request["variant"],
                     "players": players,
                     "phase": "card_selection",
@@ -1145,19 +1146,34 @@ class GameModeSystem:
                 for user_id in players:
                     preview = previews[user_id]
                     selected_stat = state["stat_choices"][str(user_id)]
-                    breakdown[str(user_id)] = {
+                    opponent_id = next(player_id for player_id in players if player_id != user_id)
+                    opponent_stat = state["stat_choices"][str(opponent_id)]
+                    # Matches started before this rule was deployed finish under their original rule.
+                    scored_stats = (
+                        [selected_stat, opponent_stat]
+                        if state.get("scoring_rule") == "sum_selected_stats_v1"
+                        else [selected_stat]
+                    )
+                    base_components = [preview["base_values"][stat] for stat in scored_stats]
+                    final_components = [preview["final_values"][stat] for stat in scored_stats]
+                    item = {
                         "card_id": preview["card_id"],
                         "card_name": preview["card_name"],
                         "card_type": preview["card_type"],
                         "selected_stat": selected_stat,
-                        "base_value": preview["base_values"][selected_stat],
-                        "final_value": preview["final_values"][selected_stat],
+                        "base_value": sum(base_components),
+                        "final_value": sum(final_components),
                         "all_final_values": preview["final_values"],
                         "arena_effects": preview["arena_effects"],
                         "passive": preview["passive"],
                         "opponent_ability_effect": preview["opponent_ability_effect"],
                         "ability_used": state["ability_choices"].get(str(user_id), "skip"),
                     }
+                    if state.get("scoring_rule") == "sum_selected_stats_v1":
+                        item.update({"opponent_selected_stat": opponent_stat,
+                                     "scored_stats": scored_stats, "base_components": base_components,
+                                     "final_components": final_components})
+                    breakdown[str(user_id)] = item
                 first, second = players
                 first_value = breakdown[str(first)]["final_value"]
                 second_value = breakdown[str(second)]["final_value"]
@@ -1169,6 +1185,7 @@ class GameModeSystem:
                     "winner_id": winner_id,
                     "is_tie": winner_id is None,
                     "initial_arena": state["initial_arena"],
+                    "initial_arena_data": state.get("initial_arena_snapshot"),
                     "arena": state["arena"],
                     "arena_data": arena,
                     "breakdown": breakdown,

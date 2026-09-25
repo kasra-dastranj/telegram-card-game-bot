@@ -499,6 +499,7 @@ def _quick_snapshot(game_request: dict, user_id: int) -> dict:
             preview = None
     response.update({
         "phase": state.get("phase"),
+        "scoring_rule": state.get("scoring_rule"),
         "deadline": state.get("deadline"),
         "arena": arena,
         "my_card": card_to_dict(own_card) if own_card else None,

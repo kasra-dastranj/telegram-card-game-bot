@@ -337,8 +337,8 @@ def test_quick_group_result_shows_winner_card_and_slogan_in_group():
         "winner_id": 1,
         "is_tie": False,
         "breakdown": {
-            "1": {"card_id": "winner-card", "card_name": "Abbas Araqchi"},
-            "2": {"card_id": "loser-card", "card_name": "Other"},
+            "1": {"card_id": "winner-card", "card_name": "Abbas Araqchi", "scored_stats": ["power", "iq"]},
+            "2": {"card_id": "loser-card", "card_name": "Other", "scored_stats": ["iq", "power"]},
         },
     }
 
@@ -351,6 +351,8 @@ def test_quick_group_result_shows_winner_card_and_slogan_in_group():
     assert sent["chat_id"] == -100123
     assert "🏆 پیروزی Ali" in sent["text"]
     assert "میز مذاکره هم گاهی میدان نبرد است." in sent["text"]
+    assert "جمع دو ویژگی" in sent["text"]
+    assert "مشاهده جزئیات" in sent["text"]
     assert "با کارت" not in sent["text"]
     assert sent["reply_markup"].inline_keyboard[0][0].callback_data == (
         "gm_report_request-1"
@@ -409,6 +411,43 @@ def test_quick_group_details_are_delivered_privately_to_clicking_player():
     )
 
     assert context.bot.send_message.await_args.kwargs["chat_id"] == 1
+
+
+def test_quick_report_explains_both_components_and_effects():
+    handler = GameModeHandlersMixin()
+    arena_snapshot = {"id": "desert", "name": "بیابان", "emoji": "🏜️",
+                      "effects": [], "disabled_stats": [], "abilities_enabled": True,
+                      "passives_enabled": True}
+    report = {
+        "request_id": "sum-report", "mode": "quick", "players": [1, 2],
+        "initial_arena": "desert", "arena": "desert",
+        "initial_arena_data": arena_snapshot, "arena_data": arena_snapshot,
+        "breakdown": {
+            "1": {
+                "card_name": "Alpha", "selected_stat": "power", "opponent_selected_stat": "iq",
+                "scored_stats": ["power", "iq"], "base_components": [90, 40],
+                "final_components": [93, 40], "base_value": 130, "final_value": 133,
+                "arena_effects": [{"card_type": "power", "stat": "power", "delta": 2}],
+                "passive": {"name": "Desert strength", "stat": "power", "delta": 3},
+                "opponent_ability_effect": {"ability": "weaken_power", "stat": "power", "delta": -2},
+                "ability_used": "skip",
+            },
+        },
+    }
+    handler.modes = SimpleNamespace(
+        get_report=Mock(return_value=report), get_request=Mock(return_value=None),
+        _arena=Mock(side_effect=AssertionError("The stored arena snapshot must be used")),
+    )
+    handler.db = SimpleNamespace(get_or_create_player=Mock(return_value=SimpleNamespace(first_name="Ali")))
+    query = SimpleNamespace(data="gm_report_sum-report", from_user=SimpleNamespace(id=1), answer=AsyncMock())
+    context = SimpleNamespace(bot=SimpleNamespace(send_message=AsyncMock()))
+
+    asyncio.run(handler.game_report_handler(SimpleNamespace(callback_query=query), context))
+    text = context.bot.send_message.await_args.kwargs["text"]
+    assert "جمع پایه: 90 + 40 = 130" in text
+    assert "امتیاز نهایی: 93 + 40 = 133" in text
+    assert "اثر Ability حریف" in text
+    assert "Desert strength" in text
 
 
 def test_easy_lobby_waits_three_minutes_before_auto_start():
