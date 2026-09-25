@@ -1,0 +1,13 @@
+{
+  "systems/mini_three_round_system.py": "486ac17fe64f3307acd6e785d86b47e8f97227d8026d5c834deeb0b751f0994e",
+  "web/miniapp_api.py": "332125dd0f7664a623dc09fc3830f504018477d5d2d25e21230cdb79a2616384",
+  "frontend/game/src/api.ts": "be11f4907225f389e8defc65c0f0444e85a467db77afd60637f2d1b48c197504",
+  "frontend/game/src/main.ts": "146e6e69a9c54074b7a776a038cd80cb041d1be2a4715ab30477793d609caa00",
+  "tests/test_mini_three_round_api.py": "95f0642d86f857181df62a909244fc4dfb0306b6fcff89d0653704f8dbf2b0fb",
+  "deployment/deploy_three_round_pvp_20260925.py": "bdf8910cd7fc797efe549cd511599d702b1e63bcb04b043130896fe9af781d81",
+  "deployment/smoke_three_round_pvp_20260925.py": "cbeaa1b82f86242b99293c9b9dc2ed3bbbef9d7723c6c04c5c3ee7f1ca163a99",
+  "frontend/game/dist/index.html": "4509b24cb73aba6b5b5afb157b81ee805acc3415a30776147ecae40809c75a19",
+  "frontend/game/dist/assets/index-Y_ko2kb9.js": "8ecd025b4b815364c961ea4e804f47b3a5e7fc9d768dadd9bc8dbda65a753cf2",
+  "frontend/game/dist/assets/phaser-DFK5Ua9d.js": "f9025c1a29bc3ae097dd886ce07717b297466da1ce8f032c8294252ce6cf5cdb",
+  "frontend/game/dist/assets/index-Cy32u_uY.css": "48b5b60fda843cb30d7530c654e4e63647612201cb7ae8c317bfbada4f366839"
+}

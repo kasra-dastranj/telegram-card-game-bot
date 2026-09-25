@@ -1,10 +1,10 @@
 import Phaser from "phaser";
 import "./styles.css";
 import "./tabletop.css";
-import { ApiError, api, type CardData, type CardPage, type ClaimStatus, type DeckData, type Difficulty, type FightData, type FusionPreview, type MissionData, type ProfileData, type QuickState, type RoundData, type SkinCollection, type StatKey, type UpgradePreview } from "./api";
+import { ApiError, api, type CardData, type CardPage, type ClaimStatus, type DeckData, type Difficulty, type FightData, type FusionPreview, type MissionData, type ProfileData, type QuickState, type RoundData, type SkinCollection, type StatKey, type ThreeRoundState, type UpgradePreview } from "./api";
 import { BattleScene } from "./BattleScene";
 
-type Screen = "splash" | "onboarding" | "lobby" | "profileHub" | "collection" | "decks" | "progress" | "shop" | "quickMenu" | "quickWait" | "cards" | "quickMatch" | "quickResult" | "battle" | "result";
+type Screen = "splash" | "onboarding" | "lobby" | "profileHub" | "collection" | "decks" | "progress" | "shop" | "quickMenu" | "quickWait" | "threeMenu" | "threeWait" | "threeMatch" | "threeResult" | "cards" | "quickMatch" | "quickResult" | "battle" | "result";
 
 const state: {
   screen: Screen;
@@ -21,9 +21,11 @@ const state: {
   fight?: FightData;
   lastRound?: RoundData;
   loading: boolean;
-  playMode: "solo" | "quick";
+  playMode: "solo" | "quick" | "three";
   quick?: QuickState;
   incomingInvite?: string;
+  three?: ThreeRoundState;
+  incomingThreeInvite?: string;
   collection?: CardPage;
   collectionPage: number;
   collectionRarity: string;
@@ -60,7 +62,9 @@ const state: {
 };
 
 let quickPollTimer: number | undefined;
+let threePollTimer: number | undefined;
 const onboardingStorageKey = "telbattle:onboarding:v1";
+const threeStorageKey = "telbattle:three-round-request:v1";
 
 const onboardingSlides = [
   {
@@ -131,11 +135,12 @@ game.events.on("hand-page-changed", (page: number, pageCount: number) => {
   ui.dataset.handPageCount = String(pageCount);
 });
 game.events.on("card-dropped", (cardId: string) => {
-  if (state.playMode !== "quick" || state.loading || state.quick?.phase !== "card_selection" || state.quick.my_card_locked) return;
+  if (state.loading || (state.playMode === "quick" ? state.quick?.phase !== "card_selection" || state.quick.my_card_locked : state.playMode === "three" ? state.three?.phase !== "card_selection" || state.three.my_card_locked : true)) return;
   const card = state.cards.find((item) => item.card_id === cardId);
   if (!card) return;
   state.selected = card;
-  void submitQuickCard();
+  if (state.playMode === "three") void submitThreeCard();
+  else void submitQuickCard();
 });
 
 function render(): void {
@@ -151,6 +156,10 @@ function render(): void {
   if (state.screen === "shop") ui.innerHTML = shopTemplate();
   if (state.screen === "quickMenu") ui.innerHTML = quickMenuTemplate();
   if (state.screen === "quickWait") ui.innerHTML = quickWaitTemplate();
+  if (state.screen === "threeMenu") ui.innerHTML = threeMenuTemplate();
+  if (state.screen === "threeWait") ui.innerHTML = threeWaitTemplate();
+  if (state.screen === "threeMatch") ui.innerHTML = threeMatchTemplate();
+  if (state.screen === "threeResult") ui.innerHTML = threeResultTemplate();
   if (state.screen === "cards") ui.innerHTML = cardsTemplate();
   if (state.screen === "quickMatch") ui.innerHTML = quickMatchTemplate();
   if (state.screen === "quickResult") ui.innerHTML = quickResultTemplate();
@@ -551,9 +560,9 @@ function lobbyTemplate(): string {
             <span class="battle-mode__copy"><strong>ورود به نبرد</strong><small>حریف واقعی · یک راند · یک انتخاب</small></span>
             <span class="battle-mode__meta"><em>${lobbyIcon("arrow")}</em></span>
           </button>
-          <button class="battle-mode battle-mode--solo" data-action="enter-arena" ${state.loading ? "disabled" : ""}>
+          <button class="battle-mode battle-mode--solo" data-action="enter-three" ${state.loading ? "disabled" : ""}>
             <span class="battle-mode__icon">${lobbyIcon("solo")}</span>
-            <span class="battle-mode__copy"><strong>تمرین با ASO</strong><small>سه راند برای آزمودن استراتژی‌ات</small></span>
+            <span class="battle-mode__copy"><strong>نبرد سه‌راندی</strong><small>حریف واقعی یا تمرین با ASO</small></span>
             <span class="battle-mode__meta"><em>${lobbyIcon("arrow")}</em></span>
           </button>
         </div>
@@ -607,14 +616,75 @@ function quickWaitTemplate(): string {
     </section>`;
 }
 
+function threeMenuTemplate(): string {
+  const invite = state.incomingThreeInvite;
+  return `<section class="screen quick-menu-screen">
+    <header class="section-header"><button class="icon-button" data-action="home" aria-label="بازگشت">←</button><div><p class="eyebrow">THREE ROUNDS</p><h2>${invite ? "دعوت نبرد سه‌راندی" : "نبرد سه‌راندی"}</h2></div></header>
+    <div class="quick-hero glass-panel"><span class="quick-hero__mark">3</span><div><strong>یک کارت، سه راند</strong><p>در هر راند یک ویژگی تازه انتخاب کن. زمین در تمام نبرد ثابت است؛ اولین نفر با دو برد پیروز می‌شود.</p></div></div>
+    ${invite ? `<button class="primary-button" data-action="accept-three" ${state.loading ? "disabled" : ""}>پذیرش دعوت</button><button class="secondary-button" data-action="dismiss-three">رد کردن</button>` : `<div class="quick-options">
+      <button class="mode-card" data-action="three-random" ${state.loading ? "disabled" : ""}><span class="mode-card__icon">⌁</span><div><strong>حریف تصادفی واقعی</strong><small>اتصال خودکار به بازیکن دیگر</small></div><i>←</i></button>
+      <button class="mode-card" data-action="three-invite" ${state.loading ? "disabled" : ""}><span class="mode-card__icon">↗</span><div><strong>دعوت دوست با لینک</strong><small>لینک دعوت پنج دقیقه‌ای</small></div><i>←</i></button>
+      <button class="mode-card" data-action="enter-arena"><span class="mode-card__icon">✦</span><div><strong>تمرین با ASO</strong><small>نبرد تمرینی سه‌راندی</small></div><i>←</i></button>
+    </div>`}
+  </section>`;
+}
+
+function threeWaitTemplate(): string {
+  const match = state.three;
+  const closed = match?.status === "expired" || match?.status === "cancelled";
+  const seconds = Math.max(0, Math.ceil((new Date(match?.expires_at || 0).getTime() - Date.now()) / 1000));
+  return `<section class="screen quick-wait-screen">
+    <header class="section-header"><button class="icon-button" data-action="cancel-three" aria-label="بازگشت">←</button><div><p class="eyebrow">THREE ROUNDS</p><h2>${closed ? "درخواست پایان یافت" : "در جستجوی حریف"}</h2></div></header>
+    <div class="radar ${closed ? "is-stopped" : ""}"><i></i><i></i><span>VS</span></div>
+    <div class="waiting-copy"><strong>${closed ? "حریف پیدا نشد" : match?.source === "invite_link" ? "منتظر پذیرش دوستت هستیم" : "در حال اتصال تصادفی"}</strong><p>پس از ورود حریف، کارت خود را انتخاب می‌کنی.</p></div>
+    <div class="wait-panel glass-panel"><div><small>مهلت باقی‌مانده</small><strong class="countdown">${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}</strong></div>
+    ${match?.invite_url && !closed ? `<button class="share-button" data-action="share-three" data-url="${escapeHtml(match.invite_url)}">اشتراک لینک دعوت</button>` : ""}
+    <button class="secondary-button" data-action="cancel-three">${closed ? "بازگشت" : "لغو درخواست"}</button></div>
+  </section>`;
+}
+
+function threeMatchTemplate(): string {
+  const match = state.three;
+  const mine = match?.rounds_won?.[String(match.user_id)] ?? 0;
+  const rival = match?.rounds_won?.[String(match.opponent_id)] ?? 0;
+  const last = match?.last_round;
+  const myLast = last?.values[String(match?.user_id)];
+  const rivalLast = last?.values[String(match?.opponent_id)];
+  return `<section class="screen quick-match-screen">
+    <header class="quick-match-hud glass-panel"><div><small>راند ${match?.round ?? 1} از ۳</small><strong>${match?.arena?.emoji ?? "◇"} ${escapeHtml(match?.arena?.name_fa ?? "میدان")}</strong></div><div class="versus-chip"><span>${mine}</span><i>VS</i><span>${rival}</span></div></header>
+    <div class="arena-banner"><span>${match?.arena?.emoji ?? "◇"}</span><div><small>ویژگی زمین</small><strong>${match?.arena?.boost_stat ? labels[match.arena.boost_stat].title : "—"}</strong><p>تقویت فقط برای کارت سازگار اعمال می‌شود. زمین هر سه راند ثابت است.</p></div></div>
+    ${match?.opponent_card ? `<div class="reveal-card glass-panel"><span class="reveal-card__art" style="background-image:url('${escapeHtml(match.opponent_card.image_url)}')"></span><div><small>کارت حریف</small><strong>${escapeHtml(match.opponent_card.name)}</strong></div></div>` : ""}
+    ${last ? `<div class="glass-panel" style="padding:12px;margin:10px 0"><strong>راند ${last.round}: ${last.winner_id === null ? "مساوی" : last.winner_id === match?.user_id ? "برد تو" : "برد حریف"}</strong><p>${myLast ? `${labels[myLast.stat].title} ${myLast.base}${myLast.boost ? ` + ${myLast.boost}` : ""} = ${myLast.total}` : "—"} · ${rivalLast ? `${labels[rivalLast.stat].title} ${rivalLast.base}${rivalLast.boost ? ` + ${rivalLast.boost}` : ""} = ${rivalLast.total}` : "—"}</p></div>` : ""}
+    <div class="decision-panel glass-panel">${match?.phase === "card_selection" || match?.my_stat_locked ? `<div class="choice-locked"><span>✓</span><strong>انتخابت ثبت شد</strong><p>منتظر تصمیم حریف هستیم…</p></div>` : `<div class="decision-title"><small>هر ویژگی فقط یک بار</small><strong>ویژگی راند ${match?.round ?? 1} را انتخاب کن</strong></div><div class="stat-grid quick-stat-grid">${(Object.keys(labels) as StatKey[]).map((key) => `<button class="stat-button ${(match?.my_boosts?.[key] ?? 0) > 0 ? "is-boosted" : ""}" data-action="three-stat" data-value="${key}" ${(match?.available_stats || []).includes(key) && !state.loading ? "" : "disabled"}><span>${labels[key].short}</span><strong>${match?.my_values?.[key] ?? "—"}</strong><small>${labels[key].title}${match?.my_boosts?.[key] ? ` +${match.my_boosts[key]} زمین` : ""}</small></button>`).join("")}</div>`}</div>
+  </section>`;
+}
+
+function threeResultTemplate(): string {
+  const match = state.three;
+  const report = match?.report;
+  const tie = report?.is_tie;
+  const won = report?.winner_id === match?.user_id;
+  const mine = report?.rounds_won?.[String(match?.user_id)] ?? 0;
+  const rival = report?.rounds_won?.[String(match?.opponent_id)] ?? 0;
+  return `<section class="screen result-screen quick-result-screen">
+    <div class="result-emblem ${won ? "result-emblem--win" : "result-emblem--lose"}"><span>${tie ? "=" : won ? "W" : "L"}</span></div>
+    <p class="eyebrow">THREE ROUNDS COMPLETE</p><h2>${tie ? "نبرد مساوی شد" : won ? "تو برنده شدی" : "حریف برنده شد"}</h2>
+    <p>${report?.forfeit ? "نبرد به‌خاطر پایان مهلت انتخاب تمام شد." : `${report?.rounds.length ?? 0} راند در ${escapeHtml(match?.arena?.name_fa ?? "میدان")} انجام شد.`}</p>
+    <div class="reward-panel glass-panel"><div><small>برد راندها</small><strong>${mine} — ${rival}</strong></div></div>
+    ${(report?.rounds || []).map((round) => { const a = round.values[String(match?.user_id)]; const b = round.values[String(match?.opponent_id)]; return `<div class="glass-panel" style="padding:12px;margin-bottom:10px"><strong>راند ${round.round}: ${round.winner_id === null ? "مساوی" : round.winner_id === match?.user_id ? "برد تو" : "برد حریف"}</strong><p>تو: ${a ? `${labels[a.stat].title} ${a.base} + ${a.boost} = ${a.total}` : "—"} · حریف: ${b ? `${labels[b.stat].title} ${b.base} + ${b.boost} = ${b.total}` : "—"}</p></div>`; }).join("")}
+    <button class="primary-button" data-action="enter-three">نبرد سه‌راندی دوباره</button><button class="secondary-button" data-action="home">بازگشت به پایگاه</button>
+  </section>`;
+}
+
 function cardsTemplate(): string {
-  if (state.playMode === "quick") {
-    const arena = state.quick?.arena;
+  if (state.playMode === "quick" || state.playMode === "three") {
+    const arena = state.playMode === "quick" ? state.quick?.arena : state.three?.arena;
+    const arenaName = arena && ("name" in arena ? arena.name : arena.name_fa);
     return `
       <section class="screen cards-screen drag-card-screen">
         <header class="section-header drag-card-header">
           <button class="icon-button" data-action="back" aria-label="بازگشت">←</button>
-          <div><p class="eyebrow">QUICK · DRAG TO PLAY</p><h2>${arena ? `${arena.emoji || ""} ${arena.name}` : "کارتت را وارد میدان کن"}</h2></div>
+          <div><p class="eyebrow">${state.playMode === "three" ? "THREE ROUNDS" : "QUICK"} · DRAG TO PLAY</p><h2>${arena ? `${arena.emoji || ""} ${arenaName}` : "کارتت را وارد میدان کن"}</h2></div>
         </header>
         <div class="drag-guide" role="status" aria-live="polite">
           <span class="drag-guide__grip" aria-hidden="true"></span>
@@ -1209,10 +1279,149 @@ async function cancelQuick(): Promise<void> {
   render();
 }
 
+function stopThreePolling(): void {
+  if (threePollTimer !== undefined) window.clearTimeout(threePollTimer);
+  threePollTimer = undefined;
+}
+
+function rememberThree(): void {
+  try {
+    if (state.three && !["expired", "cancelled", "completed"].includes(state.three.status)) localStorage.setItem(threeStorageKey, state.three.request_id);
+    else localStorage.removeItem(threeStorageKey);
+  } catch { /* Storage is optional. */ }
+}
+
+function syncThreeScreen(): void {
+  const match = state.three;
+  if (!match) return;
+  rememberThree();
+  if (["waiting", "expired", "cancelled"].includes(match.status)) {
+    state.screen = "threeWait";
+    scene.showIdle();
+  } else if (match.phase === "card_selection" && !match.my_card_locked) {
+    state.playMode = "three";
+    state.screen = "cards";
+    scene.showCardHand(state.cards, match.arena?.arena_id);
+  } else if (match.phase === "completed") {
+    state.screen = "threeResult";
+    stopThreePolling();
+    if (match.my_card && match.opponent_card) {
+      const last = match.last_round;
+      scene.showQuickResult(match.my_card, match.opponent_card, {
+        outcome: match.report?.is_tie ? "tie" : match.report?.winner_id === match.user_id ? "win" : "loss",
+        playerValue: last?.values[String(match.user_id)]?.total,
+        opponentValue: last?.values[String(match.opponent_id)]?.total,
+      }, { arena_id: match.arena?.arena_id, background_url: match.arena?.background_url });
+    }
+  } else {
+    state.screen = "threeMatch";
+    if (match.my_card) scene.showQuickDuel(match.my_card, match.opponent_card || undefined, { arena_id: match.arena?.arena_id, background_url: match.arena?.background_url });
+  }
+}
+
+function scheduleThreePoll(delay = 2200): void {
+  stopThreePolling();
+  if (!state.three || ["expired", "cancelled", "completed"].includes(state.three.status)) return;
+  threePollTimer = window.setTimeout(() => void pollThree(), delay);
+}
+
+async function pollThree(): Promise<void> {
+  const requestId = state.three?.request_id;
+  if (!requestId) return;
+  try {
+    const updated = await api.threeStatus(requestId);
+    if (state.three?.request_id !== requestId) return;
+    state.three = updated;
+    if (updated.phase === "card_selection" && !updated.my_card_locked) await loadCards();
+    syncThreeScreen();
+    render();
+    scheduleThreePoll();
+  } catch (error) {
+    showToast(error instanceof Error ? error.message : "وضعیت نبرد دریافت نشد");
+    scheduleThreePoll(4000);
+  }
+}
+
+async function beginThree(kind: "random" | "invite"): Promise<void> {
+  state.loading = true; state.playMode = "three"; render();
+  try {
+    state.three = kind === "random" ? await api.threeMatchmaking() : await api.createThreeInvite();
+    state.selected = undefined;
+    if (state.three.phase === "card_selection") await loadCards();
+    syncThreeScreen(); scheduleThreePoll(900);
+  } catch (error) { showToast(error instanceof Error ? error.message : "ساخت درخواست ممکن نشد"); }
+  finally { state.loading = false; render(); }
+}
+
+async function acceptThree(): Promise<void> {
+  if (!state.incomingThreeInvite) return;
+  state.loading = true; render();
+  try {
+    state.three = await api.acceptThreeInvite(state.incomingThreeInvite);
+    state.incomingThreeInvite = undefined; state.playMode = "three";
+    await loadCards(); syncThreeScreen(); scheduleThreePoll();
+  } catch (error) { showToast(error instanceof Error ? error.message : "پذیرش دعوت ممکن نشد"); }
+  finally { state.loading = false; render(); }
+}
+
+async function submitThreeCard(): Promise<void> {
+  if (!state.three || !state.selected || state.loading) return;
+  state.loading = true; render();
+  try {
+    state.three = await api.threeCard(state.three.request_id, state.selected.card_id);
+    syncThreeScreen(); scheduleThreePoll(); haptic("success");
+  } catch (error) { showToast(error instanceof Error ? error.message : "کارت ثبت نشد"); scene.resetCardHand(); }
+  finally { state.loading = false; render(); }
+}
+
+async function submitThreeStat(stat: StatKey): Promise<void> {
+  if (!state.three || state.loading) return;
+  state.loading = true; render();
+  try {
+    state.three = await api.threeStat(state.three.request_id, stat);
+    syncThreeScreen(); scheduleThreePoll(); haptic("medium");
+  } catch (error) { showToast(error instanceof Error ? error.message : "ویژگی ثبت نشد"); }
+  finally { state.loading = false; render(); }
+}
+
+async function cancelThree(): Promise<void> {
+  stopThreePolling();
+  if (state.three?.status === "waiting") {
+    try { state.three = await api.cancelThree(state.three.request_id); }
+    catch {
+      try { state.three = await api.threeStatus(state.three.request_id); }
+      catch { /* An expired request will be cleared below. */ }
+    }
+  }
+  if (state.three?.status === "active" || state.three?.status === "accepted") rememberThree();
+  else { state.three = undefined; rememberThree(); }
+  state.selected = undefined;
+  state.screen = "lobby"; scene.showIdle(); render();
+}
+
+async function openThreeMenu(): Promise<void> {
+  stopThreePolling();
+  state.incomingThreeInvite = undefined;
+  let pending: string | null = null;
+  try { pending = localStorage.getItem(threeStorageKey); } catch { /* Optional storage. */ }
+  if (pending) {
+    try {
+      state.three = await api.threeStatus(pending);
+      if (state.three.phase === "card_selection" && !state.three.my_card_locked) await loadCards();
+      if (!["expired", "cancelled", "completed"].includes(state.three.status)) {
+        syncThreeScreen(); render(); scheduleThreePoll(); return;
+      }
+    } catch { /* An old request may no longer exist. */ }
+    try { localStorage.removeItem(threeStorageKey); } catch { /* Optional storage. */ }
+  }
+  state.three = undefined; state.playMode = "three"; state.screen = "threeMenu";
+  scene.showIdle(); render();
+}
+
 async function shareInvite(url: string): Promise<void> {
   try {
     const canShare = typeof navigator.share === "function";
-    if (canShare) await navigator.share({ title: "دعوت به TelBattle", text: "بیا با هم Quick بازی کنیم", url });
+    if (canShare) await navigator.share({ title: "دعوت به TelBattle", text: url.includes("three_invite=") ? "بیا نبرد سه‌راندی بازی کنیم" : "بیا با هم Quick بازی کنیم", url });
     else await navigator.clipboard.writeText(url);
     showToast(canShare ? "دعوت آماده ارسال است" : "لینک دعوت کپی شد");
   } catch (error) {
@@ -1323,6 +1532,13 @@ ui.addEventListener("click", (event) => {
   if (action === "cancel-fusion") { state.fusion.preview = undefined; render(); }
   if (action === "execute-fusion") void executeFusion();
   if (action === "enter-quick") { stopQuickPolling(); state.quick = undefined; state.incomingInvite = undefined; state.screen = "quickMenu"; scene.showIdle(); render(); }
+  if (action === "enter-three") void openThreeMenu();
+  if (action === "three-random") void beginThree("random");
+  if (action === "three-invite") void beginThree("invite");
+  if (action === "accept-three") void acceptThree();
+  if (action === "dismiss-three") { state.incomingThreeInvite = undefined; state.screen = "lobby"; render(); }
+  if (action === "cancel-three") void cancelThree();
+  if (action === "share-three") void shareInvite(button.dataset.url || "");
   if (action === "quick-random") void beginQuick("random");
   if (action === "quick-invite") void beginQuick("invite");
   if (action === "accept-invite") void acceptInvite();
@@ -1331,12 +1547,15 @@ ui.addEventListener("click", (event) => {
   if (action === "share-invite") void shareInvite(button.dataset.url || "");
   if (action === "back") {
     if (state.playMode === "quick") void cancelQuick();
+    else if (state.playMode === "three") void cancelThree();
     else { state.screen = "lobby"; state.selected = undefined; scene.showIdle(); render(); }
   }
   if (action === "home") {
     stopQuickPolling();
+    stopThreePolling();
     state.screen = "lobby";
     state.quick = undefined;
+    state.three = undefined;
     state.selected = undefined;
     scene.showIdle();
     render();
@@ -1344,9 +1563,10 @@ ui.addEventListener("click", (event) => {
   }
   if (action === "difficulty") { state.difficulty = button.dataset.value as Difficulty; render(); }
   if (action === "select-card") { state.selected = state.cards.find((card) => card.card_id === button.dataset.id); render(); }
-  if (action === "start") { if (state.playMode === "quick") void submitQuickCard(); else void startFight(); }
+  if (action === "start") { if (state.playMode === "quick") void submitQuickCard(); else if (state.playMode === "three") void submitThreeCard(); else void startFight(); }
   if (action === "quick-ability") void submitQuickAbility(button.dataset.value || "skip");
   if (action === "quick-stat") void submitQuickStat(button.dataset.value as StatKey);
+  if (action === "three-stat") void submitThreeStat(button.dataset.value as StatKey);
   if (action === "stat") void playStat(button.dataset.value as StatKey);
   if (action === "again") { state.screen = "cards"; state.lastRound = undefined; scene.showIdle(); render(); }
 });
@@ -1380,6 +1600,7 @@ async function boot(): Promise<void> {
   tg?.setHeaderColor?.("#131714");
   tg?.setBackgroundColor?.("#131714");
   state.incomingInvite = new URLSearchParams(location.search).get("invite") || undefined;
+  state.incomingThreeInvite = new URLSearchParams(location.search).get("three_invite") || undefined;
   state.screen = "splash";
   state.bootProgress = 18;
   state.bootLabel = "در حال بیدار کردن میدان…";
@@ -1401,10 +1622,22 @@ async function boot(): Promise<void> {
   state.bootLabel = "میدان آماده است";
   render();
   await new Promise<void>((resolve) => window.setTimeout(resolve, 320));
-  if (state.incomingInvite) state.screen = "quickMenu";
+  if (state.incomingThreeInvite) state.screen = "threeMenu";
+  else if (state.incomingInvite) state.screen = "quickMenu";
   else state.screen = onboardingSeen() ? "lobby" : "onboarding";
   scene.showIdle();
   render();
+  if (!state.incomingInvite && !state.incomingThreeInvite && state.profileStatus === "ready") {
+    let pending: string | null = null;
+    try { pending = localStorage.getItem(threeStorageKey); } catch { /* Optional storage. */ }
+    if (pending) {
+      try {
+        state.three = await api.threeStatus(pending);
+        if (state.three.phase === "card_selection" && !state.three.my_card_locked) await loadCards();
+        syncThreeScreen(); render(); scheduleThreePoll();
+      } catch { try { localStorage.removeItem(threeStorageKey); } catch { /* Optional storage. */ } }
+    }
+  }
 }
 
 void boot();

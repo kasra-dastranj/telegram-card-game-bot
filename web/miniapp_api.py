@@ -29,6 +29,7 @@ from systems.ai_opponent import AsoAI, DAILY_SOLO_LIMIT
 from systems.battle_system_3rounds import BattleSystem3Rounds, ARENAS
 from systems.arena_registry import ArenaRegistry
 from systems.game_mode_system import GameModeSystem
+from systems.mini_three_round_system import MiniThreeRoundSystem, MODE as MINI_THREE_ROUND_MODE
 from systems.player_hub_system import PlayerHubSystem
 from systems.card_upgrade_system import CardUpgradeSystem
 from systems.deck_system import DeckSystem
@@ -87,6 +88,7 @@ db = DatabaseManager(DB_PATH)
 battle_system = BattleSystem3Rounds(db)
 quick_modes = GameModeSystem(db)
 arena_registry = ArenaRegistry(db)
+mini_three_round = MiniThreeRoundSystem(db, quick_modes, arena_registry, battle_system)
 
 # ==================== احراز هویت ====================
 
@@ -383,6 +385,8 @@ QUICK_ERROR_MESSAGES = {
     "ability_not_owned": "این Ability را در موجودی نداری.",
     "unknown_ability": "Ability نامعتبر است.",
     "stat_not_allowed": "این ویژگی در میدان فعلی قابل انتخاب نیست.",
+    "match_not_ready": "مسابقه هنوز آماده نیست یا به پایان رسیده است.",
+    "deadline_passed": "مهلت انتخاب به پایان رسیده است.",
 }
 
 
@@ -410,7 +414,7 @@ def _quick_request_for_user(request_id: str, user_id: int):
         return None
     game_request = _expire_waiting_request(game_request)
     participants = {game_request.get("creator_id"), game_request.get("opponent_id")}
-    return game_request if user_id in participants else None
+    return game_request if game_request["mode"] == "quick" and user_id in participants else None
 
 
 def _settle_quick_deadline(request_id: str, state: dict) -> dict:
@@ -825,6 +829,9 @@ def quick_create_invite():
 @app.route("/api/v1/quick/invites/<token>/accept", methods=["POST"])
 @require_auth
 def quick_accept_invite(token: str):
+    invite = quick_modes.get_request_by_token(token)
+    if not invite or invite["mode"] != "quick" or invite["source"] != "invite_link":
+        return _quick_error("not_found", 404)
     ok, reason, game_request = quick_modes.accept_invite(token, g.user_id)
     if not ok:
         return _quick_error(reason, 404 if reason == "not_found" else 409)
@@ -921,6 +928,123 @@ def quick_choose_stat(request_id: str):
     except ValueError as exc:
         return _quick_error(str(exc), 409 if str(exc) == "choice_locked" else 400)
     return jsonify(_quick_snapshot(quick_modes.get_request(request_id), g.user_id))
+
+
+# ==================== Routes: Mini App three-round PvP ====================
+
+def _three_request_for_user(request_id: str, user_id: int):
+    game_request = quick_modes.get_request(request_id)
+    if not game_request or game_request["mode"] != MINI_THREE_ROUND_MODE:
+        return None
+    game_request = _expire_waiting_request(game_request)
+    participants = {game_request.get("creator_id"), game_request.get("opponent_id")}
+    return game_request if user_id in participants else None
+
+
+def _three_snapshot(game_request: dict, user_id: int) -> dict:
+    snapshot = mini_three_round.snapshot(game_request, user_id)
+    own_id = snapshot.pop("my_card_id", None)
+    opponent_id = snapshot.pop("opponent_card_id", None)
+    own_card = db.get_card_by_id_for_player(own_id, user_id) if own_id else None
+    rival_card = db.get_card_by_id_for_player(opponent_id, snapshot["opponent_id"]) if opponent_id else None
+    snapshot["my_card"] = card_to_dict(own_card) if own_card else None
+    snapshot["opponent_card"] = card_to_dict(rival_card) if rival_card else None
+    return snapshot
+
+
+@app.route("/api/v1/three-round/matchmaking", methods=["POST"])
+@require_auth
+def three_matchmaking():
+    status, game_request = quick_modes.matchmake_random(g.user_id, MINI_THREE_ROUND_MODE, "normal")
+    snapshot = _three_snapshot(game_request, g.user_id)
+    snapshot["matchmaking_status"] = status
+    return jsonify(snapshot), 200 if status == "matched" else 201
+
+
+@app.route("/api/v1/three-round/invites", methods=["POST"])
+@require_auth
+def three_create_invite():
+    game_request = quick_modes.create_invite(g.user_id, MINI_THREE_ROUND_MODE, "normal")
+    snapshot = _three_snapshot(game_request, g.user_id)
+    snapshot.update({
+        "invite_token": game_request["invite_token"],
+        "invite_url": f"{request.host_url.rstrip('/')}?three_invite={game_request['invite_token']}",
+    })
+    return jsonify(snapshot), 201
+
+
+@app.route("/api/v1/three-round/invites/<token>/accept", methods=["POST"])
+@require_auth
+def three_accept_invite(token: str):
+    invite = quick_modes.get_request_by_token(token)
+    if not invite or invite["mode"] != MINI_THREE_ROUND_MODE or invite["source"] != "invite_link":
+        return _quick_error("not_found", 404)
+    ok, reason, game_request = quick_modes.accept_invite(token, g.user_id)
+    if not ok:
+        return _quick_error(reason, 404 if reason == "not_found" else 409)
+    return jsonify(_three_snapshot(game_request, g.user_id))
+
+
+@app.route("/api/v1/three-round/requests/<request_id>", methods=["GET"])
+@require_auth
+def three_request_status(request_id: str):
+    game_request = _three_request_for_user(request_id, g.user_id)
+    if not game_request:
+        return _quick_error("not_found", 404)
+    return jsonify(_three_snapshot(game_request, g.user_id))
+
+
+@app.route("/api/v1/three-round/requests/<request_id>/cancel", methods=["POST"])
+@require_auth
+def three_cancel_request(request_id: str):
+    game_request = _three_request_for_user(request_id, g.user_id)
+    if not game_request:
+        return _quick_error("not_found", 404)
+    if not quick_modes.cancel_request(request_id, g.user_id):
+        return _quick_error("match_not_ready", 409)
+    return jsonify(_three_snapshot(quick_modes.get_request(request_id), g.user_id))
+
+
+def _three_active_request(request_id: str):
+    game_request = _three_request_for_user(request_id, g.user_id)
+    if not game_request:
+        return None, _quick_error("not_found", 404)
+    if game_request["status"] not in ("accepted", "active"):
+        return None, _quick_error("match_not_ready", 409)
+    _three_snapshot(game_request, g.user_id)
+    return quick_modes.get_request(request_id), None
+
+
+@app.route("/api/v1/three-round/matches/<request_id>/card", methods=["POST"])
+@require_auth
+def three_choose_card(request_id: str):
+    game_request, error = _three_active_request(request_id)
+    if error:
+        return error
+    data = request.get_json(silent=True) or {}
+    if not data.get("card_id"):
+        return _quick_error("missing_card_id", 400)
+    try:
+        mini_three_round.choose_card(request_id, g.user_id, str(data["card_id"]))
+    except ValueError as exc:
+        return _quick_error(str(exc), 409)
+    return jsonify(_three_snapshot(quick_modes.get_request(request_id), g.user_id))
+
+
+@app.route("/api/v1/three-round/matches/<request_id>/stat", methods=["POST"])
+@require_auth
+def three_choose_stat(request_id: str):
+    game_request, error = _three_active_request(request_id)
+    if error:
+        return error
+    data = request.get_json(silent=True) or {}
+    if not data.get("stat"):
+        return _quick_error("missing_stat", 400)
+    try:
+        mini_three_round.choose_stat(request_id, g.user_id, str(data["stat"]))
+    except ValueError as exc:
+        return _quick_error(str(exc), 409)
+    return jsonify(_three_snapshot(quick_modes.get_request(request_id), g.user_id))
 
 
 # ==================== Routes: Solo Fight ====================

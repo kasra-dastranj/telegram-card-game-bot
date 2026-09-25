@@ -224,6 +224,40 @@ export interface QuickState {
   report?: QuickReport;
 }
 
+export interface ThreeRoundState {
+  request_id: string;
+  user_id: number;
+  status: QuickState["status"];
+  source: QuickState["source"];
+  expires_at: string;
+  matchmaking_status?: "waiting" | "matched";
+  invite_token?: string;
+  invite_url?: string;
+  opponent_id?: number;
+  phase?: "card_selection" | "stat_selection" | "completed";
+  round?: number;
+  deadline?: string | null;
+  arena?: { arena_id: string; name_fa: string; emoji: string; boost_stat: StatKey; boost_amount?: number; background_url?: string | null };
+  my_card?: CardData | null;
+  opponent_card?: CardData | null;
+  my_card_locked?: boolean;
+  opponent_card_selected?: boolean;
+  my_stat_locked?: boolean;
+  opponent_stat_selected?: boolean;
+  my_values?: Record<StatKey, number>;
+  my_boosts?: Record<StatKey, number>;
+  available_stats?: StatKey[];
+  rounds_won?: Record<string, number>;
+  last_round?: ThreeRoundResult | null;
+  report?: { winner_id: number | null; is_tie: boolean; forfeit: boolean; reason?: string; rounds_won: Record<string, number>; rounds: ThreeRoundResult[] } | null;
+}
+
+export interface ThreeRoundResult {
+  round: number;
+  winner_id: number | null;
+  values: Record<string, { stat: StatKey; base: number; boost: number; total: number }>;
+}
+
 const API_BASE = "/api/v1";
 const demoParams = new URLSearchParams(location.search);
 const demoMode = demoParams.has("demo");
@@ -506,6 +540,27 @@ export const api = {
       return { ...demoQuick };
     }
     return request("POST", `/quick/matches/${encodeURIComponent(requestId)}/stat`, { stat });
+  },
+  async threeMatchmaking(): Promise<ThreeRoundState> {
+    return request("POST", "/three-round/matchmaking");
+  },
+  async createThreeInvite(): Promise<ThreeRoundState> {
+    return request("POST", "/three-round/invites");
+  },
+  async acceptThreeInvite(token: string): Promise<ThreeRoundState> {
+    return request("POST", `/three-round/invites/${encodeURIComponent(token)}/accept`);
+  },
+  async threeStatus(requestId: string): Promise<ThreeRoundState> {
+    return request("GET", `/three-round/requests/${encodeURIComponent(requestId)}`);
+  },
+  async cancelThree(requestId: string): Promise<ThreeRoundState> {
+    return request("POST", `/three-round/requests/${encodeURIComponent(requestId)}/cancel`);
+  },
+  async threeCard(requestId: string, cardId: string): Promise<ThreeRoundState> {
+    return request("POST", `/three-round/matches/${encodeURIComponent(requestId)}/card`, { card_id: cardId });
+  },
+  async threeStat(requestId: string, stat: StatKey): Promise<ThreeRoundState> {
+    return request("POST", `/three-round/matches/${encodeURIComponent(requestId)}/stat`, { stat });
   },
 };
 
