@@ -9,7 +9,7 @@ import json
 import os
 import logging
 import random
-from datetime import datetime, timedelta, time as dt_time
+from datetime import datetime, timedelta, time as dt_time, timezone
 from zoneinfo import ZoneInfo
 from typing import Optional, List, Dict, Any
 
@@ -37,10 +37,10 @@ from systems.economy_system import EconomySystem
 from systems.tier_decay_system import TierDecaySystem
 from systems.risk_mode_system import RiskModeSystem, RiskTable, RiskAction
 from systems.battle_system_3rounds import BattleSystem3Rounds, BattleState, ARENAS
-from systems.claim_system import ClaimSystem
 from systems.card_missions_system import CardMissionsSystem, MISSION_TYPES
 from systems.skins_system import SkinsSystem, SKIN_TYPES
 from systems.game_mode_system import GameModeSystem
+from systems.weekly_rewards_system import WeeklyRewardsSystem
 # تنظیم لاگینگ  
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -342,7 +342,6 @@ class TelegramCardBot(
         self.risk = RiskModeSystem(self.db)
         self.battle3 = BattleSystem3Rounds(self.db)
         self.arena_registry = ArenaRegistry(self.db)
-        self.claim_sys = ClaimSystem(self.db)
         self.missions = CardMissionsSystem(self.db)
         self.skins = SkinsSystem(self.db)
         self.modes = GameModeSystem(self.db)
@@ -643,24 +642,21 @@ class TelegramCardBot(
     async def weekly_leaderboard_task(self, context: ContextTypes.DEFAULT_TYPE):
         """تسک هفتگی — پاداش لیدربرد"""
         try:
-            rewards = {1: 100, 2: 50, 3: 30}
-            rank_4_10 = 10
-
-            leaderboard = self.db.get_leaderboard_by_timeframe(timeframe="weekly", limit=10)
+            today = datetime.now(MAINTENANCE_TIMEZONE).date()
+            current_monday = today - timedelta(days=today.weekday())
+            previous_monday = current_monday - timedelta(days=7)
+            period_key = previous_monday.isoformat()
+            start_utc = datetime.combine(previous_monday, dt_time.min, MAINTENANCE_TIMEZONE).astimezone(timezone.utc)
+            end_utc = datetime.combine(current_monday, dt_time.min, MAINTENANCE_TIMEZONE).astimezone(timezone.utc)
+            rewards_system = WeeklyRewardsSystem(self.db)
+            leaderboard = rewards_system.leaderboard_for_period(start_utc, end_utc)
             if not leaderboard:
                 logger.info("Weekly leaderboard: no players found")
                 return
 
-            awarded = []
-            for i, player_data in enumerate(leaderboard[:10], 1):
-                uid = player_data['user_id']
-                coins = rewards.get(i, rank_4_10 if i <= 10 else 0)
-                if coins > 0:
-                    self.db.add_coins(uid, coins)
-                    self.db.add_xp(uid, {1: 100, 2: 50, 3: 30}.get(i, 0))
-                    awarded.append((i, uid, coins))
+            awarded = rewards_system.distribute(period_key, leaderboard)
 
-            logger.info(f"Weekly leaderboard rewards distributed: {awarded}")
+            logger.info("Weekly leaderboard rewards for %s: %s", period_key, awarded)
 
             # اطلاع‌رسانی به بازیکنان برتر
             for rank, uid, coins in awarded[:3]:

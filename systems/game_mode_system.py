@@ -22,6 +22,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from systems.arena_registry import ArenaRegistry
+from systems.match_rewards_system import MatchRewardsSystem
+from systems.mode_access_system import ModeAccessSystem
 
 logger = logging.getLogger(__name__)
 
@@ -230,6 +232,7 @@ class GameModeSystem:
     def __init__(self, db):
         self.db = db
         self.db_path = db.db_path
+        self.mode_access = ModeAccessSystem(db)
         # Keep a flag for fast rollback during the gradual rollout.  New installs
         # use the registry by default; setting ARENA_REGISTRY_READS=0 restores
         # only the legacy read path without deleting data.
@@ -405,6 +408,9 @@ class GameModeSystem:
         variant: str,
         origin_chat_id: Optional[int] = None,
     ) -> Dict[str, Any]:
+        allowed, reason = self.mode_access.check(creator_id, mode)
+        if not allowed:
+            raise ValueError(reason)
         conn = self._connect()
         token = secrets.token_urlsafe(12).replace("-", "").replace("_", "")[:16]
         request = self._insert_request(
@@ -424,6 +430,9 @@ class GameModeSystem:
     def create_group_challenge(
         self, creator_id: int, mode: str, variant: str, chat_id: int
     ) -> Dict[str, Any]:
+        allowed, reason = self.mode_access.check(creator_id, mode)
+        if not allowed:
+            raise ValueError(reason)
         conn = self._connect()
         request = self._insert_request(
             conn,
@@ -444,6 +453,9 @@ class GameModeSystem:
         """Create a challenge inserted through inline mode into a peer chat."""
         if mode not in ("quick", "deck") or variant not in ("normal", "random"):
             raise ValueError("invalid_inline_game")
+        allowed, reason = self.mode_access.check(creator_id, mode)
+        if not allowed:
+            raise ValueError(reason)
         conn = self._connect()
         request = self._insert_request(
             conn,
@@ -467,6 +479,11 @@ class GameModeSystem:
         """Atomically join a compatible queue entry or create a new one."""
         conn = self._connect()
         conn.execute("BEGIN IMMEDIATE")
+        allowed, reason = self.mode_access.check_in(conn, creator_id, mode)
+        if not allowed:
+            conn.rollback()
+            conn.close()
+            raise ValueError(reason)
         now = _iso(_now())
         conn.execute(
             """
@@ -554,6 +571,11 @@ class GameModeSystem:
             conn.commit()
             conn.close()
             return False, "expired", dict(row)
+        allowed, reason = self.mode_access.check_in(conn, opponent_id, row["mode"])
+        if not allowed:
+            conn.rollback()
+            conn.close()
+            return False, reason, dict(row)
         updated = conn.execute(
             """
             UPDATE game_requests
@@ -1191,6 +1213,10 @@ class GameModeSystem:
                     "breakdown": breakdown,
                     "completed_at": _iso(_now()),
                 }
+                report["rewards"] = MatchRewardsSystem.award(
+                    conn, request_id, "quick",
+                    MatchRewardsSystem.normal_pvp_awards(conn, players, winner_id, state["cards"]),
+                )
                 state["phase"] = "completed"
                 state["report"] = report
                 self._save_state(conn, request_id, state)
@@ -1270,6 +1296,9 @@ class GameModeSystem:
     def create_easy_lobby(self, creator_id: int, chat_id: int, rounds: int) -> Dict[str, Any]:
         if rounds not in (1, 3, 5, 10):
             raise ValueError("invalid_round_count")
+        allowed, reason = self.mode_access.check(creator_id, "easy")
+        if not allowed:
+            raise ValueError(reason)
         conn = self._connect()
         request = self._insert_request(
             conn,
@@ -1320,6 +1349,11 @@ class GameModeSystem:
             conn.rollback()
             conn.close()
             return True, "already_ready", state
+        allowed, reason = self.mode_access.check_in(conn, user_id, "easy")
+        if not allowed:
+            conn.rollback()
+            conn.close()
+            return False, reason, state
         state["players"].append(user_id)
         state["scores"][str(user_id)] = 0
         self._save_state(conn, request_id, state)
@@ -1546,13 +1580,22 @@ class GameModeSystem:
         completed = state["current_round"] >= state["rounds"]
         if completed:
             state["phase"] = "completed"
-            top_score = max(state["scores"].values()) if state["scores"] else 0
-            winners = [int(uid) for uid, score in state["scores"].items() if score == top_score]
+            participants = {
+                int(entry["user_id"])
+                for played_round in state["round_history"]
+                for entry in played_round["entries"]
+            }
+            top_score = max((state["scores"][str(uid)] for uid in participants), default=0)
+            winners = [
+                uid for uid in state["players"]
+                if uid in participants and state["scores"][str(uid)] == top_score
+            ]
             report = {
                 "request_id": request_id,
                 "mode": "easy",
                 "scores": state["scores"],
                 "winner_ids": winners,
+                "participants": sorted(participants),
                 "round_history": state["round_history"],
                 "completed_at": _iso(_now()),
             }
@@ -1566,18 +1609,32 @@ class GameModeSystem:
             state["deadline"] = _iso(_now() + timedelta(seconds=EASY_CHOICE_TTL_SECONDS))
             report = None
 
-        conn = self._connect()
-        conn.execute("BEGIN IMMEDIATE")
-        self._save_state(conn, request_id, state)
-        if completed:
-            conn.execute(
-                "UPDATE game_requests SET status='completed', updated_at=? WHERE request_id=?",
-                (_iso(_now()), request_id),
-            )
-            conn.execute(
-                "INSERT OR REPLACE INTO game_match_reports VALUES (?, ?, ?)",
-                (request_id, json.dumps(report, ensure_ascii=False), _iso(_now())),
-            )
-        conn.commit()
-        conn.close()
+        with closing(self._connect()) as conn:
+            with conn:
+                conn.execute("BEGIN IMMEDIATE")
+                persisted_row = conn.execute(
+                    "SELECT state_json FROM game_match_states WHERE request_id=?", (request_id,)
+                ).fetchone()
+                persisted = _loads(persisted_row[0], {}) if persisted_row else {}
+                if (persisted.get("phase") != "selection"
+                        or len(persisted.get("round_history", [])) + 1 != len(state["round_history"])):
+                    raise ValueError("easy_round_already_resolved")
+                if completed:
+                    report["rewards"] = MatchRewardsSystem.award(
+                        conn, request_id, "easy",
+                        MatchRewardsSystem.easy_awards(
+                            sorted(participants), winners, state["choices"]
+                        ) if len(participants) >= 2 else {},
+                    )
+                    state["report"] = report
+                self._save_state(conn, request_id, state)
+                if completed:
+                    conn.execute(
+                        "UPDATE game_requests SET status='completed', updated_at=? WHERE request_id=?",
+                        (_iso(_now()), request_id),
+                    )
+                    conn.execute(
+                        "INSERT OR REPLACE INTO game_match_reports VALUES (?, ?, ?)",
+                        (request_id, json.dumps(report, ensure_ascii=False), _iso(_now())),
+                    )
         return {"round": round_result, "state": state, "completed": completed, "report": report}

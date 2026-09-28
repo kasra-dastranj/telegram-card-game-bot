@@ -7,7 +7,6 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 
 from core.game_logic import GameLogic
-from systems.claim_system import ClaimSystem
 from systems.phase2_systems import LevelSystem
 from systems.player_rewards_system import PlayerRewardsSystem
 
@@ -21,7 +20,6 @@ class PlayerHubSystem:
     def __init__(self, db, config: Optional[dict] = None):
         self.db = db
         self.game = GameLogic(db, config)
-        self.claims = ClaimSystem(db)
         self.levels = LevelSystem()
 
     @staticmethod

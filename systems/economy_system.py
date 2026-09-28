@@ -10,8 +10,6 @@ import logging
 from typing import Optional, Dict, Tuple
 from datetime import datetime, timedelta
 
-from game_core import CardRarity
-
 logger = logging.getLogger(__name__)
 
 
@@ -76,7 +74,7 @@ class EconomySystem:
         Returns:
             موفقیت
         """
-        if amount <= 0:
+        if type(amount) is not int or amount <= 0:
             return False
         
         conn = sqlite3.connect(self.db.db_path)
@@ -89,6 +87,9 @@ class EconomySystem:
                 WHERE user_id = ?
             ''', (amount, user_id))
             
+            if cursor.rowcount != 1:
+                conn.rollback()
+                return False
             conn.commit()
             
             logger.info(f"User {user_id} received {amount} coins. Reason: {reason}")
@@ -161,17 +162,18 @@ class EconomySystem:
         Returns:
             تعداد سکه قابل ماینینگ
         """
-        player_cards = self.db.get_player_cards(user_id)
-        
-        # فقط Normal, Epic, Legend (Rare حساب نمی‌شود)
-        mineable_cards = [
-            c for c in player_cards 
-            if c.rarity in [CardRarity.NORMAL, CardRarity.EPIC, CardRarity.LEGEND]
-        ]
-        
-        coins = len(mineable_cards) // self.MINING_RATE
-        
-        logger.info(f"User {user_id} mining: {len(mineable_cards)} cards → {coins} coins")
+        # Every physical copy counts. The old player_cards table contains only
+        # one active form per character and would discard duplicate copies.
+        with sqlite3.connect(self.db.db_path) as conn:
+            mineable_cards = conn.execute(
+                """SELECT COALESCE(SUM(quantity),0) FROM player_card_stacks
+                   WHERE user_id=? AND rarity IN ('normal','epic','legend')""",
+                (user_id,),
+            ).fetchone()[0]
+
+        coins = int(mineable_cards) // self.MINING_RATE
+
+        logger.info(f"User {user_id} mining: {mineable_cards} cards → {coins} coins")
         
         return coins
     
@@ -278,6 +280,8 @@ class EconomySystem:
         """
         if type(score_amount) is not int or score_amount < self.SCORE_TO_COIN_RATE:
             return False, 0, f"حداقل {self.SCORE_TO_COIN_RATE} امتیاز نیاز است!"
+        if score_amount % self.SCORE_TO_COIN_RATE != 0:
+            return False, 0, f"امتیاز باید مضربی از {self.SCORE_TO_COIN_RATE} باشد"
         
         # دریافت امتیاز فعلی
         conn = sqlite3.connect(self.db.db_path)
@@ -406,11 +410,11 @@ class EconomySystem:
             daily_mining = self.calculate_daily_mining(user_id)
             
             # تعداد کارت‌های قابل ماینینگ
-            player_cards = self.db.get_player_cards(user_id)
-            mineable_cards = len([
-                c for c in player_cards 
-                if c.rarity in [CardRarity.NORMAL, CardRarity.EPIC, CardRarity.LEGEND]
-            ])
+            mineable_cards = cursor.execute(
+                """SELECT COALESCE(SUM(quantity),0) FROM player_card_stacks
+                   WHERE user_id=? AND rarity IN ('normal','epic','legend')""",
+                (user_id,),
+            ).fetchone()[0]
             
             return {
                 'coins': row[0] if row[0] else 0,

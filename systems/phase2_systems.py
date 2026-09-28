@@ -306,22 +306,23 @@ class ProgressionDB:
         Returns:
             (success, old_level, new_level)
         """
-        progression = self.get_progression(user_id)
-        if not progression:
-            logger.error(f"Progression not found for user {user_id}")
+        from systems.level_rewards_system import LevelRewardsSystem
+        conn = sqlite3.connect(self.db_path, timeout=15)
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            if not conn.execute("SELECT 1 FROM player_progression WHERE user_id=?", (user_id,)).fetchone():
+                conn.rollback()
+                return False, None, None
+            old_level, new_level = LevelRewardsSystem.add_xp_in(conn, user_id, amount)
+            conn.commit()
+            logger.info(f"Added {amount} XP to user {user_id} from {source}. Level: {old_level} → {new_level}")
+            return True, old_level, new_level
+        except (sqlite3.Error, ValueError) as exc:
+            conn.rollback()
+            logger.error("Failed to add XP for %s: %s", user_id, exc)
             return False, None, None
-        
-        old_level = progression.level
-        progression.total_xp += amount
-        progression.level = LevelSystem.get_level_from_xp(progression.total_xp)
-        progression.last_played_at = datetime.now()
-        
-        success = self.update_progression(progression)
-        
-        if success:
-            logger.info(f"Added {amount} XP to user {user_id} from {source}. Level: {old_level} → {progression.level}")
-        
-        return success, old_level, progression.level
+        finally:
+            conn.close()
     
     def add_tp(self, user_id: int, amount: int) -> Tuple[bool, Optional[str], Optional[str]]:
         """

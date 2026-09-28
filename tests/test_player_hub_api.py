@@ -7,6 +7,7 @@ from urllib.parse import urlencode
 import pytest
 
 from game_core import CardManager, DatabaseManager
+from core.models import Card, CardRarity
 import web.miniapp_api as miniapp
 from systems.card_missions_system import CardMissionsSystem
 from systems.skins_system import SkinsSystem
@@ -176,7 +177,8 @@ def test_deck_creation_rejects_duplicate_and_foreign_cards(hub_client):
 
 
 def test_daily_claim_is_idempotent_for_the_same_day(hub_client):
-    client, _ = hub_client
+    client, db = hub_client
+    assert db.add_card(Card("claim-new", "Claim New", CardRarity.NORMAL, 10, 10, 10, 10, []))
     first = client.post("/api/v1/claim", headers=_headers(101))
     second = client.post("/api/v1/claim", headers=_headers(101))
 

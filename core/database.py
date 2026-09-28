@@ -11,6 +11,7 @@ import random
 import uuid
 import logging
 import time
+from contextlib import closing
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Tuple
 
@@ -480,6 +481,12 @@ class DatabaseManager:
             logger.warning(f"Index creation warning: {e}")
         
         self._ensure_card_variants(conn)
+        from systems.card_inventory_system import ensure_inventory_schema
+        ensure_inventory_schema(conn)
+        from systems.level_rewards_system import ensure_level_reward_schema
+        ensure_level_reward_schema(conn)
+        from systems.mode_access_system import ensure_mode_access_schema
+        ensure_mode_access_schema(conn)
         conn.commit()
         conn.close()
         logger.info("Database initialized successfully")
@@ -822,11 +829,28 @@ class DatabaseManager:
         return None
 
     def set_player_card_rarity_override(self, user_id: int, card_id: str, rarity: str) -> bool:
-        """Select the owned Normal/Epic/Legend form after a successful upgrade."""
+        """Administrative form change; move one copy if that form is not yet owned."""
         if rarity not in self._variant_rarities():
             raise ValueError("فرم کارت نامعتبر است")
         conn = sqlite3.connect(self.db_path)
         try:
+            from systems.card_inventory_system import CardInventorySystem
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute(
+                """SELECT COALESCE(pc.rarity_override,c.rarity)
+                   FROM player_cards pc JOIN cards c ON c.card_id=pc.card_id
+                   WHERE pc.user_id=? AND pc.card_id=?""",
+                (user_id, card_id),
+            ).fetchone()
+            if not row:
+                conn.rollback()
+                return False
+            inventory = CardInventorySystem(self)
+            if inventory.counts_in(conn, user_id, card_id).get(rarity, 0) == 0:
+                if not inventory.consume_in(conn, user_id, card_id, row[0]):
+                    conn.rollback()
+                    return False
+                inventory.grant_in(conn, user_id, card_id, rarity)
             cursor = conn.execute(
                 "UPDATE player_cards SET rarity_override=? WHERE user_id=? AND card_id=?",
                 (rarity, user_id, card_id),
@@ -1202,13 +1226,12 @@ class DatabaseManager:
     
     def add_xp(self, user_id: int, amount: int) -> Tuple[int, int]:
         """اضافه کردن XP و برگرداندن (old_level, new_level)"""
-        from systems.phase2_systems import LevelSystem
-        prog = self.get_or_create_progression(user_id)
-        old_level = prog['level']
-        new_xp = prog['total_xp'] + amount
-        new_level = LevelSystem.get_level_from_xp(new_xp)
-        self.update_progression(user_id, level=new_level, total_xp=new_xp)
-        return old_level, new_level
+        from systems.level_rewards_system import LevelRewardsSystem
+        with closing(sqlite3.connect(self.db_path, timeout=15)) as conn:
+            with conn:
+                conn.execute("BEGIN IMMEDIATE")
+                conn.execute("INSERT OR IGNORE INTO player_progression(user_id) VALUES(?)", (user_id,))
+                return LevelRewardsSystem.add_xp_in(conn, user_id, amount)
     
     def add_tier_points(self, user_id: int, amount: int) -> Tuple[str, str]:
         """اضافه/کم کردن TP و برگرداندن (old_tier, new_tier)"""
@@ -1677,20 +1700,26 @@ class DatabaseManager:
     def add_card_to_player(self, user_id: int, card_id: str) -> bool:
         """اضافه کردن کارت به بازیکن"""
         conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
         try:
-            cursor.execute('''
-                INSERT INTO player_cards (user_id, card_id, obtained_at)
-                VALUES (?, ?, ?)
-            ''', (user_id, card_id, datetime.now().isoformat()))
-            
+            from systems.card_inventory_system import CardInventorySystem
+            conn.execute("BEGIN IMMEDIATE")
+            if conn.execute(
+                "SELECT 1 FROM player_cards WHERE user_id=? AND card_id=?", (user_id, card_id)
+            ).fetchone():
+                conn.rollback()
+                return False
+            row = conn.execute("SELECT rarity FROM cards WHERE card_id=?", (card_id,)).fetchone()
+            if not row:
+                conn.rollback()
+                return False
+            CardInventorySystem.grant_in(conn, user_id, card_id, row[0])
             conn.commit()
-            conn.close()
             return True
-        except sqlite3.IntegrityError:
-            conn.close()
+        except (sqlite3.IntegrityError, ValueError):
+            conn.rollback()
             return False
+        finally:
+            conn.close()
     
     def get_player_stats(self, user_id: int) -> Dict:
         """دریافت آمار بازیکن"""

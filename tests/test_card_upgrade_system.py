@@ -7,6 +7,7 @@ import pytest
 from game_core import CardManager, DatabaseManager
 from systems.card_upgrade_system import CardUpgradeSystem
 from systems.game_mode_system import GameModeSystem
+from systems.level_rewards_system import LevelRewardsSystem
 
 
 @pytest.fixture()
@@ -41,6 +42,22 @@ def test_upgrade_changes_coin_rarity_and_xp_together(upgrade_db):
 
     assert result["ok"] is True
     assert _snapshot(database, 501, card_id) == (900, "epic", 15)
+
+
+def test_upgrade_response_includes_level_coin_reward(upgrade_db):
+    database, card_id = upgrade_db
+    database.update_progression(501, total_xp=95)
+    player = database.get_or_create_player(501)
+    player.coins = 100
+    database.update_player(player)
+    LevelRewardsSystem(database).set_coin_rule(2, 9)
+
+    result = CardUpgradeSystem(database).upgrade(501, card_id, "normal_to_epic")
+
+    assert result["ok"] is True
+    assert result["new_level"] == 2
+    assert result["coins"] == 9
+    assert _snapshot(database, 501, card_id) == (9, "epic", 110)
 
 
 def test_upgrade_rejects_foreign_card_without_charging(upgrade_db):

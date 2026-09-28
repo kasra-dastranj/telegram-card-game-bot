@@ -215,19 +215,8 @@ def require_auth(f):
 def _grant_starter_cards(user_id: int):
     """اگه player هیچ کارتی نداره، ۳ تا کارت starter بده"""
     try:
-        existing = db.get_player_cards(user_id)
-        if not existing:
-            starter_names = ["Heisenberg", "John Wick", "Rehi"]
-            all_cards = db.get_all_cards()
-            granted = 0
-            for card in all_cards:
-                if card.name in starter_names:
-                    db.add_card_to_player(user_id, card.card_id)
-                    granted += 1
-            # اگه starter cards پیدا نشد، اولین ۳ کارت رو بده
-            if granted == 0 and all_cards:
-                for card in all_cards[:3]:
-                    db.add_card_to_player(user_id, card.card_id)
+        from systems.starter_cards_system import grant_starter_cards
+        grant_starter_cards(db, user_id)
     except Exception as e:
         logger.warning(f"Failed to grant starter cards to {user_id}: {e}")
 
@@ -277,6 +266,11 @@ def _rewards() -> PlayerRewardsSystem:
 
 def _fusion() -> FusionSystem:
     return FusionSystem(db)
+
+
+def _inventory():
+    from systems.card_inventory_system import CardInventorySystem
+    return CardInventorySystem(db)
 
 
 def _skin_payload(skin: dict) -> dict:
@@ -392,6 +386,11 @@ QUICK_ERROR_MESSAGES = {
 
 def _quick_error(reason: str, status: int = 400):
     return jsonify({"error": QUICK_ERROR_MESSAGES.get(reason, reason), "reason": reason}), status
+
+
+def _mode_access_error(mode: str, user_id: int):
+    allowed, reason = quick_modes.mode_access.check(user_id, mode)
+    return None if allowed else (jsonify({"error": reason, "reason": "mode_locked"}), 403)
 
 
 def _expire_waiting_request(game_request: dict) -> dict:
@@ -576,6 +575,7 @@ def get_cards():
         cd = db.is_card_in_cooldown(user_id, card.card_id) if hasattr(db, 'is_card_in_cooldown') else False
         d = card_to_dict(card)
         d["is_in_cooldown"] = bool(cd)
+        d["inventory"] = _inventory().counts(user_id, card.card_id)
         result.append(d)
 
     return jsonify({
@@ -597,7 +597,48 @@ def get_card_detail(card_id):
     cooldown = db.is_card_in_cooldown(g.user_id, card.card_id) if hasattr(db, "is_card_in_cooldown") else False
     result["is_in_cooldown"] = bool(cooldown)
     result["upgrade"] = _card_upgrades().preview(g.user_id, card_id)
+    result["inventory"] = _inventory().counts(g.user_id, card_id)
     return jsonify(result)
+
+
+@app.route("/api/v1/cards/<card_id>/active-form", methods=["POST"])
+@require_auth
+def activate_card_form(card_id):
+    data = request.get_json(silent=True) or {}
+    result = _inventory().activate(g.user_id, card_id, str(data.get("rarity", "")))
+    if not result["ok"]:
+        return jsonify(result), 409
+    card = db.get_card_by_id_for_player(card_id, g.user_id)
+    payload = card_to_dict(card)
+    payload["inventory"] = _inventory().counts(g.user_id, card_id)
+    payload["upgrade"] = _card_upgrades().preview(g.user_id, card_id)
+    return jsonify({"ok": True, "card": payload})
+
+
+@app.route("/api/v1/cards/<card_id>/fuse-copies/preview", methods=["GET"])
+@require_auth
+def preview_identical_fusion(card_id):
+    return jsonify(_fusion().preview_identical(g.user_id, card_id, request.args.get("target", "epic")))
+
+
+@app.route("/api/v1/cards/<card_id>/fuse-copies", methods=["POST"])
+@require_auth
+def execute_identical_fusion(card_id):
+    locked = _management_locked()
+    if locked:
+        return locked
+    data = request.get_json(silent=True) or {}
+    target = str(data.get("target", "epic"))
+    result = _fusion().fuse_identical(g.user_id, card_id, target)
+    if not result.success:
+        return jsonify({"ok": False, "error_code": "fusion_failed", "error": result.error}), 409
+    card = db.get_card_by_id_for_player(card_id, g.user_id)
+    payload = card_to_dict(card)
+    payload["inventory"] = _inventory().counts(g.user_id, card_id)
+    payload["upgrade"] = _card_upgrades().preview(g.user_id, card_id)
+    return jsonify({"ok": True, "card": payload, "xp_gained": result.xp_gained,
+                    "old_level": result.old_level, "new_level": result.new_level,
+                    "profile": _player_hub().get_overview(g.user_id)})
 
 
 @app.route("/api/v1/cards/<card_id>/upgrade/preview", methods=["POST"])
@@ -695,8 +736,8 @@ def claim_daily_card():
     result = _rewards().claim_daily(g.user_id)
     if not result.get("ok"):
         return jsonify(result), 409
-    card = db.get_card_by_id_for_player(result["card_id"], g.user_id) or db.get_card_by_id(result["card_id"])
-    return jsonify({"ok": True, "message": "کارت روزانه و یک Ability دریافت شد", "data": {"card": card_to_dict(card), "ability": result["ability"]}, "profile": _player_hub().get_overview(g.user_id)})
+    card = db.get_card_by_id(result["card_id"])
+    return jsonify({"ok": True, "message": "کارت روزانه و یک Ability دریافت شد", "data": {"card": card_to_dict(card), "ability": result["ability"], "quantity": result["quantity"]}, "profile": _player_hub().get_overview(g.user_id)})
 
 
 @app.route("/api/v1/missions", methods=["GET"])
@@ -800,6 +841,9 @@ def execute_fusion():
 @app.route("/api/v1/quick/matchmaking", methods=["POST"])
 @require_auth
 def quick_matchmaking():
+    gate_error = _mode_access_error("quick", g.user_id)
+    if gate_error:
+        return gate_error
     data = request.get_json(silent=True) or {}
     variant = data.get("variant", "normal")
     if variant not in QUICK_VARIANTS:
@@ -813,6 +857,9 @@ def quick_matchmaking():
 @app.route("/api/v1/quick/invites", methods=["POST"])
 @require_auth
 def quick_create_invite():
+    gate_error = _mode_access_error("quick", g.user_id)
+    if gate_error:
+        return gate_error
     data = request.get_json(silent=True) or {}
     variant = data.get("variant", "normal")
     if variant not in QUICK_VARIANTS:
@@ -955,6 +1002,9 @@ def _three_snapshot(game_request: dict, user_id: int) -> dict:
 @app.route("/api/v1/three-round/matchmaking", methods=["POST"])
 @require_auth
 def three_matchmaking():
+    gate_error = _mode_access_error(MINI_THREE_ROUND_MODE, g.user_id)
+    if gate_error:
+        return gate_error
     status, game_request = quick_modes.matchmake_random(g.user_id, MINI_THREE_ROUND_MODE, "normal")
     snapshot = _three_snapshot(game_request, g.user_id)
     snapshot["matchmaking_status"] = status
@@ -964,6 +1014,9 @@ def three_matchmaking():
 @app.route("/api/v1/three-round/invites", methods=["POST"])
 @require_auth
 def three_create_invite():
+    gate_error = _mode_access_error(MINI_THREE_ROUND_MODE, g.user_id)
+    if gate_error:
+        return gate_error
     game_request = quick_modes.create_invite(g.user_id, MINI_THREE_ROUND_MODE, "normal")
     snapshot = _three_snapshot(game_request, g.user_id)
     snapshot.update({
@@ -1316,8 +1369,8 @@ def _play_solo_round(conn, user_id, fight_id, player_stat):
 
 
 def _finalize_solo_fight(user_id, fight_id, winner, aso: AsoAI, player_card, ai_card, conn) -> dict:
-    """Apply the result on the transaction that completed this fight."""
-    from systems.phase2_systems import LevelSystem, TierSystem
+    """Apply the result and daily count on the transaction that completed this fight."""
+    from systems.match_rewards_system import MatchRewardsSystem
 
     player = conn.execute("SELECT hearts FROM players WHERE user_id=?", (user_id,)).fetchone()
     if winner == "player":
@@ -1332,42 +1385,32 @@ def _finalize_solo_fight(user_id, fight_id, winner, aso: AsoAI, player_card, ai_
     else:
         score, xp, tp, hearts_lost, result = 0, 2, 0, 0, "tie"
 
+    conn.execute("INSERT OR IGNORE INTO player_progression(user_id) VALUES(?)", (user_id,))
+    old = conn.execute(
+        "SELECT level,tier_points,current_tier FROM player_progression WHERE user_id=?", (user_id,)
+    ).fetchone()
+    MatchRewardsSystem.award(conn, f"solo:{fight_id}", "solo", {user_id: {
+        "result": result, "xp": xp, "score": score,
+        "hearts_lost": hearts_lost, "tp_delta": tp,
+        "card_id": player_card.card_id, "opponent_card_id": ai_card.card_id,
+        "opponent_id": None,
+    }})
+    new = conn.execute(
+        "SELECT level,tier_points,current_tier FROM player_progression WHERE user_id=?", (user_id,)
+    ).fetchone()
     now = datetime.now()
-    conn.execute(
-        "UPDATE players SET total_score=total_score+?, hearts=MAX(0,hearts-?) WHERE user_id=?",
-        (score, hearts_lost, user_id),
-    )
-    conn.execute(
-        "INSERT OR IGNORE INTO player_progression(user_id,level,total_xp,tier_points,current_tier) VALUES (?,1,0,0,'Bronze')",
-        (user_id,),
-    )
-    prog = conn.execute("SELECT * FROM player_progression WHERE user_id=?", (user_id,)).fetchone()
-    new_xp = prog["total_xp"] + xp
-    new_tp = max(0, prog["tier_points"] + tp)
-    new_level = LevelSystem.get_level_from_xp(new_xp)
-    new_tier = TierSystem.get_tier_from_tp(new_tp)
-    conn.execute(
-        "UPDATE player_progression SET total_xp=?,level=?,tier_points=?,current_tier=?,last_played_at=? WHERE user_id=?",
-        (new_xp, new_level, new_tp, new_tier, now.isoformat(), user_id),
-    )
     conn.execute(
         """INSERT INTO daily_solo_count(user_id,date,count) VALUES (?,?,1)
            ON CONFLICT(user_id,date) DO UPDATE SET count=count+1""",
         (user_id, now.strftime("%Y-%m-%d")),
     )
-    conn.execute(
-        """INSERT INTO fight_history
-           (user_id,user_card_id,opponent_card_id,result,score_gained,hearts_lost,fought_at,fight_type,xp_gained)
-           VALUES (?,?,?,?,?,?,?,'solo',?)""",
-        (user_id, player_card.card_id, ai_card.card_id, result, score, hearts_lost, now.isoformat(), xp),
-    )
     rewards = {
         "score_gained": score, "xp_gained": xp,
-        "tier_points_change": new_tp - prog["tier_points"],
+        "tier_points_change": new["tier_points"] - old["tier_points"],
         "hearts_lost": hearts_lost,
-        "level_up": new_level > prog["level"],
-        "new_level": new_level if new_level > prog["level"] else None,
-        "tier_change": new_tier if new_tier != prog["current_tier"] else None,
+        "level_up": new["level"] > old["level"],
+        "new_level": new["level"] if new["level"] > old["level"] else None,
+        "tier_change": new["current_tier"] if new["current_tier"] != old["current_tier"] else None,
     }
     if winner == "ai":
         rewards["hearts_remaining"] = player["hearts"] - hearts_lost

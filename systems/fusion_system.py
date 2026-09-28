@@ -11,6 +11,7 @@ from typing import List, Tuple, Optional, Dict
 from datetime import datetime
 
 from game_core import Card, CardRarity
+from systems.card_inventory_system import CardInventorySystem
 
 logger = logging.getLogger(__name__)
 
@@ -157,6 +158,10 @@ class FusionSystem:
         try:
             conn.execute("PRAGMA foreign_keys=ON")
             conn.execute("BEGIN IMMEDIATE")
+            from systems.card_upgrade_system import CardUpgradeSystem
+            if CardUpgradeSystem(self.db)._active_match(conn, user_id):
+                conn.rollback()
+                return FusionResult(False, error="تا پایان مسابقه نمی‌توانی کارت‌ها را ترکیب کنی")
             placeholders = ",".join("?" for _ in card_ids)
             rows = conn.execute(
                 f"""SELECT pc.card_id, COALESCE(pc.rarity_override,c.rarity) AS rarity
@@ -170,11 +175,13 @@ class FusionSystem:
             if not conn.execute("SELECT 1 FROM card_variants WHERE card_id=? AND rarity=?", (selected_card_id, target)).fetchone():
                 conn.rollback()
                 return FusionResult(False, error=f"نسخه {target.title()} کارت انتخاب‌شده آماده نیست")
-            conn.execute(f"DELETE FROM player_cards WHERE user_id=? AND card_id IN ({placeholders})", (user_id, *card_ids))
-            conn.execute("INSERT INTO player_cards(user_id,card_id,obtained_at,rarity_override) VALUES (?,?,?,?)", (user_id, selected_card_id, datetime.now().isoformat(), target))
+            for card_id in card_ids:
+                if not CardInventorySystem.consume_in(conn, user_id, card_id, source):
+                    raise RuntimeError("fusion_source_missing")
+            CardInventorySystem.grant_in(conn, user_id, selected_card_id, target)
+            for card_id in card_ids:
+                CardInventorySystem.reconcile_active_in(conn, user_id, card_id)
             consumed_ids = [card_id for card_id in card_ids if card_id != selected_card_id]
-            for card_id in consumed_ids:
-                conn.execute("UPDATE player_decks SET is_valid=0 WHERE player_id=? AND (card_id_1=? OR card_id_2=? OR card_id_3=?)", (user_id, card_id, card_id, card_id))
             conn.execute(
                 """INSERT INTO fusion_log(user_id,fusion_type,consumed_card_1,consumed_card_2,consumed_card_3,upgraded_card_id,result_rarity,timestamp)
                    VALUES (?,?,?,?,?,?,?,?)""",
@@ -188,6 +195,8 @@ class FusionSystem:
             from systems.phase2_systems import LevelSystem
             new_level = LevelSystem.get_level_from_xp(total_xp)
             conn.execute("UPDATE player_progression SET total_xp=?,level=? WHERE user_id=?", (total_xp, new_level, user_id))
+            from systems.level_rewards_system import LevelRewardsSystem
+            LevelRewardsSystem.grant_crossed_in(conn, user_id, old_level, new_level)
             conn.commit()
             return FusionResult(True, self.db.get_card_by_id_for_player(selected_card_id, user_id), [card for card in consumed_cards if card], xp_gained=xp_gained, old_level=old_level, new_level=new_level)
         except Exception as exc:
@@ -196,121 +205,85 @@ class FusionSystem:
             return FusionResult(False, error="Fusion انجام نشد")
         finally:
             conn.close()
+
+    def preview_identical(self, user_id: int, card_id: str, target: str) -> Dict:
+        source = "normal" if target == "epic" else "epic" if target == "legend" else None
+        if source is None:
+            return {"ok": False, "error_code": "invalid_target", "error": "فرم مقصد نامعتبر است"}
+        conn = sqlite3.connect(self.db.db_path)
+        try:
+            count = CardInventorySystem.counts_in(conn, user_id, card_id).get(source, 0)
+            variant = conn.execute(
+                "SELECT 1 FROM card_variants WHERE card_id=? AND rarity=?", (card_id, target)
+            ).fetchone()
+            if not variant:
+                return {"ok": False, "error_code": "variant_unavailable", "error": "نسخهٔ مقصد آماده نیست", "owned": count}
+            return {"ok": count >= 3, "card_id": card_id, "from_rarity": source,
+                    "to_rarity": target, "owned": count, "required": 3,
+                    "xp": 15 if target == "epic" else 30,
+                    "error": None if count >= 3 else "سه نسخهٔ یکسان لازم است"}
+        finally:
+            conn.close()
+
+    def fuse_identical(self, user_id: int, card_id: str, target: str) -> FusionResult:
+        source = "normal" if target == "epic" else "epic" if target == "legend" else None
+        if source is None:
+            return FusionResult(False, error="فرم مقصد نامعتبر است")
+        conn = sqlite3.connect(self.db.db_path, timeout=15)
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            from systems.card_upgrade_system import CardUpgradeSystem
+            if CardUpgradeSystem(self.db)._active_match(conn, user_id):
+                conn.rollback()
+                return FusionResult(False, error="تا پایان مسابقه نمی‌توانی کارت‌ها را ترکیب کنی")
+            if CardInventorySystem.counts_in(conn, user_id, card_id).get(source, 0) < 3:
+                conn.rollback()
+                return FusionResult(False, error="سه نسخهٔ یکسان از فرم موردنظر لازم است")
+            if not conn.execute(
+                "SELECT 1 FROM card_variants WHERE card_id=? AND rarity=?", (card_id, target)
+            ).fetchone():
+                conn.rollback()
+                return FusionResult(False, error="نسخهٔ مقصد آماده نیست")
+            if not CardInventorySystem.consume_in(conn, user_id, card_id, source, 3):
+                raise RuntimeError("fusion_source_missing")
+            CardInventorySystem.grant_in(conn, user_id, card_id, target)
+            CardInventorySystem.reconcile_active_in(conn, user_id, card_id)
+            conn.execute(
+                """INSERT INTO fusion_log
+                   (user_id,fusion_type,consumed_card_1,consumed_card_2,consumed_card_3,
+                    upgraded_card_id,result_rarity,timestamp)
+                   VALUES(?,?,?,?,?,?,?,?)""",
+                (user_id, f"IDENTICAL_{source.upper()}_TO_{target.upper()}",
+                 card_id, card_id, card_id, card_id, target.upper(), datetime.now().isoformat()),
+            )
+            conn.execute("INSERT OR IGNORE INTO player_progression(user_id) VALUES(?)", (user_id,))
+            row = conn.execute("SELECT level,total_xp FROM player_progression WHERE user_id=?", (user_id,)).fetchone()
+            from systems.phase2_systems import LevelSystem
+            xp = 15 if target == "epic" else 30
+            old_level = int(row[0])
+            total_xp = int(row[1]) + xp
+            new_level = LevelSystem.get_level_from_xp(total_xp)
+            conn.execute("UPDATE player_progression SET total_xp=?,level=? WHERE user_id=?", (total_xp, new_level, user_id))
+            from systems.level_rewards_system import LevelRewardsSystem
+            LevelRewardsSystem.grant_crossed_in(conn, user_id, old_level, new_level)
+            conn.commit()
+            return FusionResult(True, self.db.get_card_by_id_for_player(card_id, user_id),
+                                xp_gained=xp, old_level=old_level, new_level=new_level)
+        except Exception:
+            conn.rollback()
+            logger.exception("Identical-card fusion failed")
+            return FusionResult(False, error="ترکیب کارت انجام نشد")
+        finally:
+            conn.close()
     
     def fuse_to_epic(self, user_id: int, card_ids: List[str], selected_card_id: str) -> FusionResult:
-        """Fusion 3 Normal → 1 Epic"""
+        """Fuse three distinct Normal characters into one Epic form."""
         return self._fuse_atomic(user_id, card_ids, selected_card_id, "epic")
-        # Legacy implementation retained below for migration history.
-        logger.info(f"User {user_id} Normal→Epic fusion: {card_ids}, selected: {selected_card_id}")
-        
-        is_valid, error = self.validate_fusion_cards(user_id, card_ids, selected_card_id, CardRarity.NORMAL)
-        if not is_valid:
-            return FusionResult(False, error=error)
-        
-        player_cards = self.db.get_player_cards(user_id)
-        card_map = {c.card_id: c for c in player_cards}
-        consumed_cards = [card_map[cid] for cid in card_ids if cid in card_map]
-        
-        conn = sqlite3.connect(self.db.db_path)
-        cursor = conn.cursor()
-        
-        try:
-            # حذف هر ۳ کارت از موجودی بازیکن
-            for card_id in card_ids:
-                cursor.execute('''
-                    DELETE FROM player_cards 
-                    WHERE rowid = (
-                        SELECT rowid FROM player_cards 
-                        WHERE user_id = ? AND card_id = ?
-                        LIMIT 1
-                    )
-                ''', (user_id, card_id))
-            
-            # اضافه کردن کارت انتخاب‌شده با rarity_override = 'epic'
-            cursor.execute('''
-                INSERT INTO player_cards (user_id, card_id, obtained_at, rarity_override)
-                VALUES (?, ?, ?, 'epic')
-            ''', (user_id, selected_card_id, datetime.now().isoformat()))
-            
-            # ثبت در fusion_log
-            cursor.execute('''
-                INSERT INTO fusion_log 
-                (user_id, fusion_type, consumed_card_1, consumed_card_2, consumed_card_3,
-                 upgraded_card_id, result_rarity, timestamp)
-                VALUES (?, 'NORMAL_TO_EPIC', ?, ?, ?, ?, 'EPIC', ?)
-            ''', (user_id, card_ids[0], card_ids[1], card_ids[2],
-                  selected_card_id, datetime.now().isoformat()))
-            
-            conn.commit()
-            logger.info(f"Fusion OK: {selected_card_id} → Epic for user {user_id}")
-            
-            upgraded_card = self.db.get_card_by_id_for_player(selected_card_id, user_id)
-            return FusionResult(True, upgraded_card=upgraded_card, consumed_cards=consumed_cards)
-            
-        except Exception as e:
-            conn.rollback()
-            logger.error(f"Fusion failed: {e}", exc_info=True)
-            return FusionResult(False, error=f"خطا در Fusion: {str(e)}")
-        finally:
-            conn.close()
-    
+
     def fuse_to_legend(self, user_id: int, card_ids: List[str], selected_card_id: str) -> FusionResult:
-        """Fusion 3 Epic → 1 Legend"""
+        """Fuse three distinct Epic characters into one Legend form."""
         return self._fuse_atomic(user_id, card_ids, selected_card_id, "legend")
-        # Legacy implementation retained below for migration history.
-        logger.info(f"User {user_id} Epic→Legend fusion: {card_ids}, selected: {selected_card_id}")
-        
-        is_valid, error = self.validate_fusion_cards(user_id, card_ids, selected_card_id, CardRarity.EPIC)
-        if not is_valid:
-            return FusionResult(False, error=error)
-        
-        player_cards = self.db.get_player_cards(user_id)
-        card_map = {c.card_id: c for c in player_cards}
-        consumed_cards = [card_map[cid] for cid in card_ids if cid in card_map]
-        
-        conn = sqlite3.connect(self.db.db_path)
-        cursor = conn.cursor()
-        
-        try:
-            # حذف هر ۳ کارت Epic از موجودی
-            for card_id in card_ids:
-                cursor.execute('''
-                    DELETE FROM player_cards 
-                    WHERE rowid = (
-                        SELECT rowid FROM player_cards 
-                        WHERE user_id = ? AND card_id = ?
-                        LIMIT 1
-                    )
-                ''', (user_id, card_id))
-            
-            # اضافه کردن کارت انتخاب‌شده با rarity_override = 'legend'
-            cursor.execute('''
-                INSERT INTO player_cards (user_id, card_id, obtained_at, rarity_override)
-                VALUES (?, ?, ?, 'legend')
-            ''', (user_id, selected_card_id, datetime.now().isoformat()))
-            
-            # ثبت در fusion_log
-            cursor.execute('''
-                INSERT INTO fusion_log 
-                (user_id, fusion_type, consumed_card_1, consumed_card_2, consumed_card_3,
-                 upgraded_card_id, result_rarity, timestamp)
-                VALUES (?, 'EPIC_TO_LEGEND', ?, ?, ?, ?, 'LEGEND', ?)
-            ''', (user_id, card_ids[0], card_ids[1], card_ids[2],
-                  selected_card_id, datetime.now().isoformat()))
-            
-            conn.commit()
-            logger.info(f"Fusion OK: {selected_card_id} → Legend for user {user_id}")
-            
-            upgraded_card = self.db.get_card_by_id_for_player(selected_card_id, user_id)
-            return FusionResult(True, upgraded_card=upgraded_card, consumed_cards=consumed_cards)
-            
-        except Exception as e:
-            conn.rollback()
-            logger.error(f"Fusion failed: {e}", exc_info=True)
-            return FusionResult(False, error=f"خطا در Fusion: {str(e)}")
-        finally:
-            conn.close()
-    
+
     def get_fusion_history(self, user_id: int, limit: int = 10) -> List[Dict]:
         """
         دریافت تاریخچه Fusion
@@ -375,14 +348,14 @@ class FusionSystem:
             # تعداد Normal→Epic
             cursor.execute('''
                 SELECT COUNT(*) FROM fusion_log 
-                WHERE user_id = ? AND fusion_type = 'NORMAL_TO_EPIC'
+                WHERE user_id = ? AND fusion_type IN ('NORMAL_TO_EPIC', 'IDENTICAL_NORMAL_TO_EPIC')
             ''', (user_id,))
             normal_to_epic = cursor.fetchone()[0]
             
             # تعداد Epic→Legend
             cursor.execute('''
                 SELECT COUNT(*) FROM fusion_log 
-                WHERE user_id = ? AND fusion_type = 'EPIC_TO_LEGEND'
+                WHERE user_id = ? AND fusion_type IN ('EPIC_TO_LEGEND', 'IDENTICAL_EPIC_TO_LEGEND')
             ''', (user_id,))
             epic_to_legend = cursor.fetchone()[0]
             
@@ -404,6 +377,13 @@ def format_fusion_result(result: FusionResult) -> str:
         return f"❌ Fusion ناموفق: {result.error}"
     
     consumed_names = [c.name for c in result.consumed_cards]
+    if not consumed_names:
+        return (
+            f"✨ Fusion موفق!\n\n"
+            f"🎴 سه نسخهٔ یکسان مصرف شد.\n"
+            f"🌟 کارت ارتقا یافته: {result.upgraded_card.name} "
+            f"({result.upgraded_card.rarity.value.title()})"
+        )
     
     return (
         f"✨ Fusion موفق!\n\n"

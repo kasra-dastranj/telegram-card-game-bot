@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo
 from systems.card_missions_system import MISSION_TYPES
 from systems.phase2_systems import LevelSystem
 from systems.game_mode_system import ABILITY_DEFINITIONS, GameModeSystem
+from systems.card_inventory_system import CardInventorySystem
 
 
 class PlayerRewardsSystem:
@@ -42,17 +43,14 @@ class PlayerRewardsSystem:
             row = conn.execute("SELECT last_claim FROM players WHERE user_id=?", (user_id,)).fetchone()
             status = self._claim_status_from(row[0] if row else None)
             pool = conn.execute(
-                """
-                SELECT COUNT(*) FROM cards c
-                WHERE c.rarity='normal' AND NOT EXISTS (
-                    SELECT 1 FROM player_cards pc
-                    WHERE pc.user_id=? AND pc.card_id=c.card_id
-                      AND COALESCE(pc.rarity_override,c.rarity) IN ('epic','legend')
-                )
-                """,
-                (user_id,),
+                "SELECT COUNT(*) FROM cards WHERE rarity='normal'"
             ).fetchone()[0]
-            return {**status, "pool_count": int(pool)}
+            return {
+                **status,
+                "can_claim": status["can_claim"] and pool > 0,
+                "pool_count": int(pool),
+                "pool_exhausted": pool == 0,
+            }
         finally:
             conn.close()
 
@@ -73,26 +71,13 @@ class PlayerRewardsSystem:
                 conn.rollback()
                 return {"ok": False, "error_code": "already_claimed", "error": "کارت روزانه امروز دریافت شده است", **status}
             rows = conn.execute(
-                """
-                SELECT c.card_id FROM cards c
-                WHERE c.rarity='normal' AND NOT EXISTS (
-                    SELECT 1 FROM player_cards pc
-                    WHERE pc.user_id=? AND pc.card_id=c.card_id
-                      AND COALESCE(pc.rarity_override,c.rarity) IN ('epic','legend')
-                )
-                """,
-                (user_id,),
+                "SELECT card_id FROM cards WHERE rarity='normal'"
             ).fetchall()
             if not rows:
-                rows = conn.execute("SELECT card_id FROM cards WHERE rarity='normal'").fetchall()
-            if not rows:
                 conn.rollback()
-                return {"ok": False, "error_code": "empty_pool", "error": "کارتی برای دریافت وجود ندارد"}
+                return {"ok": False, "error_code": "empty_pool", "error": "هیچ کارت Normal در کاتالوگ نیست؛ دریافت روزانه مصرف نشد"}
             card_id = random.choice(rows)["card_id"]
-            conn.execute(
-                "INSERT OR IGNORE INTO player_cards(user_id,card_id,obtained_at) VALUES (?,?,?)",
-                (user_id, card_id, datetime.now(timezone.utc).isoformat()),
-            )
+            quantity = CardInventorySystem.grant_in(conn, user_id, card_id, "normal")
             conn.execute("UPDATE players SET last_claim=? WHERE user_id=?", (datetime.now(timezone.utc).isoformat(), user_id))
             ability_key = random.choice(tuple(ABILITY_DEFINITIONS))
             conn.execute(
@@ -103,7 +88,7 @@ class PlayerRewardsSystem:
                 (user_id, ability_key),
             )
             conn.commit()
-            return {"ok": True, "card_id": card_id, "ability": {
+            return {"ok": True, "card_id": card_id, "rarity": "normal", "quantity": quantity, "ability": {
                 "key": ability_key,
                 "title": ABILITY_DEFINITIONS[ability_key]["title"],
             }}
@@ -153,6 +138,9 @@ class PlayerRewardsSystem:
         conn.row_factory = sqlite3.Row
         try:
             conn.execute("BEGIN IMMEDIATE")
+            from systems.card_upgrade_system import CardUpgradeSystem
+            if CardUpgradeSystem(self.db)._active_match(conn, user_id):
+                conn.rollback(); return {"ok": False, "error_code": "active_match", "error": "تا پایان مسابقه پاداش ارتقای کارت را دریافت نکن"}
             row = conn.execute(
                 """
                 SELECT pm.completed, pm.reward_claimed, c.name,
@@ -174,11 +162,20 @@ class PlayerRewardsSystem:
                 conn.rollback(); return {"ok": False, "error_code": "epic_required", "error": "این پاداش فقط برای نسخه Epic قابل دریافت است"}
             if not conn.execute("SELECT 1 FROM card_variants WHERE card_id=? AND rarity='legend'", (card_id,)).fetchone():
                 conn.rollback(); return {"ok": False, "error_code": "variant_unavailable", "error": "نسخه Legend این کارت آماده نیست"}
-            conn.execute("UPDATE player_cards SET rarity_override='legend' WHERE user_id=? AND card_id=?", (user_id, card_id))
+            if not CardInventorySystem.consume_in(conn, user_id, card_id, "epic"):
+                conn.rollback(); return {"ok": False, "error_code": "epic_required", "error": "نسخه Epic موجود نیست"}
+            CardInventorySystem.grant_in(conn, user_id, card_id, "legend")
+            CardInventorySystem.reconcile_active_in(conn, user_id, card_id)
             conn.execute("UPDATE player_card_missions SET reward_claimed=1,reward_claimed_at=? WHERE user_id=? AND card_id=? AND reward_claimed=0", (datetime.now().isoformat(), user_id, card_id))
             conn.execute("INSERT OR IGNORE INTO player_progression(user_id,level,total_xp,tier_points,current_tier,last_played_at) VALUES (?,1,0,0,'Bronze',CURRENT_TIMESTAMP)", (user_id,))
-            xp = conn.execute("SELECT total_xp FROM player_progression WHERE user_id=?", (user_id,)).fetchone()[0] + 30
-            conn.execute("UPDATE player_progression SET total_xp=?,level=? WHERE user_id=?", (xp, LevelSystem.get_level_from_xp(xp), user_id))
+            old_level, old_xp = conn.execute(
+                "SELECT level,total_xp FROM player_progression WHERE user_id=?", (user_id,)
+            ).fetchone()
+            xp = int(old_xp or 0) + 30
+            new_level = LevelSystem.get_level_from_xp(xp)
+            conn.execute("UPDATE player_progression SET total_xp=?,level=? WHERE user_id=?", (xp, new_level, user_id))
+            from systems.level_rewards_system import LevelRewardsSystem
+            LevelRewardsSystem.grant_crossed_in(conn, user_id, int(old_level or 1), new_level)
             conn.commit()
             return {"ok": True, "card_id": card_id, "card_name": row["name"], "xp_gained": 30}
         except Exception:

@@ -184,12 +184,11 @@ class CardUpgradeSystem:
             if coin_update.rowcount != 1:
                 conn.rollback()
                 return {"ok": False, "error_code": "insufficient_coins", "error": "سکه کافی نیست"}
-            card_update = conn.execute(
-                "UPDATE player_cards SET rarity_override=? WHERE id=? AND COALESCE(rarity_override, ?) = ?",
-                (rule["target"], row["id"], rule["source"], rule["source"]),
-            )
-            if card_update.rowcount != 1:
+            from systems.card_inventory_system import CardInventorySystem
+            if not CardInventorySystem.consume_in(conn, user_id, card_id, rule["source"]):
                 raise RuntimeError("card upgrade race detected")
+            CardInventorySystem.grant_in(conn, user_id, card_id, rule["target"])
+            CardInventorySystem.reconcile_active_in(conn, user_id, card_id)
 
             conn.execute(
                 """
@@ -210,6 +209,11 @@ class CardUpgradeSystem:
                 "UPDATE player_progression SET total_xp=?, level=? WHERE user_id=?",
                 (total_xp, new_level, user_id),
             )
+            from systems.level_rewards_system import LevelRewardsSystem
+            LevelRewardsSystem.grant_crossed_in(conn, user_id, old_level, new_level)
+            final_coins = conn.execute(
+                "SELECT coins FROM players WHERE user_id=?", (user_id,)
+            ).fetchone()[0]
             conn.commit()
             return {
                 "ok": True,
@@ -221,7 +225,7 @@ class CardUpgradeSystem:
                 "xp_gained": rule["xp"],
                 "old_level": old_level,
                 "new_level": new_level,
-                "coins": int(row["coins"] or 0) - price,
+                "coins": int(final_coins),
             }
         except Exception:
             conn.rollback()

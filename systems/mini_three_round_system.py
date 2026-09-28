@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
 from systems.battle_system_3rounds import ARENAS
+from systems.match_rewards_system import MatchRewardsSystem
 
 
 MODE = "mini_three_round"
@@ -112,6 +113,13 @@ class MiniThreeRoundSystem:
             "rounds_won": state["rounds_won"], "rounds": state["history"],
             "completed_at": _iso(_now()),
         }
+        if not forfeit:
+            report["rewards"] = MatchRewardsSystem.award(
+                conn, request_id, MODE,
+                MatchRewardsSystem.normal_pvp_awards(
+                    conn, state["players"], winner_id, state["cards"]
+                ),
+            )
         state.update({"phase": "completed", "deadline": None, "report": report})
         self.modes._save_state(conn, request_id, state)
         conn.execute(

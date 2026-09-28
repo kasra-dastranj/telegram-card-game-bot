@@ -11,6 +11,7 @@ from systems.arena_registry import ArenaRegistry
 from systems.battle_system_3rounds import BattleSystem3Rounds
 from systems.game_mode_system import GameModeSystem
 from systems.mini_three_round_system import MiniThreeRoundSystem
+from systems.mode_access_system import ModeAccessSystem
 import web.miniapp_api as miniapp
 
 
@@ -40,6 +41,17 @@ def client_and_modes(tmp_path, monkeypatch):
 
 def post(client, path, user_id, payload=None):
     return client.post(path, json=payload or {}, headers=headers(user_id))
+
+
+def test_trial_level_gate_returns_clear_error_for_three_round(client_and_modes):
+    client, modes = client_and_modes
+    ModeAccessSystem(modes.db).set_min_level("mini_three_round", 2)
+    response = post(client, "/api/v1/three-round/matchmaking", 101)
+    assert response.status_code == 403
+    assert response.get_json()["reason"] == "mode_locked"
+    assert "Level 2" in response.get_json()["error"]
+    modes.db.update_progression(101, level=2)
+    assert post(client, "/api/v1/three-round/matchmaking", 101).status_code == 201
 
 
 def test_random_match_is_separate_from_quick_and_hides_cards(client_and_modes):
@@ -91,6 +103,8 @@ def test_invite_three_tie_and_unique_stats(client_and_modes):
     assert final["status"] == "completed"
     assert final["report"]["is_tie"] is True
     assert len(final["report"]["rounds"]) == 3
+    assert final["report"]["rewards"] == {"101": {"xp": 3, "score": 0}, "202": {"xp": 3, "score": 0}}
+    assert client_and_modes[1].db.get_or_create_progression(101)["total_xp"] == 3
 
 
 def test_two_round_wins_finish_early_and_preserve_calculation(client_and_modes):
@@ -110,6 +124,8 @@ def test_two_round_wins_finish_early_and_preserve_calculation(client_and_modes):
     assert final["status"] == "completed"
     assert final["report"]["winner_id"] == 101
     assert len(final["report"]["rounds"]) == 2
+    assert final["report"]["rewards"] == {"101": {"xp": 10, "score": 10}, "202": {"xp": 3, "score": 0}}
+    assert client_and_modes[1].db.get_or_create_player(101).total_score == 10
 
 
 def test_deadline_forfeits_to_player_who_chose(client_and_modes):

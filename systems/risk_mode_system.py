@@ -12,6 +12,7 @@ import uuid
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime
 from enum import Enum
+from systems.mode_access_system import ModeAccessSystem
 
 logger = logging.getLogger(__name__)
 
@@ -63,10 +64,9 @@ class RiskModeSystem:
     def can_enter_risk(self, user_id: int, table: RiskTable) -> Tuple[bool, str]:
         """بررسی اینکه بازیکن می‌تواند وارد Risk شود"""
         # بررسی Level
-        progression = self.db.get_or_create_progression(user_id)
-        if not progression or progression.get('level', 1) < 7:
-            level = progression.get('level', 1) if progression else 1
-            return False, f"برای ورود به Risk باید Level 7 باشید (Level فعلی: {level})"
+        allowed, reason = ModeAccessSystem(self.db).check(user_id, "risk")
+        if not allowed:
+            return False, reason
         
         # بررسی موجودی
         player = self.db.get_or_create_player(user_id)
@@ -220,17 +220,21 @@ class RiskModeSystem:
             payouts = ((winner_id, match["current_pot"]),)
         for uid, amount in payouts:
             conn.execute("UPDATE players SET coins=coins+? WHERE user_id=?", (amount, uid))
-        if winner_id is not None:
-            from systems.phase2_systems import LevelSystem
-            for uid in (match["challenger_id"], match["opponent_id"]):
-                conn.execute(
-                    "INSERT OR IGNORE INTO player_progression(user_id,level,total_xp,tier_points,current_tier) VALUES (?,1,0,0,'Bronze')",
-                    (uid,),
-                )
-                xp = conn.execute("SELECT total_xp FROM player_progression WHERE user_id=?", (uid,)).fetchone()[0]
-                xp += 25 if uid == winner_id else 5
-                conn.execute("UPDATE player_progression SET total_xp=?,level=?,last_played_at=? WHERE user_id=?",
-                             (xp, LevelSystem.get_level_from_xp(xp), datetime.now().isoformat(), uid))
+        from systems.match_rewards_system import MatchRewardsSystem
+        awards = {}
+        for uid, role, other in (
+            (match["challenger_id"], "challenger", "opponent"),
+            (match["opponent_id"], "opponent", "challenger"),
+        ):
+            awards[uid] = {
+                "result": "tie" if winner_id is None else "win" if uid == winner_id else "loss",
+                "xp": 0 if winner_id is None else 25 if uid == winner_id else 5,
+                "score": 0,
+                "card_id": match[f"{role}_selected_card"],
+                "opponent_card_id": match[f"{other}_selected_card"],
+                "opponent_id": match[f"{other}_id"],
+            }
+        MatchRewardsSystem.award(conn, f"risk:{match['match_id']}", "risk", awards)
         return True
 
     def make_action(self, match_id: str, user_id: int, action: RiskAction, raise_amount: int = 0) -> Dict:

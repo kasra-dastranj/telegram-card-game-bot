@@ -25,7 +25,6 @@ from systems.card_upgrade_system import CardUpgradeSystem
 from systems.tier_decay_system import TierDecaySystem
 from systems.risk_mode_system import RiskModeSystem, RiskTable, RiskAction
 from systems.battle_system_3rounds import BattleSystem3Rounds, BattleState, ARENAS
-from systems.claim_system import ClaimSystem
 from systems.card_missions_system import CardMissionsSystem, MISSION_TYPES
 from systems.skins_system import SkinsSystem, SKIN_TYPES
 
@@ -189,12 +188,10 @@ class ShopHandlersMixin:
         result = self.missions.claim_mission_reward(user_id, card_id)
 
         if result['success']:
-            # XP برای ارتقا به Legend
-            self.db.add_xp(user_id, 30)
             text = (
                 f"🏆 <b>پاداش ماموریت دریافت شد!</b>\n\n"
                 f"🟡 <b>{escape(result['card_name'])}</b> حالا Legend شد!\n"
-                f"⭐ +30 XP"
+                f"⭐ +{result.get('xp_gained', 30)} XP"
             )
         else:
             text = f"❌ {escape(result['error'])}"

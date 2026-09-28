@@ -25,7 +25,6 @@ from systems.economy_system import EconomySystem
 from systems.tier_decay_system import TierDecaySystem
 from systems.risk_mode_system import RiskModeSystem, RiskTable, RiskAction
 from systems.battle_system_3rounds import BattleSystem3Rounds, BattleState, ARENAS
-from systems.claim_system import ClaimSystem
 from systems.card_missions_system import CardMissionsSystem, MISSION_TYPES
 from systems.skins_system import SkinsSystem, SKIN_TYPES
 
@@ -62,21 +61,8 @@ class BasicHandlersMixin:
                 # Grant starter cards once if player has none
                 try:
                     if card_count == 0:
-                        # Use normalized starter names and tolerate DB capitalization differences
-                        default_names = ["John Wick", "Heisenberg", "Rehi"]
-                        granted = []
-                        for nm in default_names:
-                            card_obj = self.db.get_card_by_name(nm)
-                            if not card_obj:
-                                # Fallback: scan all cards case-insensitively
-                                for card in self.db.get_all_cards():
-                                    if card.name.lower() == nm.lower():
-                                        card_obj = card
-                                        break
-                            if card_obj:
-                                added = self.db.add_card_to_player(user.id, card_obj.card_id)
-                                if added:
-                                    granted.append(card_obj.name)
+                        from systems.starter_cards_system import grant_starter_cards
+                        granted = grant_starter_cards(self.db, user.id)
                         if granted:
                             try:
                                 if hasattr(update, 'message') and update.message:

@@ -101,6 +101,7 @@ def test_inline_private_quick_query_builds_an_accept_invitation():
     handler = GameModeHandlersMixin()
     handler.db = SimpleNamespace(get_player_cards=Mock(return_value=[SimpleNamespace()]))
     handler.modes = SimpleNamespace(
+        mode_access=SimpleNamespace(check=Mock(return_value=(True, ""))),
         create_inline_private_challenge=Mock(
             return_value={"request_id": "request-1"}
         )
@@ -131,6 +132,7 @@ def test_inline_private_blank_or_whitespace_query_shows_all_game_modes():
     cards = [SimpleNamespace(), SimpleNamespace(), SimpleNamespace()]
     handler.db = SimpleNamespace(get_player_cards=Mock(return_value=cards))
     handler.modes = SimpleNamespace(
+        mode_access=SimpleNamespace(check=Mock(return_value=(True, ""))),
         create_inline_private_challenge=Mock(
             side_effect=lambda _user_id, mode, variant: {
                 "request_id": f"{mode}-{variant}"
@@ -166,6 +168,7 @@ def test_inline_private_blank_or_whitespace_query_shows_all_game_modes():
 
 def test_private_invite_button_opens_default_game_mode_picker():
     handler = GameModeHandlersMixin()
+    handler.modes = SimpleNamespace(mode_access=SimpleNamespace(check=Mock(return_value=(True, ""))))
     query = SimpleNamespace(
         data="gm_variant_quick_normal",
         from_user=SimpleNamespace(id=1),

@@ -16,6 +16,7 @@ export interface CardData {
   is_in_cooldown?: boolean;
   score?: number;
   upgrade?: UpgradePreview;
+  inventory?: Record<string, number>;
 }
 
 export interface UpgradePreview {
@@ -50,7 +51,7 @@ export interface DeckData {
   cards: CardData[];
 }
 
-export interface ClaimStatus { can_claim: boolean; remaining_seconds: number; pool_count: number; }
+export interface ClaimStatus { can_claim: boolean; remaining_seconds: number; pool_count: number; pool_exhausted?: boolean; }
 export interface MissionData {
   mission_id: string; card_id: string; card_name: string; name: string; description: string;
   target: number; current_progress: number; progress_percent: number; completed: boolean;
@@ -85,6 +86,7 @@ export interface ProfileData {
   claim?: {
     can_claim: boolean;
     remaining_seconds: number;
+    pool_exhausted?: boolean;
     message?: string | null;
   };
   counts?: {
@@ -171,6 +173,7 @@ export interface QuickReport {
   is_tie: boolean;
   forfeit?: boolean;
   reason?: string;
+  rewards?: Record<string, { xp: number; score: number }>;
   breakdown: Record<string, {
     card_name: string;
     selected_stat: StatKey;
@@ -249,7 +252,7 @@ export interface ThreeRoundState {
   available_stats?: StatKey[];
   rounds_won?: Record<string, number>;
   last_round?: ThreeRoundResult | null;
-  report?: { winner_id: number | null; is_tie: boolean; forfeit: boolean; reason?: string; rounds_won: Record<string, number>; rounds: ThreeRoundResult[] } | null;
+  report?: { winner_id: number | null; is_tie: boolean; forfeit: boolean; reason?: string; rounds_won: Record<string, number>; rounds: ThreeRoundResult[]; rewards?: Record<string, { xp: number; score: number }> } | null;
 }
 
 export interface ThreeRoundResult {
@@ -392,6 +395,14 @@ export const api = {
       return { ok: true, message: "کارت با موفقیت ارتقا پیدا کرد", profile: await this.profile(), data: { upgrade: { ok: true, upgrade_key: upgradeKey, to_rarity: target, xp_gained: target === "epic" ? 15 : 30, old_level: 12, new_level: 12 }, card: upgraded } };
     }
     return request("POST", `/cards/${encodeURIComponent(cardId)}/upgrade`, { upgrade_key: upgradeKey });
+  },
+  async activateCardForm(cardId: string, rarity: string): Promise<CardData> {
+    if (demoMode) return { ...(await this.cardDetail(cardId)), rarity };
+    return (await request<{ card: CardData }>("POST", `/cards/${encodeURIComponent(cardId)}/active-form`, { rarity })).card;
+  },
+  async fuseCopies(cardId: string, target: "epic" | "legend"): Promise<{ card: CardData; xp_gained: number; profile: ProfileData }> {
+    if (demoMode) return { card: { ...(await this.cardDetail(cardId)), rarity: target }, xp_gained: target === "epic" ? 15 : 30, profile: await this.profile() };
+    return request("POST", `/cards/${encodeURIComponent(cardId)}/fuse-copies`, { target });
   },
   async cards(): Promise<CardData[]> {
     if (demoMode) return demoCards;

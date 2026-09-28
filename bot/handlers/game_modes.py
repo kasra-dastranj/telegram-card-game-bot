@@ -95,6 +95,11 @@ class GameModeHandlersMixin:
         await query.answer()
         mode = query.data.removeprefix("gm_mode_")
         is_group = query.message.chat.type in ("group", "supergroup")
+        if mode in ("quick", "deck", "easy"):
+            allowed, reason = self.modes.mode_access.check(query.from_user.id, mode)
+            if not allowed:
+                await query.answer(reason, show_alert=True)
+                return
         if mode == "easy":
             if not is_group:
                 await query.answer("Easy Mode فقط داخل گروه اجرا می‌شود.", show_alert=True)
@@ -124,6 +129,10 @@ class GameModeHandlersMixin:
         query = update.callback_query
         await query.answer()
         _, _, mode, variant = query.data.split("_", 3)
+        allowed, reason = self.modes.mode_access.check(query.from_user.id, mode)
+        if not allowed:
+            await query.answer(reason, show_alert=True)
+            return
         is_group = query.message.chat.type in ("group", "supergroup")
         if is_group:
             request = self.modes.create_group_challenge(
@@ -222,6 +231,8 @@ class GameModeHandlersMixin:
         results = []
         deck_system = DeckSystem(self.db)
         for mode, variant in options:
+            if not self.modes.mode_access.check(user_id, mode)[0]:
+                continue
             if mode == "deck" and variant == "normal" and not deck_system.get_valid_decks(user_id):
                 continue
             if mode == "deck" and variant == "random" and len(self.db.get_player_cards(user_id)) < 3:
@@ -310,7 +321,7 @@ class GameModeHandlersMixin:
             self.modes.update_inline_message_reference(request_id, inline_message_id)
         ok, reason, accepted = self.modes.accept_request(request_id, query.from_user.id)
         if not ok:
-            message = "زمان دعوت تمام شده است." if reason == "expired" else "این دعوت قبلاً پذیرفته شده است."
+            message = "زمان دعوت تمام شده است." if reason == "expired" else reason if reason.startswith("برای ورود") else "این دعوت قبلاً پذیرفته شده است."
             await query.answer(message, show_alert=True)
             if reason == "expired":
                 await query.edit_message_text("⏳ این دعوت منقضی شده است.")
@@ -326,6 +337,10 @@ class GameModeHandlersMixin:
         await query.answer()
         _, _, mode, variant, source = query.data.split("_", 4)
         user_id = query.from_user.id
+        allowed, reason = self.modes.mode_access.check(user_id, mode)
+        if not allowed:
+            await query.answer(reason, show_alert=True)
+            return
         if source == "queue":
             status, request = self.modes.matchmake_random(user_id, mode, variant)
             if status == "waiting":
@@ -396,7 +411,7 @@ class GameModeHandlersMixin:
                 "completed": "❌ این بازی قبلاً تمام شده است.",
                 "cancelled": "❌ سازنده، این دعوت را لغو کرده است.",
             }
-            await update.message.reply_text(messages.get(reason, "❌ این دعوت معتبر نیست."))
+            await update.message.reply_text(messages.get(reason, reason if reason.startswith("برای ورود") else "❌ این دعوت معتبر نیست."))
             return True
         await update.message.reply_text("✅ دعوت را پذیرفتی؛ بازی در حال شروع است…")
         await self._edit_request_panel(context, request, "✅ دعوت پذیرفته شد؛ بازی شروع شد.")
@@ -412,7 +427,7 @@ class GameModeHandlersMixin:
             return
         ok, reason, request = self.modes.accept_request(request_id, query.from_user.id)
         if not ok:
-            message = (
+            message = reason if reason.startswith("برای ورود") else (
                 "⏳ زمان درخواست تمام شد و درخواست منقضی شد."
                 if reason == "expired"
                 else "❌ این درخواست دیگر قابل پذیرش نیست."
@@ -766,6 +781,11 @@ class GameModeHandlersMixin:
         )
         if any(item.get("scored_stats") for item in report.get("breakdown", {}).values()):
             text += "\n\nامتیاز هر کارت از جمع دو ویژگی انتخابی به دست آمد. برای دیدن محاسبه، «📋 مشاهده جزئیات» را بزن."
+        if report.get("rewards"):
+            text += "\n\n🎁 پاداش نبرد\n" + "\n".join(
+                f"{names[int(uid)]}: +{reward['xp']} XP، +{reward['score']} Score"
+                for uid, reward in report["rewards"].items()
+            )
         if request and request.get("source") == "inline_private":
             await self._edit_request_panel(context, request, text, reply_markup=markup)
             return
@@ -955,6 +975,10 @@ class GameModeHandlersMixin:
         if query.message.chat.type not in ("group", "supergroup"):
             await query.answer("Easy Mode فقط در گروه است.", show_alert=True)
             return
+        allowed, reason = self.modes.mode_access.check(query.from_user.id, "easy")
+        if not allowed:
+            await query.answer(reason, show_alert=True)
+            return
         rounds = int(query.data.removeprefix("gm_erounds_"))
         request = self.modes.create_easy_lobby(query.from_user.id, query.message.chat_id, rounds)
         await query.edit_message_text(
@@ -997,7 +1021,7 @@ class GameModeHandlersMixin:
             return
         ok, reason, _ = self.modes.join_easy_lobby(request_id, query.from_user.id)
         if not ok:
-            await query.answer("لابی بسته یا منقضی شده است.", show_alert=True)
+            await query.answer(reason if reason not in ("not_found", "expired") else "لابی بسته یا منقضی شده است.", show_alert=True)
             return
         await query.answer("از قبل آماده بودی." if reason == "already_ready" else "آماده شدی!")
         try:
@@ -1309,7 +1333,11 @@ class GameModeHandlersMixin:
                 + "📊 نتیجه نهایی\n"
                 + "\n".join(score_lines)
                 + "\n\nبرنده: "
-                + "، ".join(winner_names),
+                + ("، ".join(winner_names) if winner_names else "ندارد")
+                + ("\n\n🎁 پاداش نبرد\n" + "\n".join(
+                    f"{self.db.get_or_create_player(int(uid)).first_name}: +{reward['xp']} XP، +{reward['score']} Score"
+                    for uid, reward in report["rewards"].items()
+                ) if report.get("rewards") else "\n\nبرای پاداش، دست‌کم دو بازیکن باید کارت انتخاب کنند."),
             )
         else:
             await self._send_easy_question(

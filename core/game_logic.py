@@ -190,7 +190,7 @@ class GameLogic:
         result = PlayerRewardsSystem(self.db).claim_daily(user_id)
         if not result["ok"]:
             return False, None, result["error"], None
-        card = self.db.get_card_by_id_for_player(result["card_id"], user_id)
+        card = self.db.get_card_by_id(result["card_id"])
         return True, card, None, result["ability"]
     
     def get_heart_reset_time_remaining(self, player: Player) -> Optional[timedelta]:
@@ -231,8 +231,8 @@ class GameLogic:
             return {"success": False, "error": "ویژگی‌ها انتخاب نشده‌اند"}
         
         # دریافت کارت‌ها
-        challenger_card = self.db.get_card_by_id(fight.challenger_card_id)
-        opponent_card = self.db.get_card_by_id(fight.opponent_card_id)
+        challenger_card = self.db.get_card_by_id_for_player(fight.challenger_card_id, fight.challenger_id)
+        opponent_card = self.db.get_card_by_id_for_player(fight.opponent_card_id, fight.opponent_id)
         
         if not challenger_card or not opponent_card:
             return {"success": False, "error": "کارت‌ها یافت نشدند"}
@@ -315,121 +315,37 @@ class GameLogic:
             
             return score, hearts_lost
         
-        # بروزرسانی امتیازات و جان‌ها
-        challenger_player = self.db.get_or_create_player(fight.challenger_id)
-        opponent_player = self.db.get_or_create_player(fight.opponent_id)
-        
+        # Calculate the legacy one-round rewards before touching the database.
         if result == "win":
             score_gained, hearts_lost = calculate_rewards(challenger_card.rarity, opponent_card.rarity)
-            challenger_player.total_score += score_gained
-            challenger_player.hearts = max(0, challenger_player.hearts)
-            opponent_player.hearts = max(0, opponent_player.hearts - hearts_lost)
-            self.record_card_win(fight.challenger_id, fight.challenger_card_id)
+            challenger_score, opponent_score = score_gained, 0
+            challenger_hearts_lost, opponent_hearts_lost = 0, hearts_lost
         elif result == "loss":
             score_gained, hearts_lost = calculate_rewards(opponent_card.rarity, challenger_card.rarity)
-            opponent_player.total_score += score_gained
-            opponent_player.hearts = max(0, opponent_player.hearts)
-            challenger_player.hearts = max(0, challenger_player.hearts - hearts_lost)
-            self.record_card_win(fight.opponent_id, fight.opponent_card_id)
-        else:  # tie
-            # در مساوی، کارت ضعیف‌تر امتیاز میگیره
-            challenger_rarity = challenger_card.rarity
-            opponent_rarity = opponent_card.rarity
-            
-            # محاسبه امتیاز برای هر بازیکن
-            def calculate_tie_score(my_rarity: CardRarity, opponent_rarity: CardRarity):
-                if my_rarity == opponent_rarity:
-                    return 0  # هم سطح = 0 امتیاز
-                elif my_rarity == CardRarity.NORMAL:
-                    if opponent_rarity == CardRarity.EPIC:
-                        return 3
-                    else:  # vs Legend
-                        return 5
-                elif my_rarity == CardRarity.EPIC:
-                    if opponent_rarity == CardRarity.LEGEND:
-                        return 3
-                    else:  # vs Normal
-                        return 0  # Epic قوی‌تره، امتیاز نمیگیره
-                else:  # Legend
-                    return 0  # Legend قوی‌تره، امتیاز نمیگیره
-            
-            challenger_tie_score = calculate_tie_score(challenger_rarity, opponent_rarity)
-            opponent_tie_score = calculate_tie_score(opponent_rarity, challenger_rarity)
-            
-            challenger_player.total_score += challenger_tie_score
-            opponent_player.total_score += opponent_tie_score
-            
-            # محاسبه جان از دست رفته در مساوی
-            # فقط Legend در مساوی با Normal جان کم می‌کنه
-            challenger_tie_hearts = 0
-            opponent_tie_hearts = 0
-            
-            if challenger_rarity == CardRarity.LEGEND and opponent_rarity == CardRarity.NORMAL:
-                challenger_tie_hearts = 1  # Legend باید جان کم کنه
-            elif opponent_rarity == CardRarity.LEGEND and challenger_rarity == CardRarity.NORMAL:
-                opponent_tie_hearts = 1  # Legend باید جان کم کنه
-            
-            challenger_player.hearts = max(0, challenger_player.hearts - challenger_tie_hearts)
-            opponent_player.hearts = max(0, opponent_player.hearts - opponent_tie_hearts)
-            
-            score_gained = 0  # برای history
-            hearts_lost = 0
-        
-        self.db.update_player(challenger_player)
-        self.db.update_player(opponent_player)
-        
-        # ثبت در تاریخچه
-        conn = sqlite3.connect(self.db.db_path)
-        cursor = conn.cursor()
-        
-        now = datetime.now().isoformat()
-        
-        # محاسبه مقادیر برای ثبت تاریخچه
-        if result == "win":
-            challenger_score = score_gained
-            challenger_hearts_lost = 0
-            opponent_score = 0
-            opponent_hearts_lost = hearts_lost
-        elif result == "loss":
-            challenger_score = 0
-            challenger_hearts_lost = hearts_lost
-            opponent_score = score_gained
-            opponent_hearts_lost = 0
-        else:  # tie
-            challenger_score = challenger_tie_score
-            challenger_hearts_lost = challenger_tie_hearts
-            opponent_score = opponent_tie_score
-            opponent_hearts_lost = opponent_tie_hearts
-        
-        # ثبت برای challenger
-        cursor.execute('''
-            INSERT INTO fight_history 
-            (user_id, user_card_id, opponent_card_id, stat_used, result, score_gained, hearts_lost, fought_at, fight_type, opponent_user_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pvp', ?)
-        ''', (
-            fight.challenger_id, fight.challenger_card_id, fight.opponent_card_id,
-            fight.challenger_stat, result, challenger_score,
-            challenger_hearts_lost, now, fight.opponent_id
-        ))
-        
-        # ثبت برای opponent
-        opp_result = "win" if result == "loss" else ("loss" if result == "win" else "tie")
-        cursor.execute('''
-            INSERT INTO fight_history 
-            (user_id, user_card_id, opponent_card_id, stat_used, result, score_gained, hearts_lost, fought_at, fight_type, opponent_user_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pvp', ?)
-        ''', (
-            fight.opponent_id, fight.opponent_card_id, fight.challenger_card_id,
-            fight.opponent_stat, opp_result, opponent_score,
-            opponent_hearts_lost, now, fight.challenger_id
-        ))
-        
-        conn.commit()
-        conn.close()
-        
-        # بروزرسانی وضعیت فایت
-        self.db.update_fight(fight_id, status='completed')
-        
+            challenger_score, opponent_score = 0, score_gained
+            challenger_hearts_lost, opponent_hearts_lost = hearts_lost, 0
+        else:
+            def calculate_tie_score(my_rarity: CardRarity, other_rarity: CardRarity) -> int:
+                if my_rarity == other_rarity:
+                    return 0
+                if my_rarity == CardRarity.NORMAL:
+                    return 3 if other_rarity == CardRarity.EPIC else 5
+                if my_rarity == CardRarity.EPIC and other_rarity == CardRarity.LEGEND:
+                    return 3
+                return 0
+
+            challenger_score = calculate_tie_score(challenger_card.rarity, opponent_card.rarity)
+            opponent_score = calculate_tie_score(opponent_card.rarity, challenger_card.rarity)
+            challenger_hearts_lost = int(
+                challenger_card.rarity == CardRarity.LEGEND
+                and opponent_card.rarity == CardRarity.NORMAL
+            )
+            opponent_hearts_lost = int(
+                opponent_card.rarity == CardRarity.LEGEND
+                and challenger_card.rarity == CardRarity.NORMAL
+            )
+            score_gained = hearts_lost = 0
+
         # تعیین result_type برای telegram_bot
         if result == "tie":
             result_type = "tie"
@@ -558,45 +474,45 @@ class GameLogic:
             "hearts_lost": opponent_hearts_lost
         }
         
-        # ==================== XP و Tier Points ====================
-        from systems.phase2_systems import LevelSystem, TierSystem, XP_SOURCES
-        
-        xp_sources = XP_SOURCES
-        
-        # XP برای challenger
-        if result == "win":
-            ch_xp = xp_sources.get("normal_win", 10)
-            op_xp = xp_sources.get("normal_loss", 3)
-        elif result == "loss":
-            ch_xp = xp_sources.get("normal_loss", 3)
-            op_xp = xp_sources.get("normal_win", 10)
-        else:  # tie
-            ch_xp = xp_sources.get("normal_loss", 3)
-            op_xp = xp_sources.get("normal_loss", 3)
-        
-        ch_old_level, ch_new_level = self.db.add_xp(fight.challenger_id, ch_xp)
-        op_old_level, op_new_level = self.db.add_xp(fight.opponent_id, op_xp)
-        
-        # TP برای challenger و opponent
-        ch_prog = self.db.get_or_create_progression(fight.challenger_id)
-        op_prog = self.db.get_or_create_progression(fight.opponent_id)
-        
-        if result != "tie":
-            tp_gain, tp_loss = TierSystem.calculate_tp_change(
-                ch_prog['current_tier'] if result == "win" else op_prog['current_tier'],
-                op_prog['current_tier'] if result == "win" else ch_prog['current_tier']
+        # Record Score, hearts, XP, TP and history in one replay-safe transaction.
+        from systems.legacy_fight_rewards_system import LegacyFightRewardsSystem
+        from systems.phase2_systems import XP_SOURCES
+
+        ch_xp = XP_SOURCES["normal_win"] if result == "win" else XP_SOURCES["normal_loss"]
+        op_xp = XP_SOURCES["normal_win"] if result == "loss" else XP_SOURCES["normal_loss"]
+        awards = {
+            fight.challenger_id: {
+                "result": result, "xp": ch_xp, "score": challenger_score,
+                "hearts_lost": challenger_hearts_lost,
+                "card_id": challenger_card.card_id, "opponent_card_id": opponent_card.card_id,
+                "opponent_id": fight.opponent_id, "stat_used": fight.challenger_stat,
+            },
+            fight.opponent_id: {
+                "result": "win" if result == "loss" else "loss" if result == "win" else "tie",
+                "xp": op_xp, "score": opponent_score,
+                "hearts_lost": opponent_hearts_lost,
+                "card_id": opponent_card.card_id, "opponent_card_id": challenger_card.card_id,
+                "opponent_id": fight.challenger_id, "stat_used": fight.opponent_stat,
+            },
+        }
+        try:
+            settlement = LegacyFightRewardsSystem(self.db).settle_single_round(
+                fight_id, fight.challenger_id, fight.opponent_id, result_type, awards,
             )
-            if result == "win":
-                ch_old_tier, ch_new_tier = self.db.add_tier_points(fight.challenger_id, tp_gain)
-                op_old_tier, op_new_tier = self.db.add_tier_points(fight.opponent_id, -tp_loss)
-            else:
-                op_old_tier, op_new_tier = self.db.add_tier_points(fight.opponent_id, tp_gain)
-                ch_old_tier, ch_new_tier = self.db.add_tier_points(fight.challenger_id, -tp_loss)
-        else:
-            ch_old_tier = ch_new_tier = ch_prog['current_tier']
-            op_old_tier = op_new_tier = op_prog['current_tier']
-            tp_gain = tp_loss = 0
-        
+        except (ValueError, sqlite3.Error) as exc:
+            logger.error("PvP settlement failed for %s: %s", fight_id, exc)
+            return {"success": False, "error": "ثبت نتیجهٔ نبرد انجام نشد"}
+        if not settlement["fresh"]:
+            return {"success": False, "error": "نتیجهٔ این نبرد قبلاً ثبت شده است", "already_settled": True}
+        if winner_id is not None:
+            self.record_card_win(winner_id, winner_card.card_id)
+        ch_paid = settlement["awards"][str(fight.challenger_id)]
+        op_paid = settlement["awards"][str(fight.opponent_id)]
+        ch_old_level, ch_new_level = ch_paid["old_level"], ch_paid["new_level"]
+        op_old_level, op_new_level = op_paid["old_level"], op_paid["new_level"]
+        ch_old_tier, ch_new_tier = ch_paid["old_tier"], ch_paid["new_tier"]
+        op_old_tier, op_new_tier = op_paid["old_tier"], op_paid["new_tier"]
+
         # اضافه کردن اطلاعات XP/Level به challenger_data و opponent_data
         challenger_data['xp_gained'] = ch_xp
         challenger_data['level_up'] = ch_new_level > ch_old_level

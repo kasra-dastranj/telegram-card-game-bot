@@ -114,6 +114,9 @@ def test_solo_defeat_applies_advertised_tier_penalty(solo_client, game_db):
     assert response.status_code == 200
     rewards = response.get_json()["final_result"]["rewards"]
     assert game_db.get_or_create_progression(101)["tier_points"] == 50 + rewards["tier_points_change"]
+    with sqlite3.connect(game_db.db_path) as conn:
+        assert conn.execute("SELECT xp,score FROM match_reward_events WHERE request_id=? AND user_id=101",
+                            (f"solo:{fight['fight_id']}",)).fetchone() == (rewards["xp_gained"], rewards["score_gained"])
 
 
 def test_solo_failed_reward_rolls_back_round(solo_client, game_db):
@@ -150,6 +153,26 @@ def test_risk_outsider_cannot_fold_and_fold_cannot_pay_twice(game_db):
     assert risk.make_action(match_id, 101, RiskAction.FOLD)["success"]
     assert not risk.make_action(match_id, 101, RiskAction.FOLD)["success"]
     assert game_db.get_or_create_player(202).coins == 1050
+    with sqlite3.connect(game_db.db_path) as conn:
+        assert conn.execute("SELECT COUNT(*) FROM match_reward_events WHERE request_id=?", (f"risk:{match_id}",)).fetchone()[0] == 2
+        assert conn.execute("SELECT COUNT(*) FROM fight_history WHERE fight_type='risk'").fetchone()[0] == 2
+        assert conn.execute("SELECT total_xp FROM player_progression WHERE user_id=202").fetchone()[0] == 25
+
+
+def test_risk_history_failure_rolls_back_pot_and_xp(game_db):
+    risk = RiskModeSystem(game_db)
+    match_id = risk.create_risk_match(101, 202, RiskTable.TABLE_50)["match_id"]
+    with sqlite3.connect(game_db.db_path) as conn:
+        conn.execute("""CREATE TRIGGER reject_risk_history BEFORE INSERT ON fight_history
+                        BEGIN SELECT RAISE(FAIL, 'risk history unavailable'); END""")
+    with pytest.raises(sqlite3.IntegrityError):
+        risk.make_action(match_id, 101, RiskAction.FOLD)
+    assert risk.get_risk_match(match_id)["status"] != "completed"
+    assert game_db.get_or_create_player(101).coins == 950
+    assert game_db.get_or_create_player(202).coins == 950
+    with sqlite3.connect(game_db.db_path) as conn:
+        assert conn.execute("SELECT total_xp FROM player_progression WHERE user_id=202").fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM fight_history WHERE fight_type='risk'").fetchone()[0] == 0
 
 
 def test_concurrent_score_conversion_cannot_overdraw(game_db):

@@ -157,6 +157,11 @@ def test_quick_choices_are_locked_and_report_is_persisted(mode_system, monkeypat
     assert report["request_id"] == request["request_id"]
     assert mode_system.get_report(request["request_id"]) == report
     assert mode_system.get_request(request["request_id"])["status"] == "completed"
+    assert mode_system.resolve_quick(request["request_id"]) == report
+    for user_id in (1, 2):
+        won = report["winner_id"] == user_id
+        assert mode_system.db.get_or_create_progression(user_id)["total_xp"] == (10 if won else 3)
+        assert mode_system.db.get_or_create_player(user_id).total_score == (10 if won else 0)
 
 
 def test_quick_stat_preview_matches_resolution_math(mode_system):
@@ -359,6 +364,21 @@ def test_easy_first_choice_is_final_and_ties_share_points(mode_system):
     result = mode_system.resolve_easy_round(request["request_id"])
     assert result["completed"]
     assert result["report"]["scores"] == {"1": 3, "2": 3}
+    assert result["report"]["rewards"] == {"1": {"xp": 3, "score": 0}, "2": {"xp": 3, "score": 0}}
+    with pytest.raises(ValueError, match="easy_round_not_ready"):
+        mode_system.resolve_easy_round(request["request_id"])
+
+
+def test_easy_idle_players_cannot_farm_match_rewards(mode_system):
+    request = mode_system.create_easy_lobby(1, -100, rounds=1)
+    assert mode_system.join_easy_lobby(request["request_id"], 2)[0]
+    assert mode_system.start_easy_match(request["request_id"])[0]
+    result = mode_system.resolve_easy_round(request["request_id"])
+    assert result["completed"]
+    assert result["report"]["winner_ids"] == []
+    assert result["report"]["rewards"] == {}
+    assert mode_system.db.get_or_create_progression(1)["total_xp"] == 0
+    assert mode_system.db.get_or_create_progression(2)["total_xp"] == 0
 
 
 def test_deck_round_prefers_trait_tier_then_uses_arena_stat(mode_system):

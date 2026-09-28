@@ -33,6 +33,7 @@ const state: {
   collectionQuery: string;
   detailCard?: CardData;
   pendingUpgrade?: UpgradePreview;
+  pendingCopyFusion?: { cardId: string; target: "epic" | "legend" };
   decks: DeckData[];
   deckEditor?: { deckId?: string; name: string; cardIds: string[] };
   deleteDeckId?: string;
@@ -346,7 +347,7 @@ function profileHubTemplate(): string {
   const wins = Number(stats.wins ?? stats.total_wins ?? 0);
   const losses = Number(stats.losses ?? stats.total_losses ?? 0);
   const fights = Number(stats.total_fights ?? stats.total ?? wins + losses);
-  const claimText = p?.claim?.can_claim ? "کارت روزانه آماده دریافت است" : `Claim بعدی: ${formatDuration(p?.claim?.remaining_seconds)}`;
+  const claimText = p?.claim?.pool_exhausted ? "کارت Normal برای Claim در کاتالوگ موجود نیست" : p?.claim?.can_claim ? "کارت روزانه آماده دریافت است" : `Claim بعدی: ${formatDuration(p?.claim?.remaining_seconds)}`;
   return `
     <section class="screen hub-screen profile-hub-screen">
       ${resourceHud()}
@@ -382,7 +383,7 @@ function collectionTemplate(): string {
   const cards = (page?.cards || []).map((card) => `
     <button class="collection-card rarity-${escapeHtml(card.rarity)}" data-action="card-detail" data-id="${escapeHtml(card.card_id)}">
       <span class="collection-card__art" style="background-image:url('${escapeHtml(card.image_url)}')"></span>
-      <span class="collection-card__body"><small>${escapeHtml(card.rarity.toUpperCase())}</small><strong dir="auto">${escapeHtml(card.name)}</strong>${cardStatStrip(card)}</span>
+      <span class="collection-card__body"><small>${escapeHtml(card.rarity.toUpperCase())}${card.inventory ? ` · ×${Object.values(card.inventory).reduce((sum, count) => sum + count, 0)}` : ""}</small><strong dir="auto">${escapeHtml(card.name)}</strong>${cardStatStrip(card)}</span>
       ${card.is_in_cooldown ? '<i class="cooldown-badge">COOLDOWN</i>' : ""}
     </button>`).join("");
   const detail = state.detailCard ? cardDetailSheet(state.detailCard) : state.skinPanel ? skinsSheet() : "";
@@ -410,6 +411,13 @@ function cardDetailSheet(card: CardData): string {
   const stats: Array<[string, number]> = [["قدرت", card.power], ["سرعت", card.speed], ["هوش", card.iq], ["محبوبیت", card.popularity]];
   const upgrade = card.upgrade;
   const pending = state.pendingUpgrade?.card_id === card.card_id ? state.pendingUpgrade : undefined;
+  const counts = card.inventory || {};
+  const forms = (["normal", "epic", "legend"] as const).filter((rarity) => (counts[rarity] || 0) > 0);
+  const formControls = forms.map((rarity) => `<button class="secondary-button" data-action="activate-card-form" data-value="${rarity}" ${rarity === card.rarity || state.loading ? "disabled" : ""}>${rarity.toUpperCase()} ×${counts[rarity]}${rarity === card.rarity ? " · فعال" : " · انتخاب"}</button>`).join("");
+  const copyFusionControls = ([{ source: "normal", target: "epic" }, { source: "epic", target: "legend" }] as const)
+    .filter(({ source }) => (counts[source] || 0) > 0)
+    .map(({ source, target }) => `<button class="secondary-button" data-action="ask-copy-fusion" data-value="${target}" ${(counts[source] || 0) < 3 || state.loading ? "disabled" : ""}>۳ ${source.toUpperCase()} → ۱ ${target.toUpperCase()}${(counts[source] || 0) < 3 ? ` · ${counts[source]}/۳` : ""}</button>`).join("");
+  const pendingCopies = state.pendingCopyFusion?.cardId === card.card_id ? state.pendingCopyFusion : undefined;
   const upgradeControl = upgrade?.ok
     ? `<button class="primary-button" data-action="preview-upgrade" ${upgrade.blocked_by_match || !upgrade.can_afford || state.loading ? "disabled" : ""}>ارتقا به <b dir="ltr">${escapeHtml(upgrade.to_rarity?.toUpperCase())}</b> · ${Number(upgrade.price || 0).toLocaleString("fa-IR")} سکه</button>
        ${upgrade.blocked_by_match ? '<p class="sheet-warning">تا پایان مسابقه امکان ارتقا وجود ندارد.</p>' : !upgrade.can_afford ? '<p class="sheet-warning">سکه کافی برای این ارتقا نداری.</p>' : ""}`
@@ -429,8 +437,11 @@ function cardDetailSheet(card: CardData): string {
         <p>${escapeHtml(card.biography || "زندگینامه‌ای ثبت نشده است.")}</p>
         <div class="card-stat-list">${stats.map(([name, value]) => `<span><small>${name}</small><strong>${value}</strong></span>`).join("")}</div>
         <div class="card-meta"><span>نوع: <b dir="ltr">${escapeHtml(card.card_type || "—")}</b></span><span>Ability: <b>${escapeHtml(card.abilities?.join("، ") || "ندارد")}</b></span></div>
+        ${formControls ? `<div class="card-actions"><strong>فرم‌های موجود</strong>${formControls}</div>` : ""}
+        ${copyFusionControls ? `<div class="card-actions"><strong>ترکیب نسخه‌های یک شخصیت</strong>${copyFusionControls}</div>` : ""}
         ${card.is_in_cooldown ? '<p class="sheet-warning">این کارت در Cooldown است.</p>' : ""}
         <div class="card-actions"><button class="secondary-button" data-action="open-skins" data-id="${escapeHtml(card.card_id)}">ظاهر کارت</button>${upgradeControl}</div>
+        ${pendingCopies ? `<div class="upgrade-confirm" role="alertdialog" aria-label="تأیید ترکیب نسخه‌ها"><strong>سه نسخه را مصرف کنیم؟</strong><p>۳ ${pendingCopies.target === "epic" ? "Normal" : "Epic"} همین شخصیت → ۱ ${pendingCopies.target.toUpperCase()}؛ ${pendingCopies.target === "epic" ? 15 : 30} XP</p><div><button class="secondary-button" data-action="cancel-copy-fusion">انصراف</button><button class="primary-button" data-action="confirm-copy-fusion" ${state.loading ? "disabled" : ""}>تأیید Fusion</button></div></div>` : ""}
         ${confirm}
       </div>
     </aside>`;
@@ -481,7 +492,7 @@ function progressTemplate(): string {
   </article>`).join("");
   return `<section class="screen hub-screen progress-screen">
     ${resourceHud()}<div class="hub-scroll"><header class="hub-title"><div><p class="eyebrow">PROGRESS</p><h1>پیشرفت و پاداش</h1></div></header>
-    <article class="daily-claim glass-panel"><div><small>DAILY CARD</small><h2>${claim?.can_claim ? "کارت روزانه آماده است" : "کارت امروز دریافت شده"}</h2><p>${claim?.can_claim ? `${claim.pool_count} کارت در Pool` : `دریافت بعدی: ${formatDuration(claim?.remaining_seconds)}`}</p></div><button data-action="claim-daily" ${!claim?.can_claim || state.loading ? "disabled" : ""}>${state.loading ? "…" : "دریافت کارت"}</button></article>
+    <article class="daily-claim glass-panel"><div><small>DAILY CARD</small><h2>${claim?.pool_exhausted ? "کارت Normal موجود نیست" : claim?.can_claim ? "کارت روزانه آماده است" : "کارت امروز دریافت شده"}</h2><p>${claim?.pool_exhausted ? "فعلاً کاتالوگ کارت Normal ندارد؛ نوبت Claim مصرف نشده است." : claim?.can_claim ? `${claim.pool_count} کارت در Pool؛ نسخهٔ تکراری هم به موجودی اضافه می‌شود.` : `دریافت بعدی: ${formatDuration(claim?.remaining_seconds)}`}</p></div><button data-action="claim-daily" ${!claim?.can_claim || state.loading ? "disabled" : ""}>${state.loading ? "…" : "دریافت کارت"}</button></article>
     ${state.rewardCard ? `<article class="reward-reveal glass-panel"><span style="background-image:url('${escapeHtml(state.rewardCard.image_url)}')"></span><div><small>پاداش تازه</small><h2 dir="auto">${escapeHtml(state.rewardCard.name)}</h2><b dir="ltr">${escapeHtml(state.rewardCard.rarity.toUpperCase())}</b>${state.rewardAbility ? `<p>🎁 Ability مصرفی Quick: ${escapeHtml(state.rewardAbility.title)} ×۱</p>` : ""}</div></article>` : ""}
     <header class="subsection-title"><h2>مأموریت‌های کارت</h2><span>${state.missions.length}</span></header><div class="mission-list">${state.loading ? skeletons() : missions || '<p class="empty-state">برای کارت‌های فعلی مأموریتی ثبت نشده است.</p>'}</div></div>${bottomNav("progress")}
   </section>`;
@@ -568,7 +579,7 @@ function lobbyTemplate(): string {
           </button>
         </div>
       </div>
-      <button class="lobby-reward" data-action="hub-progress"><span class="lobby-reward__icon">${lobbyIcon("cards")}</span><span><strong>پاداش روزانه</strong><small>${p?.claim?.can_claim ? "کارت تازه‌ات منتظر توست" : p?.claim ? "مأموریت‌ها و زمان پاداش بعدی" : "پاداش‌ها و مأموریت‌های کارت"}</small></span>${lobbyIcon("arrow")}</button>
+      <button class="lobby-reward" data-action="hub-progress"><span class="lobby-reward__icon">${lobbyIcon("cards")}</span><span><strong>پاداش روزانه</strong><small>${p?.claim?.pool_exhausted ? "کاتالوگ کارت Normal ندارد" : p?.claim?.can_claim ? "کارت روزانه‌ات منتظر توست" : p?.claim ? "مأموریت‌ها و زمان پاداش بعدی" : "پاداش‌ها و مأموریت‌های کارت"}</small></span>${lobbyIcon("arrow")}</button>
       ${bottomNav("game")}
     </section>`;
 }
@@ -667,11 +678,13 @@ function threeResultTemplate(): string {
   const won = report?.winner_id === match?.user_id;
   const mine = report?.rounds_won?.[String(match?.user_id)] ?? 0;
   const rival = report?.rounds_won?.[String(match?.opponent_id)] ?? 0;
+  const earned = report?.rewards?.[String(match?.user_id)];
   return `<section class="screen result-screen quick-result-screen">
     <div class="result-emblem ${won ? "result-emblem--win" : "result-emblem--lose"}"><span>${tie ? "=" : won ? "W" : "L"}</span></div>
     <p class="eyebrow">THREE ROUNDS COMPLETE</p><h2>${tie ? "نبرد مساوی شد" : won ? "تو برنده شدی" : "حریف برنده شد"}</h2>
     <p>${report?.forfeit ? "نبرد به‌خاطر پایان مهلت انتخاب تمام شد." : `${report?.rounds.length ?? 0} راند در ${escapeHtml(match?.arena?.name_fa ?? "میدان")} انجام شد.`}</p>
     <div class="reward-panel glass-panel"><div><small>برد راندها</small><strong>${mine} — ${rival}</strong></div></div>
+    ${earned ? `<div class="reward-panel glass-panel"><div><small>پاداش نبرد</small><strong>+${earned.xp} XP · +${earned.score} Score</strong></div></div>` : ""}
     ${(report?.rounds || []).map((round) => { const a = round.values[String(match?.user_id)]; const b = round.values[String(match?.opponent_id)]; return `<div class="glass-panel" style="padding:12px;margin-bottom:10px"><strong>راند ${round.round}: ${round.winner_id === null ? "مساوی" : round.winner_id === match?.user_id ? "برد تو" : "برد حریف"}</strong><p>تو: ${a ? `${labels[a.stat].title} ${a.base} + ${a.boost} = ${a.total}` : "—"} · حریف: ${b ? `${labels[b.stat].title} ${b.base} + ${b.boost} = ${b.total}` : "—"}</p></div>`; }).join("")}
     <button class="primary-button" data-action="enter-three">نبرد سه‌راندی دوباره</button><button class="secondary-button" data-action="home">بازگشت به پایگاه</button>
   </section>`;
@@ -767,6 +780,7 @@ function quickResultTemplate(): string {
   const won = !tie && report?.winner_id === quick?.user_id;
   const mine = quick && report?.breakdown?.[String(quick.user_id)];
   const opponent = quick?.opponent_id != null ? report?.breakdown?.[String(quick.opponent_id)] : undefined;
+  const earned = report?.rewards?.[String(quick?.user_id)];
   const calculation = mine?.scored_stats && opponent?.scored_stats
     ? `<details class="glass-panel" style="padding: 12px; margin-bottom: 16px;">
         <summary>محاسبهٔ امتیاز Quick</summary>
@@ -782,6 +796,7 @@ function quickResultTemplate(): string {
       <h2>${tie ? "نبرد مساوی شد" : won ? "تصمیم تو برنده شد" : "حریف این نبرد را برد"}</h2>
       <p>${report?.forfeit ? "نتیجه به‌خاطر پایان مهلت انتخاب ثبت شد." : mine?.scored_stats ? "امتیاز هر کارت از جمع ویژگی انتخابی دو بازیکن به دست آمد. برای توضیح بیشتر، محاسبهٔ امتیاز را باز کن." : "ویژگی انتخابی هر بازیکن مقایسه شد."}</p>
       <div class="reward-panel glass-panel"><div><small>امتیاز Quick</small><strong>${mine?.scored_stats ? "جمع دو ویژگی" : mine ? labels[mine.selected_stat].short : "—"}</strong></div><div class="reward-list"><span><small>YOU</small><strong>${mine?.final_value ?? "—"}</strong></span><span><small>RIVAL</small><strong>${opponent?.final_value ?? "—"}</strong></span></div></div>
+      ${earned ? `<div class="reward-panel glass-panel"><div><small>پاداش نبرد</small><strong>+${earned.xp} XP · +${earned.score} Score</strong></div></div>` : ""}
       ${calculation}
       <button class="primary-button" data-action="enter-quick">Quick دوباره</button>
       <button class="secondary-button" data-action="home">بازگشت به پایگاه</button>
@@ -934,6 +949,7 @@ async function openCollection(): Promise<void> {
 }
 
 async function openCardDetail(cardId: string): Promise<void> {
+  state.pendingCopyFusion = undefined;
   const localCard = state.collection?.cards.find((card) => card.card_id === cardId);
   state.detailCard = localCard;
   render();
@@ -981,6 +997,35 @@ async function confirmUpgrade(): Promise<void> {
     state.loading = false;
     render();
   }
+}
+
+async function activateCardForm(rarity: string): Promise<void> {
+  const card = state.detailCard;
+  if (!card || state.loading) return;
+  state.loading = true; render();
+  try {
+    await api.activateCardForm(card.card_id, rarity);
+    state.detailCard = await api.cardDetail(card.card_id);
+    await loadCollection(state.collectionPage);
+    showToast(`فرم ${rarity.toUpperCase()} فعال شد`);
+  } catch (error) { showToast(error instanceof Error ? error.message : "تغییر فرم انجام نشد"); }
+  finally { state.loading = false; render(); }
+}
+
+async function confirmCopyFusion(): Promise<void> {
+  const pending = state.pendingCopyFusion;
+  if (!pending || state.loading) return;
+  state.loading = true; render();
+  try {
+    const result = await api.fuseCopies(pending.cardId, pending.target);
+    state.profile = { ...(state.profile || {} as ProfileData), ...result.profile };
+    state.detailCard = await api.cardDetail(pending.cardId);
+    state.pendingCopyFusion = undefined;
+    await loadCollection(state.collectionPage);
+    haptic("success");
+    showToast(`ترکیب انجام شد؛ +${result.xp_gained} XP`);
+  } catch (error) { showToast(error instanceof Error ? error.message : "ترکیب نسخه‌ها انجام نشد"); }
+  finally { state.loading = false; render(); }
 }
 
 async function openDecks(): Promise<void> {
@@ -1491,10 +1536,14 @@ ui.addEventListener("click", (event) => {
   if (action === "open-profile") void openProfileHub();
   if (action === "open-collection") void openCollection();
   if (action === "card-detail") void openCardDetail(button.dataset.id || "");
-  if (action === "close-card-detail") { state.detailCard = undefined; state.pendingUpgrade = undefined; render(); }
+  if (action === "close-card-detail") { state.detailCard = undefined; state.pendingUpgrade = undefined; state.pendingCopyFusion = undefined; render(); }
   if (action === "preview-upgrade") void previewUpgrade();
   if (action === "cancel-upgrade") { state.pendingUpgrade = undefined; render(); }
   if (action === "confirm-upgrade") void confirmUpgrade();
+  if (action === "activate-card-form") void activateCardForm(button.dataset.value || "");
+  if (action === "ask-copy-fusion" && state.detailCard) { state.pendingCopyFusion = { cardId: state.detailCard.card_id, target: button.dataset.value as "epic" | "legend" }; render(); }
+  if (action === "cancel-copy-fusion") { state.pendingCopyFusion = undefined; render(); }
+  if (action === "confirm-copy-fusion") void confirmCopyFusion();
   if (action === "collection-page") void loadCollection(Number(button.dataset.page || 1));
   if (action === "hub-game") { state.screen = "lobby"; state.detailCard = undefined; scene.showIdle(); refreshFeaturedCards(); render(); }
   if (action === "hub-decks") void openDecks();

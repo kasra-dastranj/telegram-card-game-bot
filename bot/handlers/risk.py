@@ -22,8 +22,8 @@ from systems.phase2_systems import LevelSystem, TierSystem, format_xp_bar, forma
 from systems.economy_system import EconomySystem
 from systems.tier_decay_system import TierDecaySystem
 from systems.risk_mode_system import RiskModeSystem, RiskTable, RiskAction
+from systems.mode_access_system import ModeAccessSystem
 from systems.battle_system_3rounds import BattleSystem3Rounds, BattleState, ARENAS
-from systems.claim_system import ClaimSystem
 from systems.card_missions_system import CardMissionsSystem, MISSION_TYPES
 from systems.skins_system import SkinsSystem, SKIN_TYPES
 
@@ -50,10 +50,11 @@ class RiskHandlersMixin:
         level = prog.get('level', 1)
         coins = getattr(player, 'coins', 0)
 
-        if level < 7:
+        required_level = ModeAccessSystem(self.db).min_level("risk")
+        if level < required_level:
             text = (
                 f"🎲 **Risk Mode**\n\n"
-                f"🔒 برای ورود به Risk باید Level 7 باشی.\n"
+                f"🔒 برای ورود به Risk باید Level {required_level} باشی.\n"
                 f"Level فعلی: {level}\n\n"
                 f"با بازی بیشتر XP بگیر و Level بالا ببر!"
             )

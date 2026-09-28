@@ -31,7 +31,6 @@ from systems.battle_system_3rounds import (
     BEATS_MAP, BEATS_REASON, ATTR_NAMES_FA, get_dominant_attr_from_stats,
     apply_drain_to_stats, apply_reflect_reduction, select_arena_shift_role,
 )
-from systems.claim_system import ClaimSystem
 from systems.card_missions_system import CardMissionsSystem, MISSION_TYPES
 from systems.skins_system import SkinsSystem, SKIN_TYPES
 
@@ -1562,85 +1561,25 @@ class BattleHandlersMixin:
                                        ch_rounds_won: int, op_rounds_won: int,
                                        deck_summary: Optional[str] = None):
         """پاداش‌دهی نهایی بازی ۳ راوندی"""
-        from types import SimpleNamespace
-
         ch_id = fight.challenger_id
         op_id = fight.opponent_id
 
-        # محاسبه امتیاز بر اساس rarity
-        rarity_order = {CardRarity.NORMAL: 1, CardRarity.EPIC: 2, CardRarity.LEGEND: 3, CardRarity.RARE: 4}
-        ch_rv = rarity_order.get(ch_card.rarity, 1)
-        op_rv = rarity_order.get(op_card.rarity, 1)
+        from systems.legacy_fight_rewards_system import LegacyFightRewardsSystem
 
-        if result_type == "challenger_wins":
-            score = 20 if ch_rv < op_rv else (10 if ch_rv == op_rv else 5)
-            hearts_lost = 1
-            ch_score, op_score = score, 0
-            ch_hearts, op_hearts = 0, hearts_lost
-        elif result_type == "opponent_wins":
-            score = 20 if op_rv < ch_rv else (10 if op_rv == ch_rv else 5)
-            hearts_lost = 1
-            ch_score, op_score = 0, score
-            ch_hearts, op_hearts = hearts_lost, 0
-        else:  # tie
-            ch_score, op_score = 0, 0
-            ch_hearts, op_hearts = 0, 0
-
-        # بروزرسانی بازیکنان
-        ch_player = self.db.get_or_create_player(ch_id)
-        op_player = self.db.get_or_create_player(op_id)
-        ch_player.total_score += ch_score
-        op_player.total_score += op_score
-        ch_player.hearts = max(0, ch_player.hearts - ch_hearts)
-        op_player.hearts = max(0, op_player.hearts - op_hearts)
-        self.db.update_player(ch_player)
-        self.db.update_player(op_player)
-
-        # XP و Tier
-        from systems.phase2_systems import TierSystem, XP_SOURCES
-        xp_src = XP_SOURCES
-        if result_type == "challenger_wins":
-            ch_xp, op_xp = xp_src["normal_win"], xp_src["normal_loss"]
-        elif result_type == "opponent_wins":
-            ch_xp, op_xp = xp_src["normal_loss"], xp_src["normal_win"]
-        else:
-            ch_xp = op_xp = xp_src["normal_loss"]
-
-        ch_old_lv, ch_new_lv = self.db.add_xp(ch_id, ch_xp)
-        op_old_lv, op_new_lv = self.db.add_xp(op_id, op_xp)
-
-        ch_prog = self.db.get_or_create_progression(ch_id)
-        op_prog = self.db.get_or_create_progression(op_id)
-        if result_type != "tie":
-            w_tier = ch_prog['current_tier'] if result_type == "challenger_wins" else op_prog['current_tier']
-            l_tier = op_prog['current_tier'] if result_type == "challenger_wins" else ch_prog['current_tier']
-            tp_gain, tp_loss = TierSystem.calculate_tp_change(w_tier, l_tier)
-            if result_type == "challenger_wins":
-                self.db.add_tier_points(ch_id, tp_gain)
-                self.db.add_tier_points(op_id, -tp_loss)
-            else:
-                self.db.add_tier_points(op_id, tp_gain)
-                self.db.add_tier_points(ch_id, -tp_loss)
-
-        # ثبت در fight_history
-        import sqlite3 as _sq
-        conn = _sq.connect(self.db.db_path)
-        cursor = conn.cursor()
-        now = datetime.now().isoformat()
-        ch_result = "win" if result_type == "challenger_wins" else ("loss" if result_type == "opponent_wins" else "tie")
-        op_result = "win" if result_type == "opponent_wins" else ("loss" if result_type == "challenger_wins" else "tie")
-        cursor.execute('''INSERT INTO fight_history
-            (user_id, user_card_id, opponent_card_id, result, score_gained, hearts_lost, fought_at, fight_type, opponent_user_id, xp_gained)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'pvp', ?, ?)''',
-            (ch_id, ch_card.card_id, op_card.card_id, ch_result, ch_score, ch_hearts, now, op_id, ch_xp))
-        cursor.execute('''INSERT INTO fight_history
-            (user_id, user_card_id, opponent_card_id, result, score_gained, hearts_lost, fought_at, fight_type, opponent_user_id, xp_gained)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'pvp', ?, ?)''',
-            (op_id, op_card.card_id, ch_card.card_id, op_result, op_score, op_hearts, now, ch_id, op_xp))
-        conn.commit()
-        conn.close()
-
-        self.db.update_fight(fight_id, status='completed')
+        settlement = LegacyFightRewardsSystem(self.db).settle_three_round(
+            fight_id, ch_id, op_id, ch_card, op_card, result_type,
+        )
+        if not settlement["fresh"]:
+            return
+        ch_award = settlement["awards"][str(ch_id)]
+        op_award = settlement["awards"][str(op_id)]
+        ch_score, op_score = ch_award["score"], op_award["score"]
+        ch_hearts, op_hearts = ch_award["hearts_lost"], op_award["hearts_lost"]
+        ch_xp, op_xp = ch_award["xp"], op_award["xp"]
+        ch_old_lv, ch_new_lv = ch_award["old_level"], ch_award["new_level"]
+        op_old_lv, op_new_lv = op_award["old_level"], op_award["new_level"]
+        ch_result = "win" if result_type == "challenger_wins" else "loss" if result_type == "opponent_wins" else "tie"
+        op_result = "win" if result_type == "opponent_wins" else "loss" if result_type == "challenger_wins" else "tie"
 
         # ==================== آپدیت ماموریت‌ها ====================
         # برای هر بازیکن، اگه کارتش ماموریت داره، progress رو آپدیت کن

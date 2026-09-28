@@ -275,46 +275,18 @@ class CardMissionsSystem:
         }
     
     def claim_mission_reward(self, user_id: int, card_id: str) -> Dict:
-        """دریافت پاداش ماموریت (ارتقا به Legend با rarity_override)"""
-        progress = self.get_player_mission_progress(user_id, card_id)
-        if not progress:
-            return {"success": False, "error": "Mission not found"}
-        
-        if not progress["completed"]:
-            return {"success": False, "error": "Mission not completed yet"}
-        
-        # بررسی اینکه بازیکن کارت Epic دارد
-        player_cards = self.db.get_player_cards(user_id)
-        card = next((c for c in player_cards if c.card_id == card_id and c.rarity.value == "epic"), None)
-        
-        if not card:
-            return {"success": False, "error": "You don't have this card as Epic"}
-        
-        # ارتقا با rarity_override
-        conn = sqlite3.connect(self.db.db_path)
-        cursor = conn.cursor()
-        cursor.execute(
-            "UPDATE player_cards SET rarity_override='legend' WHERE user_id=? AND card_id=?",
-            (user_id, card_id)
-        )
-        
-        # علامت‌گذاری پاداش دریافت شده
-        cursor.execute('''
-            UPDATE player_card_missions
-            SET reward_claimed=1, reward_claimed_at=?
-            WHERE user_id=? AND card_id=?
-        ''', (datetime.now().isoformat(), user_id, card_id))
-        conn.commit()
-        conn.close()
-        
-        logger.info(f"Mission reward claimed: user={user_id}, card={card_id} → Legend")
-        
+        """Compatibility wrapper around the shared atomic mission claim."""
+        from systems.player_rewards_system import PlayerRewardsSystem
+
+        result = PlayerRewardsSystem(self.db).claim_mission(user_id, card_id)
         return {
-            "success": True,
-            "card_id": card_id,
-            "card_name": card.name
+            "success": bool(result["ok"]),
+            "error": result.get("error"),
+            "card_id": result.get("card_id"),
+            "card_name": result.get("card_name"),
+            "xp_gained": result.get("xp_gained", 0),
         }
-    
+
     def check_and_update_mission(
         self,
         user_id: int,
