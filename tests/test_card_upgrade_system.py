@@ -8,6 +8,7 @@ from game_core import CardManager, DatabaseManager
 from systems.card_upgrade_system import CardUpgradeSystem
 from systems.game_mode_system import GameModeSystem
 from systems.level_rewards_system import LevelRewardsSystem
+import web.miniapp_api as miniapp
 
 
 @pytest.fixture()
@@ -41,6 +42,32 @@ def test_upgrade_changes_coin_rarity_and_xp_together(upgrade_db):
     result = CardUpgradeSystem(database).upgrade(501, card_id, "normal_to_epic")
 
     assert result["ok"] is True
+    assert _snapshot(database, 501, card_id) == (900, "epic", 15)
+
+
+def test_upgrade_retry_reuses_receipt_without_second_charge(upgrade_db):
+    database, card_id = upgrade_db
+    system = CardUpgradeSystem(database)
+    first = system.upgrade(501, card_id, "normal_to_epic", "upgrade-retry-001")
+    retry = system.upgrade(501, card_id, "normal_to_epic", "upgrade-retry-001")
+    conflict = system.upgrade(501, card_id, "epic_to_legend", "upgrade-retry-001")
+    assert first["ok"] and retry["ok"] and retry["replayed"]
+    assert conflict["error_code"] == "idempotency_conflict"
+    assert _snapshot(database, 501, card_id) == (900, "epic", 15)
+
+
+def test_mini_app_upgrade_retry_is_one_charge(upgrade_db, monkeypatch):
+    database, card_id = upgrade_db
+    monkeypatch.setattr(miniapp, "db", database)
+    miniapp.app.config.update(TESTING=True, DEBUG=True)
+    client = miniapp.app.test_client()
+    headers = {"X-Debug-User-Id": "501"}
+    path = f"/api/v1/cards/{card_id}/upgrade"
+    body = {"upgrade_key": "normal_to_epic", "request_key": "api-upgrade-retry-001"}
+    first = client.post(path, json=body, headers=headers)
+    again = client.post(path, json=body, headers=headers)
+    assert first.status_code == again.status_code == 200
+    assert again.get_json()["data"]["upgrade"]["replayed"] is True
     assert _snapshot(database, 501, card_id) == (900, "epic", 15)
 
 

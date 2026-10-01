@@ -624,20 +624,18 @@ def preview_identical_fusion(card_id):
 @app.route("/api/v1/cards/<card_id>/fuse-copies", methods=["POST"])
 @require_auth
 def execute_identical_fusion(card_id):
-    locked = _management_locked()
-    if locked:
-        return locked
     data = request.get_json(silent=True) or {}
     target = str(data.get("target", "epic"))
-    result = _fusion().fuse_identical(g.user_id, card_id, target)
+    result = _fusion().fuse_identical(g.user_id, card_id, target, data.get("request_key"))
     if not result.success:
-        return jsonify({"ok": False, "error_code": "fusion_failed", "error": result.error}), 409
+        return jsonify({"ok": False, "error_code": result.error_code or "fusion_failed", "error": result.error}), 409
     card = db.get_card_by_id_for_player(card_id, g.user_id)
     payload = card_to_dict(card)
     payload["inventory"] = _inventory().counts(g.user_id, card_id)
     payload["upgrade"] = _card_upgrades().preview(g.user_id, card_id)
     return jsonify({"ok": True, "card": payload, "xp_gained": result.xp_gained,
                     "old_level": result.old_level, "new_level": result.new_level,
+                    "replayed": result.replayed,
                     "profile": _player_hub().get_overview(g.user_id)})
 
 
@@ -652,7 +650,8 @@ def preview_card_upgrade(card_id):
 @require_auth
 def upgrade_card(card_id):
     data = request.get_json(silent=True) or {}
-    result = _card_upgrades().upgrade(g.user_id, card_id, str(data.get("upgrade_key", "")))
+    result = _card_upgrades().upgrade(g.user_id, card_id, str(data.get("upgrade_key", "")),
+                                      data.get("request_key"))
     if not result.get("ok"):
         status = 404 if result.get("error_code") == "card_not_owned" else 409
         return jsonify(result), status
@@ -812,20 +811,18 @@ def preview_fusion():
 @app.route("/api/v1/fusions", methods=["POST"])
 @require_auth
 def execute_fusion():
-    locked = _management_locked()
-    if locked:
-        return locked
     data = request.get_json(silent=True) or {}
     card_ids = [str(item) for item in data.get("card_ids", [])] if isinstance(data.get("card_ids"), list) else []
     retained = str(data.get("retained_card_id", ""))
     target = str(data.get("target_rarity", ""))
-    result = _fusion().fuse_to_epic(g.user_id, card_ids, retained) if target == "epic" else _fusion().fuse_to_legend(g.user_id, card_ids, retained) if target == "legend" else None
+    request_key = data.get("request_key")
+    result = _fusion().fuse_to_epic(g.user_id, card_ids, retained, request_key) if target == "epic" else _fusion().fuse_to_legend(g.user_id, card_ids, retained, request_key) if target == "legend" else None
     if result is None:
         return jsonify({"error": "هدف Fusion نامعتبر است", "error_code": "invalid_target"}), 400
     if not result.success:
-        return jsonify({"error": result.error, "error_code": "fusion_failed"}), 409
+        return jsonify({"error": result.error, "error_code": result.error_code or "fusion_failed"}), 409
     return jsonify({
-        "ok": True, "message": "Fusion با موفقیت انجام شد",
+        "ok": True, "message": "Fusion با موفقیت انجام شد", "replayed": result.replayed,
         "profile": _player_hub().get_overview(g.user_id),
         "data": {
             "card": card_to_dict(result.upgraded_card),

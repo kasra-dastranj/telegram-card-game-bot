@@ -12,6 +12,7 @@ from datetime import datetime
 
 from game_core import Card, CardRarity
 from systems.card_inventory_system import CardInventorySystem
+from systems.card_action_requests import lookup_in, record_in
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,8 @@ class FusionResult:
     """نتیجه Fusion"""
     def __init__(self, success: bool, upgraded_card: Optional[Card] = None,
                  consumed_cards: Optional[List[Card]] = None, error: Optional[str] = None,
-                 xp_gained: int = 0, old_level: int = 1, new_level: int = 1):
+                 xp_gained: int = 0, old_level: int = 1, new_level: int = 1,
+                 replayed: bool = False, error_code: Optional[str] = None):
         self.success = success
         self.upgraded_card = upgraded_card
         self.consumed_cards = consumed_cards or []
@@ -28,6 +30,8 @@ class FusionResult:
         self.xp_gained = xp_gained
         self.old_level = old_level
         self.new_level = new_level
+        self.replayed = replayed
+        self.error_code = error_code
 
 
 class FusionSystem:
@@ -47,6 +51,24 @@ class FusionSystem:
             db: DatabaseManager instance
         """
         self.db = db
+
+    @staticmethod
+    def _card_snapshot_in(conn: sqlite3.Connection, user_id: int, card_id: str) -> Optional[Card]:
+        row = conn.execute(
+            """SELECT c.card_id,c.name,COALESCE(pc.rarity_override,c.rarity) AS rarity,
+                      COALESCE(v.power,c.power) AS power,COALESCE(v.speed,c.speed) AS speed,
+                      COALESCE(v.iq,c.iq) AS iq,COALESCE(v.popularity,c.popularity) AS popularity,
+                      COALESCE(v.abilities,c.abilities) AS abilities,
+                      COALESCE(v.card_effects,c.card_effects) AS card_effects,
+                      c.dialogs,c.biography,COALESCE(v.image_path,c.image_path) AS image_path,
+                      COALESCE(v.card_type,c.card_type) AS card_type,c.created_at
+               FROM cards c JOIN player_cards pc ON pc.card_id=c.card_id AND pc.user_id=?
+               LEFT JOIN card_variants v ON v.card_id=c.card_id
+                   AND v.rarity=COALESCE(pc.rarity_override,c.rarity)
+               WHERE c.card_id=?""",
+            (user_id, card_id),
+        ).fetchone()
+        return Card.from_dict(dict(row)) if row else None
     
     def can_fuse_to_epic(self, user_id: int) -> Tuple[bool, List[Card]]:
         """
@@ -148,7 +170,8 @@ class FusionSystem:
             "xp": 15 if target == "epic" else 30,
         }
 
-    def _fuse_atomic(self, user_id: int, card_ids: List[str], selected_card_id: str, target: str) -> FusionResult:
+    def _fuse_atomic(self, user_id: int, card_ids: List[str], selected_card_id: str,
+                     target: str, request_key: Optional[str] = None) -> FusionResult:
         source = "normal" if target == "epic" else "epic" if target == "legend" else ""
         if len(card_ids) != 3 or len(set(card_ids)) != 3 or selected_card_id not in card_ids or not source:
             return FusionResult(False, error="انتخاب Fusion نامعتبر است")
@@ -158,6 +181,14 @@ class FusionSystem:
         try:
             conn.execute("PRAGMA foreign_keys=ON")
             conn.execute("BEGIN IMMEDIATE")
+            payload = {"card_ids": sorted(card_ids), "selected_card_id": selected_card_id, "target": target}
+            receipt = lookup_in(conn, user_id, request_key, "fusion_distinct", payload)
+            if receipt is not None:
+                conn.commit()
+                return FusionResult(True, Card.from_dict(receipt["upgraded_card"]),
+                                    [Card.from_dict(card) for card in receipt["consumed_cards"]],
+                                    xp_gained=receipt["xp_gained"], old_level=receipt["old_level"],
+                                    new_level=receipt["new_level"], replayed=True)
             from systems.card_upgrade_system import CardUpgradeSystem
             if CardUpgradeSystem(self.db)._active_match(conn, user_id):
                 conn.rollback()
@@ -197,8 +228,16 @@ class FusionSystem:
             conn.execute("UPDATE player_progression SET total_xp=?,level=? WHERE user_id=?", (total_xp, new_level, user_id))
             from systems.level_rewards_system import LevelRewardsSystem
             LevelRewardsSystem.grant_crossed_in(conn, user_id, old_level, new_level)
+            upgraded = self._card_snapshot_in(conn, user_id, selected_card_id)
+            record_in(conn, user_id, request_key, "fusion_distinct", payload,
+                      {"xp_gained": xp_gained, "old_level": old_level, "new_level": new_level,
+                       "upgraded_card": upgraded.to_dict(),
+                       "consumed_cards": [card.to_dict() for card in consumed_cards if card]})
             conn.commit()
-            return FusionResult(True, self.db.get_card_by_id_for_player(selected_card_id, user_id), [card for card in consumed_cards if card], xp_gained=xp_gained, old_level=old_level, new_level=new_level)
+            return FusionResult(True, upgraded, [card for card in consumed_cards if card], xp_gained=xp_gained, old_level=old_level, new_level=new_level)
+        except ValueError as exc:
+            conn.rollback()
+            return FusionResult(False, error=str(exc), error_code="idempotency_conflict")
         except Exception as exc:
             conn.rollback()
             logger.error("Atomic Fusion failed: %s", exc, exc_info=True)
@@ -225,13 +264,22 @@ class FusionSystem:
         finally:
             conn.close()
 
-    def fuse_identical(self, user_id: int, card_id: str, target: str) -> FusionResult:
+    def fuse_identical(self, user_id: int, card_id: str, target: str,
+                       request_key: Optional[str] = None) -> FusionResult:
         source = "normal" if target == "epic" else "epic" if target == "legend" else None
         if source is None:
             return FusionResult(False, error="فرم مقصد نامعتبر است")
         conn = sqlite3.connect(self.db.db_path, timeout=15)
+        conn.row_factory = sqlite3.Row
         try:
             conn.execute("BEGIN IMMEDIATE")
+            payload = {"card_id": card_id, "target": target}
+            receipt = lookup_in(conn, user_id, request_key, "fusion_identical", payload)
+            if receipt is not None:
+                conn.commit()
+                return FusionResult(True, Card.from_dict(receipt["upgraded_card"]),
+                                    xp_gained=receipt["xp_gained"], old_level=receipt["old_level"],
+                                    new_level=receipt["new_level"], replayed=True)
             from systems.card_upgrade_system import CardUpgradeSystem
             if CardUpgradeSystem(self.db)._active_match(conn, user_id):
                 conn.rollback()
@@ -266,9 +314,16 @@ class FusionSystem:
             conn.execute("UPDATE player_progression SET total_xp=?,level=? WHERE user_id=?", (total_xp, new_level, user_id))
             from systems.level_rewards_system import LevelRewardsSystem
             LevelRewardsSystem.grant_crossed_in(conn, user_id, old_level, new_level)
+            upgraded = self._card_snapshot_in(conn, user_id, card_id)
+            record_in(conn, user_id, request_key, "fusion_identical", payload,
+                      {"xp_gained": xp, "old_level": old_level, "new_level": new_level,
+                       "upgraded_card": upgraded.to_dict()})
             conn.commit()
-            return FusionResult(True, self.db.get_card_by_id_for_player(card_id, user_id),
+            return FusionResult(True, upgraded,
                                 xp_gained=xp, old_level=old_level, new_level=new_level)
+        except ValueError as exc:
+            conn.rollback()
+            return FusionResult(False, error=str(exc), error_code="idempotency_conflict")
         except Exception:
             conn.rollback()
             logger.exception("Identical-card fusion failed")
@@ -276,13 +331,15 @@ class FusionSystem:
         finally:
             conn.close()
     
-    def fuse_to_epic(self, user_id: int, card_ids: List[str], selected_card_id: str) -> FusionResult:
+    def fuse_to_epic(self, user_id: int, card_ids: List[str], selected_card_id: str,
+                     request_key: Optional[str] = None) -> FusionResult:
         """Fuse three distinct Normal characters into one Epic form."""
-        return self._fuse_atomic(user_id, card_ids, selected_card_id, "epic")
+        return self._fuse_atomic(user_id, card_ids, selected_card_id, "epic", request_key)
 
-    def fuse_to_legend(self, user_id: int, card_ids: List[str], selected_card_id: str) -> FusionResult:
+    def fuse_to_legend(self, user_id: int, card_ids: List[str], selected_card_id: str,
+                       request_key: Optional[str] = None) -> FusionResult:
         """Fuse three distinct Epic characters into one Legend form."""
-        return self._fuse_atomic(user_id, card_ids, selected_card_id, "legend")
+        return self._fuse_atomic(user_id, card_ids, selected_card_id, "legend", request_key)
 
     def get_fusion_history(self, user_id: int, limit: int = 10) -> List[Dict]:
         """

@@ -8,6 +8,7 @@ import json
 import os
 import logging
 import random
+import uuid
 from html import escape
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
@@ -381,6 +382,7 @@ class ShopHandlersMixin:
             )
             return
 
+        context.user_data['shop_upgrade_request_key'] = f"tg-upgrade:{uuid.uuid4().hex}"
         text = (
             f"🛒 **ارتقا به {target_label}**\n\n"
             f"قیمت: {price} سکه\n"
@@ -413,7 +415,8 @@ class ShopHandlersMixin:
             await query.answer("❌ کارت یافت نشد!", show_alert=True)
             return
 
-        result = CardUpgradeSystem(self.db).upgrade(user_id, card_id, eco_key)
+        request_key = context.user_data.get('shop_upgrade_request_key') or f"tg-upgrade:{query.id}"
+        result = CardUpgradeSystem(self.db).upgrade(user_id, card_id, eco_key, request_key)
         if not result.get("ok"):
             await query.edit_message_text(
                 f"❌ {result.get('error', 'ارتقای کارت انجام نشد')}",

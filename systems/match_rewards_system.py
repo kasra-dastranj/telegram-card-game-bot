@@ -135,5 +135,32 @@ class MatchRewardsSystem:
                    VALUES(?,?,?,?,?,?,?,?)""",
                 (request_id, user_id, mode, xp, score, hearts_lost, tp_delta, now),
             )
+            card_id = item.get("card_id")
+            if card_id and item["result"] == "win":
+                mission = conn.execute(
+                    "SELECT mission_type,target,target_card FROM card_missions WHERE card_id=?",
+                    (card_id,),
+                ).fetchone()
+                if mission:
+                    mission_type, target, target_card = mission
+                    eligible = (mission_type == "total_wins"
+                                or mission_type == "risk_wins" and mode == "risk"
+                                or mission_type == "defeat_specific" and item.get("opponent_card_id") == target_card
+                                or mission_type in ("power_wins", "speed_wins", "iq_wins", "popularity_wins")
+                                and item.get("stat_used") == mission_type.removesuffix("_wins"))
+                    if eligible and target > 0:
+                        conn.execute(
+                            """INSERT OR IGNORE INTO player_card_missions
+                               (user_id,card_id,current_progress,completed) VALUES(?,?,0,0)""",
+                            (user_id, card_id),
+                        )
+                        conn.execute(
+                            """UPDATE player_card_missions SET
+                               current_progress=MIN(?,current_progress+1),
+                               completed=CASE WHEN current_progress+1>=? THEN 1 ELSE 0 END,
+                               completed_at=CASE WHEN current_progress+1>=? THEN COALESCE(completed_at,?) ELSE completed_at END
+                               WHERE user_id=? AND card_id=? AND completed=0 AND reward_claimed=0""",
+                            (target, target, target, now, user_id, card_id),
+                        )
             result[str(user_id)] = {"xp": xp, "score": score}
         return result

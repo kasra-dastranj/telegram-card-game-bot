@@ -8,6 +8,7 @@ import json
 import os
 import logging
 import random
+import uuid
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 
@@ -196,6 +197,7 @@ class FusionHandlersMixin:
             await query.answer("❌ خطا در دریافت کارت‌ها!", show_alert=True)
             return
 
+        context.user_data['fusion_request_key'] = f"tg-fusion:{uuid.uuid4().hex}"
         target_label = "Epic 🟣" if fusion_type == "epic" else "Legend 🟡"
 
         text = (
@@ -234,14 +236,16 @@ class FusionHandlersMixin:
             return
 
         # اجرای Fusion
+        request_key = context.user_data.get('fusion_request_key') or f"tg-fusion:{query.id}"
         if fusion_type == "epic":
-            result = self.fusion.fuse_to_epic(user_id, selected, upgrade_card_id)
+            result = self.fusion.fuse_to_epic(user_id, selected, upgrade_card_id, request_key)
         else:
-            result = self.fusion.fuse_to_legend(user_id, selected, upgrade_card_id)
+            result = self.fusion.fuse_to_legend(user_id, selected, upgrade_card_id, request_key)
 
         # پاک کردن state
         context.user_data.pop('fusion_selected', None)
         context.user_data.pop('fusion_type', None)
+        context.user_data.pop('fusion_request_key', None)
 
         if result.success:
             upgraded = result.upgraded_card

@@ -108,6 +108,32 @@ def test_concurrent_identical_fusion_only_consumes_once(tmp_path):
     assert db.get_or_create_progression(101)["total_xp"] == 15
 
 
+def test_identical_fusion_retry_is_replayed_without_consuming_more_copies(tmp_path):
+    db = _db(tmp_path)
+    _grant_more(db, 5)
+    system = FusionSystem(db)
+    first = system.fuse_identical(101, "sub-zero", "epic", "fusion-retry-001")
+    retry = system.fuse_identical(101, "sub-zero", "epic", "fusion-retry-001")
+    conflict = system.fuse_identical(101, "sub-zero", "legend", "fusion-retry-001")
+    assert first.success and retry.success and retry.replayed
+    assert not conflict.success
+    assert CardInventorySystem(db).counts(101, "sub-zero") == {"normal": 3, "epic": 1}
+    assert db.get_or_create_progression(101)["total_xp"] == 15
+
+
+def test_concurrent_identical_requests_share_one_receipt(tmp_path):
+    db = _db(tmp_path)
+    _grant_more(db, 5)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(
+            lambda _: FusionSystem(db).fuse_identical(101, "sub-zero", "epic", "fusion-concurrent-001"),
+            range(2),
+        ))
+    assert all(result.success for result in results)
+    assert sum(result.replayed for result in results) == 1
+    assert CardInventorySystem(db).counts(101, "sub-zero") == {"normal": 3, "epic": 1}
+
+
 def test_mini_app_shows_copy_counts_and_switches_active_form(tmp_path, monkeypatch):
     db = _db(tmp_path)
     _grant_more(db, 3)
@@ -124,3 +150,22 @@ def test_mini_app_shows_copy_counts_and_switches_active_form(tmp_path, monkeypat
     assert selected.status_code == 200
     assert selected.get_json()["card"]["rarity"] == "epic"
     assert client.get("/api/v1/cards/sub-zero", headers=headers).get_json()["rarity"] == "epic"
+
+
+def test_mini_app_fusion_retries_return_same_receipt(tmp_path, monkeypatch):
+    db = _db(tmp_path)
+    _grant_more(db, 5)
+    monkeypatch.setattr(miniapp, "db", db)
+    miniapp.app.config.update(TESTING=True, DEBUG=True)
+    client = miniapp.app.test_client()
+    headers = {"X-Debug-User-Id": "101"}
+    body = {"target": "epic", "request_key": "api-fusion-retry-001"}
+    first = client.post("/api/v1/cards/sub-zero/fuse-copies", json=body, headers=headers)
+    again = client.post("/api/v1/cards/sub-zero/fuse-copies", json=body, headers=headers)
+    conflict = client.post("/api/v1/cards/sub-zero/fuse-copies",
+                           json={**body, "target": "legend"}, headers=headers)
+    assert first.status_code == again.status_code == 200
+    assert again.get_json()["replayed"] is True
+    assert conflict.status_code == 409
+    assert conflict.get_json()["error_code"] == "idempotency_conflict"
+    assert CardInventorySystem(db).counts(101, "sub-zero") == {"normal": 3, "epic": 1}

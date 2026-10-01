@@ -19,6 +19,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from systems.level_rewards_system import ensure_level_reward_schema
 from systems.mode_access_system import DEFAULT_MODE_LEVELS, ensure_mode_access_schema
 
+TRIAL_PRESETS = {
+    "tester-v1": {
+        "level_coins": [(2, 100), (3, 50), (4, 50), (5, 75), (6, 100), (7, 150)],
+        "mode_levels": [("mini_three_round", 2), ("easy", 3)],
+    },
+}
+
 
 def _level_coin(value: str) -> tuple[int, int]:
     try:
@@ -62,10 +69,16 @@ def main() -> int:
     parser.add_argument("--db", type=Path, required=True, help="Existing SQLite game database")
     parser.add_argument("--level-coins", action="append", type=_level_coin, default=[], metavar="LEVEL:COINS")
     parser.add_argument("--mode-level", action="append", type=_mode_level, default=[], metavar="MODE:LEVEL")
+    parser.add_argument("--preset", choices=TRIAL_PRESETS, help="Versioned tester balance")
     parser.add_argument("--apply", action="store_true", help="Write the previewed rules atomically")
     args = parser.parse_args()
     if not args.db.is_file():
         parser.error("database file does not exist")
+    if args.preset:
+        if args.level_coins or args.mode_level:
+            parser.error("preset cannot be combined with manual rules")
+        args.level_coins = TRIAL_PRESETS[args.preset]["level_coins"]
+        args.mode_level = TRIAL_PRESETS[args.preset]["mode_levels"]
     if not args.level_coins and not args.mode_level:
         parser.error("provide at least one rule")
     if (len({level for level, _ in args.level_coins}) != len(args.level_coins)

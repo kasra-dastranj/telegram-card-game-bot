@@ -1,0 +1,511 @@
+{
+  "version": "tester-v1",
+  "mission_rule": "total_wins per character; starter target 3, others target 5",
+  "missions": [
+    {
+      "card_name": "Abbas Araqchi",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Ada Wong",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Aghaye Ghazy",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Albert Wesker",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Amoo Poorang",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Arthur Morgan",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Bashar Al Assad",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Batman",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Ben10",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Big Masoud",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Billie Butcher",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Black Widow",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Bojak",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Bruce Lee",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Captain America",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Cj",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Daddy Golzar",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Daeso",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Darkseid",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Darth Whither",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Daryl Dixon",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Davood Zzz",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Dead Pool",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Deanerys Targaryen",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Doge",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Dr Stop",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Ellie",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Etabaki",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Ezio",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Ghost",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Gigachad",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "God Father",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Heisenberg",
+      "mission_type": "total_wins",
+      "target": 3
+    },
+    {
+      "card_name": "Heshmat Ferdous",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Homelander",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Hulk",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Iron Man",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Jack Sporrow",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Jackie Chan",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Jenab Khan",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Jerry",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Joel",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "John Wick",
+      "mission_type": "total_wins",
+      "target": 3
+    },
+    {
+      "card_name": "Joker",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Jumong",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Kangfu Panda",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Kratos",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Leon Kennedy",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Mamooti",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Mario",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Master Shifu",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Michelangelo",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Michle Scofield",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Mike Ehrmantraut",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Mileena",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Mokhtar",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Mr Bean",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Mr Chief",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Mr.krabs",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Naghi Mamooli",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Negan",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Nima Afshar",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Noob Sibot",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Omni Man",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Patrick",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Patrick Bateman",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Pezeshkian",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Pink Panther",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Pourya Vali",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Putin",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Rambod Javan",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Rehi",
+      "mission_type": "total_wins",
+      "target": 3
+    },
+    {
+      "card_name": "Rick Grimes",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Risitas",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Rostam",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Saul Goodman",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Scorpion",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Semir Gerkhan",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Sherlock",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Shir Farhad",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Shredder",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Shrek",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Snoop Dogg",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Sonic",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Spiderman",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Sponge Bob",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Squidward",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Subzero",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Subzero T",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "T Bag",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Tai Lung",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Tataloo",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Terminator",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Thanos",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Thor",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Tom",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Tony Soprano",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Toothless",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Trump",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Tyrion",
+      "mission_type": "total_wins",
+      "target": 5
+    },
+    {
+      "card_name": "Venom",
+      "mission_type": "total_wins",
+      "target": 5
+    }
+  ]
+}

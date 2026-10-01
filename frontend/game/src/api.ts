@@ -336,6 +336,28 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return data as T;
 }
 
+async function requestCardAction<T>(path: string, body: Record<string, unknown>): Promise<T> {
+  const slot = `card-action:${path}:${JSON.stringify(body)}`;
+  let key: string;
+  try {
+    key = sessionStorage.getItem(slot) || crypto.randomUUID();
+    sessionStorage.setItem(slot, key);
+  } catch {
+    key = crypto.randomUUID();
+  }
+  try {
+    const result = await request<T>("POST", path, { ...body, request_key: key });
+    try { sessionStorage.removeItem(slot); } catch { /* Storage may be disabled. */ }
+    return result;
+  } catch (error) {
+    // A transport failure may have happened after the server committed.
+    if (error instanceof ApiError && error.status < 500) {
+      try { sessionStorage.removeItem(slot); } catch { /* Storage may be disabled. */ }
+    }
+    throw error;
+  }
+}
+
 export const api = {
   async profile(): Promise<ProfileData> {
     if (demoMode) return {
@@ -394,7 +416,7 @@ export const api = {
       if (index >= 0) demoCards[index] = upgraded;
       return { ok: true, message: "کارت با موفقیت ارتقا پیدا کرد", profile: await this.profile(), data: { upgrade: { ok: true, upgrade_key: upgradeKey, to_rarity: target, xp_gained: target === "epic" ? 15 : 30, old_level: 12, new_level: 12 }, card: upgraded } };
     }
-    return request("POST", `/cards/${encodeURIComponent(cardId)}/upgrade`, { upgrade_key: upgradeKey });
+    return requestCardAction(`/cards/${encodeURIComponent(cardId)}/upgrade`, { upgrade_key: upgradeKey });
   },
   async activateCardForm(cardId: string, rarity: string): Promise<CardData> {
     if (demoMode) return { ...(await this.cardDetail(cardId)), rarity };
@@ -402,7 +424,7 @@ export const api = {
   },
   async fuseCopies(cardId: string, target: "epic" | "legend"): Promise<{ card: CardData; xp_gained: number; profile: ProfileData }> {
     if (demoMode) return { card: { ...(await this.cardDetail(cardId)), rarity: target }, xp_gained: target === "epic" ? 15 : 30, profile: await this.profile() };
-    return request("POST", `/cards/${encodeURIComponent(cardId)}/fuse-copies`, { target });
+    return requestCardAction(`/cards/${encodeURIComponent(cardId)}/fuse-copies`, { target });
   },
   async cards(): Promise<CardData[]> {
     if (demoMode) return demoCards;
@@ -489,7 +511,7 @@ export const api = {
       const updatedIndex = demoCards.findIndex((card) => card.card_id === retainedCardId); if (updatedIndex >= 0) demoCards[updatedIndex] = retained;
       return { message: "Fusion با موفقیت انجام شد", data: { card: retained, consumed_cards: [] }, profile: await this.profile() };
     }
-    return request("POST", "/fusions", { card_ids: cardIds, retained_card_id: retainedCardId, target_rarity: targetRarity });
+    return requestCardAction("/fusions", { card_ids: cardIds, retained_card_id: retainedCardId, target_rarity: targetRarity });
   },
   async start(cardId: string, difficulty: Difficulty): Promise<FightData> {
     if (demoMode) {

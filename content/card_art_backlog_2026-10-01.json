@@ -1,0 +1,1448 @@
+{
+  "source": "VPS SQLite snapshot 2026-10-01",
+  "count": 206,
+  "items": [
+    {
+      "card_id": "5fb52f79",
+      "card_name": "Abbas Araqchi",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "5fb52f79",
+      "card_name": "Abbas Araqchi",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "541cbe05",
+      "card_name": "Ada Wong",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "541cbe05",
+      "card_name": "Ada Wong",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "52004e20",
+      "card_name": "Aghaye Ghazy",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "52004e20",
+      "card_name": "Aghaye Ghazy",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "d0457013",
+      "card_name": "Albert Wesker",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "d0457013",
+      "card_name": "Albert Wesker",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "398dad0a",
+      "card_name": "Amoo Poorang",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "398dad0a",
+      "card_name": "Amoo Poorang",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "6692d73e",
+      "card_name": "Arthur Morgan",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "6692d73e",
+      "card_name": "Arthur Morgan",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "f540620b",
+      "card_name": "Bashar Al Assad",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "f540620b",
+      "card_name": "Bashar Al Assad",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "0fbd4675",
+      "card_name": "Batman",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "0fbd4675",
+      "card_name": "Batman",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "573a855e",
+      "card_name": "Ben10",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "573a855e",
+      "card_name": "Ben10",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "7338d4fc",
+      "card_name": "Big Masoud",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "7338d4fc",
+      "card_name": "Big Masoud",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "8bd581e7",
+      "card_name": "Billie Butcher",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "8bd581e7",
+      "card_name": "Billie Butcher",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "ab39b980",
+      "card_name": "Black Widow",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "ab39b980",
+      "card_name": "Black Widow",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "662b7ea7",
+      "card_name": "Bojak",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "662b7ea7",
+      "card_name": "Bojak",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "72c06fa1",
+      "card_name": "Bruce Lee",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "72c06fa1",
+      "card_name": "Bruce Lee",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "f8e855d4",
+      "card_name": "Captain America",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "f8e855d4",
+      "card_name": "Captain America",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "915accb4",
+      "card_name": "Cj",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "915accb4",
+      "card_name": "Cj",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "a4827b8d",
+      "card_name": "Daddy Golzar",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "a4827b8d",
+      "card_name": "Daddy Golzar",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "08da30c3",
+      "card_name": "Daeso",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "08da30c3",
+      "card_name": "Daeso",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "f0254a22",
+      "card_name": "Darkseid",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "f0254a22",
+      "card_name": "Darkseid",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "e35f92b4",
+      "card_name": "Darth Whither",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "e35f92b4",
+      "card_name": "Darth Whither",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "119f2ef9",
+      "card_name": "Daryl Dixon",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "119f2ef9",
+      "card_name": "Daryl Dixon",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "c919a458",
+      "card_name": "Davood Zzz",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "c919a458",
+      "card_name": "Davood Zzz",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "e0c784b5",
+      "card_name": "Dead Pool",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "e0c784b5",
+      "card_name": "Dead Pool",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "7576e185",
+      "card_name": "Deanerys Targaryen",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "7576e185",
+      "card_name": "Deanerys Targaryen",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "28918a50",
+      "card_name": "Doge",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "28918a50",
+      "card_name": "Doge",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "e3ec0350",
+      "card_name": "Dr Stop",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "e3ec0350",
+      "card_name": "Dr Stop",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "92530516",
+      "card_name": "Ellie",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "92530516",
+      "card_name": "Ellie",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "6e658eb2",
+      "card_name": "Etabaki",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "6e658eb2",
+      "card_name": "Etabaki",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "14e5f3c0",
+      "card_name": "Ezio",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "14e5f3c0",
+      "card_name": "Ezio",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "af6ced1c",
+      "card_name": "Ghost",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "af6ced1c",
+      "card_name": "Ghost",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "fab05d2e",
+      "card_name": "Gigachad",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "fab05d2e",
+      "card_name": "Gigachad",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "8000e829",
+      "card_name": "God Father",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "8000e829",
+      "card_name": "God Father",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "cd3a8cd2-a450-4884-9f17-c17f2f240b07",
+      "card_name": "Heisenberg",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "cd3a8cd2-a450-4884-9f17-c17f2f240b07",
+      "card_name": "Heisenberg",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "90a05938",
+      "card_name": "Heshmat Ferdous",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "90a05938",
+      "card_name": "Heshmat Ferdous",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "16260fe4-11a8-48bc-b3fa-6d944c49b92b",
+      "card_name": "Homelander",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "16260fe4-11a8-48bc-b3fa-6d944c49b92b",
+      "card_name": "Homelander",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "cc15988f",
+      "card_name": "Hulk",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "cc15988f",
+      "card_name": "Hulk",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "cf3929df",
+      "card_name": "Iron Man",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "cf3929df",
+      "card_name": "Iron Man",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "a4453e3c",
+      "card_name": "Jack Sporrow",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "a4453e3c",
+      "card_name": "Jack Sporrow",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "fa3701f9",
+      "card_name": "Jackie Chan",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "fa3701f9",
+      "card_name": "Jackie Chan",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "ef916b87",
+      "card_name": "Jenab Khan",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "ef916b87",
+      "card_name": "Jenab Khan",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "ec5a9986",
+      "card_name": "Jerry",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "ec5a9986",
+      "card_name": "Jerry",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "79617ac4",
+      "card_name": "Joel",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "79617ac4",
+      "card_name": "Joel",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "ea60fec4",
+      "card_name": "John Wick",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "ea60fec4",
+      "card_name": "John Wick",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "1e0f130f",
+      "card_name": "Joker",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "1e0f130f",
+      "card_name": "Joker",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "edd9fcb3",
+      "card_name": "Jumong",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "edd9fcb3",
+      "card_name": "Jumong",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "28f99e45-291c-4f99-926c-c9ccd38c6484",
+      "card_name": "Kangfu Panda",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "28f99e45-291c-4f99-926c-c9ccd38c6484",
+      "card_name": "Kangfu Panda",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "28f99e45-291c-4f99-926c-c9ccd38c6484",
+      "card_name": "Kangfu Panda",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "14ed34d6",
+      "card_name": "Kratos",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "14ed34d6",
+      "card_name": "Kratos",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "ebeebd09",
+      "card_name": "Leon Kennedy",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "ebeebd09",
+      "card_name": "Leon Kennedy",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "b3e13efb",
+      "card_name": "Mamooti",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "b3e13efb",
+      "card_name": "Mamooti",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "1327d078",
+      "card_name": "Mario",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "1327d078",
+      "card_name": "Mario",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "f5c55d44",
+      "card_name": "Master Shifu",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "f5c55d44",
+      "card_name": "Master Shifu",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "a87129b1",
+      "card_name": "Michelangelo",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "a87129b1",
+      "card_name": "Michelangelo",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "d504f671",
+      "card_name": "Michle Scofield",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "d504f671",
+      "card_name": "Michle Scofield",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "b6c6ee0a",
+      "card_name": "Mike Ehrmantraut",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "b6c6ee0a",
+      "card_name": "Mike Ehrmantraut",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "ea0e8833",
+      "card_name": "Mileena",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "ea0e8833",
+      "card_name": "Mileena",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "e9b27b84",
+      "card_name": "Mokhtar",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "e9b27b84",
+      "card_name": "Mokhtar",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "aabc58cd-242e-4401-b71c-a4f876bf06b4",
+      "card_name": "Mr Bean",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "aabc58cd-242e-4401-b71c-a4f876bf06b4",
+      "card_name": "Mr Bean",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "aabc58cd-242e-4401-b71c-a4f876bf06b4",
+      "card_name": "Mr Bean",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "194762c7",
+      "card_name": "Mr Chief",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "194762c7",
+      "card_name": "Mr Chief",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "3a17eaac",
+      "card_name": "Mr.krabs",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "3a17eaac",
+      "card_name": "Mr.krabs",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "957457e7",
+      "card_name": "Naghi Mamooli",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "957457e7",
+      "card_name": "Naghi Mamooli",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "30e7f3de",
+      "card_name": "Negan",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "30e7f3de",
+      "card_name": "Negan",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "5fe060c8",
+      "card_name": "Nima Afshar",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "5fe060c8",
+      "card_name": "Nima Afshar",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "082500f4",
+      "card_name": "Noob Sibot",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "082500f4",
+      "card_name": "Noob Sibot",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "fd35b58c",
+      "card_name": "Omni Man",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "fd35b58c",
+      "card_name": "Omni Man",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "b407173c",
+      "card_name": "Patrick",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "b407173c",
+      "card_name": "Patrick",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "85ebaafd",
+      "card_name": "Patrick Bateman",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "85ebaafd",
+      "card_name": "Patrick Bateman",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "a8b4ed59",
+      "card_name": "Pezeshkian",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "a8b4ed59",
+      "card_name": "Pezeshkian",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "64072dee",
+      "card_name": "Pink Panther",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "64072dee",
+      "card_name": "Pink Panther",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "880faecd",
+      "card_name": "Pourya Vali",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "880faecd",
+      "card_name": "Pourya Vali",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "cfbca920",
+      "card_name": "Putin",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "cfbca920",
+      "card_name": "Putin",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "7872a4d1",
+      "card_name": "Rambod Javan",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "7872a4d1",
+      "card_name": "Rambod Javan",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "5048a4c7",
+      "card_name": "Rehi",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "5048a4c7",
+      "card_name": "Rehi",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "738321d0",
+      "card_name": "Rick Grimes",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "738321d0",
+      "card_name": "Rick Grimes",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "c51282be",
+      "card_name": "Risitas",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "c51282be",
+      "card_name": "Risitas",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "7461b209",
+      "card_name": "Rostam",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "7461b209",
+      "card_name": "Rostam",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "232abc52",
+      "card_name": "Saul Goodman",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "232abc52",
+      "card_name": "Saul Goodman",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "a9b81e2c",
+      "card_name": "Scorpion",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "a9b81e2c",
+      "card_name": "Scorpion",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "2246faba",
+      "card_name": "Semir Gerkhan",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "2246faba",
+      "card_name": "Semir Gerkhan",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "6de0cb89",
+      "card_name": "Sherlock",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "6de0cb89",
+      "card_name": "Sherlock",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "634def3d",
+      "card_name": "Shir Farhad",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "634def3d",
+      "card_name": "Shir Farhad",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "47c2a628",
+      "card_name": "Shredder",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "47c2a628",
+      "card_name": "Shredder",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "e5c37bfb",
+      "card_name": "Shrek",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "e5c37bfb",
+      "card_name": "Shrek",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "86e0b5e3",
+      "card_name": "Snoop Dogg",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "86e0b5e3",
+      "card_name": "Snoop Dogg",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "1425b5ad",
+      "card_name": "Sonic",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "1425b5ad",
+      "card_name": "Sonic",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "d3b880a1",
+      "card_name": "Spiderman",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "d3b880a1",
+      "card_name": "Spiderman",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "581bcfed-64a2-4a98-b08e-2967fb2758f2",
+      "card_name": "Sponge Bob",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "581bcfed-64a2-4a98-b08e-2967fb2758f2",
+      "card_name": "Sponge Bob",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "581bcfed-64a2-4a98-b08e-2967fb2758f2",
+      "card_name": "Sponge Bob",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "15516e9c",
+      "card_name": "Squidward",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "15516e9c",
+      "card_name": "Squidward",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "8f701e14",
+      "card_name": "Subzero",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "8f701e14",
+      "card_name": "Subzero",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "c1a44b83-5b9e-45f9-bb39-19a4de01ca00",
+      "card_name": "Subzero T",
+      "rarity": "epic",
+      "current_image_path": "",
+      "status": "empty"
+    },
+    {
+      "card_id": "c1a44b83-5b9e-45f9-bb39-19a4de01ca00",
+      "card_name": "Subzero T",
+      "rarity": "legend",
+      "current_image_path": "",
+      "status": "empty"
+    },
+    {
+      "card_id": "c1a44b83-5b9e-45f9-bb39-19a4de01ca00",
+      "card_name": "Subzero T",
+      "rarity": "normal",
+      "current_image_path": "",
+      "status": "empty"
+    },
+    {
+      "card_id": "d7327fc7",
+      "card_name": "T Bag",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "d7327fc7",
+      "card_name": "T Bag",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "c4bb9034",
+      "card_name": "Tai Lung",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "c4bb9034",
+      "card_name": "Tai Lung",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "ceecbab0-a229-491b-8909-771e9f336dc5",
+      "card_name": "Tataloo",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "ceecbab0-a229-491b-8909-771e9f336dc5",
+      "card_name": "Tataloo",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "0fbcb760",
+      "card_name": "Terminator",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "0fbcb760",
+      "card_name": "Terminator",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "8701d12c-575b-47e4-8a61-4608848d4b8d",
+      "card_name": "Thanos",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "8701d12c-575b-47e4-8a61-4608848d4b8d",
+      "card_name": "Thanos",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "faf230e8",
+      "card_name": "Thor",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "faf230e8",
+      "card_name": "Thor",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "a363d105",
+      "card_name": "Tom",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "a363d105",
+      "card_name": "Tom",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "795bf6a9",
+      "card_name": "Tony Soprano",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "795bf6a9",
+      "card_name": "Tony Soprano",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "aef143ce",
+      "card_name": "Toothless",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "aef143ce",
+      "card_name": "Toothless",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "de803e6d",
+      "card_name": "Trump",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "de803e6d",
+      "card_name": "Trump",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "632f8b38",
+      "card_name": "Tyrion",
+      "rarity": "legend",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "632f8b38",
+      "card_name": "Tyrion",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "d4fd825f",
+      "card_name": "Venom",
+      "rarity": "epic",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    },
+    {
+      "card_id": "d4fd825f",
+      "card_name": "Venom",
+      "rarity": "normal",
+      "current_image_path": "assets/card_images/card_needs_creation.png",
+      "status": "placeholder"
+    }
+  ]
+}

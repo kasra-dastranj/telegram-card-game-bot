@@ -10,6 +10,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from systems.economy_system import EconomySystem
 from systems.phase2_systems import LevelSystem
+from systems.card_action_requests import lookup_in, record_in
 
 
 logger = logging.getLogger(__name__)
@@ -137,7 +138,8 @@ class CardUpgradeSystem:
         finally:
             conn.close()
 
-    def upgrade(self, user_id: int, card_id: str, upgrade_key: str) -> Dict[str, Any]:
+    def upgrade(self, user_id: int, card_id: str, upgrade_key: str,
+                request_key: Optional[str] = None) -> Dict[str, Any]:
         rule = self.UPGRADES.get(upgrade_key)
         if not rule:
             return {"ok": False, "error_code": "invalid_upgrade", "error": "نوع ارتقا نامعتبر است"}
@@ -147,6 +149,11 @@ class CardUpgradeSystem:
         try:
             conn.execute("PRAGMA foreign_keys=ON")
             conn.execute("BEGIN IMMEDIATE")
+            receipt = lookup_in(conn, user_id, request_key, "coin_upgrade",
+                                {"card_id": card_id, "upgrade_key": upgrade_key})
+            if receipt is not None:
+                conn.commit()
+                return {**receipt, "replayed": True}
             if self._active_match(conn, user_id):
                 conn.rollback()
                 return {"ok": False, "error_code": "active_match", "error": "تا پایان مسابقه نمی‌توانی کارت را ارتقا بدهی"}
@@ -214,8 +221,7 @@ class CardUpgradeSystem:
             final_coins = conn.execute(
                 "SELECT coins FROM players WHERE user_id=?", (user_id,)
             ).fetchone()[0]
-            conn.commit()
-            return {
+            result = {
                 "ok": True,
                 "card_id": card_id,
                 "card_name": row["name"],
@@ -227,6 +233,13 @@ class CardUpgradeSystem:
                 "new_level": new_level,
                 "coins": int(final_coins),
             }
+            record_in(conn, user_id, request_key, "coin_upgrade",
+                      {"card_id": card_id, "upgrade_key": upgrade_key}, result)
+            conn.commit()
+            return result
+        except ValueError as exc:
+            conn.rollback()
+            return {"ok": False, "error_code": "idempotency_conflict", "error": str(exc)}
         except Exception:
             conn.rollback()
             logger.exception("Transactional card upgrade failed")
