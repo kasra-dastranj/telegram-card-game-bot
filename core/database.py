@@ -607,7 +607,7 @@ class DatabaseManager:
         if not variant:
             return self.get_card_media_file_id(card_id, media_kind)
         key = f"{media_kind}_file_id"
-        return variant.get(key) or self.get_card_media_file_id(card_id, media_kind)
+        return variant.get(key) or None
 
     def set_card_variant_media_file_id(self, card_id: str, rarity: str, file_id: str, media_kind: str) -> bool:
         variant = self.get_card_variant(card_id, rarity)

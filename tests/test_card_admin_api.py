@@ -1,4 +1,5 @@
 from io import BytesIO
+import sqlite3
 
 from core.database import DatabaseManager
 import web.web_api as web_api_module
@@ -187,3 +188,102 @@ def test_card_admin_keeps_three_independent_forms_per_character(tmp_path):
     owned = db.get_card_by_id_for_player(card_id, 7001)
     assert owned.rarity.value == "legend"
     assert owned.power == 99
+
+
+def _family(**overrides):
+    variants = {}
+    for rarity, power in (("normal", 31), ("epic", 62), ("legend", 93)):
+        variants[rarity] = {
+            "power": power, "speed": power + 1, "iq": power + 2,
+            "popularity": power + 3, "card_type": "POWER_TYPE",
+            "abilities": [rarity], "card_effects": ["reflect"] if rarity == "legend" else [],
+            "passive": {}, "image_path": f"assets/card_images/family_{rarity}.webp",
+            "photo_file_id": f"photo-{rarity}", "sticker_file_id": f"sticker-{rarity}",
+        }
+    data = {"name": "Family Hero", "biography": "سه فرم", "dialogs": ["پیروزی"],
+            "traits": ["hero"], "series": "Family", "hidden_stats": {"funny": 44},
+            "variants": variants}
+    data.update(overrides)
+    return data
+
+
+def test_card_admin_family_creates_and_updates_all_forms_atomically(tmp_path):
+    db, client = _client(tmp_path)
+    source = _family()
+    source["variants"]["normal"]["passive"] = {
+        "name": "Normal only", "condition": {"arena": "city"},
+        "effect": {"stat": "power", "delta": 3},
+    }
+    created = client.post("/api/cards/family", json=source)
+    assert created.status_code == 201, created.get_json()
+    card = created.get_json()["card"]
+    card_id = card["id"]
+    assert card["rarity"] == "normal"
+    assert card["power"] == 31
+    variants = {form["rarity"]: form for form in card["variants"]}
+    assert {rarity: form["power"] for rarity, form in variants.items()} == {
+        "normal": 31, "epic": 62, "legend": 93}
+    assert variants["legend"]["photo_file_id"] == "photo-legend"
+    assert variants["epic"]["abilities"] == ["epic"]
+    assert variants["legend"]["card_effects"] == ["reflect"]
+    assert web_api_module.GameModeSystem(db).get_card_metadata(card_id, "normal")["passive"]["name"] == "Normal only"
+    assert web_api_module.GameModeSystem(db).get_card_metadata(card_id, "epic")["passive"] == {}
+    assert len({form["variant_id"] for form in variants.values()}) == 3
+
+    db.get_or_create_player(7002, first_name="Family Tester")
+    assert db.add_card_to_player(7002, card_id)
+    assert db.set_player_card_rarity_override(7002, card_id, "legend")
+    changed = _family(name="Family Hero Renamed")
+    changed["variants"]["legend"]["power"] = 96
+    changed["variants"]["normal"]["image_path"] = "assets/card_images/new_normal.webp"
+    updated = client.put(f"/api/cards/{card_id}/family", json=changed)
+    assert updated.status_code == 200, updated.get_json()
+    after = {form["rarity"]: form for form in updated.get_json()["card"]["variants"]}
+    assert after["legend"]["power"] == 96
+    assert after["legend"]["variant_id"] == variants["legend"]["variant_id"]
+    assert after["normal"]["photo_file_id"] == ""  # stale Telegram media is cleared
+    assert after["epic"]["photo_file_id"] == "photo-epic"
+    assert db.get_card_by_id_for_player(card_id, 7002).power == 96
+
+
+def test_card_admin_family_rejects_incomplete_form_without_partial_write(tmp_path):
+    _, client = _client(tmp_path)
+    family = _family()
+    family["variants"]["epic"]["iq"] = ""
+    response = client.post("/api/cards/family", json=family)
+    assert response.status_code == 400
+    assert "epic" in response.get_json()["error"]
+    assert client.get("/api/cards").get_json()["count"] == 0
+
+    valid = client.post("/api/cards/family", json=_family()).get_json()["card"]
+    before = valid["variants"]
+    family = _family()
+    family["variants"]["normal"]["power"] = 88
+    family["variants"]["legend"]["passive"] = {
+        "condition": {"arena": "unknown_arena"},
+        "effect": {"stat": "power", "delta": 5},
+    }
+    response = client.put(f"/api/cards/{valid['id']}/family", json=family)
+    assert response.status_code == 400
+    after = client.get("/api/cards").get_json()["cards"][0]["variants"]
+    assert [(form["rarity"], form["power"]) for form in after] == [
+        (form["rarity"], form["power"]) for form in before]
+    with sqlite3.connect(str(tmp_path / "admin.db")) as conn:
+        assert conn.execute("SELECT COUNT(*) FROM card_variants").fetchone()[0] == 3
+
+
+def test_card_admin_editor_options_include_existing_content(tmp_path, monkeypatch):
+    monkeypatch.setattr(web_api_module, "PROJECT_ROOT", tmp_path)
+    image_dir = tmp_path / "assets" / "card_images"
+    image_dir.mkdir(parents=True)
+    (image_dir / "family.webp").write_bytes(b"fake")
+    _, client = _client(tmp_path)
+    client.post("/api/cards/family", json=_family())
+    response = client.get("/api/card-editor/options")
+    assert response.status_code == 200, response.get_json()
+    options = response.get_json()
+    assert "hero" in options["traits"]
+    assert "Family" in options["series"]
+    assert "Family Hero" in options["names"]
+    assert "assets/card_images/family.webp" in options["images"]
+    assert "city" in options["arenas"]

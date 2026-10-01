@@ -44,6 +44,10 @@
     .input { width: 100%; min-height: 44px; border: 1px solid var(--line); border-radius: 11px; padding: 9px 11px; background: #0b1728; color: var(--text); }
     textarea.input { min-height: 96px; resize: vertical; }
     .input::placeholder { color: #71839a; }
+    select[multiple].input { min-height: 130px; padding: 5px; }
+    select[multiple].input option { padding: 5px 8px; border-radius: 5px; }
+    select[multiple].input option:checked { background: #166534; color: #fff; }
+    .variant-progress { margin: 8px 20px 0; color: var(--muted); font-size: .82rem; }
     .card-list { overflow: auto; padding: 8px; }
     .card-row { width: 100%; border: 1px solid transparent; border-radius: 12px; background: transparent; color: inherit; padding: 11px; display: grid; grid-template-columns: 1fr auto; gap: 8px; text-align: right; margin-bottom: 5px; }
     .card-row:hover { background: rgba(255,255,255,.045); }
@@ -135,6 +139,7 @@
         <div id="emptyState" class="empty"><strong>یک کارت را انتخاب کنید</strong>یا با دکمه «کارت جدید» یک تعریف تازه بسازید.</div>
         <form id="cardForm" hidden novalidate>
           <div class="editor-head"><div><h2 id="editorTitle">کارت جدید</h2><small id="cardId">new</small></div><span id="saveState" class="subline">تغییری ذخیره نشده</span></div>
+          <p id="variantProgress" class="variant-progress" aria-live="polite">هر سه فرم را تکمیل کنید؛ با «ذخیره کارت» همه با هم ثبت می‌شوند.</p>
           <div class="tabs" role="tablist" aria-label="بخش‌های فرم">
             <button class="tab" type="button" role="tab" data-tab="base" aria-selected="true">اطلاعات پایه</button>
             <button class="tab" type="button" role="tab" data-tab="modes" aria-selected="false">مودهای جدید</button>
@@ -144,7 +149,7 @@
           <div class="section active" data-section="base">
             <div class="grid">
               <div class="field"><label for="name">نام کارت</label><input id="name" class="input" required maxlength="100"></div>
-              <div class="field"><label for="rarity">فرم قابل ویرایش</label><select id="rarity" class="input"><option value="normal">Normal</option><option value="epic">Epic</option><option value="legend">Legend</option></select><span id="variantHint" class="hint">هر فرم آمار، Ability، Passive و مدیای مستقل دارد.</span></div>
+              <div class="field"><label for="rarity">فرم قابل ویرایش</label><select id="rarity" class="input"><option value="normal">Normal</option><option value="epic">Epic</option><option value="legend">Legend</option></select><span id="variantHint" class="hint">هر فرم آمار، Ability، Passive و مدیای مستقل دارد؛ تغییر فرم، داده‌های واردشده را نگه می‌دارد.</span></div>
               <div class="field"><label for="cardType">نوع اصلی</label><select id="cardType" class="input"><option value="POWER_TYPE">Power</option><option value="SPEED_TYPE">Speed</option><option value="IQ_TYPE">IQ</option><option value="POPULARITY_TYPE">Popularity</option></select><span class="hint">برای منطق‌های قدیمی و دسته‌بندی کارت استفاده می‌شود.</span></div>
               <div class="field"><label for="abilities">Abilityهای شخصیت</label><input id="abilities" class="input" placeholder="Leadership, Survivor"><span class="hint">با ویرگول جدا کنید؛ با Ability مصرفی Quick متفاوت است.</span></div>
               <div class="group-title">Statهای اصلی (۱ تا ۱۰۰)</div>
@@ -154,7 +159,7 @@
                 <div><label for="iq">هوش</label><input id="iq" class="input" type="number" min="1" max="100" required></div>
                 <div><label for="popularity">محبوبیت</label><input id="popularity" class="input" type="number" min="1" max="100" required></div>
               </div>
-              <div class="field full"><label for="cardEffects">Effectهای موتور قدیمی</label><input id="cardEffects" class="input" placeholder="reflect, drain, arena_shift"><span class="hint">کلیدهای معتبر: reflect، drain و arena_shift. در Deck جدید اعمال نمی‌شوند.</span></div>
+              <div class="field full"><label for="cardEffects">Effectهای موتور قدیمی</label><select id="cardEffects" class="input" multiple><option value="reflect">Reflect / بازتاب</option><option value="drain">Drain / جذب</option><option value="arena_shift">Arena Shift / تغییر زمین</option></select><span class="hint">چند مورد را انتخاب کنید (Ctrl یا لمس چند گزینه). در Deck جدید اعمال نمی‌شوند.</span></div>
               <div class="field full"><label for="biography">بیوگرافی</label><textarea id="biography" class="input"></textarea></div>
               <div class="field full"><label for="dialogs">دیالوگ‌های پیروزی</label><textarea id="dialogs" class="input" placeholder="هر دیالوگ در یک خط"></textarea></div>
             </div>
@@ -162,8 +167,8 @@
 
           <div class="section" data-section="modes">
             <div class="grid">
-              <div class="field"><label for="traits">Traitها</label><input id="traits" class="input" placeholder="Hero, Leader, Funny"><span class="hint">برای اولویت Trait در Deck و سؤال‌های ترکیبی Easy.</span></div>
-              <div class="field"><label for="series">Series / مجموعه</label><input id="series" class="input" placeholder="Game of Thrones"><span class="hint">سه کارت هم‌مجموعه می‌توانند Synergy بگیرند.</span></div>
+              <div class="field"><label for="traits">Traitها</label><select id="traits" class="input" multiple></select><span class="hint">چند مورد را انتخاب کنید؛ برای اولویت Deck و سؤال‌های Easy استفاده می‌شود.</span></div>
+              <div class="field"><label for="series">Series / مجموعه</label><input id="series" class="input" list="seriesOptions" placeholder="Game of Thrones"><datalist id="seriesOptions"></datalist><span class="hint">از مجموعه‌های قبلی انتخاب کنید یا نام تازه بنویسید.</span></div>
               <div class="group-title">Hidden Stats برای Easy (اختیاری)</div>
               <div class="grid grid-4 field full">
                 <div><label for="funny">بامزگی</label><input id="funny" class="input hidden-stat" type="number" min="1" max="100"></div>
@@ -180,7 +185,7 @@
                 <div class="grid">
                   <div class="field"><label for="passiveName">نام</label><input id="passiveName" class="input" placeholder="فرمانده میدان"></div>
                   <div class="field"><label for="conditionType">نوع شرط</label><select id="conditionType" class="input"><option value="arena">زمین مشخص</option><option value="opponent_trait">Trait حریف</option><option value="opponent_name">نام حریف</option></select></div>
-                  <div class="field"><label for="conditionValue">مقدار شرط</label><input id="conditionValue" class="input" list="arenaValues" placeholder="city یا Hero"><datalist id="arenaValues"><option value="city"><option value="desert"><option value="ice"><option value="forest"><option value="silent_temple"><option value="null_zone"></datalist></div>
+                  <div class="field"><label for="conditionValue">مقدار شرط</label><select id="conditionValue" class="input"></select><span class="hint">گزینه‌ها با نوع شرط عوض می‌شوند.</span></div>
                   <div class="field"><label for="passiveStat">Stat هدف</label><select id="passiveStat" class="input"><option value="power">Power</option><option value="speed">Speed</option><option value="iq">IQ</option><option value="popularity">Popularity</option></select></div>
                   <div class="field"><label for="passiveDelta">مقدار تغییر</label><input id="passiveDelta" class="input" type="number" min="-100" max="100" value="1"></div>
                 </div>
@@ -194,7 +199,7 @@
                 <label>پیش‌نمایش تصویر</label><div id="imagePreview" class="preview">هنوز تصویری ثبت نشده است.</div>
               </div>
               <div class="field">
-                <label for="imagePath">مسیر تصویر در پروژه</label><input id="imagePath" class="input" placeholder="assets/card_images/card.png">
+                <label for="imagePath">مسیر تصویر در پروژه</label><input id="imagePath" class="input" list="imageOptions" placeholder="assets/card_images/card.png"><datalist id="imageOptions"></datalist><span class="hint">از تصویرهای موجود انتخاب کنید یا تصویر تازه آپلود کنید.</span>
                 <div class="upload"><label for="imageFile">آپلود PNG/JPG/WebP فرم انتخابی</label><input id="imageFile" class="input" type="file" accept="image/png,image/jpeg,image/webp"><button id="uploadImageBtn" class="btn" type="button" style="margin-top:8px">آپلود تصویر فرم</button></div>
                 <div class="upload"><label for="stickerFile">آپلود Sticker WebP فرم انتخابی</label><input id="stickerFile" class="input" type="file" accept="image/webp,.webp"><button id="uploadStickerBtn" class="btn" type="button" style="margin-top:8px">آپلود استیکر فرم</button><span class="hint">هر فایل با نام شخصیت و فرم انتخابی ذخیره می‌شود.</span></div>
               </div>
@@ -214,13 +219,41 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script>
-    const state = { cards: [], selectedId: null, selectedCard: null, creating: false, busy: false };
+    const state = { cards: [], selectedId: null, selectedCard: null, creating: false, busy: false, drafts: {}, currentRarity: 'normal', options: {arenas:[], traits:[], series:[], names:[], images:[]} };
     const apiPrefix = window.location.pathname.startsWith('/card-admin') ? '/card-admin' : '';
     const $ = id => document.getElementById(id);
-    const fields = ['name','rarity','cardType','power','speed','iq','popularity','abilities','cardEffects','biography','dialogs','traits','series','funny','scary','charisma','cute','evil','leadership','passiveName','conditionType','conditionValue','passiveStat','passiveDelta','imagePath','photoFileId','stickerFileId'];
     const splitList = value => [...new Set(String(value || '').split(/[\n,،]+/).map(x => x.trim()).filter(Boolean))];
     const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
     const rarityLabel = { normal: 'Normal', epic: 'Epic', legend: 'Legend', rare: 'Rare' };
+    const rarities = ['normal', 'epic', 'legend'];
+    const selectedValues = id => [...$(id).selectedOptions].map(option => option.value);
+    function setChoices(id, values, selected = []) {
+      const choices = [...new Set([...values, ...selected].filter(Boolean))];
+      $(id).replaceChildren(...choices.map(value => {
+        const option = new Option(value, value, false, selected.includes(value));
+        return option;
+      }));
+    }
+    function setMultiValues(id, selected) {
+      const values = selected || [];
+      values.forEach(value => { if (![...$(id).options].some(option => option.value === value)) $(id).add(new Option(value, value)); });
+      [...$(id).options].forEach(option => option.selected = values.includes(option.value));
+    }
+    function refreshConditionChoices(value = '') {
+      const type = $('conditionType').value;
+      const values = type === 'arena' ? state.options.arenas : type === 'opponent_trait' ? state.options.traits : state.options.names;
+      setChoices('conditionValue', values, value ? [value] : []);
+      if (!value) $('conditionValue').selectedIndex = -1;
+    }
+    async function loadOptions() {
+      try {
+        state.options = await api('/api/card-editor/options');
+        setChoices('seriesOptions', state.options.series);
+        setChoices('imageOptions', state.options.images);
+        setChoices('traits', state.options.traits, selectedValues('traits'));
+        refreshConditionChoices($('conditionValue').value);
+      } catch (error) { toast(error.message, true); }
+    }
 
     function toast(message, error = false) {
       const node = $('toast'); node.textContent = message; node.className = `toast show${error ? ' error' : ''}`;
@@ -265,44 +298,80 @@
         if (preferredId && state.cards.some(card => card.id === preferredId)) selectCard(preferredId); else renderList();
       } catch (error) { toast(error.message, true); }
     }
-    function blankCard() {
-      return { name:'', rarity:'normal', card_type:'POWER_TYPE', power:50, speed:50, iq:50, popularity:50, abilities:[], card_effects:[], biography:'', dialogs:[], traits:[], series:'', hidden_stats:{}, passive:{}, image_path:'', photo_file_id:'', sticker_file_id:'', variants:[] };
-    }
+    function blankVariant() { return { card_type:'POWER_TYPE', power:'', speed:'', iq:'', popularity:'', abilities:[], card_effects:[], passive:{}, image_path:'', photo_file_id:'', sticker_file_id:'' }; }
+    function blankCard() { return { name:'', rarity:'normal', biography:'', dialogs:[], traits:[], series:'', hidden_stats:{}, variants:[] }; }
     function selectCard(id) {
       const card = state.cards.find(item => item.id === id); if (!card) return;
       state.selectedId = id; state.selectedCard = card; state.creating = false; fillForm(card); renderList(); revealEditor();
     }
     function startNew() { state.selectedId = null; state.selectedCard = null; state.creating = true; fillForm(blankCard()); renderList(); revealEditor(); }
-    function selectedVariant(card) {
-      const rarity = $('rarity').value || card.rarity || 'normal';
-      return (card.variants || []).find(item => item.rarity === rarity) || card;
+    function collectVariant() {
+      let passive = {};
+      if ($('passiveEnabled').checked) {
+        const type = $('conditionType').value, value = $('conditionValue').value.trim();
+        passive = { name:$('passiveName').value.trim() || 'Passive', condition:{[type]:value}, effect:{stat:$('passiveStat').value, delta:Number($('passiveDelta').value)} };
+      }
+      return { card_type:$('cardType').value, power:$('power').value, speed:$('speed').value,
+        iq:$('iq').value, popularity:$('popularity').value, abilities:splitList($('abilities').value),
+        card_effects:selectedValues('cardEffects'), passive, image_path:$('imagePath').value.trim(),
+        photo_file_id:$('photoFileId').value.trim(), sticker_file_id:$('stickerFileId').value.trim() };
     }
-    function fillVariant(card) {
-      const variant = selectedVariant(card);
+    function stashVariant() { state.drafts[state.currentRarity] = collectVariant(); updateVariantProgress(); }
+    function updateVariantProgress() {
+      $('variantProgress').textContent = rarities.map(rarity => {
+        const variant = state.drafts[rarity] || {};
+        const ready = ['power','speed','iq','popularity'].every(stat => variant[stat] !== '' && variant[stat] != null);
+        return `${rarityLabel[rarity]} ${ready ? '✓' : '○'}`;
+      }).join('  ·  ') + ' — هر سه فرم با هم ذخیره می‌شوند.';
+    }
+    function fillVariant(variant) {
       $('cardType').value = variant.card_type || 'POWER_TYPE';
-      ['power','speed','iq','popularity'].forEach(key => $(key).value = variant[key] ?? 50);
-      $('abilities').value = (variant.abilities || []).join(', '); $('cardEffects').value = (variant.card_effects || []).join(', ');
+      ['power','speed','iq','popularity'].forEach(key => $(key).value = variant[key] ?? '');
+      $('abilities').value = (variant.abilities || []).join(', '); setMultiValues('cardEffects', variant.card_effects || []);
       const passive = variant.passive || {}; $('passiveEnabled').checked = Object.keys(passive).length > 0; $('passiveFields').disabled = !$('passiveEnabled').checked;
-      $('passiveName').value = passive.name || ''; const condition = passive.condition || {}; const conditionType = Object.keys(condition)[0] || 'arena'; $('conditionType').value = conditionType; $('conditionValue').value = condition[conditionType] || ''; $('passiveStat').value = passive.effect?.stat || 'power'; $('passiveDelta').value = passive.effect?.delta ?? 1;
+      $('passiveName').value = passive.name || ''; const condition = passive.condition || {}; const conditionType = Object.keys(condition)[0] || 'arena'; $('conditionType').value = conditionType; refreshConditionChoices(condition[conditionType] || ''); $('passiveStat').value = passive.effect?.stat || 'power'; $('passiveDelta').value = passive.effect?.delta ?? 1;
       $('imagePath').value = variant.image_path || ''; $('photoFileId').value = variant.photo_file_id || ''; $('stickerFileId').value = variant.sticker_file_id || '';
-      $('variantHint').textContent = `در حال ویرایش فرم ${rarityLabel[$('rarity').value] || $('rarity').value}: آمار، Ability، Passive و مدیا مستقل است.`;
+      $('variantHint').textContent = `در حال ویرایش فرم ${rarityLabel[state.currentRarity]}: آمار، Ability، Passive و مدیا مستقل است.`;
       updatePreview();
     }
     function fillForm(card) {
       $('emptyState').hidden = true; $('cardForm').hidden = false; $('editorTitle').textContent = state.creating ? 'کارت جدید' : card.name; $('cardId').textContent = state.creating ? 'new' : card.id;
-      $('name').value = card.name || ''; $('rarity').value = card.rarity === 'rare' ? 'epic' : (card.rarity || 'normal'); $('biography').value = card.biography || ''; $('dialogs').value = (card.dialogs || []).join('\n');
-      $('traits').value = (card.traits || []).join(', '); $('series').value = card.series || '';
+      $('name').value = card.name || ''; state.currentRarity = 'normal'; $('rarity').value = 'normal'; $('biography').value = card.biography || ''; $('dialogs').value = (card.dialogs || []).join('\n');
+      setMultiValues('traits', card.traits || []); $('series').value = card.series || '';
       ['funny','scary','charisma','cute','evil','leadership'].forEach(key => $(key).value = card.hidden_stats?.[key] ?? '');
-      fillVariant(card); $('deleteBtn').hidden = state.creating; $('saveState').textContent = 'آماده ویرایش'; activateTab('base');
+      state.drafts = Object.fromEntries(rarities.map(rarity => {
+        const source = (card.variants || []).find(item => item.rarity === rarity) || (card.rarity === rarity ? card : blankVariant());
+        const form = Object.fromEntries(['power','speed','iq','popularity','card_type','abilities','card_effects','passive','image_path','photo_file_id','sticker_file_id'].map(key => [key, source[key] ?? blankVariant()[key]]));
+        if (!Object.keys(form.passive || {}).length && card.legacy_passive && Object.keys(card.legacy_passive).length) form.passive = card.legacy_passive;
+        return [rarity, form];
+      }));
+      fillVariant(state.drafts.normal); updateVariantProgress(); $('deleteBtn').hidden = state.creating; $('saveState').textContent = 'آماده ویرایش'; activateTab('base');
     }
     function collectPayload() {
-      const hidden = {}; ['funny','scary','charisma','cute','evil','leadership'].forEach(key => { if ($(key).value !== '') hidden[key] = Number($(key).value); });
-      let passive = {}; if ($('passiveEnabled').checked) { const type = $('conditionType').value; const value = $('conditionValue').value.trim(); if (!value) throw new Error('مقدار شرط Passive را وارد کنید'); passive = { name: $('passiveName').value.trim() || 'Passive', condition: {[type]: value}, effect: {stat: $('passiveStat').value, delta: Number($('passiveDelta').value)} }; }
-      return { name:$('name').value.trim(), rarity:$('rarity').value, card_type:$('cardType').value, power:Number($('power').value), speed:Number($('speed').value), iq:Number($('iq').value), popularity:Number($('popularity').value), abilities:splitList($('abilities').value), card_effects:splitList($('cardEffects').value), biography:$('biography').value.trim(), dialogs:splitList($('dialogs').value), traits:splitList($('traits').value), series:$('series').value.trim(), hidden_stats:hidden, passive, image_path:$('imagePath').value.trim(), photo_file_id:$('photoFileId').value.trim(), sticker_file_id:$('stickerFileId').value.trim() };
+      const name = $('name').value.trim();
+      if (!name || name.length > 100) throw new Error('نام کارت باید بین ۱ تا ۱۰۰ کاراکتر باشد');
+      const hidden = {}; ['funny','scary','charisma','cute','evil','leadership'].forEach(key => {
+        if ($(key).value !== '') {
+          const value = Number($(key).value);
+          if (!Number.isInteger(value) || value < 1 || value > 100) throw new Error(`Hidden Stat ${key} باید بین ۱ تا ۱۰۰ باشد`);
+          hidden[key] = value;
+        }
+      });
+      stashVariant();
+      for (const rarity of rarities) for (const stat of ['power','speed','iq','popularity']) {
+        const value = state.drafts[rarity][stat];
+        if (value === '' || value == null || !Number.isInteger(Number(value)) || Number(value) < 1 || Number(value) > 100)
+          throw new Error(`فرم ${rarityLabel[rarity]}: مقدار ${stat} باید عدد صحیح بین ۱ تا ۱۰۰ باشد`);
+      }
+      for (const rarity of rarities) if (state.drafts[rarity].passive?.condition && !Object.values(state.drafts[rarity].passive.condition)[0])
+        throw new Error(`فرم ${rarityLabel[rarity]}: مقدار شرط Passive را انتخاب کنید`);
+      return { name, biography:$('biography').value.trim(), dialogs:splitList($('dialogs').value),
+        traits:selectedValues('traits'), series:$('series').value.trim(), hidden_stats:hidden,
+        variants:Object.fromEntries(rarities.map(rarity => [rarity, state.drafts[rarity]])) };
     }
     async function saveCard(event) {
-      event.preventDefault(); if (!$('cardForm').reportValidity() || state.busy) return;
-      try { setBusy(true); const payload = collectPayload(); const url = state.creating ? '/api/cards' : `/api/cards/${encodeURIComponent(state.selectedId)}/variants/${encodeURIComponent(payload.rarity)}`; const method = state.creating ? 'POST' : 'PUT'; const data = await api(url, {method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)}); state.selectedId = data.card.id; state.creating = false; toast(data.message); await loadCards(state.selectedId); }
+      event.preventDefault(); if (state.busy) return;
+      try { const payload = collectPayload(); setBusy(true); const url = state.creating ? '/api/cards/family' : `/api/cards/${encodeURIComponent(state.selectedId)}/family`; const method = state.creating ? 'POST' : 'PUT'; const data = await api(url, {method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)}); state.selectedId = data.card.id; state.creating = false; toast(data.message); await loadCards(state.selectedId); await loadOptions(); }
       catch (error) { toast(error.message, true); } finally { setBusy(false); }
     }
     async function deleteCard() {
@@ -319,11 +388,11 @@
       catch (error) { toast(error.message, true); }
     }
     $('cardList').addEventListener('click', event => { const button = event.target.closest('[data-card-id]'); if (button) selectCard(button.dataset.cardId); });
-    $('newBtn').addEventListener('click', startNew); $('refreshBtn').addEventListener('click', () => loadCards()); $('search').addEventListener('input', renderList); $('rarityFilter').addEventListener('change', renderList); $('rarity').addEventListener('change', () => { if (!state.creating && state.selectedCard) fillVariant(state.selectedCard); });
+    $('newBtn').addEventListener('click', startNew); $('refreshBtn').addEventListener('click', async () => { await loadCards(); await loadOptions(); }); $('search').addEventListener('input', renderList); $('rarityFilter').addEventListener('change', renderList); $('rarity').addEventListener('change', () => { stashVariant(); state.currentRarity = $('rarity').value; fillVariant(state.drafts[state.currentRarity]); });
     $('cardForm').addEventListener('submit', saveCard); $('deleteBtn').addEventListener('click', deleteCard); $('cancelBtn').addEventListener('click', () => state.selectedId ? selectCard(state.selectedId) : startNew());
-    $('passiveEnabled').addEventListener('change', () => $('passiveFields').disabled = !$('passiveEnabled').checked); $('imagePath').addEventListener('input', updatePreview); $('name').addEventListener('input', () => { if (!state.creating) $('editorTitle').textContent = $('name').value || 'بدون نام'; });
+    $('passiveEnabled').addEventListener('change', () => $('passiveFields').disabled = !$('passiveEnabled').checked); $('conditionType').addEventListener('change', () => refreshConditionChoices()); $('imagePath').addEventListener('input', () => { $('photoFileId').value = ''; updatePreview(); }); $('name').addEventListener('input', () => { if (!state.creating) $('editorTitle').textContent = $('name').value || 'بدون نام'; });
     $('uploadImageBtn').addEventListener('click', () => upload('image')); $('uploadStickerBtn').addEventListener('click', () => upload('sticker')); document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => activateTab(tab.dataset.tab)));
-    loadCards();
+    Promise.all([loadCards(), loadOptions()]);
   </script>
 </body>
 </html>

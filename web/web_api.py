@@ -13,6 +13,7 @@ import sqlite3
 import hashlib
 import hmac
 import time
+import json
 from collections import defaultdict, deque
 from datetime import datetime
 from io import BytesIO
@@ -210,6 +211,128 @@ class WebAPI:
             else:
                 self.db.clear_card_media_file_id(card_id, kind)
 
+    def _save_card_family(self, data, existing=None):
+        """Validate and persist one character and all three forms in one transaction."""
+        if not isinstance(data, dict) or not isinstance(data.get('variants'), dict):
+            raise ValueError('سه فرم کارت باید در variants ارسال شوند')
+        rarities = ('normal', 'epic', 'legend')
+        if set(data['variants']) != set(rarities):
+            raise ValueError('فرم‌های Normal، Epic و Legend باید کامل باشند')
+        shared_keys = {'name', 'biography', 'dialogs', 'traits', 'series', 'hidden_stats'}
+        form_keys = {'power', 'speed', 'iq', 'popularity', 'card_type', 'abilities',
+                     'card_effects', 'passive', 'image_path', 'photo_file_id', 'sticker_file_id'}
+        validated = {}
+        for rarity in rarities:
+            form = data['variants'][rarity]
+            if not isinstance(form, dict) or set(form) - form_keys:
+                raise ValueError(f'فیلد نامعتبر در فرم {rarity}')
+            if any(form.get(stat) in (None, '') for stat in CORE_STATS):
+                raise ValueError(f'چهار Stat فرم {rarity} باید پر شوند')
+            merged = {key: data.get(key) for key in shared_keys}
+            merged.update(form)
+            merged['rarity'] = rarity
+            try:
+                validated[rarity] = self._validate_card_payload(merged, existing)
+            except ValueError as exc:
+                raise ValueError(f'فرم {rarity}: {exc}') from exc
+
+        name = validated['normal']['card'].name
+        duplicate = self.db.get_card_by_name(name)
+        if duplicate and (not existing or duplicate.card_id != existing.card_id):
+            raise FileExistsError('کارت دیگری با این نام وجود دارد')
+        card_id = existing.card_id if existing else str(uuid.uuid4())
+        base_rarity = existing.rarity.value if existing and existing.rarity.value in rarities else 'normal'
+        base = validated[base_rarity]['card']
+        shared = validated['normal']['metadata']
+        now = datetime.now().isoformat()
+        conn = sqlite3.connect(self.db.db_path)
+        try:
+            conn.execute('BEGIN IMMEDIATE')
+            conn.execute(
+                """INSERT INTO cards(card_id,name,rarity,power,speed,iq,popularity,abilities,
+                   card_effects,dialogs,biography,image_path,card_type,created_at)
+                   VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                   ON CONFLICT(card_id) DO UPDATE SET
+                   name=excluded.name, rarity=excluded.rarity, power=excluded.power,
+                   speed=excluded.speed, iq=excluded.iq, popularity=excluded.popularity,
+                   abilities=excluded.abilities, card_effects=excluded.card_effects,
+                   dialogs=excluded.dialogs, biography=excluded.biography,
+                   image_path=excluded.image_path, card_type=excluded.card_type""",
+                (card_id, name, base_rarity, base.power, base.speed, base.iq,
+                 base.popularity, json.dumps(base.abilities, ensure_ascii=False),
+                 json.dumps(base.card_effects, ensure_ascii=False),
+                 json.dumps(validated['normal']['card'].dialogs, ensure_ascii=False),
+                 validated['normal']['card'].biography, base.image_path, base.card_type,
+                 existing.created_at.isoformat() if existing else now),
+            )
+            conn.execute(
+                """INSERT INTO card_mode_metadata(card_id,traits,series,hidden_stats,passive)
+                   VALUES(?,?,?,?,?) ON CONFLICT(card_id) DO UPDATE SET
+                   traits=excluded.traits,series=excluded.series,
+                   hidden_stats=excluded.hidden_stats,passive=excluded.passive""",
+                (card_id, json.dumps(shared['traits'], ensure_ascii=False), shared['series'],
+                 json.dumps(shared['hidden_stats'], ensure_ascii=False), '{}'),
+            )
+            for rarity in rarities:
+                item = validated[rarity]
+                card = item['card']
+                old = conn.execute('SELECT variant_id,image_path FROM card_variants WHERE card_id=? AND rarity=?',
+                                   (card_id, rarity)).fetchone()
+                variant_id = old[0] if old else str(uuid.uuid4())
+                conn.execute(
+                    """INSERT INTO card_variants(variant_id,card_id,rarity,power,speed,iq,
+                       popularity,abilities,card_effects,image_path,card_type,passive,created_at,updated_at)
+                       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                       ON CONFLICT(card_id,rarity) DO UPDATE SET
+                       power=excluded.power,speed=excluded.speed,iq=excluded.iq,
+                       popularity=excluded.popularity,abilities=excluded.abilities,
+                       card_effects=excluded.card_effects,image_path=excluded.image_path,
+                       card_type=excluded.card_type,passive=excluded.passive,
+                       updated_at=excluded.updated_at""",
+                    (variant_id, card_id, rarity, card.power, card.speed, card.iq,
+                     card.popularity, json.dumps(card.abilities, ensure_ascii=False),
+                     json.dumps(card.card_effects, ensure_ascii=False), card.image_path,
+                     card.card_type, json.dumps(item['metadata']['passive'], ensure_ascii=False), now, now),
+                )
+                for kind in ('photo', 'sticker'):
+                    file_id = item['media'][kind]
+                    # A new image invalidates a Telegram photo id from the old image.
+                    if kind == 'photo' and old and old[1] != card.image_path and file_id:
+                        old_media = conn.execute(
+                            'SELECT file_id FROM card_variant_media_cache WHERE variant_id=? AND media_kind=?',
+                            (variant_id, kind)).fetchone()
+                        if old_media and old_media[0] == file_id:
+                            file_id = ''
+                    if file_id:
+                        conn.execute(
+                            """INSERT INTO card_variant_media_cache(variant_id,media_kind,file_id,updated_at)
+                               VALUES(?,?,?,?) ON CONFLICT(variant_id,media_kind) DO UPDATE SET
+                               file_id=excluded.file_id,updated_at=excluded.updated_at""",
+                            (variant_id, kind, file_id, now),
+                        )
+                    else:
+                        conn.execute('DELETE FROM card_variant_media_cache WHERE variant_id=? AND media_kind=?',
+                                     (variant_id, kind))
+                    if rarity == base_rarity:
+                        if file_id:
+                            conn.execute(
+                                """INSERT INTO card_media_cache(card_id,media_kind,file_id,updated_at)
+                                   VALUES(?,?,?,?) ON CONFLICT(card_id,media_kind) DO UPDATE SET
+                                   file_id=excluded.file_id,updated_at=excluded.updated_at""",
+                                (card_id, kind, file_id, now),
+                            )
+                        else:
+                            conn.execute('DELETE FROM card_media_cache WHERE card_id=? AND media_kind=?',
+                                         (card_id, kind))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+        self.db.card_cache.invalidate(f'card_{card_id}')
+        return self._serialize_card(self.db.get_card_by_id(card_id))
+
     @staticmethod
     def _arena_rule_summary(arena):
         rules = arena.get('rules') or {}
@@ -228,7 +351,8 @@ class WebAPI:
         return f"مقایسه {rules.get('compare_stat', '-') }"
 
     def _serialize_card(self, card):
-        metadata = self.modes.get_card_metadata(card.card_id)
+        metadata = self.modes.get_card_metadata(card.card_id, card.rarity.value)
+        legacy_passive = self.modes.get_card_metadata(card.card_id)['passive']
         return {
             'id': card.card_id,
             'name': card.name,
@@ -247,6 +371,7 @@ class WebAPI:
             'series': metadata['series'] or '',
             'hidden_stats': metadata['hidden_stats'],
             'passive': metadata['passive'],
+            'legacy_passive': legacy_passive,
             'photo_file_id': self.db.get_card_media_file_id(card.card_id, 'photo') or '',
             'sticker_file_id': self.db.get_card_media_file_id(card.card_id, 'sticker') or '',
             'variants': self.db.get_card_variants(card.card_id),
@@ -277,6 +402,42 @@ class WebAPI:
             return jsonify({'success': True, 'service': 'TelBattle Card Admin API'})
         
         # ==================== EXISTING CARD APIs ====================
+
+        @self.app.route('/api/cards/family', methods=['POST'])
+        @self.app.route('/api/cards/<card_id>/family', methods=['PUT'])
+        def save_card_family(card_id=None):
+            try:
+                existing = self.db.get_card_by_id(card_id) if card_id else None
+                if card_id and not existing:
+                    return jsonify({'success': False, 'error': 'کارت یافت نشد'}), 404
+                card = self._save_card_family(request.get_json(silent=True) or {}, existing)
+                return jsonify({'success': True, 'card': card,
+                                'message': f"سه فرم کارت {card['name']} ذخیره شد"}), 200 if existing else 201
+            except FileExistsError as exc:
+                return jsonify({'success': False, 'error': str(exc)}), 409
+            except ValueError as exc:
+                return jsonify({'success': False, 'error': str(exc)}), 400
+            except Exception as exc:
+                return jsonify({'success': False, 'error': str(exc)}), 500
+
+        @self.app.route('/api/card-editor/options', methods=['GET'])
+        def card_editor_options():
+            cards = self.db.get_all_cards()
+            metadata = [self.modes.get_card_metadata(card.card_id) for card in cards]
+            images_dir = PROJECT_ROOT / 'assets' / 'card_images'
+            images = sorted(
+                f'assets/card_images/{item.name}' for item in images_dir.iterdir()
+                if item.is_file() and item.suffix.lower() in {'.png', '.jpg', '.jpeg', '.webp'}
+            ) if images_dir.is_dir() else []
+            return jsonify({'success': True,
+                            'arenas': sorted(item['arena_id'] for item in self.arena_registry.list_arenas(False)
+                                             if self.arena_registry.arena_exists_for_mode(
+                                                 item['arena_id'], 'quick', include_draft=True)),
+                            'traits': sorted({'hero', 'funny', 'leader', 'villain', 'monster', 'god',
+                                              'warrior', 'assassin', 'detective', 'mage'} |
+                                             {str(value) for item in metadata for value in item['traits']}),
+                            'series': sorted({item['series'] for item in metadata if item['series']}),
+                            'names': sorted({card.name for card in cards}), 'images': images})
         
         @self.app.route('/api/cards', methods=['GET'])
         def get_all_cards():
