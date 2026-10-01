@@ -1,13 +1,19 @@
 #!/bin/sh
 expected=$(git config --local --get telbattle.collaboratorBranch)
-if [ -z "$expected" ] || [ "$1" != "origin" ]; then
+current=$(git symbolic-ref --quiet --short HEAD 2>/dev/null)
+if [ -z "$expected" ] || [ "$1" != "origin" ] || [ "$current" != "$expected" ]; then
     echo "TelBattle: pushes are allowed only to origin/$expected." >&2
     exit 1
 fi
 
+current_sha=$(git rev-parse HEAD)
 while read -r local_ref local_sha remote_ref remote_sha; do
     if [ "$remote_ref" != "refs/heads/$expected" ]; then
         echo "TelBattle: blocked push to $remote_ref; use only origin/$expected." >&2
+        exit 1
+    fi
+    if [ "$local_sha" != "$current_sha" ]; then
+        echo 'TelBattle: push only the checked-out personal HEAD.' >&2
         exit 1
     fi
     case "$local_sha" in
