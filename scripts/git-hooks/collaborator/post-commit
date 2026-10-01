@@ -1,0 +1,24 @@
+#!/bin/sh
+expected=$(git config --local --get telbattle.collaboratorBranch)
+current=$(git symbolic-ref --quiet --short HEAD 2>/dev/null)
+if [ -z "$expected" ] || [ "$current" != "$expected" ]; then
+    exit 0
+fi
+
+for state in rebase-merge rebase-apply MERGE_HEAD CHERRY_PICK_HEAD; do
+    if [ -e "$(git rev-parse --git-path "$state")" ]; then
+        echo 'TelBattle: merge/rebase in progress; push manually after it completes.' >&2
+        exit 0
+    fi
+done
+
+if command -v graphify >/dev/null 2>&1; then
+    graphify update . || echo 'TelBattle: graphify update failed; fix it after the commit.' >&2
+else
+    echo 'TelBattle: graphify is missing; follow COLLABORATOR_START_HERE.md.' >&2
+fi
+
+if ! git push -u origin "HEAD:refs/heads/$expected"; then
+    echo "TelBattle: commit saved locally, but push failed. Retry: git push origin HEAD:refs/heads/$expected" >&2
+fi
+exit 0

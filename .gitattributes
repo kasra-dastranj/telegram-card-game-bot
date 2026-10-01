@@ -21,6 +21,7 @@
 # Shell scripts
 *.sh text eol=lf
 *.bash text eol=lf
+scripts/git-hooks/** text eol=lf
 
 # Batch scripts
 *.bat text eol=crlf

@@ -1,0 +1,26 @@
+#!/bin/sh
+expected=$(git config --local --get telbattle.collaboratorBranch)
+if [ -z "$expected" ] || [ "$1" != "origin" ]; then
+    echo "TelBattle: pushes are allowed only to origin/$expected." >&2
+    exit 1
+fi
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+    if [ "$remote_ref" != "refs/heads/$expected" ]; then
+        echo "TelBattle: blocked push to $remote_ref; use only origin/$expected." >&2
+        exit 1
+    fi
+    case "$local_sha" in
+        0000000000000000000000000000000000000000)
+            echo 'TelBattle: deleting the personal branch is blocked.' >&2
+            exit 1 ;;
+    esac
+    case "$remote_sha" in
+        0000000000000000000000000000000000000000) ;;
+        *)
+            if ! git merge-base --is-ancestor "$remote_sha" "$local_sha"; then
+                echo 'TelBattle: non-fast-forward/force push blocked. Fetch and merge first.' >&2
+                exit 1
+            fi ;;
+    esac
+done
