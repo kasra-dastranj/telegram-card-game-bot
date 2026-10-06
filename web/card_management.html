@@ -44,6 +44,8 @@
     .input { width: 100%; min-height: 44px; border: 1px solid var(--line); border-radius: 11px; padding: 9px 11px; background: #0b1728; color: var(--text); }
     textarea.input { min-height: 96px; resize: vertical; }
     .input::placeholder { color: #71839a; }
+    .inline-add { display: flex; gap: 8px; margin-top: 8px; }
+    .inline-add .input { flex: 1; min-width: 0; }
     select[multiple].input { min-height: 130px; padding: 5px; }
     select[multiple].input option { padding: 5px 8px; border-radius: 5px; }
     select[multiple].input option:checked { background: #166534; color: #fff; }
@@ -93,7 +95,7 @@
     .loading { opacity: .55; pointer-events: none; }
     [hidden] { display: none !important; }
     @media (max-width: 980px) { .workspace { grid-template-columns: 1fr; } .sidebar { position: static; max-height: 420px; } .stats { grid-template-columns: repeat(2, 1fr); } }
-    @media (max-width: 620px) { .shell { padding: 10px; } .topbar { align-items: flex-start; } .brand p { display: none; } .grid, .grid-4 { grid-template-columns: 1fr; } .search-row { grid-template-columns: 1fr; } .editor-head { align-items: flex-start; flex-direction: column; } .actions { flex-direction: column; } .actions > div, .actions .btn { width: 100%; } }
+    @media (max-width: 620px) { .shell { padding: 10px; } .topbar { align-items: flex-start; } .brand p { display: none; } .grid, .grid-4 { grid-template-columns: 1fr; } .search-row { grid-template-columns: 1fr; } .inline-add { flex-direction: column; } .inline-add .btn { width: 100%; } .editor-head { align-items: flex-start; flex-direction: column; } .actions { flex-direction: column; } .actions > div, .actions .btn { width: 100%; } }
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; } }
   </style>
 </head>
@@ -167,7 +169,7 @@
 
           <div class="section" data-section="modes">
             <div class="grid">
-              <div class="field"><label for="traits">Traitها</label><select id="traits" class="input" multiple></select><span class="hint">چند مورد را انتخاب کنید؛ برای اولویت Deck و سؤال‌های Easy استفاده می‌شود.</span></div>
+              <div class="field"><label for="traits">Traitها</label><select id="traits" class="input" multiple></select><div class="inline-add"><input id="newTrait" class="input" type="text" placeholder="Trait جدید را بنویسید" aria-label="Trait جدید"><button id="addTraitBtn" class="btn" type="button">افزودن Trait</button></div><span class="hint">Trait تازه خودکار انتخاب می‌شود. برای انتخاب چند مورد موجود از Ctrl یا لمس چند گزینه استفاده کنید. با ذخیرهٔ کارت، Trait تازه برای کارت‌های بعدی هم در فهرست می‌ماند.</span></div>
               <div class="field"><label for="series">Series / مجموعه</label><input id="series" class="input" list="seriesOptions" placeholder="Game of Thrones"><datalist id="seriesOptions"></datalist><span class="hint">از مجموعه‌های قبلی انتخاب کنید یا نام تازه بنویسید.</span></div>
               <div class="group-title">Hidden Stats برای Easy (اختیاری)</div>
               <div class="grid grid-4 field full">
@@ -238,6 +240,15 @@
       const values = selected || [];
       values.forEach(value => { if (![...$(id).options].some(option => option.value === value)) $(id).add(new Option(value, value)); });
       [...$(id).options].forEach(option => option.selected = values.includes(option.value));
+    }
+    function addTrait() {
+      const input = $('newTrait'); const name = input.value.trim();
+      if (!name) { toast('نام Trait را وارد کنید', true); input.focus(); return; }
+      const values = [...$('traits').options].map(option => option.value);
+      const trait = values.find(value => value.toLocaleLowerCase() === name.toLocaleLowerCase()) || name;
+      setChoices('traits', [...values, trait], [...selectedValues('traits'), trait]);
+      input.value = ''; input.focus();
+      toast(`Trait «${trait}» انتخاب شد؛ برای ثبت آن کارت را ذخیره کنید`);
     }
     function refreshConditionChoices(value = '') {
       const type = $('conditionType').value;
@@ -337,7 +348,7 @@
     function fillForm(card) {
       $('emptyState').hidden = true; $('cardForm').hidden = false; $('editorTitle').textContent = state.creating ? 'کارت جدید' : card.name; $('cardId').textContent = state.creating ? 'new' : card.id;
       $('name').value = card.name || ''; state.currentRarity = 'normal'; $('rarity').value = 'normal'; $('biography').value = card.biography || ''; $('dialogs').value = (card.dialogs || []).join('\n');
-      setMultiValues('traits', card.traits || []); $('series').value = card.series || '';
+      setChoices('traits', state.options.traits, card.traits || []); $('newTrait').value = ''; $('series').value = card.series || '';
       ['funny','scary','charisma','cute','evil','leadership'].forEach(key => $(key).value = card.hidden_stats?.[key] ?? '');
       state.drafts = Object.fromEntries(rarities.map(rarity => {
         const source = (card.variants || []).find(item => item.rarity === rarity) || (card.rarity === rarity ? card : blankVariant());
@@ -390,6 +401,7 @@
     $('cardList').addEventListener('click', event => { const button = event.target.closest('[data-card-id]'); if (button) selectCard(button.dataset.cardId); });
     $('newBtn').addEventListener('click', startNew); $('refreshBtn').addEventListener('click', async () => { await loadCards(); await loadOptions(); }); $('search').addEventListener('input', renderList); $('rarityFilter').addEventListener('change', renderList); $('rarity').addEventListener('change', () => { stashVariant(); state.currentRarity = $('rarity').value; fillVariant(state.drafts[state.currentRarity]); });
     $('cardForm').addEventListener('submit', saveCard); $('deleteBtn').addEventListener('click', deleteCard); $('cancelBtn').addEventListener('click', () => state.selectedId ? selectCard(state.selectedId) : startNew());
+    $('addTraitBtn').addEventListener('click', addTrait); $('newTrait').addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); addTrait(); } });
     $('passiveEnabled').addEventListener('change', () => $('passiveFields').disabled = !$('passiveEnabled').checked); $('conditionType').addEventListener('change', () => refreshConditionChoices()); $('imagePath').addEventListener('input', () => { $('photoFileId').value = ''; updatePreview(); }); $('name').addEventListener('input', () => { if (!state.creating) $('editorTitle').textContent = $('name').value || 'بدون نام'; });
     $('uploadImageBtn').addEventListener('click', () => upload('image')); $('uploadStickerBtn').addEventListener('click', () => upload('sticker')); document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => activateTab(tab.dataset.tab)));
     Promise.all([loadCards(), loadOptions()]);

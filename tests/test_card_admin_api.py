@@ -278,11 +278,14 @@ def test_card_admin_editor_options_include_existing_content(tmp_path, monkeypatc
     image_dir.mkdir(parents=True)
     (image_dir / "family.webp").write_bytes(b"fake")
     _, client = _client(tmp_path)
-    client.post("/api/cards/family", json=_family())
+    created = client.post("/api/cards/family", json=_family(traits=["hero", "شکارچی سایه‌ها"]))
+    assert created.status_code == 201, created.get_json()
+    assert created.get_json()["card"]["traits"] == ["hero", "شکارچی سایه‌ها"]
     response = client.get("/api/card-editor/options")
     assert response.status_code == 200, response.get_json()
     options = response.get_json()
     assert "hero" in options["traits"]
+    assert "شکارچی سایه‌ها" in options["traits"]
     assert "Family" in options["series"]
     assert "Family Hero" in options["names"]
     assert "assets/card_images/family.webp" in options["images"]
