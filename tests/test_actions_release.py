@@ -99,6 +99,19 @@ def test_dirty_runtime_cannot_be_packaged(bundle, tmp_path):
         package.build(root, tmp_path / "new", sha, "42", "1")
 
 
+def test_package_uses_commit_bytes_with_windows_eol_filters(bundle, tmp_path):
+    root, _, _ = bundle
+    subprocess.run(["git", "config", "core.autocrlf", "true"], cwd=str(root), check=True)
+    (root / "web/card_management.html").write_bytes(b"<html>\r\n</html>\r\n")
+    subprocess.run(["git", "add", "web/card_management.html"], cwd=str(root), check=True)
+    subprocess.run(["git", "-c", "user.name=QA", "-c", "user.email=qa@example.invalid", "commit", "-qm", "eol"], cwd=str(root), check=True)
+    sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=str(root), text=True).strip()
+    output = tmp_path / "canonical"
+    package.build(root, output, sha, "42", "1")
+    with tarfile.open(str(output / "telbattle-release.tar.gz")) as tar:
+        assert tar.extractfile("web/card_management.html").read() == b"<html>\n</html>\n"
+
+
 def test_backup_includes_committed_wal_and_passes_quick_check(tmp_path):
     database, backup = tmp_path / "wal.db", tmp_path / "backup.db"
     with sqlite3.connect(str(database)) as conn:

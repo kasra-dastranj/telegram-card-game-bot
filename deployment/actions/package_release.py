@@ -19,7 +19,7 @@ CODE_DIRS = {"bot", "core", "systems", "web", "migrations"}
 
 def allowed_path(name):
     path = PurePosixPath(name)
-    if "\\" in name or path.is_absolute() or str(path) != name or ".." in path.parts:
+    if any(ord(char) < 32 for char in name) or "\\" in name or path.is_absolute() or str(path) != name or ".." in path.parts:
         return False
     if any(part.startswith(".") or part == "__pycache__" for part in path.parts):
         return False
@@ -81,10 +81,20 @@ def build(root, output, sha, run_id, attempt):
     files = {name: (root / name).read_bytes() for name in tracked if name and allowed_path(name)
              and not name.startswith("frontend/game/dist/")}
     # Refuse changed tracked runtime files, even when called from a dirty checkout.
-    for name, content in files.items():
-        original = subprocess.check_output(["git", "show", sha + ":" + name], cwd=str(root))
-        if content != original or (root / name).is_symlink():
-            raise ValueError("runtime file differs from Git: " + name)
+    changed = subprocess.run(["git", "diff", "--quiet", sha, "--", *files], cwd=str(root))
+    if changed.returncode or any((root / name).is_symlink() for name in files):
+        raise ValueError("runtime file differs from Git")
+    # Git's text filters can legitimately make Windows checkout bytes differ (CRLF).
+    # Read canonical commit blobs in one process, after validating the worktree with Git's filters.
+    queries = "".join(sha + ":" + name + "\n" for name in files).encode("utf-8")
+    blobs = io.BytesIO(subprocess.check_output(["git", "cat-file", "--batch"], input=queries, cwd=str(root)))
+    for name in files:
+        header = blobs.readline().split()
+        if len(header) != 3 or header[1] != b"blob":
+            raise ValueError("runtime Git blob unavailable")
+        files[name] = blobs.read(int(header[2]))
+        if blobs.read(1) != b"\n":
+            raise ValueError("invalid Git batch response")
     dist = root / "frontend/game/dist"
     for path in dist.rglob("*"):
         name = path.relative_to(root).as_posix()
