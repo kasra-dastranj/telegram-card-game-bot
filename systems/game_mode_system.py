@@ -24,6 +24,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 from systems.arena_registry import ArenaRegistry
 from systems.match_rewards_system import MatchRewardsSystem
 from systems.mode_access_system import ModeAccessSystem
+from systems.card_trait_registry import ensure_trait_registry_schema, remember_card_traits
 
 logger = logging.getLogger(__name__)
 
@@ -319,6 +320,7 @@ class GameModeSystem:
         request_columns = {
             row[1] for row in cursor.execute("PRAGMA table_info(game_requests)").fetchall()
         }
+        ensure_trait_registry_schema(conn)
         if "origin_inline_message_id" not in request_columns:
             cursor.execute(
                 "ALTER TABLE game_requests ADD COLUMN origin_inline_message_id TEXT"
@@ -1024,27 +1026,27 @@ class GameModeSystem:
         arena_id = condition.get("arena") if isinstance(condition, dict) else None
         if arena_id and not self.arena_registry.arena_exists_for_mode(str(arena_id), "quick", include_draft=True):
             raise ValueError("passive_arena_not_found")
-        conn = self._connect()
-        conn.execute(
-            """
-            INSERT INTO card_mode_metadata(card_id, traits, series, hidden_stats, passive)
-            VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT(card_id) DO UPDATE SET
-                traits=excluded.traits,
-                series=excluded.series,
-                hidden_stats=excluded.hidden_stats,
-                passive=excluded.passive
-            """,
-            (
-                card_id,
-                json.dumps(list(traits or []), ensure_ascii=False),
-                series,
-                json.dumps(hidden_stats or {}, ensure_ascii=False),
-                json.dumps(passive_value, ensure_ascii=False),
-            ),
-        )
-        conn.commit()
-        conn.close()
+        trait_values = list(traits or [])
+        with closing(self._connect()) as conn, conn:
+            remember_card_traits(conn, card_id, trait_values)
+            conn.execute(
+                """
+                INSERT INTO card_mode_metadata(card_id, traits, series, hidden_stats, passive)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(card_id) DO UPDATE SET
+                    traits=excluded.traits,
+                    series=excluded.series,
+                    hidden_stats=excluded.hidden_stats,
+                    passive=excluded.passive
+                """,
+                (
+                    card_id,
+                    json.dumps(trait_values, ensure_ascii=False),
+                    series,
+                    json.dumps(hidden_stats or {}, ensure_ascii=False),
+                    json.dumps(passive_value, ensure_ascii=False),
+                ),
+            )
 
     def get_card_metadata(self, card_id: str, rarity: Optional[str] = None) -> Dict[str, Any]:
         conn = self._connect()

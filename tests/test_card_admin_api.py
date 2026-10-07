@@ -1,5 +1,6 @@
 from io import BytesIO
 import sqlite3
+import pytest
 
 from core.database import DatabaseManager
 import web.web_api as web_api_module
@@ -290,3 +291,82 @@ def test_card_admin_editor_options_include_existing_content(tmp_path, monkeypatc
     assert "Family Hero" in options["names"]
     assert "assets/card_images/family.webp" in options["images"]
     assert "city" in options["arenas"]
+
+
+def test_trait_registration_persists_without_saving_a_card(tmp_path):
+    db, client = _client(tmp_path)
+    response = client.post('/api/card-editor/traits', json={'name': '  شکارچی سایه‌ها  '})
+    assert response.status_code == 200, response.get_json()
+    assert response.get_json()['trait'] == 'شکارچی سایه‌ها'
+    assert client.get('/api/cards').get_json()['count'] == 0
+    restarted = WebAPI(DatabaseManager(db.db_path)).app.test_client()
+    assert 'شکارچی سایه‌ها' in restarted.get('/api/card-editor/options').get_json()['traits']
+    first = restarted.post('/api/card-editor/traits', json={'name': 'Shadow Hunter'}).get_json()
+    second = restarted.post('/api/card-editor/traits', json={'name': ' shadow HUNTER '}).get_json()
+    assert second['trait'] == first['trait'] == 'Shadow Hunter'
+    assert second['traits'].count('Shadow Hunter') == 1
+    assert 'shadow HUNTER' not in second['traits']
+
+
+@pytest.mark.parametrize('mode', ['family', 'card', 'variant'])
+def test_trait_survives_removal_from_last_card_restart_and_card_deletion(tmp_path, mode):
+    db, client = _client(tmp_path)
+    trait = 'تریت دائمی مخصوص تست'
+    payload = _family(traits=[trait]) if mode == 'family' else _payload(traits=[trait])
+    created = client.post('/api/cards/family' if mode == 'family' else '/api/cards', json=payload)
+    assert created.status_code == 201, created.get_json()
+    card_id = created.get_json()['card']['id']
+    endpoint = f'/api/cards/{card_id}'
+    if mode == 'family':
+        endpoint += '/family'
+    elif mode == 'variant':
+        endpoint += '/variants/legend'
+    payload['traits'] = []
+    removed = client.put(endpoint, json=payload)
+    assert removed.status_code == 200, removed.get_json()
+    assert removed.get_json()['card']['traits'] == []
+    restarted = WebAPI(DatabaseManager(db.db_path)).app.test_client()
+    assert trait in restarted.get('/api/card-editor/options').get_json()['traits']
+    another = restarted.post('/api/cards', json=_payload(name='Another Hero', traits=[trait]))
+    assert another.status_code == 201, another.get_json()
+    assert another.get_json()['card']['traits'] == [trait]
+    assert restarted.delete(f"/api/cards/{another.get_json()['card']['id']}").status_code == 200
+    assert restarted.delete(f'/api/cards/{card_id}').status_code == 200
+    assert trait in WebAPI(db).app.test_client().get('/api/card-editor/options').get_json()['traits']
+
+
+@pytest.mark.parametrize('body', [None, [], {}, {'name': ''}, {'name': '   '},
+                                  {'name': 12}, {'name': ['wrong']},
+                                  {'name': 'a' * 101}, {'name': 'bad\x00trait'}])
+def test_trait_registration_rejects_invalid_name_without_changing_vocabulary(tmp_path, body):
+    _, client = _client(tmp_path)
+    before = client.get('/api/card-editor/options').get_json()['traits']
+    response = client.post('/api/card-editor/traits', json=body)
+    assert response.status_code == 400
+    assert client.get('/api/card-editor/options').get_json()['traits'] == before
+
+
+def test_trait_migration_backfills_legacy_database_on_copy_then_idempotently(tmp_path):
+    from migrations.migrate_card_trait_registry import copy_database, apply_migration
+    db, client = _client(tmp_path)
+    created = client.post('/api/cards/family', json=_family(traits=['تریت قدیمی']))
+    assert created.status_code == 201
+    with sqlite3.connect(db.db_path) as conn:
+        conn.execute('DROP TABLE card_trait_registry')
+        before_cards = conn.execute('SELECT * FROM cards').fetchall()
+        before_metadata = conn.execute('SELECT * FROM card_mode_metadata').fetchall()
+    preview = copy_database(db.db_path, tmp_path / 'preview.db')
+    assert apply_migration(preview) == 11
+    assert apply_migration(preview) == 11
+    with sqlite3.connect(db.db_path) as original, sqlite3.connect(str(preview)) as copy:
+        assert not original.execute("SELECT 1 FROM sqlite_master WHERE name='card_trait_registry'").fetchone()
+        assert copy.execute('SELECT * FROM cards').fetchall() == before_cards
+        assert copy.execute('SELECT * FROM card_mode_metadata').fetchall() == before_metadata
+        assert copy.execute('PRAGMA quick_check').fetchone()[0] == 'ok'
+    with pytest.raises(FileExistsError):
+        copy_database(db.db_path, preview)
+    backup = copy_database(db.db_path, tmp_path / 'backup.db')
+    assert backup.is_file()
+    assert apply_migration(db.db_path) == 11
+    restarted = WebAPI(db).app.test_client()
+    assert 'تریت قدیمی' in restarted.get('/api/card-editor/options').get_json()['traits']

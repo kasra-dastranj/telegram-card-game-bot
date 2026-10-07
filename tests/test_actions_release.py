@@ -234,6 +234,17 @@ def test_isolated_preflight_accepts_current_startup_and_rejects_migration_on_cop
     command = [sys.executable, str(TOOLS / "preflight.py"), str(release), str(copy)]
     passed = subprocess.run(command, cwd=str(tmp_path), env=env, capture_output=True)
     assert passed.returncode == 0, passed.stderr.decode("utf-8", errors="replace")
+    # The new vocabulary must be prepared explicitly; deployment keeps its no-change guard.
+    with sqlite3.connect(str(copy)) as legacy:
+        legacy.execute('DROP TABLE card_trait_registry')
+    requires_owner_migration = subprocess.run(command, cwd=str(tmp_path), env=env, capture_output=True)
+    assert requires_owner_migration.returncode != 0
+    with sqlite3.connect(str(copy)) as legacy:
+        legacy.execute('DROP TABLE card_trait_registry')
+    from migrations.migrate_card_trait_registry import apply_migration
+    apply_migration(copy)
+    prepared = subprocess.run(command, cwd=str(tmp_path), env=env, capture_output=True)
+    assert prepared.returncode == 0, prepared.stderr.decode('utf-8', errors='replace')
     with (release / "core/database.py").open("a", encoding="utf-8") as changed:
         changed.write("\nimport os\nwith sqlite3.connect(os.environ['DATABASE_PATH']) as c:\n    c.execute('CREATE TABLE unreviewed_migration (value INTEGER)')\n")
     failed = subprocess.run(command, cwd=str(tmp_path), env=env, capture_output=True)
