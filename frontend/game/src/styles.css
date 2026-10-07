@@ -286,6 +286,14 @@ body[data-app-screen="onboarding"] #game-root { opacity: 0; }
 .decision-panel { width: min(100%, 620px); margin: auto auto 0; padding: 13px; border-radius: 19px; background: linear-gradient(135deg, rgba(8,23,27,.8), rgba(5,11,18,.76)); box-shadow: 0 18px 46px rgba(0,0,0,.36), 0 0 34px rgba(69,232,208,.045); backdrop-filter: blur(10px); }
 .decision-title { display: flex; flex-direction: column; margin-bottom: 13px; }.decision-title small { color: var(--muted); }.decision-title strong { font-size: 20px; }
 .ability-list { display: grid; gap: 8px; }.ability-list button { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 66px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: rgba(5,18,14,.8); color: var(--text); text-align: right; cursor: pointer; }.ability-list button div { display: flex; flex-direction: column; gap: 4px; }.ability-list button small { color: var(--muted); }.ability-list button > span { color: var(--green); direction: ltr; }
+.three-ability-panel { pointer-events: auto; padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--border); }
+.three-ability-panel p { color: var(--muted); font-size: 12px; line-height: 1.7; }
+.three-ability-menu summary { pointer-events: auto; cursor: pointer; color: var(--green); padding: 8px 0; }
+.three-ability-menu .ability-list { pointer-events: auto; max-height: 210px; overflow-y: auto; overscroll-behavior: contain; }
+body[data-app-screen="threeMatch"] .quick-match-screen,
+body[data-app-screen="battle"] .battle-screen { height: 100dvh; overflow-y: auto; pointer-events: auto; touch-action: pan-y; }
+body[data-app-screen="threeMatch"] .quick-match-screen > *,
+body[data-app-screen="battle"] .battle-screen > * { flex-shrink: 0; }
 .choice-locked { display: flex; flex-direction: column; align-items: center; padding: 14px 8px; text-align: center; }.choice-locked > span { display: grid; place-items: center; width: 38px; height: 38px; margin-bottom: 8px; border: 1px solid rgba(44,230,163,.46); border-radius: 50%; color: var(--green); background: rgba(44,230,163,.1); font-size: 20px; }.choice-locked strong { font-size: 17px; }.choice-locked p { margin: 5px 0 0; color: var(--muted); font-size: 11px; }
 .quick-stat-grid { grid-template-columns: repeat(2, 1fr); }.quick-stat-grid .stat-button { min-height: 88px; }
 

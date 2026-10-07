@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import "./styles.css";
 import "./tabletop.css";
-import { ApiError, api, type CardData, type CardPage, type ClaimStatus, type DeckData, type Difficulty, type FightData, type FusionPreview, type MissionData, type ProfileData, type QuickState, type RoundData, type SkinCollection, type StatKey, type ThreeRoundState, type UpgradePreview } from "./api";
+import { ApiError, api, type CardData, type CardPage, type ClaimStatus, type DeckData, type Difficulty, type FightData, type FusionPreview, type MissionData, type ProfileData, type QuickState, type RoundData, type SkinCollection, type StatKey, type ThreeRoundAbilityState, type ThreeRoundState, type UpgradePreview } from "./api";
 import { BattleScene } from "./BattleScene";
 
 type Screen = "splash" | "onboarding" | "lobby" | "profileHub" | "collection" | "decks" | "progress" | "shop" | "quickMenu" | "quickWait" | "threeMenu" | "threeWait" | "threeMatch" | "threeResult" | "cards" | "quickMatch" | "quickResult" | "battle" | "result";
@@ -65,6 +65,8 @@ const state: {
 
 let quickPollTimer: number | undefined;
 let threePollTimer: number | undefined;
+let threeMutationVersion = 0;
+let threeAbilityMenuOpen = false;
 const onboardingStorageKey = "telbattle:onboarding:v1";
 const threeStorageKey = "telbattle:three-round-request:v1";
 
@@ -117,6 +119,9 @@ const game = new Phaser.Game({
 
 const ui = document.querySelector<HTMLDivElement>("#ui-root")!;
 const toast = document.querySelector<HTMLDivElement>("#toast")!;
+ui.addEventListener("toggle", event => {
+  if (event.target instanceof HTMLDetailsElement && event.target.classList.contains("three-ability-menu")) threeAbilityMenuOpen = event.target.open;
+}, true);
 
 function haptic(kind: "light" | "medium" | "success" = "light"): void {
   const feedback = window.Telegram?.WebApp?.HapticFeedback;
@@ -146,6 +151,8 @@ game.events.on("card-dropped", (cardId: string) => {
 });
 
 function render(): void {
+  const screenScroll = ui.dataset.screen === state.screen ? ui.querySelector<HTMLElement>(".screen")?.scrollTop ?? 0 : 0;
+  const abilityScroll = ui.querySelector<HTMLElement>(".three-ability-menu .ability-list")?.scrollTop ?? 0;
   ui.dataset.screen = state.screen;
   document.body.dataset.appScreen = state.screen;
   if (state.screen === "splash") ui.innerHTML = splashTemplate();
@@ -167,6 +174,10 @@ function render(): void {
   if (state.screen === "quickResult") ui.innerHTML = quickResultTemplate();
   if (state.screen === "battle") ui.innerHTML = battleTemplate();
   if (state.screen === "result") ui.innerHTML = resultTemplate();
+  const abilityList = ui.querySelector<HTMLElement>(".three-ability-menu .ability-list");
+  if (abilityList) abilityList.scrollTop = abilityScroll;
+  const screen = ui.querySelector<HTMLElement>(".screen");
+  if (screen) screen.scrollTop = screenScroll;
 }
 
 function splashTemplate(): string {
@@ -632,7 +643,7 @@ function threeMenuTemplate(): string {
   const invite = state.incomingThreeInvite;
   return `<section class="screen quick-menu-screen">
     <header class="section-header"><button class="icon-button" data-action="home" aria-label="بازگشت">←</button><div><p class="eyebrow">THREE ROUNDS</p><h2>${invite ? "دعوت نبرد سه‌راندی" : "نبرد سه‌راندی"}</h2></div></header>
-    <div class="quick-hero glass-panel"><span class="quick-hero__mark">3</span><div><strong>یک کارت، سه راند</strong><p>در هر راند یک ویژگی تازه انتخاب کن. زمین در تمام نبرد ثابت است؛ اولین نفر با دو برد پیروز می‌شود.</p></div></div>
+    <div class="quick-hero glass-panel"><span class="quick-hero__mark">3</span><div><strong>یک کارت، سه راند</strong><p>هر راوند یک ویژگی تازه و در کل مسابقه فقط یک ابیلیتی از موجودی مشترک Quick. زمین با ابیلیتی قابل تغییر است؛ اولین نفر با دو برد پیروز می‌شود.</p></div></div>
     ${invite ? `<button class="primary-button" data-action="accept-three" ${state.loading ? "disabled" : ""}>پذیرش دعوت</button><button class="secondary-button" data-action="dismiss-three">رد کردن</button>` : `<div class="quick-options">
       <button class="mode-card" data-action="three-random" ${state.loading ? "disabled" : ""}><span class="mode-card__icon">⌁</span><div><strong>حریف تصادفی واقعی</strong><small>اتصال خودکار به بازیکن دیگر</small></div><i>←</i></button>
       <button class="mode-card" data-action="three-invite" ${state.loading ? "disabled" : ""}><span class="mode-card__icon">↗</span><div><strong>دعوت دوست با لینک</strong><small>لینک دعوت پنج دقیقه‌ای</small></div><i>←</i></button>
@@ -664,11 +675,23 @@ function threeMatchTemplate(): string {
   const rivalLast = last?.values[String(match?.opponent_id)];
   return `<section class="screen quick-match-screen">
     <header class="quick-match-hud glass-panel"><div><small>راند ${match?.round ?? 1} از ۳</small><strong>${match?.arena?.emoji ?? "◇"} ${escapeHtml(match?.arena?.name_fa ?? "میدان")}</strong></div><div class="versus-chip"><span>${mine}</span><i>VS</i><span>${rival}</span></div></header>
-    <div class="arena-banner"><span>${match?.arena?.emoji ?? "◇"}</span><div><small>ویژگی زمین</small><strong>${match?.arena?.boost_stat ? labels[match.arena.boost_stat].title : "—"}</strong><p>تقویت فقط برای کارت سازگار اعمال می‌شود. زمین هر سه راند ثابت است.</p></div></div>
+    <div class="arena-banner"><span>${match?.arena?.emoji ?? "◇"}</span><div><small>ویژگی زمین</small><strong>${match?.arena?.boost_stat ? labels[match.arena.boost_stat].title : "—"}</strong><p>تقویت فقط برای کارت سازگار اعمال می‌شود. با ابیلیتی تغییر زمین، میدان همین راوند و راوندهای بعد عوض می‌شود.</p></div></div>
     ${match?.opponent_card ? `<div class="reveal-card glass-panel"><span class="reveal-card__art" style="background-image:url('${escapeHtml(match.opponent_card.image_url)}')"></span><div><small>کارت حریف</small><strong>${escapeHtml(match.opponent_card.name)}</strong></div></div>` : ""}
     ${last ? `<div class="glass-panel" style="padding:12px;margin:10px 0"><strong>راند ${last.round}: ${last.winner_id === null ? "مساوی" : last.winner_id === match?.user_id ? "برد تو" : "برد حریف"}</strong><p>${myLast ? `${labels[myLast.stat].title} ${myLast.base}${myLast.boost ? ` + ${myLast.boost}` : ""} = ${myLast.total}` : "—"} · ${rivalLast ? `${labels[rivalLast.stat].title} ${rivalLast.base}${rivalLast.boost ? ` + ${rivalLast.boost}` : ""} = ${rivalLast.total}` : "—"}</p></div>` : ""}
-    <div class="decision-panel glass-panel">${match?.phase === "card_selection" || match?.my_stat_locked ? `<div class="choice-locked"><span>✓</span><strong>انتخابت ثبت شد</strong><p>منتظر تصمیم حریف هستیم…</p></div>` : `<div class="decision-title"><small>هر ویژگی فقط یک بار</small><strong>ویژگی راند ${match?.round ?? 1} را انتخاب کن</strong></div><div class="stat-grid quick-stat-grid">${(Object.keys(labels) as StatKey[]).map((key) => `<button class="stat-button ${(match?.my_boosts?.[key] ?? 0) > 0 ? "is-boosted" : ""}" data-action="three-stat" data-value="${key}" ${(match?.available_stats || []).includes(key) && !state.loading ? "" : "disabled"}><span>${labels[key].short}</span><strong>${match?.my_values?.[key] ?? "—"}</strong><small>${labels[key].title}${match?.my_boosts?.[key] ? ` +${match.my_boosts[key]} زمین` : ""}</small></button>`).join("")}</div>`}</div>
+    <div class="decision-panel glass-panel">${match?.phase === "stat_selection" ? threeAbilityTemplate(match) : ""}${match?.phase === "card_selection" || match?.my_stat_locked ? `<div class="choice-locked"><span>✓</span><strong>انتخابت ثبت شد</strong><p>منتظر تصمیم حریف هستیم…</p></div>` : `<div class="decision-title"><small>هر ویژگی فقط یک بار</small><strong>ویژگی راند ${match?.round ?? 1} را انتخاب کن</strong></div><div class="stat-grid quick-stat-grid">${(Object.keys(labels) as StatKey[]).map((key) => `<button class="stat-button ${(match?.my_boosts?.[key] ?? 0) > 0 ? "is-boosted" : ""}" data-action="three-stat" data-value="${key}" ${(match?.available_stats || []).includes(key) && !state.loading ? "" : "disabled"}><span>${labels[key].short}</span><strong>${match?.my_values?.[key] ?? "—"}</strong><small>${labels[key].title}${match?.my_boosts?.[key] ? ` +${match.my_boosts[key]} زمین` : ""}</small></button>`).join("")}</div>`}</div>
   </section>`;
+}
+
+function threeAbilityTemplate(match: ThreeRoundAbilityState, action = "three-ability"): string {
+  const used = match.my_ability_used;
+  const locked = match.my_stat_locked || state.loading;
+  return `<div class="three-ability-panel"><div class="decision-title"><small>موجودی مشترک با Quick</small><strong>ابیلیتی · فقط یک بار در کل مسابقه</strong></div>
+    ${used ? `<p>✓ ${escapeHtml(match.my_ability?.title || "ابیلیتی")} در راوند ${match.my_ability?.round ?? "—"} استفاده شد.</p>`
+      : match.abilities_enabled === false ? `<p>در این زمین ابیلیتی غیرفعال است؛ موجودی تو مصرف نشده.</p>`
+      : match.my_stat_locked ? `<p>برای این راوند ویژگی را ثبت کردی؛ اگر مسابقه ادامه پیدا کند، می‌توانی ابیلیتی را در راوند بعد مصرف کنی.</p>`
+      : match.abilities?.length ? `<details class="three-ability-menu" ${threeAbilityMenuOpen ? "open" : ""}><summary>انتخاب ابیلیتی (${match.abilities.length} نوع موجود)</summary><p>قبل از انتخاب ویژگی استفاده کن، یا برای راوند بعد نگه دار. قفل ویژگی در این مود ابیلیتی ندارد.</p><div class="ability-list">${match.abilities.map(ability => `<button data-action="${action}" data-value="${escapeHtml(ability.ability_key)}" ${locked ? "disabled" : ""}><div><strong>${escapeHtml(ability.title)}</strong><small>${escapeHtml(ability.description)}</small></div><span>×${ability.quantity}</span></button>`).join("")}</div></details>`
+      : `<p>فعلاً ابیلیتی قابل استفاده‌ای در موجودی نداری.</p>`}
+  </div>`;
 }
 
 function threeResultTemplate(): string {
@@ -682,10 +705,10 @@ function threeResultTemplate(): string {
   return `<section class="screen result-screen quick-result-screen">
     <div class="result-emblem ${won ? "result-emblem--win" : "result-emblem--lose"}"><span>${tie ? "=" : won ? "W" : "L"}</span></div>
     <p class="eyebrow">THREE ROUNDS COMPLETE</p><h2>${tie ? "نبرد مساوی شد" : won ? "تو برنده شدی" : "حریف برنده شد"}</h2>
-    <p>${report?.forfeit ? "نبرد به‌خاطر پایان مهلت انتخاب تمام شد." : `${report?.rounds.length ?? 0} راند در ${escapeHtml(match?.arena?.name_fa ?? "میدان")} انجام شد.`}</p>
+    <p>${report?.forfeit ? "نبرد به‌خاطر پایان مهلت انتخاب تمام شد." : `${report?.rounds.length ?? 0} راوند انجام شد؛ آخرین میدان: ${escapeHtml(match?.arena?.name_fa ?? "میدان")}.`}</p>
     <div class="reward-panel glass-panel"><div><small>برد راندها</small><strong>${mine} — ${rival}</strong></div></div>
     ${earned ? `<div class="reward-panel glass-panel"><div><small>پاداش نبرد</small><strong>+${earned.xp} XP · +${earned.score} Score</strong></div></div>` : ""}
-    ${(report?.rounds || []).map((round) => { const a = round.values[String(match?.user_id)]; const b = round.values[String(match?.opponent_id)]; return `<div class="glass-panel" style="padding:12px;margin-bottom:10px"><strong>راند ${round.round}: ${round.winner_id === null ? "مساوی" : round.winner_id === match?.user_id ? "برد تو" : "برد حریف"}</strong><p>تو: ${a ? `${labels[a.stat].title} ${a.base} + ${a.boost} = ${a.total}` : "—"} · حریف: ${b ? `${labels[b.stat].title} ${b.base} + ${b.boost} = ${b.total}` : "—"}</p></div>`; }).join("")}
+    ${(report?.rounds || []).map((round) => { const a = round.values[String(match?.user_id)]; const b = round.values[String(match?.opponent_id)]; return `<div class="glass-panel" style="padding:12px;margin-bottom:10px"><strong>راند ${round.round}: ${round.winner_id === null ? "مساوی" : round.winner_id === match?.user_id ? "برد تو" : "برد حریف"}</strong>${round.arena ? `<small> · ${escapeHtml(round.arena.name_fa)}</small>` : ""}<p>تو: ${a ? `${labels[a.stat].title} ${a.base} + ${a.boost} = ${a.total}` : "—"} · حریف: ${b ? `${labels[b.stat].title} ${b.base} + ${b.boost} = ${b.total}` : "—"}</p></div>`; }).join("")}
     <button class="primary-button" data-action="enter-three">نبرد سه‌راندی دوباره</button><button class="secondary-button" data-action="home">بازگشت به پایگاه</button>
   </section>`;
 }
@@ -817,10 +840,11 @@ function battleTemplate(): string {
       <div class="opponent-callout"><span>ASO</span><p>${round?.aso_dialog ?? fight?.aso_dialog ?? "در حال ورود حریف..."}</p></div>
       <div class="versus-label">VS</div>
       <div class="stat-console glass-panel">
-        <div class="console-title"><div><small>حرکت بعدی</small><strong>ویژگی حمله را انتخاب کن</strong></div><span>تقویت زمین: ${fight ? labels[fight.arena.boost_stat].title : "—"}</span></div>
+        ${fight ? threeAbilityTemplate(fight, "solo-ability") : ""}
+        <div class="console-title"><div><small>حرکت بعدی</small><strong>ویژگی حمله را انتخاب کن</strong></div><span>تقویت زمین: ${fight ? labels[fight.arena.boost_stat]?.title ?? "—" : "—"}</span></div>
         <div class="stat-grid">
           ${(Object.keys(labels) as StatKey[]).map((key) => {
-            const value = fight?.player_card[key] ?? 0;
+            const value = fight?.my_values?.[key] ?? fight?.player_card[key] ?? 0;
             const enabled = available.includes(key) && !state.loading && !round?.game_over;
             return `<button class="stat-button ${fight?.arena.boost_stat === key ? "is-boosted" : ""}" data-action="stat" data-value="${key}" ${enabled ? "" : "disabled"}><span>${labels[key].short}</span><strong>${value}</strong><small>${labels[key].title}</small></button>`;
           }).join("")}
@@ -1374,9 +1398,11 @@ function scheduleThreePoll(delay = 2200): void {
 async function pollThree(): Promise<void> {
   const requestId = state.three?.request_id;
   if (!requestId) return;
+  if (state.loading) { scheduleThreePoll(900); return; }
+  const mutationVersion = threeMutationVersion;
   try {
     const updated = await api.threeStatus(requestId);
-    if (state.three?.request_id !== requestId) return;
+    if (state.three?.request_id !== requestId || mutationVersion !== threeMutationVersion || state.loading) return;
     state.three = updated;
     if (updated.phase === "card_selection" && !updated.my_card_locked) await loadCards();
     syncThreeScreen();
@@ -1389,6 +1415,7 @@ async function pollThree(): Promise<void> {
 }
 
 async function beginThree(kind: "random" | "invite"): Promise<void> {
+  threeAbilityMenuOpen = false;
   state.loading = true; state.playMode = "three"; render();
   try {
     state.three = kind === "random" ? await api.threeMatchmaking() : await api.createThreeInvite();
@@ -1401,6 +1428,7 @@ async function beginThree(kind: "random" | "invite"): Promise<void> {
 
 async function acceptThree(): Promise<void> {
   if (!state.incomingThreeInvite) return;
+  threeAbilityMenuOpen = false;
   state.loading = true; render();
   try {
     state.three = await api.acceptThreeInvite(state.incomingThreeInvite);
@@ -1412,6 +1440,7 @@ async function acceptThree(): Promise<void> {
 
 async function submitThreeCard(): Promise<void> {
   if (!state.three || !state.selected || state.loading) return;
+  threeMutationVersion++;
   state.loading = true; render();
   try {
     state.three = await api.threeCard(state.three.request_id, state.selected.card_id);
@@ -1422,12 +1451,26 @@ async function submitThreeCard(): Promise<void> {
 
 async function submitThreeStat(stat: StatKey): Promise<void> {
   if (!state.three || state.loading) return;
+  threeMutationVersion++;
   state.loading = true; render();
   try {
     state.three = await api.threeStat(state.three.request_id, stat);
     syncThreeScreen(); scheduleThreePoll(); haptic("medium");
   } catch (error) { showToast(error instanceof Error ? error.message : "ویژگی ثبت نشد"); }
   finally { state.loading = false; render(); }
+}
+
+async function submitThreeAbility(abilityKey: string): Promise<void> {
+  const match = state.three;
+  if (!match || state.loading || match.my_ability_used || match.my_stat_locked || match.phase !== "stat_selection" || !match.round) return;
+  threeMutationVersion++;
+  stopThreePolling();
+  state.loading = true; render();
+  try {
+    state.three = await api.threeAbility(match.request_id, abilityKey, match.round);
+    syncThreeScreen(); haptic("success"); showToast("ابیلیتی استفاده شد؛ حالا ویژگی را انتخاب کن");
+  } catch (error) { showToast(error instanceof Error ? error.message : "ابیلیتی ثبت نشد"); }
+  finally { state.loading = false; render(); scheduleThreePoll(900); }
 }
 
 async function cancelThree(): Promise<void> {
@@ -1482,6 +1525,7 @@ async function startFight(): Promise<void> {
   render();
   try {
     state.fight = await api.start(state.selected.card_id, state.difficulty);
+    threeAbilityMenuOpen = false;
     state.lastRound = undefined;
     state.screen = "battle";
     scene.showBattle(state.fight);
@@ -1502,6 +1546,8 @@ async function playStat(stat: StatKey): Promise<void> {
     const result = await api.round(state.fight.fight_id, stat);
     await scene.animateRound(result);
     state.lastRound = result;
+    if (result.fight) state.fight = result.fight;
+    else state.fight = { ...state.fight, current_round: result.next_round, available_stats: result.available_stats };
     haptic(result.round_winner === "player" ? "success" : "medium");
     if (result.game_over) {
       scene.showVictory(result.final_result?.winner === "player");
@@ -1515,10 +1561,31 @@ async function playStat(stat: StatKey): Promise<void> {
   }
 }
 
+async function submitSoloAbility(abilityKey: string): Promise<void> {
+  if (!state.fight || state.loading || state.fight.my_ability_used || state.lastRound?.game_over) return;
+  state.loading = true;
+  render();
+  try {
+    state.fight = await api.soloAbility(state.fight.fight_id, abilityKey, state.fight.current_round);
+    scene.showBattle(state.fight);
+    haptic("success");
+    showToast("ابیلیتی استفاده شد؛ حالا ویژگی را انتخاب کن.");
+  } catch (error) {
+    showToast(error instanceof Error ? error.message : "ابیلیتی ثبت نشد");
+    // A lost response may follow a successful server commit. Re-read before retry.
+    try { state.fight = await api.soloStatus(state.fight.fight_id); scene.showBattle(state.fight); }
+    catch { /* A later retry is still guarded by the server transaction. */ }
+  } finally {
+    state.loading = false;
+    render();
+  }
+}
+
 ui.addEventListener("click", (event) => {
   const button = (event.target as HTMLElement).closest<HTMLElement>("[data-action]");
   if (!button || button.hasAttribute("disabled")) return;
   const action = button.dataset.action;
+  if (action === "solo-ability") void submitSoloAbility(button.dataset.value || "");
   haptic();
   if (action === "onboarding-skip") { finishOnboarding(); return; }
   if (action === "onboarding-back") {
@@ -1615,6 +1682,7 @@ ui.addEventListener("click", (event) => {
   if (action === "select-card") { state.selected = state.cards.find((card) => card.card_id === button.dataset.id); render(); }
   if (action === "start") { if (state.playMode === "quick") void submitQuickCard(); else if (state.playMode === "three") void submitThreeCard(); else void startFight(); }
   if (action === "quick-ability") void submitQuickAbility(button.dataset.value || "skip");
+  if (action === "three-ability") void submitThreeAbility(button.dataset.value || "");
   if (action === "quick-stat") void submitQuickStat(button.dataset.value as StatKey);
   if (action === "three-stat") void submitThreeStat(button.dataset.value as StatKey);
   if (action === "stat") void playStat(button.dataset.value as StatKey);

@@ -124,18 +124,29 @@ export class ApiError extends Error {
   }
 }
 
-export interface FightData {
+export interface ThreeRoundAbilityState {
+  abilities?: QuickAbility[];
+  abilities_enabled?: boolean;
+  my_ability_used?: boolean;
+  my_ability?: { ability_key: string; round: number; title: string } | null;
+  my_stat_locked?: boolean;
+}
+
+export interface FightData extends ThreeRoundAbilityState {
   fight_id: string;
   player_card: CardData;
-  ai_card: CardData;
+  ai_card: CardData | null;
   ai_name: string;
   aso_dialog: string;
   arena: { arena_id: string; name_fa: string; boost_stat: StatKey; emoji: string; version?: number | null; background_url?: string | null };
   current_round: number;
   available_stats: StatKey[];
+  my_values?: Record<StatKey, number>;
+  my_boosts?: Record<StatKey, number>;
 }
 
 export interface RoundData {
+  fight?: FightData;
   round_number: number;
   player_stat: StatKey;
   player_value: number;
@@ -227,7 +238,7 @@ export interface QuickState {
   report?: QuickReport;
 }
 
-export interface ThreeRoundState {
+export interface ThreeRoundState extends ThreeRoundAbilityState {
   request_id: string;
   user_id: number;
   status: QuickState["status"];
@@ -251,6 +262,7 @@ export interface ThreeRoundState {
   my_boosts?: Record<StatKey, number>;
   available_stats?: StatKey[];
   rounds_won?: Record<string, number>;
+  opponent_ability_used?: boolean;
   last_round?: ThreeRoundResult | null;
   report?: { winner_id: number | null; is_tie: boolean; forfeit: boolean; reason?: string; rounds_won: Record<string, number>; rounds: ThreeRoundResult[]; rewards?: Record<string, { xp: number; score: number }> } | null;
 }
@@ -259,6 +271,7 @@ export interface ThreeRoundResult {
   round: number;
   winner_id: number | null;
   values: Record<string, { stat: StatKey; base: number; boost: number; total: number }>;
+  arena?: ThreeRoundState["arena"];
 }
 
 const API_BASE = "/api/v1";
@@ -528,6 +541,12 @@ export const api = {
     const gameOver = demoRound >= 2;
     return { round_number: demoRound, player_stat: stat, player_value: 91, player_boost: stat === "iq" ? 8 : 0, player_total: stat === "iq" ? 99 : 91, ai_stat: demoRound === 1 ? "power" : "popularity", ai_value: 88, ai_boost: 0, ai_total: 88, round_winner: "player", player_rounds_won: playerWins, ai_rounds_won: 0, game_over: gameOver, next_round: demoRound + 1, available_stats: ["power", "speed", "iq", "popularity"].filter((item) => item !== stat) as StatKey[], aso_dialog: demoRound === 1 ? "این فقط شروع بود..." : "این نبرد را به خاطر می‌سپارم.", final_result: gameOver ? { winner: "player", aso_dialog: "امروز میدان برای تو بود.", rewards: { coins: 180, score: 240, xp: 90 } } : undefined };
   },
+  async soloAbility(fightId: string, abilityKey: string, round: number): Promise<FightData> {
+    return request("POST", "/solo/ability", { fight_id: fightId, ability_key: abilityKey, round });
+  },
+  async soloStatus(fightId: string): Promise<FightData> {
+    return request("GET", `/solo/fights/${encodeURIComponent(fightId)}`);
+  },
   async quickMatchmaking(variant: QuickState["variant"] = "normal"): Promise<QuickState> {
     if (demoMode) return makeDemoQuick("random_queue");
     return request("POST", "/quick/matchmaking", { variant });
@@ -594,6 +613,9 @@ export const api = {
   },
   async threeStat(requestId: string, stat: StatKey): Promise<ThreeRoundState> {
     return request("POST", `/three-round/matches/${encodeURIComponent(requestId)}/stat`, { stat });
+  },
+  async threeAbility(requestId: string, abilityKey: string, round: number): Promise<ThreeRoundState> {
+    return request("POST", `/three-round/matches/${encodeURIComponent(requestId)}/ability`, { ability_key: abilityKey, round });
   },
 };
 

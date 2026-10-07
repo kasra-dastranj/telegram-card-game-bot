@@ -15,7 +15,7 @@ html, body, #app { background: #131714; }
 button { cursor: pointer; }
 button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid #f6d998; outline-offset: 4px; }
 #game-root canvas { filter: none; }
-body:not([data-app-screen="battle"]):not([data-app-screen="quickMatch"]):not([data-app-screen="quickResult"]):not([data-app-screen="cards"]) #game-root { visibility: hidden; }
+body:not([data-app-screen="battle"]):not([data-app-screen="quickMatch"]):not([data-app-screen="quickResult"]):not([data-app-screen="threeMatch"]):not([data-app-screen="threeResult"]):not([data-app-screen="cards"]) #game-root { visibility: hidden; }
 body[data-app-screen="cards"]:has(.cards-screen:not(.drag-card-screen)) #game-root { visibility: hidden; }
 .screen { max-width: 560px; }
 .glass-panel { background: linear-gradient(130deg, #272c24f5, #171e19f5); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 24px #0003; backdrop-filter: blur(10px); }

@@ -106,8 +106,8 @@ export class BattleScene extends Phaser.Scene {
     this.setArena(fight.arena);
     const entries = [
       { key: `player-${fight.player_card.card_id}`, card: fight.player_card },
-      { key: `ai-${fight.ai_card.card_id}`, card: fight.ai_card },
     ];
+    if (fight.ai_card) entries.push({ key: `ai-${fight.ai_card.card_id}`, card: fight.ai_card });
     this.withCardTextures(entries, () => this.placeCards(fight));
   }
 
@@ -463,7 +463,9 @@ export class BattleScene extends Phaser.Scene {
     // Preserve background_url and version while card textures finish loading.
     // Reducing this payload to arena_id replaces custom registry media.
     this.setArena(fight.arena);
-    this.aiView = this.makeCard(fight.ai_card, `ai-${fight.ai_card.card_id}`, 360, 330, false);
+    this.aiView = fight.ai_card
+      ? this.makeCard(fight.ai_card, `ai-${fight.ai_card.card_id}`, 360, 330, false)
+      : this.makeHiddenCard(360, 330, "با ابیلیتی مشاهده کارت حریف");
     this.playerView = this.makeCard(fight.player_card, `player-${fight.player_card.card_id}`, 360, 760, true);
     if (this.reducedMotion()) {
       this.aiView.setScale(0.62).setAngle(2);
@@ -492,7 +494,7 @@ export class BattleScene extends Phaser.Scene {
     this.tweens.add({ targets: this.aiView, alpha: 1, y: 330, scale: 0.54, angle: 2.4, duration: 480, delay: 70, ease: "Back.easeOut", onComplete: () => this.floatCard(this.aiView, -1) });
   }
 
-  private makeHiddenCard(x: number, y: number): CardView {
+  private makeHiddenCard(x: number, y: number, hint = "تا پایان تصمیم‌گیری"): CardView {
     const objects: Phaser.GameObjects.GameObject[] = [];
     const floorShadow = this.add.ellipse(8, 220, 252, 44, 0x000000, 0.58);
     const glow = this.add.rectangle(5, 6, 302, 400, 0xe4ad4e, 0.04).setStrokeStyle(13, 0xe4ad4e, 0.07).setBlendMode(Phaser.BlendModes.ADD);
@@ -509,7 +511,7 @@ export class BattleScene extends Phaser.Scene {
       this.add.text(0, -22, "?", { fontFamily: "Segoe UI", fontSize: "44px", color: "#e4ad4e", fontStyle: "bold" }).setOrigin(0.5),
       this.add.rectangle(0, 131, 270, 96, 0x07110e, 0.96),
       this.add.text(0, 112, "انتخاب مخفی", { fontFamily: "Tahoma", fontSize: "23px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5),
-      this.add.text(0, 147, "تا پایان تصمیم‌گیری", { fontFamily: "Tahoma", fontSize: "16px", color: "#d7bd87" }).setOrigin(0.5),
+      this.add.text(0, 147, hint, { fontFamily: "Tahoma", fontSize: "16px", color: "#d7bd87" }).setOrigin(0.5),
     );
     const container = this.add.container(x, y, objects).setDepth(12);
     if (!this.reducedMotion()) this.tweens.add({ targets: glow, alpha: { from: 0.18, to: 0.5 }, duration: 1450, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
