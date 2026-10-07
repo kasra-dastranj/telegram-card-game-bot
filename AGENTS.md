@@ -14,3 +14,7 @@ Rules:
 ## Personal collaborator branches
 
 If the checked-out branch starts with `collab/`, read `COLLABORATOR_START_HERE.md` before working. Keep all work on that personal branch, bring in owner changes with `git fetch origin main` and `git merge origin/main`, and verify every completed commit is pushed to the same branch. Do not push to `main`, force-push, merge a PR, deploy to the VPS, or use production credentials from a collaborator branch. The owner's normal `main` workflow is unaffected.
+
+## Reviewed Actions releases
+
+After owner review and merging to main, a collaborator with Write may manually dispatch `Deploy TelBattle` from main, using the protected production Environment. This exception applies only after the owner completes and approves bootstrap in `docs/DEPLOY_FROM_GITHUB_FA.md`; never dispatch production during implementation or before that approval. It does not permit direct SSH, root access, retrieving production data/secrets, bypassing branch protection, or deploying a collaborator branch. Workflows, deployment helpers, access policies and bootstrap changes require owner review. CI must remain offline with temporary SQLite databases and no production secrets. Server-side manual owner releases must hold `/opt/telbattle/deploy.lock`; automatic rollback restores code only, never post-start player data.

@@ -7,13 +7,13 @@
 from game_core import DatabaseManager, GameLogic, CardRarity
 from systems.claim_system import ClaimSystem, format_pool_stats
 
-def test_claim_pool():
+def test_claim_pool(tmp_path):
     """تست pool management"""
     print("=" * 60)
     print("🧪 تست Claim Pool Management")
     print("=" * 60)
     
-    db = DatabaseManager('game_bot_test.db')
+    db = DatabaseManager(str(tmp_path / 'claim.db'))
     claim_system = ClaimSystem(db)
     
     test_user_id = 5735941901
@@ -33,13 +33,13 @@ def test_claim_pool():
     
     print("\n✅ تست Pool Management موفق")
 
-def test_claim_card():
+def test_claim_card(tmp_path):
     """تست کلیم کارت"""
     print("\n" + "=" * 60)
     print("🧪 تست Claim Card")
     print("=" * 60)
     
-    db = DatabaseManager('game_bot_test.db')
+    db = DatabaseManager(str(tmp_path / 'claim.db'))
     game = GameLogic(db)
     
     test_user_id = 5735941901
@@ -82,13 +82,13 @@ def test_claim_card():
     
     print("\n✅ تست Claim Card موفق")
 
-def test_claim_cooldown():
+def test_claim_cooldown(tmp_path):
     """تست cooldown کلیم"""
     print("\n" + "=" * 60)
     print("🧪 تست Claim Cooldown")
     print("=" * 60)
     
-    db = DatabaseManager('game_bot_test.db')
+    db = DatabaseManager(str(tmp_path / 'claim.db'))
     claim_system = ClaimSystem(db)
     
     test_user_id = 5735941901
@@ -104,13 +104,13 @@ def test_claim_cooldown():
     
     print("\n✅ تست Cooldown موفق")
 
-def test_pool_exclusion():
+def test_pool_exclusion(tmp_path):
     """تست حذف کارت‌های Epic/Legend از pool"""
     print("\n" + "=" * 60)
     print("🧪 تست Pool Exclusion (Epic/Legend)")
     print("=" * 60)
     
-    db = DatabaseManager('game_bot_test.db')
+    db = DatabaseManager(str(tmp_path / 'claim.db'))
     claim_system = ClaimSystem(db)
     
     test_user_id = 5735941901
@@ -150,17 +150,5 @@ def test_pool_exclusion():
     print(f"✅ تست Pool Exclusion موفق")
 
 if __name__ == "__main__":
-    try:
-        test_claim_pool()
-        test_claim_cooldown()
-        test_pool_exclusion()
-        test_claim_card()
-        
-        print("\n" + "=" * 60)
-        print("✅ همه تست‌ها با موفقیت انجام شد!")
-        print("=" * 60)
-        
-    except Exception as e:
-        print(f"\n❌ خطا: {e}")
-        import traceback
-        traceback.print_exc()
+    import pytest
+    raise SystemExit(pytest.main([__file__, "-q"]))

@@ -1,0 +1,74 @@
+name: Deploy TelBattle
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Deploy tested main, or roll code back to the recorded previous release
+        type: choice
+        options: [deploy, rollback]
+        default: deploy
+      rollback_from_sha:
+        description: For rollback only, the full SHA currently active on the server
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: telbattle-production
+  cancel-in-progress: false
+  queue: max
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - env:
+          REF: ${{ github.ref }}
+          OPERATION: ${{ inputs.operation }}
+          ROLLBACK_SHA: ${{ inputs.rollback_from_sha }}
+        run: |
+          python - <<'PY'
+          import os, re
+          assert os.environ['REF'] == 'refs/heads/main', 'Deployment requires main'
+          assert os.environ['OPERATION'] in ('deploy', 'rollback')
+          if os.environ['OPERATION'] == 'rollback':
+              assert re.fullmatch('[0-9a-f]{40}', os.environ['ROLLBACK_SHA']), 'Full current SHA required for rollback'
+          PY
+  test-build:
+    needs: validate
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+  production:
+    needs: [validate, test-build]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment:
+      name: production
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: ${{ needs.test-build.outputs.artifact_name }}
+          path: release-artifact
+      - run: python deployment/actions/package_release.py verify --archive release-artifact/telbattle-release.tar.gz --sha "$GITHUB_SHA" --run-id "$GITHUB_RUN_ID"
+      - name: Fixed SSH deployment entrypoint
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          OPERATION: ${{ inputs.operation }}
+          ROLLBACK_FROM_SHA: ${{ inputs.rollback_from_sha }}
+        run: python deployment/actions/send_release.py
+      - name: External reachability (separate from internal activation health)
+        if: success()
+        run: python deployment/actions/check_external.py
