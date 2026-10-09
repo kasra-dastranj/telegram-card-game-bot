@@ -220,6 +220,32 @@ def post(client, path, user_id, payload=None):
     return client.post(path, json=payload or {}, headers=headers(user_id))
 
 
+def test_phase1_direct_three_round_custom_card_payload_cannot_override_context(client_and_modes):
+    client, modes = client_and_modes
+    first = post(client, '/api/v1/three-round/matchmaking', 101).get_json()
+    post(client, '/api/v1/three-round/matchmaking', 202)
+    with closing(sqlite3.connect(modes.db.db_path)) as conn, conn:
+        conn.execute("UPDATE cards SET origin='custom' WHERE card_id='three-a'")
+    response = post(client, f"/api/v1/three-round/matches/{first['request_id']}/card", 101,
+                    {'card_id': 'three-a', 'mode': 'practice', 'variant': 'friendly',
+                     'allow_custom_cards': True})
+    assert response.status_code == 409
+    assert response.get_json()['reason'] == 'card_ineligible'
+    assert modes.get_state(first['request_id'])['cards'] == {}
+
+
+def test_phase1_solo_custom_card_start_rejected_with_flags_off(client_and_modes):
+    client, modes = client_and_modes
+    with closing(sqlite3.connect(modes.db.db_path)) as conn, conn:
+        conn.execute("UPDATE cards SET origin='custom' WHERE card_id='three-a'")
+    response = post(client, '/api/v1/solo/start', 101,
+                    {'player_card_id': 'three-a', 'difficulty': 'easy', 'custom_cards_enabled': True})
+    assert response.status_code == 400
+    assert response.get_json()['code'] == 'card_ineligible'
+    with closing(sqlite3.connect(modes.db.db_path)) as conn:
+        assert conn.execute('SELECT COUNT(*) FROM solo_fights').fetchone()[0] == 0
+
+
 def test_trial_level_gate_returns_clear_error_for_three_round(client_and_modes):
     client, modes = client_and_modes
     ModeAccessSystem(modes.db).set_min_level("mini_three_round", 2)

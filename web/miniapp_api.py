@@ -1257,6 +1257,9 @@ def solo_start():
     player_card = db.get_card_by_id_for_player(player_card_id, user_id)
     if not player_card:
         return jsonify({"error": "کارت انتخاب‌شده معتبر نیست"}), 400
+    from systems.shared_foundation import eligible_cards
+    if not eligible_cards(db, [player_card], "practice"):
+        return jsonify({"error": "این کارت در این مود مجاز نیست", "code": "card_ineligible"}), 400
 
     player_cards = db.get_player_cards(user_id)
     player_card_ids = [c.card_id for c in player_cards]

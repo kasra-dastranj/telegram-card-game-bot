@@ -43,7 +43,7 @@ class PlayerRewardsSystem:
             row = conn.execute("SELECT last_claim FROM players WHERE user_id=?", (user_id,)).fetchone()
             status = self._claim_status_from(row[0] if row else None)
             pool = conn.execute(
-                "SELECT COUNT(*) FROM cards WHERE rarity='normal'"
+                "SELECT COUNT(*) FROM cards WHERE rarity='normal' AND origin='official'"
             ).fetchone()[0]
             return {
                 **status,
@@ -71,7 +71,7 @@ class PlayerRewardsSystem:
                 conn.rollback()
                 return {"ok": False, "error_code": "already_claimed", "error": "کارت روزانه امروز دریافت شده است", **status}
             rows = conn.execute(
-                "SELECT card_id FROM cards WHERE rarity='normal'"
+                "SELECT card_id FROM cards WHERE rarity='normal' AND origin='official'"
             ).fetchall()
             if not rows:
                 conn.rollback()
@@ -113,6 +113,7 @@ class PlayerRewardsSystem:
                 JOIN cards c ON c.card_id=m.card_id
                 JOIN player_cards pc ON pc.card_id=m.card_id AND pc.user_id=?
                 LEFT JOIN player_card_missions pm ON pm.user_id=? AND pm.card_id=m.card_id
+                WHERE c.origin='official'
                 ORDER BY completed DESC, current_progress DESC, c.name COLLATE NOCASE
                 """,
                 (user_id, user_id),
@@ -148,7 +149,7 @@ class PlayerRewardsSystem:
                 FROM player_card_missions pm
                 JOIN player_cards pc ON pc.user_id=pm.user_id AND pc.card_id=pm.card_id
                 JOIN cards c ON c.card_id=pm.card_id
-                WHERE pm.user_id=? AND pm.card_id=?
+                WHERE pm.user_id=? AND pm.card_id=? AND c.origin='official'
                 """,
                 (user_id, card_id),
             ).fetchone()

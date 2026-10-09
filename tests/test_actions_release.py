@@ -245,6 +245,18 @@ def test_isolated_preflight_accepts_current_startup_and_rejects_migration_on_cop
     apply_migration(copy)
     prepared = subprocess.run(command, cwd=str(tmp_path), env=env, capture_output=True)
     assert prepared.returncode == 0, prepared.stderr.decode('utf-8', errors='replace')
+    # Phase 1 likewise requires owner preparation; deploy must not auto-migrate.
+    for attempt in range(2):
+        with sqlite3.connect(str(copy)) as legacy:
+            legacy.execute('DROP TABLE foundation_settings')
+            legacy.execute('DROP TABLE match_contexts')
+        if attempt == 0:
+            rejected = subprocess.run(command, cwd=str(tmp_path), env=env, capture_output=True)
+            assert rejected.returncode != 0
+    from migrations.migrate_shared_foundation import apply_migration as prepare_foundation
+    prepare_foundation(copy)
+    prepared = subprocess.run(command, cwd=str(tmp_path), env=env, capture_output=True)
+    assert prepared.returncode == 0, prepared.stderr.decode('utf-8', errors='replace')
     with (release / "core/database.py").open("a", encoding="utf-8") as changed:
         changed.write("\nimport os\nwith sqlite3.connect(os.environ['DATABASE_PATH']) as c:\n    c.execute('CREATE TABLE unreviewed_migration (value INTEGER)')\n")
     failed = subprocess.run(command, cwd=str(tmp_path), env=env, capture_output=True)

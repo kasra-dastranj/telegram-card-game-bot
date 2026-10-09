@@ -90,8 +90,11 @@ class Card:
     image_path: str = ""
     card_type: str = "POWER_TYPE"   # POWER_TYPE / SPEED_TYPE / IQ_TYPE / POPULARITY_TYPE
     created_at: datetime = None
+    origin: str = "official"
     
     def __post_init__(self):
+        if self.origin not in {"official", "custom"}:
+            raise ValueError("invalid_card_origin")
         if self.created_at is None:
             self.created_at = datetime.now()
         
@@ -140,7 +143,8 @@ class Card:
             'biography': self.biography,
             'image_path': self.image_path,
             'card_type': self.card_type,
-            'created_at': self.created_at.isoformat()
+            'created_at': self.created_at.isoformat(),
+            'origin': self.origin
         }
     
     @classmethod
@@ -190,7 +194,8 @@ class Card:
             biography=data.get('biography', 'Biography not available.'),
             image_path=data.get('image_path', ''),
             card_type=data.get('card_type', 'POWER_TYPE'),
-            created_at=datetime.fromisoformat(data['created_at'])
+            created_at=datetime.fromisoformat(data['created_at']),
+            origin=data.get('origin', 'official')
         )
 
 @dataclass

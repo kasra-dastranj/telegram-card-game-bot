@@ -105,7 +105,7 @@ class CardUpgradeSystem:
                 FROM player_cards pc
                 JOIN cards c ON c.card_id=pc.card_id
                 JOIN players p ON p.user_id=pc.user_id
-                WHERE pc.user_id=? AND pc.card_id=?
+                WHERE pc.user_id=? AND pc.card_id=? AND c.origin='official'
                 """,
                 (user_id, card_id),
             ).fetchone()
@@ -164,7 +164,7 @@ class CardUpgradeSystem:
                 FROM player_cards pc
                 JOIN cards c ON c.card_id=pc.card_id
                 JOIN players p ON p.user_id=pc.user_id
-                WHERE pc.user_id=? AND pc.card_id=?
+                WHERE pc.user_id=? AND pc.card_id=? AND c.origin='official'
                 """,
                 (user_id, card_id),
             ).fetchone()

@@ -6,6 +6,7 @@
 """
 
 import random
+from systems.shared_foundation import economic_card_eligible
 import logging
 from typing import List, Tuple, Optional, Set
 from datetime import datetime, timedelta
@@ -51,7 +52,7 @@ class ClaimSystem:
             لیست کارت‌های قابل claim
         """
         # دریافت همه کارت‌های Normal
-        all_cards = self.db.get_all_cards()
+        all_cards = [card for card in self.db.get_all_cards() if economic_card_eligible(card)]
         normal_cards = [c for c in all_cards if c.rarity == CardRarity.NORMAL]
         
         if not normal_cards:
@@ -59,7 +60,7 @@ class ClaimSystem:
             return []
         
         # دریافت کارت‌های Epic و Legend بازیکن
-        player_cards = self.db.get_player_cards(user_id)
+        player_cards = [card for card in self.db.get_player_cards(user_id) if economic_card_eligible(card)]
         
         # ساخت set از card_id های Epic و Legend
         excluded_card_ids: Set[str] = set()
@@ -167,10 +168,10 @@ class ClaimSystem:
         Returns:
             آمار pool
         """
-        all_cards = self.db.get_all_cards()
+        all_cards = [card for card in self.db.get_all_cards() if economic_card_eligible(card)]
         normal_cards = [c for c in all_cards if c.rarity == CardRarity.NORMAL]
         
-        player_cards = self.db.get_player_cards(user_id)
+        player_cards = [card for card in self.db.get_player_cards(user_id) if economic_card_eligible(card)]
         
         # تعداد کارت‌های Epic/Legend
         epic_count = len([c for c in player_cards if c.rarity == CardRarity.EPIC])

@@ -2049,6 +2049,12 @@ class BattleHandlersMixin:
         if card_id not in remaining:
             return False, None, "این کارت دیگر قابل انتخاب نیست"
 
+        from systems.shared_foundation import validate_match_card
+        try:
+            validate_match_card(self.db, "fight:" + fight_id, "legacy_pvp", card_id, user_id)
+        except ValueError:
+            return False, None, "این کارت در این مود مجاز نیست"
+
         if context.bot_data.get(f"r3_{fight_id}_{role}_card"):
             return False, None, "برای این راوند کارت انتخاب شده"
 

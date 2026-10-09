@@ -98,6 +98,10 @@ class CardMissionsSystem:
         Returns:
             موفقیت
         """
+        from systems.shared_foundation import economic_card_eligible
+        card = self.db.get_card_by_id(card_id)
+        if card is not None and not economic_card_eligible(card):
+            return False
         if mission_type not in MISSION_TYPES:
             logger.error(f"Invalid mission type: {mission_type}")
             return False
@@ -168,6 +172,10 @@ class CardMissionsSystem:
         Returns:
             اطلاعات پیشرفت
         """
+        from systems.shared_foundation import economic_card_eligible
+        card = self.db.get_card_by_id(card_id)
+        if card is not None and not economic_card_eligible(card):
+            return None
         # دریافت ماموریت
         mission = self.get_mission(card_id)
         if not mission:

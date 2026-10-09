@@ -9,6 +9,7 @@ import logging
 from typing import List, Dict, Optional, Tuple
 
 from core.models import Card, CardRarity
+from systems.shared_foundation import is_card_eligible, MatchContext
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +76,8 @@ class DeckSystem:
 
         # عضویت در کلکسیون. طبق قوانین جدید Deck Mode، rarity دیگر
         # محدودیت ساخت دک نیست و فقط برای نمایش خلاصه نگه داشته می‌شود.
-        player_cards = {c.card_id: c for c in self.db.get_player_cards(player_id)}
+        player_cards = {c.card_id: c for c in self.db.get_player_cards(player_id)
+                        if is_card_eligible(c, MatchContext("deck"))}
         for cid in card_ids:
             if cid not in player_cards:
                 return False, ERR_NOT_OWNED.format(name=cid)
@@ -224,6 +226,11 @@ class DeckSystem:
 
         owned_ids = {c.card_id for c in self.db.get_player_cards(player_id)}
         card_ids = [deck['card_id_1'], deck['card_id_2'], deck['card_id_3']]
+
+        eligible_ids = {c.card_id for c in self.db.get_player_cards(player_id)
+                        if is_card_eligible(c, MatchContext("deck"))}
+        if any(cid in owned_ids and cid not in eligible_ids for cid in card_ids):
+            return False  # Eligibility does not rewrite legacy ownership/decks.
 
         if all(cid in owned_ids for cid in card_ids):
             return True

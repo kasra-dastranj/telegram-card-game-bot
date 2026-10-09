@@ -6,6 +6,7 @@
 """
 
 import sqlite3
+from systems.shared_foundation import economic_card_eligible, economic_card_in
 import logging
 from typing import List, Tuple, Optional, Dict
 from datetime import datetime
@@ -61,7 +62,7 @@ class FusionSystem:
                       COALESCE(v.abilities,c.abilities) AS abilities,
                       COALESCE(v.card_effects,c.card_effects) AS card_effects,
                       c.dialogs,c.biography,COALESCE(v.image_path,c.image_path) AS image_path,
-                      COALESCE(v.card_type,c.card_type) AS card_type,c.created_at
+                      COALESCE(v.card_type,c.card_type) AS card_type,c.created_at,c.origin
                FROM cards c JOIN player_cards pc ON pc.card_id=c.card_id AND pc.user_id=?
                LEFT JOIN card_variants v ON v.card_id=c.card_id
                    AND v.rarity=COALESCE(pc.rarity_override,c.rarity)
@@ -81,7 +82,7 @@ class FusionSystem:
             (can_fuse, available_normal_cards)
         """
         player_cards = self.db.get_player_cards(user_id)
-        normal_cards = [c for c in player_cards if c.rarity == CardRarity.NORMAL]
+        normal_cards = [c for c in player_cards if c.rarity == CardRarity.NORMAL and economic_card_eligible(c)]
         
         can_fuse = len(normal_cards) >= 3
         logger.info(f"User {user_id} can_fuse_to_epic: {can_fuse} ({len(normal_cards)} Normal cards)")
@@ -99,7 +100,7 @@ class FusionSystem:
             (can_fuse, available_epic_cards)
         """
         player_cards = self.db.get_player_cards(user_id)
-        epic_cards = [c for c in player_cards if c.rarity == CardRarity.EPIC]
+        epic_cards = [c for c in player_cards if c.rarity == CardRarity.EPIC and economic_card_eligible(c)]
         
         can_fuse = len(epic_cards) >= 3
         logger.info(f"User {user_id} can_fuse_to_legend: {can_fuse} ({len(epic_cards)} Epic cards)")
@@ -144,6 +145,8 @@ class FusionSystem:
         # بررسی rarity
         for card_id in card_ids:
             card = player_card_ids[card_id]
+            if not economic_card_eligible(card):
+                return False, "کارت سفارشی قابل ترکیب نیست"
             if card.rarity != target_rarity:
                 expected = "Normal" if target_rarity == CardRarity.NORMAL else "Epic"
                 return False, f"همه کارت‌ها باید {expected} باشند"
@@ -197,7 +200,7 @@ class FusionSystem:
             rows = conn.execute(
                 f"""SELECT pc.card_id, COALESCE(pc.rarity_override,c.rarity) AS rarity
                     FROM player_cards pc JOIN cards c ON c.card_id=pc.card_id
-                    WHERE pc.user_id=? AND pc.card_id IN ({placeholders})""",
+                    WHERE pc.user_id=? AND pc.card_id IN ({placeholders}) AND c.origin='official'""",
                 (user_id, *card_ids),
             ).fetchall()
             if len(rows) != 3 or any(row["rarity"] != source for row in rows):
@@ -251,6 +254,8 @@ class FusionSystem:
             return {"ok": False, "error_code": "invalid_target", "error": "فرم مقصد نامعتبر است"}
         conn = sqlite3.connect(self.db.db_path)
         try:
+            if not economic_card_in(conn, card_id):
+                return {"ok": False, "error_code": "card_ineligible", "error": "کارت قابل ترکیب نیست"}
             count = CardInventorySystem.counts_in(conn, user_id, card_id).get(source, 0)
             variant = conn.execute(
                 "SELECT 1 FROM card_variants WHERE card_id=? AND rarity=?", (card_id, target)
@@ -284,6 +289,9 @@ class FusionSystem:
             if CardUpgradeSystem(self.db)._active_match(conn, user_id):
                 conn.rollback()
                 return FusionResult(False, error="تا پایان مسابقه نمی‌توانی کارت‌ها را ترکیب کنی")
+            if not economic_card_in(conn, card_id):
+                conn.rollback()
+                return FusionResult(False, error="کارت سفارشی قابل ترکیب نیست")
             if CardInventorySystem.counts_in(conn, user_id, card_id).get(source, 0) < 3:
                 conn.rollback()
                 return FusionResult(False, error="سه نسخهٔ یکسان از فرم موردنظر لازم است")

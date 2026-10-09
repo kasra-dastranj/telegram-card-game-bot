@@ -23,6 +23,7 @@ from systems.economy_system import EconomySystem
 from systems.tier_decay_system import TierDecaySystem
 from systems.risk_mode_system import RiskModeSystem, RiskTable, RiskAction
 from systems.battle_system_3rounds import BattleSystem3Rounds, BattleState, ARENAS
+from systems.shared_foundation import eligible_cards
 from systems.deck_system import DeckSystem, DECK_SELECTION_TTL_SECONDS
 from systems.card_missions_system import CardMissionsSystem, MISSION_TYPES
 from systems.skins_system import SkinsSystem, SKIN_TYPES
@@ -352,7 +353,7 @@ class PvPHandlersMixin:
             return
 
         # بررسی داشتن کارت
-        opponent_cards = self.db.get_player_cards(opponent_id)
+        opponent_cards = eligible_cards(self.db, self.db.get_player_cards(opponent_id), "legacy_pvp")
         if not opponent_cards:
             await query.answer("❌ ابتدا باید کارتی داشته باشید! در خصوصی /start بزنید.", show_alert=True)
             return
@@ -371,7 +372,7 @@ class PvPHandlersMixin:
             logger.warning(f"Failed to extend fight {fight_id} expiry: {e}")
 
         # انتخاب کارت تصادفی برای هر بازیکن از دک
-        challenger_cards = self.db.get_player_cards(fight.challenger_id)
+        challenger_cards = eligible_cards(self.db, self.db.get_player_cards(fight.challenger_id), "legacy_pvp")
         ch_card = random.choice(challenger_cards)
         op_card = random.choice(opponent_cards)
 
@@ -470,7 +471,7 @@ class PvPHandlersMixin:
             return
         
         # بررسی داشتن کارت
-        opponent_cards = self.db.get_player_cards(opponent_id)
+        opponent_cards = eligible_cards(self.db, self.db.get_player_cards(opponent_id), "legacy_pvp")
         if not opponent_cards:
             await query.answer("❌ ابتدا کارتی باید داشته باشید! در خصوصی /start بزنید.", show_alert=True)
             return
@@ -1212,7 +1213,7 @@ class PvPHandlersMixin:
             return
 
         # بررسی داشتن کارت
-        opponent_cards = self.db.get_player_cards(opponent_id)
+        opponent_cards = eligible_cards(self.db, self.db.get_player_cards(opponent_id), "legacy_pvp")
         if not opponent_cards:
             await query.answer("❌ ابتدا باید کارتی داشته باشید! در خصوصی /start بزنید.", show_alert=True)
             return
@@ -1231,7 +1232,7 @@ class PvPHandlersMixin:
             logger.warning(f"Failed to extend fight {fight_id} expiry: {e}")
 
         # انتخاب کارت تصادفی برای هر بازیکن از دک
-        challenger_cards = self.db.get_player_cards(fight.challenger_id)
+        challenger_cards = eligible_cards(self.db, self.db.get_player_cards(fight.challenger_id), "legacy_pvp")
         ch_card = random.choice(challenger_cards)
         op_card = random.choice(opponent_cards)
 
@@ -1330,7 +1331,7 @@ class PvPHandlersMixin:
             return
         
         # بررسی داشتن کارت
-        opponent_cards = self.db.get_player_cards(opponent_id)
+        opponent_cards = eligible_cards(self.db, self.db.get_player_cards(opponent_id), "legacy_pvp")
         if not opponent_cards:
             await query.answer("❌ ابتدا کارتی باید داشته باشید! در خصوصی /start بزنید.", show_alert=True)
             return

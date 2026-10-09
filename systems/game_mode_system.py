@@ -9,6 +9,8 @@ accepts deterministic even when Telegram delivers callbacks at the same time.
 
 from __future__ import annotations
 
+from systems.shared_foundation import (bind_context, legacy_context, settings_in, context_in, require_card_in, eligible_cards)
+
 import hashlib
 import json
 import logging
@@ -374,6 +376,7 @@ class GameModeSystem:
         invite_token: Optional[str] = None,
         rounds: int = 1,
     ) -> Dict[str, Any]:
+        context = legacy_context(mode, variant, settings_in(conn))
         now = _now()
         request_id = uuid.uuid4().hex[:12]
         conn.execute(
@@ -401,6 +404,7 @@ class GameModeSystem:
         row = conn.execute(
             "SELECT * FROM game_requests WHERE request_id = ?", (request_id,)
         ).fetchone()
+        bind_context(conn, request_id, context)
         return dict(row)
 
     def create_invite(
@@ -763,7 +767,7 @@ class GameModeSystem:
                 }
                 if request["variant"] == "random":
                     for user_id in players:
-                        cards = self.db.get_player_cards(user_id)
+                        cards = eligible_cards(self.db, self.db.get_player_cards(user_id), "quick")
                         if not cards:
                             raise ValueError(f"player_has_no_cards:{user_id}")
                         state["cards"][str(user_id)] = random.choice(cards).card_id
@@ -809,6 +813,12 @@ class GameModeSystem:
             conn.rollback()
             conn.close()
             raise ValueError("card_not_owned")
+        try:
+            require_card_in(conn, card_id, context_in(conn, request_id, "quick"), user_id)
+        except ValueError:
+            conn.rollback()
+            conn.close()
+            raise
         state["cards"][key] = card_id
         advanced = len(state["cards"]) == len(state["players"])
         if advanced:
@@ -1411,7 +1421,7 @@ class GameModeSystem:
         for user_id in players:
             traits = set()
             series_values = set()
-            for card in self.db.get_player_cards(user_id):
+            for card in eligible_cards(self.db, self.db.get_player_cards(user_id), "easy"):
                 metadata = self.get_card_metadata(card.card_id)
                 for trait in metadata.get("traits", []):
                     key = str(trait).strip().casefold()
@@ -1484,7 +1494,10 @@ class GameModeSystem:
             conn.close()
             return []
         key = str(user_id)
-        cards = self.db.get_player_cards(user_id)
+        context = context_in(conn, request_id, "easy")
+        flags = settings_in(conn)
+        from systems.shared_foundation import is_card_eligible
+        cards = [card for card in self.db.get_player_cards(user_id) if is_card_eligible(card, context, flags)]
         if key in state["options"]:
             wanted = set(state["options"][key])
             conn.rollback()
@@ -1533,6 +1546,12 @@ class GameModeSystem:
             conn.close()
             return False, "choice_locked", state
         if card_id not in options:
+            conn.rollback()
+            conn.close()
+            return False, "card_not_allowed", state
+        try:
+            require_card_in(conn, card_id, context_in(conn, request_id, "easy"), user_id)
+        except ValueError:
             conn.rollback()
             conn.close()
             return False, "card_not_allowed", state

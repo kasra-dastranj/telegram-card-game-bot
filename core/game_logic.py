@@ -237,6 +237,13 @@ class GameLogic:
         if not challenger_card or not opponent_card:
             return {"success": False, "error": "کارت‌ها یافت نشدند"}
         
+        from systems.shared_foundation import validate_match_card
+        try:
+            validate_match_card(self.db, "fight:" + fight_id, "legacy_pvp", challenger_card.card_id, fight.challenger_id)
+            validate_match_card(self.db, "fight:" + fight_id, "legacy_pvp", opponent_card.card_id, fight.opponent_id)
+        except ValueError:
+            return {"success": False, "error": "کارت در این مود مجاز نیست"}
+
         # محاسبه امتیازات - جمع دو ویژگی
         challenger_stat_value = challenger_card.get_stat_value(StatType(fight.challenger_stat))
         challenger_stat2 = challenger_card.get_stat_value(StatType(fight.opponent_stat))

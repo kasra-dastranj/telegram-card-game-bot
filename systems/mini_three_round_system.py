@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
 from systems.match_rewards_system import MatchRewardsSystem
+from systems.shared_foundation import context_in, require_card_in
 from systems.game_mode_system import ABILITY_DEFINITIONS
 from systems.three_round_abilities import ability_definition, available_abilities, consume_ability, select_arena
 
@@ -92,6 +93,7 @@ class MiniThreeRoundSystem:
                 card = self.db.get_card_by_id_for_player(card_id, user_id)
                 if not card:
                     raise ValueError("card_not_owned")
+                require_card_in(conn, card_id, context_in(conn, request_id, MODE), user_id)
                 state["cards"][key] = card_id
                 state["current_stats"][key] = {stat: int(getattr(card, stat)) for stat in STATS}
                 if len(state["cards"]) == 2:

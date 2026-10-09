@@ -25,6 +25,7 @@ from telegram.ext import ContextTypes
 from bot.utils import get_victory_dialog
 from core.models import FightStatus
 from systems.deck_system import DeckSystem, DECK_SELECTION_TTL_SECONDS
+from systems.shared_foundation import eligible_cards
 from systems.game_mode_system import (
     ABILITY_DEFINITIONS,
     EASY_CHOICE_TTL_SECONDS,
@@ -860,7 +861,7 @@ class GameModeHandlersMixin:
     async def _launch_deck_match(self, context, request: dict):
         ch_id, op_id = request["creator_id"], request["opponent_id"]
         chat_id = request.get("origin_chat_id") or ch_id
-        fight_id = self.db.create_fight(ch_id, op_id, chat_id)
+        fight_id = self.db.create_fight(ch_id, op_id, chat_id, mode="deck", selection_variant=request["variant"])
         inline_message_id = request.get("origin_inline_message_id")
         if inline_message_id:
             context.bot_data[f"deck_{fight_id}_inline_message_id"] = inline_message_id
@@ -902,8 +903,8 @@ class GameModeHandlersMixin:
             )
             return
 
-        ch_cards = self.db.get_player_cards(ch_id)
-        op_cards = self.db.get_player_cards(op_id)
+        ch_cards = eligible_cards(self.db, self.db.get_player_cards(ch_id), "deck")
+        op_cards = eligible_cards(self.db, self.db.get_player_cards(op_id), "deck")
         if len(ch_cards) < 3 or len(op_cards) < 3:
             await self._edit_request_panel(
                 context,

@@ -5,6 +5,8 @@
 سیستم بازی شرط‌بندی با Bluff
 """
 
+from systems.shared_foundation import bind_context, legacy_context, settings_in, context_in, require_card_in, eligible_cards
+
 import sqlite3
 import logging
 import random
@@ -90,7 +92,7 @@ class RiskModeSystem:
             allowed, reason = self.can_enter_risk(uid, table)
             if not allowed:
                 return {"success": False, "error": reason}
-        cards = [card.card_id for card in self.db.get_all_cards()]
+        cards = [card.card_id for card in eligible_cards(self.db, self.db.get_all_cards(), "risk")]
         if len(cards) < 3:
             return {"success": False, "error": "حداقل سه کارت برای بازی لازم است"}
         challenger_cards = random.sample(cards, 3)
@@ -117,6 +119,7 @@ class RiskModeSystem:
                  ','.join(challenger_cards), ','.join(opponent_cards), table.value * 2,
                  datetime.now().isoformat()),
             )
+            bind_context(conn, "risk:" + match_id, legacy_context("risk", settings=settings_in(conn)))
             conn.commit()
             return {"success": True, "match_id": match_id, "table_value": table.value,
                     "current_pot": table.value * 2, "challenger_cards": challenger_cards,
@@ -196,6 +199,10 @@ class RiskModeSystem:
                 return {"success": False, "error": "انتخاب کارت قبلاً ثبت شده است"}
             if card_id not in match[f"{role}_cards"].split(","):
                 return {"success": False, "error": "کارت نامعتبر است"}
+            try:
+                require_card_in(conn, card_id, context_in(conn, "risk:" + match_id, "risk"))
+            except ValueError:
+                return {"success": False, "error": "کارت در این مود مجاز نیست"}
             conn.execute(f"UPDATE risk_matches SET {role}_selected_card=? WHERE match_id=?", (card_id, match_id))
             conn.commit()
             return {"success": True}
@@ -312,6 +319,12 @@ class RiskModeSystem:
             o_card = self.db.get_card_by_id(match["opponent_selected_card"])
             if not c_card or not o_card:
                 return {"success": False, "error": "هر دو کارت باید انتخاب شوند"}
+            context = context_in(conn, "risk:" + match_id, "risk")
+            try:
+                require_card_in(conn, c_card.card_id, context)
+                require_card_in(conn, o_card.card_id, context)
+            except ValueError:
+                return {"success": False, "error": "کارت در این مود مجاز نیست"}
             selected_stat = random.choice(["power", "speed", "iq", "popularity"])
             c_value, o_value = getattr(c_card, selected_stat), getattr(o_card, selected_stat)
             winner = "challenger" if c_value > o_value else "opponent" if o_value > c_value else "tie"

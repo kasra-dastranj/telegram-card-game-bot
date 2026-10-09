@@ -227,7 +227,7 @@ class RareCardsSystem:
                    r.price_coins, r.limited_quantity, r.total_issued
             FROM cards c
             JOIN rare_cards_info r ON c.card_id = r.card_id
-            WHERE c.rarity = 'rare'
+            WHERE c.rarity = 'rare' AND c.origin='official'
             ORDER BY c.name
         ''')
         
@@ -263,6 +263,9 @@ class RareCardsSystem:
         Returns:
             نتیجه
         """
+        from systems.shared_foundation import economic_card_eligible
+        if not economic_card_eligible(self.db.get_card_by_id(card_id)):
+            return {"success": False, "error": "کارت سفارشی قابل خرید نیست"}
         # دریافت اطلاعات کارت
         info = self.get_rare_card_info(card_id)
         if not info:

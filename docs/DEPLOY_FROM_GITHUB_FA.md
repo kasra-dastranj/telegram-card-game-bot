@@ -12,7 +12,7 @@ Frontend با `npm ci` و `npm run build` ساخته می‌شود. اسکریپ
 
 `Deploy TelBattle` فقط workflow_dispatch است و ابتدا همین CI را به‌صورت reusable workflow برای SHA ثابت همان اجرای main تکرار می‌کند. job انتشار artifact همان run و attempt را دریافت می‌کند؛ هیچ git pull روی VPS انجام نمی‌شود. تغییر main حین اجرای workflow نسخهٔ انتخاب‌شده را عوض نمی‌کند. SHA، run و hash تک‌تک فایل‌ها در manifest و خلاصهٔ GitHub ثبت می‌شوند. اکشن‌های رسمی با SHA کامل pin شده‌اند؛ تغییر pin هم بازبینی مالک می‌خواهد.
 
-بسته فقط ماژول‌های اجرا، HTML پنل، JSONهای گفت‌وگوی runtime، requirements و index/chunkهای build را دارد. .env، config.json، game_config.json، دیتابیس، کلیدها، تست‌ها، ابزارهای deploy و تصاویر جدید بسته نمی‌شوند. تصاویر/رسانه و staticهای fonts، onboarding و arena-backgrounds از نسخهٔ موجود سرور حفظ می‌شوند. بسته هیچ دستور root یا migration را حمل نمی‌کند.
+بسته فقط ماژول‌های اجرا و migrationهای Python قابل بازبینی، HTML پنل، JSONهای گفت‌وگوی runtime، requirements و index/chunkهای build را دارد. .env، config.json، game_config.json، دیتابیس، کلیدها، تست‌ها، ابزارهای deploy و تصاویر جدید بسته نمی‌شوند. تصاویر/رسانه و staticهای fonts، onboarding و arena-backgrounds از نسخهٔ موجود سرور حفظ می‌شوند. helper هیچ دستور root از بسته یا migration خودکار را اجرا نمی‌کند.
 
 ## بررسی اولیهٔ GitHub در ۷ اکتبر ۲۰۲۶
 
@@ -57,6 +57,8 @@ gh variable set DEPLOY_USER --env production --repo kasra-dastranj/telegram-card
 ## bootstrap سرور؛ فقط صاحب پروژه
 
 **اصلاح فهرست دائمی Trait یک آماده‌سازی جداگانهٔ دیتابیس دارد.** پیش از نخستین انتشار شامل این اصلاح، صاحب پروژه مراحل [راهنمای Traitهای دائمی](CARD_TRAITS_FA.md) را اجرا کند. گیرندهٔ deploy migration را خودکار انجام نمی‌دهد و پیش از آماده‌سازی، preflight با قرارداد no-change انتشار را رد می‌کند.
+
+**فاز اول زیرساخت مشترک نیز migration افزایشی دارد.** پیش از نخستین انتشار شامل `origin` و `match_contexts`، مالک مراحل preview/backup/apply در [راهنمای فاز اول](PHASE1_SHARED_FOUNDATION_FA.md) را بازبینی و اجرا کند. چهار flag جدید خاموش‌اند؛ Friendly و کارت سفارشی و اقتصاد جدید با این انتشار فعال نمی‌شوند. no-change همچنان برقرار است و آماده‌سازی را دور نمی‌زند.
 
 عامل همکار این مراحل را روی VPS اجرا نمی‌کند. مالک از مسیر دسترسی مدیریتی خودش و clone دقیقِ commit ادغام‌شده/بازبینی‌شده استفاده می‌کند. public key اختصاصی را به سرور می‌رساند؛ private key روی سیستم همکار کپی نمی‌شود. در دستگاه امن مالک:
 
