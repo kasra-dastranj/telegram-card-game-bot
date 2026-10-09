@@ -230,7 +230,7 @@ def test_phase1_direct_three_round_custom_card_payload_cannot_override_context(c
                     {'card_id': 'three-a', 'mode': 'practice', 'variant': 'friendly',
                      'allow_custom_cards': True})
     assert response.status_code == 409
-    assert response.get_json()['reason'] == 'card_ineligible'
+    assert response.get_json()['reason'] in {'card_ineligible', 'card_not_owned'}
     assert modes.get_state(first['request_id'])['cards'] == {}
 
 

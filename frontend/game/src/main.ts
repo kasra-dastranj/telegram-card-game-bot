@@ -24,6 +24,7 @@ const state: {
   playMode: "solo" | "quick" | "three";
   quick?: QuickState;
   incomingInvite?: string;
+  incomingInviteInfo?: {variant: QuickState['variant']};
   three?: ThreeRoundState;
   incomingThreeInvite?: string;
   collection?: CardPage;
@@ -398,7 +399,7 @@ function collectionTemplate(): string {
   const cards = (page?.cards || []).map((card) => `
     <button class="collection-card rarity-${escapeHtml(card.rarity)}" data-action="card-detail" data-id="${escapeHtml(card.card_id)}">
       <span class="collection-card__art" style="background-image:url('${escapeHtml(card.image_url)}')"></span>
-      <span class="collection-card__body"><small>${escapeHtml(card.rarity.toUpperCase())}${card.inventory ? ` · ×${Object.values(card.inventory).reduce((sum, count) => sum + count, 0)}` : ""}</small><strong dir="auto">${escapeHtml(card.name)}</strong>${cardStatStrip(card)}</span>
+      <span class="collection-card__body"><small>${escapeHtml(card.rarity.toUpperCase())}${card.origin==="custom" ? " · سفارشی" : ""}${card.inventory ? ` · ×${Object.values(card.inventory).reduce((sum, count) => sum + count, 0)}` : ""}</small><strong dir="auto">${escapeHtml(card.name)}</strong>${cardStatStrip(card)}</span>
       ${card.is_in_cooldown ? '<i class="cooldown-badge">COOLDOWN</i>' : ""}
     </button>`).join("");
   const detail = state.detailCard ? cardDetailSheet(state.detailCard) : state.skinPanel ? skinsSheet() : "";
@@ -447,7 +448,7 @@ function cardDetailSheet(card: CardData): string {
       <button class="sheet-close" data-action="close-card-detail" aria-label="بستن">×</button>
       <div class="card-sheet__hero" style="background-image:url('${escapeHtml(card.image_url)}')"></div>
       <div class="card-sheet__content">
-        <p class="eyebrow">${escapeHtml(card.rarity.toUpperCase())}</p>
+        <p class="eyebrow">${escapeHtml(card.rarity.toUpperCase())}${card.origin==="custom" ? " · سفارشی" : ""}</p>
         <h2 dir="auto">${escapeHtml(card.name)}</h2>
         <p>${escapeHtml(card.biography || "زندگینامه‌ای ثبت نشده است.")}</p>
         <div class="card-stat-list">${stats.map(([name, value]) => `<span><small>${name}</small><strong>${value}</strong></span>`).join("")}</div>
@@ -455,7 +456,7 @@ function cardDetailSheet(card: CardData): string {
         ${formControls ? `<div class="card-actions"><strong>فرم‌های موجود</strong>${formControls}</div>` : ""}
         ${copyFusionControls ? `<div class="card-actions"><strong>ترکیب نسخه‌های یک شخصیت</strong>${copyFusionControls}</div>` : ""}
         ${card.is_in_cooldown ? '<p class="sheet-warning">این کارت در Cooldown است.</p>' : ""}
-        <div class="card-actions"><button class="secondary-button" data-action="open-skins" data-id="${escapeHtml(card.card_id)}">ظاهر کارت</button>${upgradeControl}${state.profile?.progression_v2_enabled ? forms.map(rarity => `<button class="secondary-button" data-action="preview-sell" data-value="${rarity}">فروش یک ${rarity.toUpperCase()}</button>`).join("") : ""}</div>${state.pendingSale?.cardId === card.card_id ? `<div class="upgrade-confirm"><strong>فروش یک ${state.pendingSale.rarity.toUpperCase()} به ${state.pendingSale.price} سکه؟</strong><p>اگر آخرین نسخه باشد، دک‌های دارای این کارت نامعتبر می‌شوند.</p><button data-action="confirm-sell">تأیید فروش</button><button data-action="cancel-sell">انصراف</button></div>` : ""}
+        <div class="card-actions">${card.origin!=="custom" ? `<button class="secondary-button" data-action="open-skins" data-id="${escapeHtml(card.card_id)}">ظاهر کارت</button>` : ""}${upgradeControl}${state.profile?.progression_v2_enabled ? forms.map(rarity => `<button class="secondary-button" data-action="preview-sell" data-value="${rarity}">فروش یک ${rarity.toUpperCase()}</button>`).join("") : ""}</div>${state.pendingSale?.cardId === card.card_id ? `<div class="upgrade-confirm"><strong>فروش یک ${state.pendingSale.rarity.toUpperCase()} به ${state.pendingSale.price} سکه؟</strong><p>اگر آخرین نسخه باشد، دک‌های دارای این کارت نامعتبر می‌شوند.</p><button data-action="confirm-sell">تأیید فروش</button><button data-action="cancel-sell">انصراف</button></div>` : ""}
         ${pendingCopies ? `<div class="upgrade-confirm" role="alertdialog" aria-label="تأیید ترکیب نسخه‌ها"><strong>نسخه‌ها را مصرف کنیم؟</strong><p>${pendingCopies.preview?.required ?? 3} ${pendingCopies.target === "epic" ? "Normal" : "Epic"} همین شخصیت → ۱ ${pendingCopies.target.toUpperCase()}؛ ${pendingCopies.preview?.xp ?? (pendingCopies.target === "epic" ? 15 : 30)} XP${pendingCopies.preview ? ` · ${pendingCopies.preview.upgrade_cards_required} کارت ارتقا` : ""}</p><div><button class="secondary-button" data-action="cancel-copy-fusion">انصراف</button><button class="primary-button" data-action="confirm-copy-fusion" ${state.loading ? "disabled" : ""}>تأیید Fusion</button></div></div>` : ""}
         ${confirm}
       </div>
@@ -488,7 +489,7 @@ function deckEditorSheet(): string {
     <header><div><p class="eyebrow">${editor.deckId ? "EDIT DECK" : "NEW DECK"}</p><h2>${editor.deckId ? "ویرایش دک" : "ساخت دک"}</h2></div><button class="sheet-close" data-action="close-deck-editor" aria-label="بستن">×</button></header>
     <label class="deck-name-field"><span>نام دک</span><input id="deck-name" maxlength="20" value="${escapeHtml(editor.name)}" placeholder="مثلاً تیم اصلی"></label>
     <div class="selection-counter"><strong>${editor.cardIds.length} / 3</strong><span>سه کارت متفاوت انتخاب کن</span></div>
-    <div class="deck-picker">${state.cards.map((card) => `<button class="deck-pick ${editor.cardIds.includes(card.card_id) ? "is-selected" : ""}" data-action="toggle-deck-card" data-id="${escapeHtml(card.card_id)}" aria-pressed="${editor.cardIds.includes(card.card_id)}"><span style="background-image:url('${escapeHtml(card.image_url)}')"></span><b dir="auto">${escapeHtml(card.name)}</b><small dir="ltr">${escapeHtml(card.rarity.toUpperCase())}</small></button>`).join("")}</div>
+    <div class="deck-picker">${state.cards.filter(card=>card.origin!=="custom").map((card) => `<button class="deck-pick ${editor.cardIds.includes(card.card_id) ? "is-selected" : ""}" data-action="toggle-deck-card" data-id="${escapeHtml(card.card_id)}" aria-pressed="${editor.cardIds.includes(card.card_id)}"><span style="background-image:url('${escapeHtml(card.image_url)}')"></span><b dir="auto">${escapeHtml(card.name)}</b><small dir="ltr">${escapeHtml(card.rarity.toUpperCase())}</small></button>`).join("")}</div>
     <button class="primary-button" data-action="save-deck" ${editor.cardIds.length !== 3 || state.loading ? "disabled" : ""}>${state.loading ? "در حال ذخیره…" : "ذخیره دک"}</button>
   </aside>`;
 }
@@ -588,7 +589,7 @@ async function confirmSale(): Promise<void> {
 function shopTemplate(): string {
   if (state.profile?.progression_v2_enabled) return economyShopTemplate();
   const source = state.fusion.target === "epic" ? "normal" : "epic";
-  const eligible = state.cards.filter((card) => card.rarity === source);
+  const eligible = state.cards.filter((card) => card.origin!=="custom" && card.rarity === source);
   const selectedCards = state.fusion.cardIds.map((id) => state.cards.find((card) => card.card_id === id)).filter(Boolean) as CardData[];
   const cards = eligible.map((card) => `<button class="fusion-card ${state.fusion.cardIds.includes(card.card_id) ? "is-selected" : ""}" data-action="toggle-fusion-card" data-id="${escapeHtml(card.card_id)}" aria-pressed="${state.fusion.cardIds.includes(card.card_id)}"><span style="background-image:url('${escapeHtml(card.image_url)}')"></span><b dir="auto">${escapeHtml(card.name)}</b><small dir="ltr">${escapeHtml(card.rarity.toUpperCase())}</small></button>`).join("");
   const retain = selectedCards.length === 3 ? `<div class="retained-picker"><p>کدام کارت باقی بماند و ارتقا بگیرد؟</p>${selectedCards.map((card) => `<button data-action="retain-fusion-card" data-id="${escapeHtml(card.card_id)}" class="${state.fusion.retainedId === card.card_id ? "is-selected" : ""}" dir="auto">${escapeHtml(card.name)}</button>`).join("")}</div>` : "";
@@ -661,17 +662,21 @@ function lobbyTemplate(): string {
     </section>`;
 }
 
+let friendlySelected=false;
+let customSettings: {quick_friendly_enabled:boolean;order_contact?:string|null}={quick_friendly_enabled:false};
 function quickMenuTemplate(): string {
   const invite = state.incomingInvite;
   return `
     <section class="screen quick-menu-screen">
       <header class="section-header"><button class="icon-button" data-action="home" aria-label="بازگشت">←</button><div><p class="eyebrow">QUICK MODE</p><h2>${invite ? "دعوت نبرد" : "حریفت را پیدا کن"}</h2></div></header>
+      ${customSettings.quick_friendly_enabled && !invite ? `<div><button class="secondary-button" data-action="quick-competitive">اصلی ${!friendlySelected ? "✓" : ""}</button><button class="secondary-button" data-action="quick-friendly">دوستانه ${friendlySelected ? "✓" : ""}</button><p>${friendlySelected ? "0 XP / 0 Score / 0 Coin؛ باخت: -1 Heart" : "پاداش رقابتی عادی"}</p></div>` : ""}
+      ${customSettings.order_contact ? `<a href="${escapeHtml(customSettings.order_contact)}" target="_blank" rel="noopener">سفارش کارت سفارشی از ادمین</a>` : ""}
       <div class="quick-hero glass-panel">
         <span class="quick-hero__mark">Q</span>
-        <div><strong>${invite ? "یک بازیکن منتظر توست" : "یک نبرد، یک کارت، یک ویژگی"}</strong><p>${invite ? "با پذیرش دعوت مستقیم وارد انتخاب کارت می‌شوی." : "انتخاب کارت و حرکت اول نهایی است و قابل تغییر نیست."}</p></div>
+        <div><strong>${invite ? "یک بازیکن منتظر توست" : "یک نبرد، یک کارت، یک ویژگی"}</strong><p>${invite ? (!state.incomingInviteInfo ? "در حال بررسی نوع دعوت…" : state.incomingInviteInfo.variant.startsWith("friendly") ? "دعوت دوستانه: 0 XP / 0 Score / 0 Coin؛ باخت: -1 Heart" : "دعوت Quick اصلی؛ پاداش رقابتی عادی") : "انتخاب کارت و حرکت اول نهایی است و قابل تغییر نیست."}</p></div>
       </div>
       ${invite ? `
-        <button class="primary-button" data-action="accept-invite" ${state.loading ? "disabled" : ""}>پذیرش دعوت</button>
+        <button class="primary-button" data-action="accept-invite" ${state.loading || !state.incomingInviteInfo ? "disabled" : ""}>پذیرش دعوت</button>
         <button class="secondary-button" data-action="dismiss-invite">رد کردن</button>
       ` : `
         <div class="quick-options">
@@ -881,11 +886,12 @@ function quickResultTemplate(): string {
   return `
     <section class="screen result-screen quick-result-screen">
       <div class="result-emblem ${won ? "result-emblem--win" : "result-emblem--lose"}"><span>${tie ? "=" : won ? "W" : "L"}</span></div>
-      <p class="eyebrow">QUICK COMPLETE</p>
+      <p class="eyebrow">${quick?.variant?.startsWith("friendly") ? "QUICK FRIENDLY" : "QUICK COMPLETE"}</p>
       <h2>${tie ? "نبرد مساوی شد" : won ? "تصمیم تو برنده شد" : "حریف این نبرد را برد"}</h2>
       <p>${report?.forfeit ? "نتیجه به‌خاطر پایان مهلت انتخاب ثبت شد." : mine?.scored_stats ? "امتیاز هر کارت از جمع ویژگی انتخابی دو بازیکن به دست آمد. برای توضیح بیشتر، محاسبهٔ امتیاز را باز کن." : "ویژگی انتخابی هر بازیکن مقایسه شد."}</p>
       <div class="reward-panel glass-panel"><div><small>امتیاز Quick</small><strong>${mine?.scored_stats ? "جمع دو ویژگی" : mine ? labels[mine.selected_stat].short : "—"}</strong></div><div class="reward-list"><span><small>YOU</small><strong>${mine?.final_value ?? "—"}</strong></span><span><small>RIVAL</small><strong>${opponent?.final_value ?? "—"}</strong></span></div></div>
       ${earned ? `<div class="reward-panel glass-panel"><div><small>پاداش نبرد</small><strong>+${earned.xp} XP · +${earned.score} Score</strong></div></div>` : ""}
+      ${quick?.variant?.startsWith("friendly") ? `<p>0 XP / 0 Score / 0 Coin · ${earned?.hearts_lost ? "-1 Heart" : "بدون کسر قلب"}</p>` : ""}
       ${calculation}
       <button class="primary-button" data-action="enter-quick">Quick دوباره</button>
       <button class="secondary-button" data-action="home">بازگشت به پایگاه</button>
@@ -1260,8 +1266,8 @@ async function enterArena(): Promise<void> {
 }
 
 async function loadCards(): Promise<void> {
-  if (state.cards.length) return;
-  state.cards = await api.cards();
+  state.cards = await api.cards(state.playMode === "quick" ? state.quick?.request_id : undefined);
+  if (state.playMode === "three") state.cards=state.cards.filter(card=>card.origin!=="custom");
 }
 
 function stopQuickPolling(): void {
@@ -1323,7 +1329,7 @@ async function beginQuick(kind: "random" | "invite"): Promise<void> {
   state.playMode = "quick";
   render();
   try {
-    state.quick = kind === "random" ? await api.quickMatchmaking() : await api.createQuickInvite();
+    state.quick = kind === "random" ? await api.quickMatchmaking(friendlySelected ? "friendly" : "normal") : await api.createQuickInvite(friendlySelected ? "friendly" : "normal");
     state.selected = undefined;
     syncQuickScreen();
     render();
@@ -1723,7 +1729,9 @@ ui.addEventListener("click", (event) => {
   if (action === "preview-fusion") void previewFusion();
   if (action === "cancel-fusion") { state.fusion.preview = undefined; render(); }
   if (action === "execute-fusion") void executeFusion();
-  if (action === "enter-quick") { stopQuickPolling(); state.quick = undefined; state.incomingInvite = undefined; state.screen = "quickMenu"; scene.showIdle(); render(); }
+  if (action === "quick-friendly") { friendlySelected=true; render(); }
+  if (action === "quick-competitive") { friendlySelected=false; render(); }
+  if (action === "enter-quick") { api.customSettings().then(value=>{customSettings=value;render();}).catch(()=>{customSettings={quick_friendly_enabled:false};}); friendlySelected=false; stopQuickPolling(); state.quick = undefined; state.incomingInvite = undefined; state.screen = "quickMenu"; scene.showIdle(); render(); }
   if (action === "enter-three") void openThreeMenu();
   if (action === "three-random") void beginThree("random");
   if (action === "three-invite") void beginThree("invite");
@@ -1811,6 +1819,10 @@ async function boot(): Promise<void> {
   state.bootLabel = "در حال چیدن کارت‌ها…";
   render();
   await minimumSplash;
+  if (state.incomingInvite) {
+    try { state.incomingInviteInfo = await api.quickInviteInfo(state.incomingInvite); }
+    catch (error) { showToast(error instanceof Error ? error.message : 'دعوت پیدا نشد'); }
+  }
   state.bootProgress = 100;
   state.bootLabel = "میدان آماده است";
   render();

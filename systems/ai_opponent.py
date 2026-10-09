@@ -94,10 +94,10 @@ class AsoAI:
         """انتخاب تصادفی کارت از pool مربوط به سختی"""
         rarity = self.mode["rarity"]
         from systems.shared_foundation import eligible_cards
-        pool = eligible_cards(db, db.get_cards_by_rarity_pool(rarity), "practice")
+        pool = eligible_cards(db, [card for card in db.get_cards_by_rarity_pool(rarity) if card.origin=="official"], "practice")
         if not pool:
             # fallback به normal
-            pool = eligible_cards(db, db.get_cards_by_rarity_pool("normal"), "practice")
+            pool = eligible_cards(db, [card for card in db.get_cards_by_rarity_pool("normal") if card.origin=="official"], "practice")
         if not pool:
             return None
         return random.choice(pool)

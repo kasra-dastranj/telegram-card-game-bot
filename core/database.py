@@ -491,6 +491,8 @@ class DatabaseManager:
         ensure_foundation_schema(conn)
         from systems.progression_config import ensure_progression_schema
         ensure_progression_schema(conn)
+        from systems.custom_cards import ensure_custom_schema
+        ensure_custom_schema(conn)
         conn.commit()
         conn.close()
         logger.info("Database initialized successfully")
@@ -806,12 +808,18 @@ class DatabaseManager:
         if result:
             columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'card_effects', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at', 'origin']
             card = Card.from_dict(dict(zip(columns, result)))
+            if card.origin=="custom":
+                from systems.custom_cards import display_card_in
+                with sqlite3.connect(self.db_path) as custom_conn:card=display_card_in(custom_conn,card)
             self.card_cache.set(f"card_{card_id}", card)
             return card
         return None
     
     def get_card_by_id_for_player(self, card_id: str, user_id: int) -> Optional[Card]:
         """دریافت کارت با احتساب فرم ارتقایافتهٔ بازیکن."""
+        from systems.custom_cards import access_in,user_card_in
+        with sqlite3.connect(self.db_path) as custom_conn:
+            if access_in(custom_conn,user_id,card_id):return user_card_in(self,custom_conn,user_id,card_id)
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute('''
@@ -825,7 +833,7 @@ class DatabaseManager:
             JOIN player_cards pc ON c.card_id = pc.card_id
             LEFT JOIN card_variants v ON v.card_id = c.card_id
                 AND v.rarity = COALESCE(pc.rarity_override, c.rarity)
-            WHERE c.card_id = ? AND pc.user_id = ?
+            WHERE c.card_id = ? AND pc.user_id = ? AND c.origin='official'
         ''', (card_id, user_id))
         result = cursor.fetchone()
         conn.close()
@@ -889,7 +897,7 @@ class DatabaseManager:
         
         cursor.execute('''
             SELECT card_id, name, rarity, power, speed, iq, popularity, abilities, card_effects, dialogs, biography, image_path, card_type, created_at, origin
-            FROM cards ORDER BY created_at DESC
+            FROM cards WHERE origin='official' ORDER BY created_at DESC
         ''')
         results = cursor.fetchall()
         conn.close()
@@ -1030,7 +1038,7 @@ class DatabaseManager:
             JOIN player_cards pc ON c.card_id = pc.card_id
             LEFT JOIN card_variants v ON v.card_id = c.card_id
                 AND v.rarity = COALESCE(pc.rarity_override, c.rarity)
-            WHERE pc.user_id = ?
+            WHERE pc.user_id = ? AND c.origin='official'
             ORDER BY pc.obtained_at DESC
         ''', (user_id,))
         
@@ -1038,10 +1046,16 @@ class DatabaseManager:
         conn.close()
         
         columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'card_effects', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at', 'origin']
-        return [Card.from_dict(dict(zip(columns, r))) for r in results]
+        from systems.custom_cards import user_cards
+        return [Card.from_dict(dict(zip(columns, r))) for r in results] + user_cards(self,user_id)
     
     def get_player_cards_by_rarity(self, user_id: int, rarity: CardRarity = None, page: int = 1, per_page: int = 6) -> Tuple[List[Card], int]:
         """دریافت کارت‌های بازیکن با فیلتر rarity و pagination"""
+        from systems.custom_cards import user_cards
+        if user_cards(self,user_id):
+            cards=self.get_player_cards(user_id)
+            if rarity:cards=[card for card in cards if card.rarity==rarity]
+            return cards[(page-1)*per_page:page*per_page],len(cards)
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         offset = (page - 1) * per_page
@@ -1058,14 +1072,14 @@ class DatabaseManager:
                 FROM cards c JOIN player_cards pc ON c.card_id = pc.card_id
                 LEFT JOIN card_variants v ON v.card_id=c.card_id
                     AND v.rarity=COALESCE(pc.rarity_override, c.rarity)
-                WHERE pc.user_id = ? AND COALESCE(pc.rarity_override, c.rarity) = ?
+                WHERE pc.user_id = ? AND c.origin='official' AND COALESCE(pc.rarity_override, c.rarity) = ?
                 ORDER BY pc.usage_count DESC, pc.obtained_at DESC
                 LIMIT ? OFFSET ?
             ''', (user_id, rarity.value, per_page, offset))
             results = cursor.fetchall()
             cursor.execute('''
                 SELECT COUNT(*) FROM cards c JOIN player_cards pc ON c.card_id = pc.card_id
-                WHERE pc.user_id = ? AND COALESCE(pc.rarity_override, c.rarity) = ?
+                WHERE pc.user_id = ? AND c.origin='official' AND COALESCE(pc.rarity_override, c.rarity) = ?
             ''', (user_id, rarity.value))
         else:
             cursor.execute('''
@@ -1078,12 +1092,12 @@ class DatabaseManager:
                 FROM cards c JOIN player_cards pc ON c.card_id = pc.card_id
                 LEFT JOIN card_variants v ON v.card_id=c.card_id
                     AND v.rarity=COALESCE(pc.rarity_override, c.rarity)
-                WHERE pc.user_id = ?
+                WHERE pc.user_id = ? AND c.origin='official'
                 ORDER BY pc.usage_count DESC, pc.obtained_at DESC
                 LIMIT ? OFFSET ?
             ''', (user_id, per_page, offset))
             results = cursor.fetchall()
-            cursor.execute('SELECT COUNT(*) FROM player_cards WHERE user_id = ?', (user_id,))
+            cursor.execute("SELECT COUNT(*) FROM player_cards pc JOIN cards c USING(card_id) WHERE pc.user_id=? AND c.origin='official'", (user_id,))
         
         total_count = cursor.fetchone()[0]
         conn.close()
@@ -1689,7 +1703,7 @@ class DatabaseManager:
                 SUM(CASE WHEN result = 'loss' THEN 1 ELSE 0 END) as losses,
                 SUM(CASE WHEN result = 'tie' THEN 1 ELSE 0 END) as ties
             FROM fight_history
-            WHERE user_id = ? AND user_card_id = ?
+            WHERE user_id = ? AND user_card_id = ? AND fight_type!='quick_friendly'
         ''', (user_id, card_id))
         
         result = cursor.fetchone()
@@ -1767,7 +1781,7 @@ class DatabaseManager:
                    SUM(CASE WHEN result = 'win' THEN 1 ELSE 0 END),
                    SUM(CASE WHEN result = 'loss' THEN 1 ELSE 0 END),
                    SUM(CASE WHEN result = 'tie' THEN 1 ELSE 0 END)
-            FROM fight_history WHERE user_id = ?
+            FROM fight_history WHERE user_id = ? AND fight_type!='quick_friendly'
         ''', (user_id,))
         
         total_result = cursor.fetchone()
@@ -2058,7 +2072,7 @@ class DatabaseManager:
 
     # ==================== SOLO FIGHT (Mini App) ====================
 
-    def create_solo_fight(self, player_id: int, difficulty: str) -> str:
+    def create_solo_fight(self, player_id: int, difficulty: str, *, player_card_id=None) -> str:
         import uuid
         fight_id = str(uuid.uuid4())[:8]
         conn = sqlite3.connect(self.db_path)
@@ -2069,9 +2083,19 @@ class DatabaseManager:
         ''', (fight_id, player_id, difficulty, datetime.now().isoformat()))
         from systems.shared_foundation import bind_context, legacy_context, settings_in
         from systems.shared_foundation import bind_new_context
-        bind_new_context(conn, "solo:" + fight_id, "practice")
-        conn.commit()
-        conn.close()
+        try:
+            context = bind_new_context(conn, "solo:" + fight_id, "practice")
+            if player_card_id:
+                from systems.shared_foundation import require_card_in
+                from systems.custom_cards import freeze_in
+                require_card_in(conn, player_card_id, context, player_id)
+                freeze_in(conn, "solo:" + fight_id, player_id, player_card_id)
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
         return fight_id
 
     def get_solo_fight(self, fight_id: str) -> Optional[Dict]:
@@ -2137,7 +2161,7 @@ class DatabaseManager:
         cursor.execute('''
             SELECT card_id, name, rarity, power, speed, iq, popularity,
                    abilities, card_effects, dialogs, biography, image_path, card_type, created_at, origin
-            FROM cards WHERE rarity = ?
+            FROM cards WHERE rarity = ? AND origin='official'
         ''', (rarity,))
         results = cursor.fetchall()
         conn.close()
@@ -2167,7 +2191,7 @@ class DatabaseManager:
                 SUM(CASE WHEN fight_type = 'solo' AND result = 'win' THEN 1 ELSE 0 END) as solo_wins,
                 SUM(CASE WHEN fight_type = 'pvp' THEN 1 ELSE 0 END) as pvp_total,
                 SUM(CASE WHEN fight_type = 'pvp' AND result = 'win' THEN 1 ELSE 0 END) as pvp_wins
-            FROM fight_history WHERE user_id = ?
+            FROM fight_history WHERE user_id = ? AND fight_type!='quick_friendly'
         ''', (user_id,))
         row = cursor.fetchone()
         conn.close()

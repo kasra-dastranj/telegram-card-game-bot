@@ -623,6 +623,7 @@ class BasicHandlersMixin:
         card_id = query.data.removeprefix("card_view_")
         user_id = query.from_user.id
         card = self.db.get_card_by_id_for_player(card_id, user_id)
+        if card and card.origin=="custom" and query.message.chat_id!=user_id:card.image_path=""
         if not card:
             await query.edit_message_text("❌ کارت یافت نشد!")
             return
@@ -634,6 +635,8 @@ class BasicHandlersMixin:
             CardRarity.LEGEND: "🟡 Legend"
         }
         header = f"{rarity_map.get(card.rarity, '🔶 Card')} — {escape(card.name)}"
+        if card.origin == 'custom':
+            header += ' · سفارشی'
         text = (
             f"{header}\n"
             f"💪 {card.power} ⚡ {card.speed} 🧠 {card.iq} ❤️ {card.popularity}\n"
@@ -643,7 +646,12 @@ class BasicHandlersMixin:
             f"📝 <b>Biography:</b>\n{escape(card.biography or '')}"
         )
         # ارسال تصویر
-        await send_card_image_safely(query.message, card.name, self.config)
+        if card.origin == 'custom':
+            if card.image_path and query.message.chat_id == user_id:
+                with open(card.image_path, 'rb') as picture:
+                    await query.message.reply_photo(photo=picture)
+        else:
+            await send_card_image_safely(query.message, card.name, self.config)
         keyboard = [
             [InlineKeyboardButton("🔙 بازگشت", callback_data="my_cards")]
         ]
@@ -1246,7 +1254,10 @@ class BasicHandlersMixin:
         user_id = query.from_user.id
         
         # با rarity_override بازیکن
-        card = self.db.get_card_by_id_for_player(card_id, user_id) or self.db.get_card_by_id(card_id)
+        owned_card=self.db.get_card_by_id_for_player(card_id,user_id)
+        card=owned_card or self.db.get_card_by_id(card_id)
+        if card and card.origin=="custom" and not owned_card:card=None
+        if card and card.origin=="custom" and query.message.chat_id!=user_id:card.image_path=""
         if not card:
             await query.answer("❌ کارت یافت نشد!", show_alert=True)
             return
@@ -1278,6 +1289,8 @@ class BasicHandlersMixin:
         # بیوگرافی کوتاه
         bio = getattr(card, 'biography', '') or ''
         bio_text = f"\n📖 <i>{escape(bio[:80])}{'...' if len(bio) > 80 else ''}</i>\n" if bio else ""
+        if card.origin == 'custom':
+            bio_text = '\n🏷 سفارشی\n' + bio_text
         
         text = (
             f"{color} <b>{escape(card.name)}</b> ({card.rarity.value.title()})\n"
@@ -1313,7 +1326,7 @@ class BasicHandlersMixin:
                     )])
         
         # دکمه اسکین
-        all_skins = self.skins.get_card_skins(card_id)
+        all_skins = self.skins.get_card_skins(card_id) if card.origin == 'official' else []
         if all_skins:
             keyboard.append([InlineKeyboardButton("🎨 اسکین‌ها", callback_data=f"skins_menu_{card_id}")])
         

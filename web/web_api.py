@@ -50,6 +50,8 @@ class WebAPI:
         self.arena_registry = ArenaRegistry(db_manager)
         
         self.setup_routes()
+        from web.custom_admin_api import register_custom_admin
+        register_custom_admin(self)
 
     def _arena_admin_actor(self, scope='write'):
         """Fail-closed token auth with optional independent high-risk scopes."""
@@ -425,7 +427,7 @@ class WebAPI:
 
         @self.app.route('/api/card-editor/options', methods=['GET'])
         def card_editor_options():
-            cards = self.db.get_all_cards()
+            cards = [card for card in self.db.get_all_cards() if card.origin=="official"]
             metadata = [self.modes.get_card_metadata(card.card_id) for card in cards]
             images_dir = PROJECT_ROOT / 'assets' / 'card_images'
             images = sorted(
@@ -457,7 +459,7 @@ class WebAPI:
         def get_all_cards():
             """دریافت تمام کارت‌ها"""
             try:
-                cards = self.db.get_all_cards()
+                cards = [card for card in self.db.get_all_cards() if card.origin=="official"]
                 cards_data = [self._serialize_card(card) for card in cards]
                 
                 return jsonify({

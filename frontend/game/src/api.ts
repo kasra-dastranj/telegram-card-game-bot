@@ -4,6 +4,7 @@ export type StatKey = "power" | "speed" | "iq" | "popularity";
 export interface CardData {
   card_id: string;
   name: string;
+  origin?: "official" | "custom";
   rarity: "normal" | "rare" | "epic" | "legend" | string;
   power: number;
   speed: number;
@@ -187,7 +188,7 @@ export interface QuickReport {
   is_tie: boolean;
   forfeit?: boolean;
   reason?: string;
-  rewards?: Record<string, { xp: number; score: number }>;
+  rewards?: Record<string, { xp: number; score: number; hearts_lost?: number }>;
   breakdown: Record<string, {
     card_name: string;
     selected_stat: StatKey;
@@ -204,7 +205,7 @@ export interface QuickState {
   user_id: number;
   status: "waiting" | "accepted" | "active" | "completed" | "expired" | "cancelled";
   source: "random_queue" | "invite_link";
-  variant: "normal" | "random";
+  variant: "normal" | "random" | "friendly" | "friendly_random";
   expires_at: string;
   matchmaking_status?: "waiting" | "matched";
   invite_token?: string;
@@ -267,7 +268,7 @@ export interface ThreeRoundState extends ThreeRoundAbilityState {
   rounds_won?: Record<string, number>;
   opponent_ability_used?: boolean;
   last_round?: ThreeRoundResult | null;
-  report?: { winner_id: number | null; is_tie: boolean; forfeit: boolean; reason?: string; rounds_won: Record<string, number>; rounds: ThreeRoundResult[]; rewards?: Record<string, { xp: number; score: number }> } | null;
+  report?: { winner_id: number | null; is_tie: boolean; forfeit: boolean; reason?: string; rounds_won: Record<string, number>; rounds: ThreeRoundResult[]; rewards?: Record<string, { xp: number; score: number; hearts_lost?: number }> } | null;
 }
 
 export interface ThreeRoundResult {
@@ -349,7 +350,17 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     const payload = data as { error?: string; error_code?: string };
     throw new ApiError(payload.error || "ارتباط با سرور برقرار نشد", response.status, payload.error_code);
   }
+  await resolvePrivateImages(data);
   return data as T;
+}
+
+async function resolvePrivateImages(value: unknown): Promise<void> {
+  if (!value || typeof value !== "object") return;
+  const item = value as Record<string, unknown>;
+  if (typeof item.image_url === "string" && item.image_url.startsWith("/api/v1/custom/cards/")) {
+    try { const response = await fetch(item.image_url, { headers: authHeaders(), cache:"no-store" }); if (!response.ok) throw Error(); const url = URL.createObjectURL(await response.blob()); item.image_url=url; window.setTimeout(()=>URL.revokeObjectURL(url),60_000); } catch { item.image_url=""; }
+  }
+  await Promise.all(Object.values(item).filter(part=>part && typeof part === "object").map(resolvePrivateImages));
 }
 
 async function requestCardAction<T>(path: string, body: Record<string, unknown>): Promise<T> {
@@ -375,6 +386,7 @@ async function requestCardAction<T>(path: string, body: Record<string, unknown>)
 }
 
 export const api = {
+  async customSettings(): Promise<{ quick_friendly_enabled: boolean; order_contact?: string | null }> { return request("GET","/custom/settings"); },
   async economyQuote(item: string): Promise<{ quote_id: string; price: number; config_version: number }> {
     return request('POST', '/economy/quote', { item });
   },
@@ -463,12 +475,12 @@ export const api = {
     if (demoMode) return { card: { ...(await this.cardDetail(cardId)), rarity: target }, xp_gained: target === "epic" ? 15 : 30, profile: await this.profile() };
     return requestCardAction(`/cards/${encodeURIComponent(cardId)}/fuse-copies`, { target });
   },
-  async cards(): Promise<CardData[]> {
+  async cards(matchKey?: string): Promise<CardData[]> {
     if (demoMode) return demoCards;
-    const first = await request<CardPage>("GET", "/cards?limit=60&page=1");
+    const first = await request<CardPage>("GET", `/cards?limit=60&page=1${matchKey ? `&match_key=${encodeURIComponent(matchKey)}` : ""}`);
     const cards = [...first.cards];
     for (let page = 2; page <= first.page_count; page += 1) {
-      const next = await request<CardPage>("GET", `/cards?limit=60&page=${page}`);
+      const next = await request<CardPage>("GET", `/cards?limit=60&page=${page}${matchKey ? `&match_key=${encodeURIComponent(matchKey)}` : ""}`);
       cards.push(...next.cards);
     }
     return cards;
@@ -586,6 +598,10 @@ export const api = {
       return { ...demoQuick };
     }
     return request("POST", `/quick/invites/${encodeURIComponent(token)}/accept`);
+  },
+  async quickInviteInfo(token: string): Promise<{variant: QuickState['variant']}> {
+    if (demoMode) return {variant:'normal'};
+    return request('GET', `/quick/invites/${encodeURIComponent(token)}`);
   },
   async quickStatus(requestId: string): Promise<QuickState> {
     if (demoMode) return advanceDemoQueue();

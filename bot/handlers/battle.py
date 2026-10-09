@@ -373,6 +373,8 @@ class BattleHandlersMixin:
 
     async def _get_inline_card_sticker_file_id(self, context, user_id: int, card) -> Optional[str]:
         """Get or lazily upload/cache a Telegram sticker file_id for inline results."""
+        if getattr(card, 'origin', 'official') == 'custom':
+            return None
         rarity = str(getattr(getattr(card, "rarity", None), "value", getattr(card, "rarity", "normal")))
         cached = self.db.get_card_variant_media_file_id(card.card_id, rarity, "sticker")
         if cached:

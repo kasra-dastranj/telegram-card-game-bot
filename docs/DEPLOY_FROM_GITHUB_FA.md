@@ -181,6 +181,8 @@ reconcile فقط در اختیار مالک/root است، همان flock را م
 
 ## وضعیت تحویل این PR
 
+برای فاز سوم، [راهنمای کارت سفارشی](PHASE3_CUSTOM_CARDS_FA.md) و [گزارش سه فاز](PHASES_FINAL_REPORT_FA.md) را نیز بررسی کنید. Schema سفارشی باید با Migration بازبینی‌شده و بکاپ تازه آماده باشد؛ تصاویر خصوصی در `/opt/telbattle/shared/private_custom_media` و خارج از static assets نگهداری می‌شوند. Artifact یا Deploy هیچ قیمت واقعی، Grant یا flag عمومی را خودکار فعال نمی‌کند. Easy+Custom تا تأیید معیار بالانس خاموش می‌ماند.
+
 برای کد فاز دوم اقتصاد، پیش از هر انتشار آینده بخش Migration و Stage در [راهنمای فاز دوم](PHASE2_PROGRESSION_ECONOMY_FA.md) را نیز اجرا و بازبینی کنید. پرچم این قابلیت پیش‌فرض خاموش است؛ بستهٔ انتشار به‌تنهایی اجازهٔ فعال‌کردن اقتصاد یا پرداخت جایزهٔ تازه به کاربران قدیمی نیست. preflight سیاست no-change دارد و schema آماده‌نشده را رد می‌کند.
 
 تست helper، checksum/tamper/path policy، WAL backup، rollback بدون حذف نوشتهٔ جدید و قفل مشترک با دادهٔ مصنوعی انجام می‌شود. CI واقعی Python 3.9.25 و Python پروژه در PR، سازگاری Linux را اثبات می‌کند. آزمون unit جای اثبات تنظیمات واقعی SSH/systemd سرور را نمی‌گیرد؛ نخستین اجرای production فقط بعد از مراحل مالک انجام شود. هیچ bootstrap یا workflow production در مرحلهٔ آماده‌سازی همکار اجرا نشده است.

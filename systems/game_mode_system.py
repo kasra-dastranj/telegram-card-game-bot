@@ -375,8 +375,12 @@ class GameModeSystem:
         origin_chat_id: Optional[int] = None,
         invite_token: Optional[str] = None,
         rounds: int = 1,
+        allow_custom_cards: bool = False,
     ) -> Dict[str, Any]:
-        context = legacy_context(mode, variant, settings_in(conn))
+        friendly=variant in ("friendly","friendly_random")
+        selection="random" if variant=="friendly_random" else "normal" if friendly else variant
+        context = legacy_context(mode, selection, settings_in(conn))
+        if friendly and mode!="quick":raise ValueError("friendly_requires_quick")
         now = _now()
         request_id = uuid.uuid4().hex[:12]
         conn.execute(
@@ -405,7 +409,7 @@ class GameModeSystem:
             "SELECT * FROM game_requests WHERE request_id = ?", (request_id,)
         ).fetchone()
         from systems.shared_foundation import bind_new_context
-        bind_new_context(conn, request_id, mode, variant)
+        bind_new_context(conn, request_id, mode, selection, variant="friendly" if friendly else "competitive", allow_custom_cards=allow_custom_cards)
         return dict(row)
 
     def create_invite(
@@ -458,7 +462,7 @@ class GameModeSystem:
         self, creator_id: int, mode: str, variant: str
     ) -> Dict[str, Any]:
         """Create a challenge inserted through inline mode into a peer chat."""
-        if mode not in ("quick", "deck") or variant not in ("normal", "random"):
+        if mode not in ("quick", "deck") or variant not in ("normal", "random", "friendly", "friendly_random"):
             raise ValueError("invalid_inline_game")
         allowed, reason = self.mode_access.check(creator_id, mode)
         if not allowed:
@@ -754,6 +758,7 @@ class GameModeSystem:
 
                 state = {
                     "mode": "quick",
+                    "request_id":request_id,
                     "scoring_rule": "sum_selected_stats_v1",
                     "variant": request["variant"],
                     "players": players,
@@ -766,12 +771,14 @@ class GameModeSystem:
                     "initial_arena": None,
                     "deadline": _iso(_now() + timedelta(seconds=QUICK_CHOICE_TTL_SECONDS)),
                 }
-                if request["variant"] == "random":
+                if request["variant"] in ("random","friendly_random"):
                     for user_id in players:
-                        cards = eligible_cards(self.db, self.db.get_player_cards(user_id), "quick")
+                        cards = eligible_cards(self.db, self.db.get_player_cards(user_id), "quick",context_override=context_in(conn,request_id,"quick"))
                         if not cards:
                             raise ValueError(f"player_has_no_cards:{user_id}")
                         state["cards"][str(user_id)] = random.choice(cards).card_id
+                    from systems.custom_cards import freeze_in
+                    for uid in players:freeze_in(conn,request_id,uid,state["cards"][str(uid)])
                     self._advance_quick_after_cards(state)
 
                 self._save_state(conn, request_id, state)
@@ -815,7 +822,7 @@ class GameModeSystem:
             conn.close()
             raise ValueError("card_not_owned")
         try:
-            require_card_in(conn, card_id, context_in(conn, request_id, "quick"), user_id)
+            require_card_in(conn, card_id, context_in(conn, request_id, "quick"), user_id, request_id)
         except ValueError:
             conn.rollback()
             conn.close()
@@ -823,6 +830,14 @@ class GameModeSystem:
         state["cards"][key] = card_id
         advanced = len(state["cards"]) == len(state["players"])
         if advanced:
+            from systems.custom_cards import freeze_in
+            try:
+                for uid in state["players"]:
+                    chosen=state["cards"][str(uid)]
+                    require_card_in(conn,chosen,context_in(conn,request_id,"quick"),uid,request_id)
+                    freeze_in(conn,request_id,uid,chosen)
+            except ValueError:
+                conn.rollback();conn.close();raise
             self._advance_quick_after_cards(state)
         self._save_state(conn, request_id, state)
         conn.commit()
@@ -943,11 +958,9 @@ class GameModeSystem:
         if not card_id or not opponent_card_id:
             raise ValueError("quick_card_not_selected")
 
-        card = self.db.get_card_by_id_for_player(card_id, user_id) or self.db.get_card_by_id(card_id)
-        opponent_card = (
-            self.db.get_card_by_id_for_player(opponent_card_id, opponent_id)
-            or self.db.get_card_by_id(opponent_card_id)
-        )
+        from systems.custom_cards import match_card
+        card = match_card(self.db,state.get("request_id",""),user_id,card_id)
+        opponent_card=match_card(self.db,state.get("request_id",""),opponent_id,opponent_card_id)
         if card is None or opponent_card is None:
             raise ValueError("card_not_found")
 
@@ -1140,7 +1153,7 @@ class GameModeSystem:
         if not arena.get("passives_enabled", True):
             return None
         rarity = getattr(getattr(card, "rarity", None), "value", getattr(card, "rarity", None))
-        metadata = self.get_card_metadata(card.card_id, rarity)
+        metadata = getattr(card,"snapshot_metadata",None) or self.get_card_metadata(card.card_id, rarity)
         passive = metadata.get("passive") or {}
         condition = passive.get("condition") or {}
         effect = passive.get("effect") or {}
@@ -1152,7 +1165,7 @@ class GameModeSystem:
         if condition.get("opponent_name") and condition["opponent_name"].casefold() != opponent_card.name.casefold():
             matches = False
         if condition.get("opponent_trait"):
-            opponent_traits = self.get_card_metadata(opponent_card.card_id).get("traits", [])
+            opponent_traits = (getattr(opponent_card,"snapshot_metadata",None) or self.get_card_metadata(opponent_card.card_id)).get("traits", [])
             if condition["opponent_trait"].casefold() not in {t.casefold() for t in opponent_traits}:
                 matches = False
         if not matches:
@@ -1215,6 +1228,7 @@ class GameModeSystem:
                 winner_id = first if first_value > second_value else second if second_value > first_value else None
                 report = {
                     "request_id": request_id,
+                    "variant":context_in(conn,request_id,"quick").variant,
                     "mode": "quick",
                     "players": players,
                     "winner_id": winner_id,
@@ -1256,6 +1270,8 @@ class GameModeSystem:
                 row = conn.execute("SELECT state_json FROM game_match_states WHERE request_id=?", (request_id,)).fetchone()
                 state = _loads(row[0], {}) if row else None
                 if not state or state.get("phase") == "completed":
+                    if state and state.get('report', {}).get('variant') == 'friendly':
+                        return state['report']
                     raise ValueError("quick_not_active")
                 if reason in ("card_selection_timeout", "stat_selection_timeout"):
                     expected_phase = reason.removesuffix("_timeout")
@@ -1271,6 +1287,7 @@ class GameModeSystem:
                 winner_id = eligible_winners[0] if len(eligible_winners) == 1 else None
                 report = {
                     "request_id": request_id,
+                    "variant":context_in(conn,request_id,"quick").variant,
                     "mode": "quick",
                     "players": players,
                     "winner_id": winner_id,
@@ -1283,6 +1300,13 @@ class GameModeSystem:
                     "breakdown": {},
                     "completed_at": _iso(_now()),
                 }
+                if report['variant'] == 'friendly' and state.get('phase') != 'card_selection':
+                    report['rewards'] = MatchRewardsSystem.award(conn, request_id, 'quick', {
+                        user: {'result': 'tie' if winner_id is None else 'win' if user == winner_id else 'loss',
+                               'card_id': state.get('cards', {}).get(str(user)),
+                               'opponent_id': next((other for other in players if other != user), None)}
+                        for user in players
+                    })
                 state["phase"] = "completed"
                 state["report"] = report
                 self._save_state(conn, request_id, state)
@@ -1306,7 +1330,7 @@ class GameModeSystem:
 
     # -------------------- Easy mode --------------------
 
-    def create_easy_lobby(self, creator_id: int, chat_id: int, rounds: int) -> Dict[str, Any]:
+    def create_easy_lobby(self, creator_id: int, chat_id: int, rounds: int, *, allow_custom_cards: bool = False) -> Dict[str, Any]:
         if rounds not in (1, 3, 5, 10):
             raise ValueError("invalid_round_count")
         allowed, reason = self.mode_access.check(creator_id, "easy")
@@ -1322,9 +1346,11 @@ class GameModeSystem:
             EASY_LOBBY_TTL_SECONDS,
             origin_chat_id=chat_id,
             rounds=rounds,
+            allow_custom_cards=allow_custom_cards,
         )
         state = {
             "mode": "easy",
+            "allow_custom_cards":allow_custom_cards,
             "phase": "lobby",
             "players": [creator_id],
             "rounds": rounds,
@@ -1470,7 +1496,7 @@ class GameModeSystem:
         return random.choice(choices or pool)
 
     def _hidden_stat_value(self, card, attribute: str) -> int:
-        metadata = self.get_card_metadata(card.card_id)
+        metadata = getattr(card,"snapshot_metadata",None) or self.get_card_metadata(card.card_id)
         authored = metadata.get("hidden_stats", {})
         if attribute in authored:
             return max(1, min(100, int(authored[attribute])))
@@ -1551,7 +1577,9 @@ class GameModeSystem:
             conn.close()
             return False, "card_not_allowed", state
         try:
-            require_card_in(conn, card_id, context_in(conn, request_id, "easy"), user_id)
+            require_card_in(conn, card_id, context_in(conn, request_id, "easy"), user_id, request_id)
+            from systems.custom_cards import freeze_in
+            freeze_in(conn,request_id,user_id,card_id)
         except ValueError:
             conn.rollback()
             conn.close()
@@ -1573,7 +1601,8 @@ class GameModeSystem:
             card_id = state["choices"].get(str(user_id))
             if not card_id:
                 continue
-            card = self.db.get_card_by_id(card_id)
+            from systems.custom_cards import match_card
+            card = match_card(self.db,request_id,user_id,card_id)
             if card:
                 entries.append(
                     {

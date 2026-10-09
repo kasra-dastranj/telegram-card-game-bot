@@ -58,7 +58,8 @@ class PlayerHubSystem:
         player = self.game.check_and_reset_hearts(self.db.get_or_create_player(user_id))
         progression = self.db.get_player_progression_full(user_id) or {}
         fight_stats = self.db.get_fight_stats(user_id) or {}
-        cards = self.db.get_player_cards(user_id)
+        all_cards=self.db.get_player_cards(user_id)
+        cards=[card for card in all_cards if card.origin=="official"]
         decks = self.db.get_player_decks(user_id)
         heart_remaining = self.game.get_heart_reset_time_remaining(player)
         total_xp = int(progression.get("total_xp", 0))
@@ -103,6 +104,7 @@ class PlayerHubSystem:
             "claim": self._claim_status(player),
             "counts": {
                 "cards": len(cards),
+                "custom_cards":len(all_cards)-len(cards),
                 "decks": len(decks),
                 "missions_ready": self._missions_ready(user_id),
                 "rarities": rarity_counts,
@@ -118,11 +120,16 @@ class PlayerHubSystem:
         rarity: str = "all",
         sort: str = "rarity",
         query: str = "",
+        match_key: str = None,
     ) -> Tuple[List, int, int, int]:
         page = max(1, int(page))
         limit = max(1, min(int(limit), 60))
         sort = sort if sort in self.SORT_KEYS else "rarity"
         cards = list(self.db.get_player_cards(user_id))
+        if match_key:
+            from systems.shared_foundation import eligible_cards
+            with sqlite3.connect(self.db.db_path) as conn:mode=conn.execute("SELECT mode FROM game_requests WHERE request_id=?",(match_key,)).fetchone()[0]
+            cards=eligible_cards(self.db,cards,mode,match_key)
 
         if rarity != "all":
             cards = [card for card in cards if self._rarity(card) == rarity]

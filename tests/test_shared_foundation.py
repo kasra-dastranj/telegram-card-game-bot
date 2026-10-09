@@ -119,10 +119,10 @@ def test_flags_default_off_and_card_projection_preserves_origin(db):
         assert all(settings_in(conn)[key] is False for key in FLAGS)
     assert db.get_card_by_id('future-custom').origin == 'custom'
     assert db.get_card_by_name('future-custom').origin == 'custom'
-    assert db.get_card_by_id_for_player('future-custom', 101).origin == 'custom'
-    for cards in (db.get_all_cards(), db.get_player_cards(101), db.get_cards_by_rarity_pool('normal'),
-                  db.get_player_cards_by_rarity(101)[0]):
-        assert next(card for card in cards if card.card_id == 'future-custom').origin == 'custom'
+    # Phase 3 projections require a live grant; raw definition still preserves origin.
+    assert db.get_card_by_id_for_player('future-custom', 101) is None
+    for cards in (db.get_all_cards(), db.get_player_cards(101),db.get_player_cards_by_rarity(101)[0]):
+        assert all(card.card_id != 'future-custom' for card in cards)
     card = db.get_card_by_id('future-custom')
     card.origin = 'official'  # Ordinary editing cannot promote the definition's origin.
     assert db.update_card(card)
@@ -154,7 +154,7 @@ def test_manual_and_random_quick_reject_custom_even_when_callback_state_is_tampe
     request = modes.create_invite(101, 'quick', 'normal')
     modes.accept_invite(request['invite_token'], 202)
     modes.start_quick_match(request['request_id'])
-    with pytest.raises(ValueError, match='ineligible'):
+    with pytest.raises(ValueError, match='ineligible|not_owned'):
         modes.select_quick_card(request['request_id'], 101, 'future-custom')
     assert not modes.get_state(request['request_id'])['cards']
     request = modes.create_invite(101, 'quick', 'random')

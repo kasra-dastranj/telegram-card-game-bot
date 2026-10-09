@@ -34,6 +34,7 @@ from systems.three_round_abilities import (
     SOLO_ABILITY_FIELD, ability_definition, available_abilities, consume_ability, select_arena,
 )
 from systems.player_hub_system import PlayerHubSystem
+from systems.shared_foundation import eligible_cards
 from systems.card_upgrade_system import CardUpgradeSystem
 from systems.deck_system import DeckSystem
 from systems.player_rewards_system import PlayerRewardsSystem
@@ -236,6 +237,7 @@ def card_to_dict(card) -> dict:
     image_name = os.path.basename(str(image_path).replace("\\", "/"))
     return {
         "card_id": card.card_id,
+        "origin":card.origin,
         "name": card.name,
         "rarity": card.rarity.value if hasattr(card.rarity, 'value') else card.rarity,
         "power": card.power,
@@ -245,7 +247,7 @@ def card_to_dict(card) -> dict:
         "card_type": card.card_type,
         "abilities": abilities,
         "biography": card.biography or "",
-        "image_url": f"/card-images/{quote(image_name)}?w=480" if image_name else "",
+        "image_url": (f"/api/v1/custom/cards/{quote(card.card_id)}/image" if card.origin=="custom" else f"/card-images/{quote(image_name)}?w=480" if image_name else ""),
         "score": card.power + card.speed + card.iq + card.popularity,
     }
 
@@ -369,7 +371,7 @@ def _optimized_card_image(filename: str, width: int) -> bytes:
 
 # ==================== Helpers: Quick Mode ====================
 
-QUICK_VARIANTS = {"normal", "random"}
+QUICK_VARIANTS = {"normal", "random", "friendly", "friendly_random"}
 QUICK_ERROR_MESSAGES = {
     "not_found": "درخواست پیدا نشد.",
     "self_accept": "نمی‌توانی دعوت خودت را قبول کنی.",
@@ -493,7 +495,8 @@ def _quick_snapshot(game_request: dict, user_id: int) -> dict:
     opponent_key = str(opponent_id) if opponent_id is not None else ""
     arena = quick_modes.arena_for_state(state) if state.get("arena") else None
     own_card_id = state.get("cards", {}).get(user_key)
-    own_card = db.get_card_by_id(own_card_id) if own_card_id else None
+    from systems.custom_cards import match_card
+    own_card = match_card(db,request_id,user_id,own_card_id) if own_card_id else None
     reveal_opponent = (
         state.get("phase") == "completed"
         or (
@@ -502,7 +505,7 @@ def _quick_snapshot(game_request: dict, user_id: int) -> dict:
         )
     )
     opponent_card_id = state.get("cards", {}).get(opponent_key) if reveal_opponent else None
-    opponent_card = db.get_card_by_id(opponent_card_id) if opponent_card_id else None
+    opponent_card = match_card(db,request_id,opponent_id,opponent_card_id) if opponent_card_id else None
     preview = None
     if own_card and opponent_key in state.get("cards", {}):
         try:
@@ -560,6 +563,32 @@ def get_player_hub_overview():
 
 # ==================== Routes: Cards ====================
 
+@app.route('/api/v1/custom/settings')
+@require_auth
+def custom_settings():
+    from systems.shared_foundation import settings_in
+    from systems.progression_config import enabled_in
+    with sqlite3.connect(db.db_path) as conn:
+        flags=settings_in(conn)
+        contact=conn.execute("SELECT value_json FROM foundation_settings WHERE key='custom_admin_contact'").fetchone()
+        orders=conn.execute("SELECT value_json FROM foundation_settings WHERE key='custom_card_orders_enabled'").fetchone()
+        return jsonify(custom_cards_enabled=flags['custom_cards_enabled'],quick_friendly_enabled=flags['quick_friendly_enabled'] and enabled_in(conn),easy_custom_cards_enabled=flags['easy_custom_cards_enabled'],order_contact=json.loads(contact[0]) if orders and json.loads(orders[0]) and contact else None)
+
+
+@app.route('/api/v1/custom/cards/<card_id>/image')
+@require_auth
+def custom_card_image(card_id):
+    from systems.custom_cards import access_in,media_root
+    from flask import send_file
+    with sqlite3.connect(db.db_path) as conn:
+        if not access_in(conn,g.user_id,card_id):return jsonify(error='not_found'),404
+        row=conn.execute('SELECT m.filename FROM custom_definitions d JOIN custom_media m USING(media_id) WHERE d.card_id=? AND m.removed=0',(card_id,)).fetchone()
+    if not row:return jsonify(error='not_found'),404
+    response=send_file(media_root(db)/row[0],mimetype='image/png',max_age=0)
+    response.headers['Cache-Control']='private, no-store'
+    response.headers['X-Content-Type-Options']='nosniff'
+    return response
+
 @app.route("/api/v1/cards", methods=["GET"])
 @require_auth
 def get_cards():
@@ -570,6 +599,10 @@ def get_cards():
         limit = int(request.args.get("limit", 20))
     except (TypeError, ValueError):
         return jsonify({"error": "پارامتر صفحه نامعتبر است", "error_code": "invalid_pagination"}), 400
+    match_key=request.args.get("match_key")
+    if match_key:
+        game_request=quick_modes.get_request(match_key)
+        if not game_request or user_id not in (game_request["creator_id"],game_request.get("opponent_id")):return _quick_error("not_found",404)
     cards, total, page, limit = _player_hub().get_cards(
         user_id,
         page=page,
@@ -577,6 +610,7 @@ def get_cards():
         rarity=rarity_filter,
         sort=request.args.get("sort", "rarity"),
         query=request.args.get("query", ""),
+        match_key=match_key,
     )
 
     result = []
@@ -914,7 +948,8 @@ def quick_matchmaking():
     variant = data.get("variant", "normal")
     if variant not in QUICK_VARIANTS:
         return jsonify({"error": "نوع Quick نامعتبر است", "reason": "invalid_variant"}), 400
-    status, game_request = quick_modes.matchmake_random(g.user_id, "quick", variant)
+    try:status, game_request = quick_modes.matchmake_random(g.user_id, "quick", variant)
+    except ValueError as exc:return _quick_error(str(exc),409)
     snapshot = _quick_snapshot(game_request, g.user_id)
     snapshot["matchmaking_status"] = status
     return jsonify(snapshot), 200 if status == "matched" else 201
@@ -930,13 +965,23 @@ def quick_create_invite():
     variant = data.get("variant", "normal")
     if variant not in QUICK_VARIANTS:
         return jsonify({"error": "نوع Quick نامعتبر است", "reason": "invalid_variant"}), 400
-    game_request = quick_modes.create_invite(g.user_id, "quick", variant)
+    try:game_request = quick_modes.create_invite(g.user_id, "quick", variant)
+    except ValueError as exc:return _quick_error(str(exc),409)
     snapshot = _quick_snapshot(game_request, g.user_id)
     snapshot.update({
         "invite_token": game_request["invite_token"],
         "invite_url": f"{request.host_url.rstrip('/')}?invite={game_request['invite_token']}",
     })
     return jsonify(snapshot), 201
+
+
+@app.route('/api/v1/quick/invites/<token>', methods=['GET'])
+@require_auth
+def quick_invite_info(token):
+    invite = quick_modes.get_request_by_token(token)
+    if not invite or invite['mode'] != 'quick' or invite['source'] != 'invite_link':
+        return _quick_error('not_found', 404)
+    return jsonify(variant=invite['variant'], expires_at=invite['expires_at'], status=invite['status'])
 
 
 @app.route("/api/v1/quick/invites/<token>/accept", methods=["POST"])
@@ -1189,7 +1234,8 @@ def _solo_snapshot(fight, user_id):
     """Player-scoped ASO view; ability use lives in existing persistent JSON."""
     arena = json.loads(fight.get('arena_snapshot') or '{}')
     used = arena.pop(SOLO_ABILITY_FIELD, None)
-    player_card = db.get_card_by_id_for_player(fight['player_card_id'], user_id)
+    from systems.custom_cards import match_card
+    player_card = match_card(db,'solo:'+fight['fight_id'],user_id,fight['player_card_id'])
     revealed = fight['status'] == 'completed' or (used and used['ability_key'] == 'reveal_opponent')
     ai_card = db.get_card_by_id(fight['ai_card_id']) if revealed else None
     aso = AsoAI(fight['difficulty'])
@@ -1317,6 +1363,9 @@ def solo_start():
 
     player_card = db.get_card_by_id_for_player(player_card_id, user_id)
     if not player_card:
+        raw = db.get_card_by_id(player_card_id)
+        if raw and raw.origin == "custom":
+            return jsonify({"error": "این کارت در این مود مجاز نیست", "code": "card_ineligible"}), 400
         return jsonify({"error": "کارت انتخاب‌شده معتبر نیست"}), 400
     from systems.shared_foundation import eligible_cards
     if not eligible_cards(db, [player_card], "practice"):
@@ -1349,7 +1398,12 @@ def solo_start():
         logger.info("arena_selected arena=%s mode=three_round platform=miniapp", arena_id)
         arena_snapshot = arena_registry.snapshot_for_match(arena_id, "three_round", "miniapp", arena_info["version"])
 
-    fight_id = db.create_solo_fight(user_id, difficulty)
+    try:
+        fight_id = db.create_solo_fight(user_id, difficulty, player_card_id=player_card_id)
+    except ValueError:
+        return jsonify({"error": "این کارت دیگر قابل استفاده نیست", "code": "card_ineligible"}), 409
+    from systems.custom_cards import match_card
+    player_card = match_card(db, 'solo:' + fight_id, user_id, player_card_id)
     db.update_solo_fight(
         fight_id,
         player_card_id=player_card_id,
@@ -1420,7 +1474,8 @@ def _play_solo_round(conn, user_id, fight_id, player_stat):
     if player_stat not in available_stats:
         return jsonify({"error": "این stat قبلاً استفاده شده"}), 400
 
-    player_card = db.get_card_by_id_for_player(fight["player_card_id"], user_id)
+    from systems.custom_cards import match_card
+    player_card = match_card(db,"solo:"+fight["fight_id"],user_id,fight["player_card_id"])
     ai_card = db.get_card_by_id(fight["ai_card_id"])
     if not player_card or not ai_card:
         return jsonify({"error": "کارت این نبرد دیگر در دسترس نیست"}), 409

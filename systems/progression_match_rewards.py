@@ -43,7 +43,7 @@ def award_in(conn,key,mode,context,awards):
         if outcome not in ('win','loss','tie','draw'): raise ValueError('invalid_match_result')
         valid=item.get('valid',True) is True
         for card in (item.get('card_id'),item.get('opponent_card_id')):
-            if card: require_card_in(conn,card,context,user if card==item.get('card_id') and context.mode!='risk' else None)
+            if card: require_card_in(conn,card,context,user if card==item.get("card_id") and context.mode!="risk" else item.get("opponent_id"),key)
         xp=score=hearts=0
         qualified=False
         if valid and context.mode not in ('practice',) and context.variant!='friendly':
@@ -63,10 +63,10 @@ def award_in(conn,key,mode,context,awards):
                 qualified=context.mode!='risk'
         elif valid and context.variant=='friendly': hearts=context.friendly_loss_hearts if outcome=='loss' else 0
         payload={'mode':context.mode,'result':outcome,'card_id':item.get('card_id'),'qualified':qualified,
-                 'rank':ranks.get(user),'rounds':rounds}
+                 'rank':ranks.get(user),'rounds':rounds,'variant':context.variant}
         paid=apply_in(conn,'match:'+key,user,context.mode,'match',version,payload=payload,xp=xp,score=score,hearts=-hearts,extra={'ranked_progress':qualified})
         conn.execute("INSERT INTO match_reward_events(request_id,user_id,mode,xp,score,hearts_lost,tp_delta,awarded_at) VALUES(?,?,?,?,?,?,0,?)",(key,user,mode,xp,score,hearts,now.isoformat()))
         conn.execute("""INSERT INTO fight_history(user_id,user_card_id,opponent_card_id,stat_used,result,score_gained,hearts_lost,fought_at,fight_type,opponent_user_id,xp_gained) VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
-            (user,item.get('card_id'),item.get('opponent_card_id'),item.get('stat_used'),outcome,score,hearts,now.isoformat(),mode,item.get('opponent_id'),xp))
+            (user,item.get('card_id'),item.get('opponent_card_id'),item.get('stat_used'),outcome,score,hearts,now.isoformat(),"quick_friendly" if context.variant=="friendly" else mode,item.get('opponent_id'),xp))
         result[str(user)]=paid
     return result

@@ -106,11 +106,17 @@ def bind_context(conn, match_key, context):
     return stored
 
 
-def bind_new_context(conn, match_key, mode, selection_variant="normal"):
+def bind_new_context(conn, match_key, mode, selection_variant="normal", *, variant="competitive", allow_custom_cards=False):
     """Only creators opt into v2. Fallback contexts for old games stay legacy."""
     from dataclasses import replace
     from systems.progression_config import enabled_in, config_in
     context = legacy_context(mode, selection_variant, settings_in(conn))
+    flags=settings_in(conn)
+    if variant=='friendly' and (mode!='quick' or not flags['quick_friendly_enabled'] or not enabled_in(conn)):
+        raise ValueError('friendly_disabled')
+    if allow_custom_cards and (mode!='easy' or not flags['easy_custom_cards_enabled'] or not flags['custom_cards_enabled'] or not enabled_in(conn)):
+        raise ValueError('easy_custom_disabled')
+    context=replace(context,variant=variant,allow_custom_cards=allow_custom_cards)
     if enabled_in(conn):
         version, config = config_in(conn)
         context = replace(context, policy_version="future_v2", easy_min_qualified_players=config["easy"]["min_players"])
@@ -170,7 +176,7 @@ def is_card_eligible(card, context, flags=None):
     if context.mode == "quick":
         return context.variant == "friendly"
     if context.mode == "practice":
-        return True
+        return flags.get('progression_v2_enabled') is True or context.policy_version == 'future_v2'
     return (context.mode == "easy" and context.allow_custom_cards
             and flags.get("easy_custom_cards_enabled") is True)
 
@@ -190,19 +196,29 @@ def validate_match_card(db, match_key, mode, card_id, user_id=None):
         require_card_in(conn, card_id, context_in(conn, match_key, mode), user_id)
 
 
-def require_card_in(conn, card_id, context, user_id=None):
+def require_card_in(conn, card_id, context, user_id=None, match_key=None):
     # Read the definition afresh: caches/rarity overrides cannot hide its origin.
     row = conn.execute("SELECT origin FROM cards WHERE card_id=?", (card_id,)).fetchone()
-    if not row or not is_card_eligible({"origin": row[0]}, context, settings_in(conn)):
+    flags=settings_in(conn)
+    from systems.custom_cards import access_in,snapshot_in
+    frozen=bool(match_key and user_id is not None and snapshot_in(conn,match_key,user_id,card_id))
+    if frozen:flags={**flags,'custom_cards_enabled':True,'quick_friendly_enabled':True,'easy_custom_cards_enabled':True}
+    if context.variant=='friendly' and match_key:
+        started=conn.execute('SELECT state_json FROM game_match_states WHERE request_id=?',(match_key,)).fetchone()
+        if started and json.loads(started[0]).get('phase') not in ('lobby','card_selection'):flags['quick_friendly_enabled']=True
+    if not row or not is_card_eligible({"origin": row[0]}, context, flags):
         raise ValueError("card_ineligible")
+    if row[0]=='custom':
+        if user_id is None or not (frozen or access_in(conn,user_id,card_id)):raise ValueError('custom_access_denied')
+        return
     if user_id is not None and not conn.execute(
             "SELECT 1 FROM player_cards WHERE user_id=? AND card_id=?", (user_id, card_id)).fetchone():
         raise ValueError("card_not_owned")
 
 
-def eligible_cards(db, cards, mode, match_key=None):
+def eligible_cards(db, cards, mode, match_key=None, *, context_override=None):
     with closing(sqlite3.connect(db.db_path)) as conn, conn:
-        context = (context_in(conn, match_key, mode) if match_key
+        context = context_override or (context_in(conn, match_key, mode) if match_key
                    else legacy_context(mode, settings=settings_in(conn)))
         flags = settings_in(conn)
         origins = dict(conn.execute("SELECT card_id,origin FROM cards"))
