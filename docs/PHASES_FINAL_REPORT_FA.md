@@ -54,8 +54,22 @@ Custom در Quick اصلی/Three-Round/Deck/Risk و در اقتصاد رسمی،
 - مجموعهٔ کامل محلی، Python 3.11.9 روی Windows: **۵۰۱ passed، ۳ skipped، صفر failure/error**؛ SQLite موقت و guard آفلاین. دو skipped به محدودیت سیستم‌عامل و یکی به Telegram زنده مربوط‌اند.
 - ۴۴ آزمون پذیرش فاز سوم به‌تنهایی موفق؛ از جمله کارت Normal/Epic/Legend برای ده گیرنده، گیرندهٔ یازدهم، payment_pending، Retry، تصویر خصوصی، سه ترکیب Quick Friendly، پایان مهلت و کسر یک‌بارهٔ قلب، Easy با ۴/۵ نفر در ۳/۵/۱۰ راند، مأموریت عمومی/رسمی و Practice.
 - مرورگر Edge با API مصنوعی: Friendly و ارسال Variant، متن پاداش/قلب، Badge و تصویر auth/blob، مخفی‌بودن فروش/Upgrade/Skin برای Custom، flags خاموش و Retry ادمین با کلید یکسان؛ بدون pageerror.
-- Smoke فاز دوم با API مصنوعی، build TypeScript/Vite و syntax JavaScript دو پنل هم اجرا می‌شوند؛ شواهد نهایی CI و artifact در PR زیر ثبت می‌شوند. فونت و تصاویر onboarding خارج از Git همان وابستگی محیطی قبلی‌اند.
+- Smoke فاز دوم با API مصنوعی، نصب پاک `npm ci`، build TypeScript/Vite و syntax JavaScript دو پنل نیز موفق بودند. فونت و تصاویر onboarding خارج از Git همان وابستگی محیطی قبلی‌اند.
 - تلگرام زنده، production DB، SSH، systemd و DNS عمومی آزمایش نشده‌اند. نمونهٔ مرورگر جای نتیجهٔ تلگرام واقعی را نمی‌گیرد.
+
+### نتیجهٔ واقعی CI کد فاز سوم
+
+[اجرای موفق 37961853592](https://github.com/kasra-dastranj/telegram-card-game-bot/actions/runs/37961853592) برای commit کد `7a7bce2868f712f8b5e9f38dbd399e44a104b607`: هر دو Python **3.11 و 3.9.25**، هرکدام **۵۰۳ passed / ۱ skipped / صفر failure/error**. Frontend/admin JavaScript، Verified release package و CI gate همگی success هستند.
+
+[بستهٔ واقعی بررسی‌شده](https://github.com/kasra-dastranj/telegram-card-game-bot/actions/runs/37961853592/artifacts/11632660351): `release-5e76e63b1bd592dcf886a0b948afc0248111b96c-1`؛ ۹۶ فایل runtime + `RELEASE.json`، `database_policy=no-change`. SHA-256:
+
+```text
+5fbce03e1194bbff149a7983cc0c4466035d37a0b7c7d338e077835b1be7cd9c
+```
+
+Artifact و XML هر دو نسخه دانلود شدند؛ verifier هویت SHA/run و همهٔ hashها را تأیید کرد و فایل‌های کلیدی فاز سوم با blobهای commit کد نیز تطبیق داده شدند. فایل تصویر خصوصی، DB و secret در بسته نیستند. SHA بسته، merge آزمایشی GitHub برای PR است، نه SHA شاخهٔ شخصی؛ این تفاوت طبیعی است. بستهٔ PR مجوز انتشار production ندارد؛ پس از ادغام، CI و Deploy روی همان SHA ثابت main اجرا می‌شوند. Retention artifact چهارده روز است.
+
+این بخش نتیجهٔ commit کد را ثبت می‌کند؛ commit تکمیلی گزارش تغییری به کد runtime ندارد. نتیجه و artifact آخرین commit گزارش نیز در PR ثبت می‌شود.
 
 ## هماهنگی در GitHub و انتشار
 
