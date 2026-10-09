@@ -52,6 +52,11 @@ class GameLogic:
 
     def check_and_reset_hearts(self, player: Player) -> Player:
         """بررسی و ریست قلب‌ها در صورت نیاز"""
+        from systems.progression_config import enabled
+        if enabled(self.db):
+            from systems.progression_economy import ProgressionEconomy
+            ProgressionEconomy(self.db).refresh_hearts(player.user_id)
+            return self.db.get_or_create_player(player.user_id)
         now = datetime.now()
         time_diff = now - player.last_heart_reset
         
@@ -190,6 +195,8 @@ class GameLogic:
         result = PlayerRewardsSystem(self.db).claim_daily(user_id)
         if not result["ok"]:
             return False, None, result["error"], None
+        if result.get("reward_type") == "silver_ticket":
+            return True, None, None, {**result["ability"], "silver_ticket": True}
         card = self.db.get_card_by_id(result["card_id"])
         return True, card, None, result["ability"]
     
@@ -198,6 +205,14 @@ class GameLogic:
         if not player.last_heart_reset:
             return None
         
+        from systems.progression_config import enabled
+        if enabled(self.db):
+            from systems.progression_config import config_in, period_bounds
+            from datetime import timezone
+            from contextlib import closing
+            with closing(sqlite3.connect(self.db.db_path)) as conn:
+                end = period_bounds(config_in(conn)[1], "daily")[1]
+            return end - datetime.now(timezone.utc)
         next_reset = player.last_heart_reset + timedelta(hours=self.HEART_RESET_HOURS)
         now = datetime.now()
         
@@ -515,6 +530,12 @@ class GameLogic:
             self.record_card_win(winner_id, winner_card.card_id)
         ch_paid = settlement["awards"][str(fight.challenger_id)]
         op_paid = settlement["awards"][str(fight.opponent_id)]
+        ch_xp, op_xp = ch_paid['xp'], op_paid['xp']
+        for data in (challenger_data, opponent_data, winner_data, loser_data):
+            if data:
+                paid = settlement['awards'][str(data['user_id'])]
+                data['score_gained'] = paid['score']
+                data['hearts_lost'] = paid['hearts_lost']
         ch_old_level, ch_new_level = ch_paid["old_level"], ch_paid["new_level"]
         op_old_level, op_new_level = op_paid["old_level"], op_paid["new_level"]
         ch_old_tier, ch_new_tier = ch_paid["old_tier"], ch_paid["new_tier"]

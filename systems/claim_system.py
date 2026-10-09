@@ -127,6 +127,11 @@ class ClaimSystem:
         Returns:
             (success, card, error_message)
         """
+        from systems.progression_config import enabled
+        if enabled(self.db):
+            from systems.player_rewards_system import PlayerRewardsSystem
+            result = PlayerRewardsSystem(self.db).claim_daily(user_id)
+            return result['ok'], self.db.get_card_by_id(result['card_id']) if result.get('card_id') else None, result.get('error')
         # بررسی cooldown
         can_claim, error_msg = self.can_claim_today(user_id)
         if not can_claim:

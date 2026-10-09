@@ -19,6 +19,18 @@ from systems.mode_access_system import ModeAccessSystem
 logger = logging.getLogger(__name__)
 
 
+def record_cash_in(conn, match_id, user_id, amount, stage):
+    """Audit an escrow transfer in its existing wallet transaction."""
+    if not conn.execute("SELECT 1 FROM sqlite_master WHERE name='match_economy_snapshots'").fetchone():
+        return
+    snapshot = conn.execute("SELECT config_version FROM match_economy_snapshots WHERE match_key=?", ("risk:" + match_id,)).fetchone()
+    if snapshot:
+        from systems.reward_ledger import record_in
+        record_in(conn, "risk-cash:" + match_id + ":" + stage, user_id,
+                  "risk", "risk_cash", {"stage": stage}, {"coins": amount},
+                  snapshot[0], coins=amount)
+
+
 # ==================== RISK MODE CONSTANTS ====================
 
 class RiskTable(Enum):
@@ -119,7 +131,10 @@ class RiskModeSystem:
                  ','.join(challenger_cards), ','.join(opponent_cards), table.value * 2,
                  datetime.now().isoformat()),
             )
-            bind_context(conn, "risk:" + match_id, legacy_context("risk", settings=settings_in(conn)))
+            from systems.shared_foundation import bind_new_context
+            bind_new_context(conn, "risk:" + match_id, "risk")
+            for uid in (challenger_id, opponent_id):
+                record_cash_in(conn, match_id, uid, -table.value, "entry")
             conn.commit()
             return {"success": True, "match_id": match_id, "table_value": table.value,
                     "current_pot": table.value * 2, "challenger_cards": challenger_cards,
@@ -227,6 +242,7 @@ class RiskModeSystem:
             payouts = ((winner_id, match["current_pot"]),)
         for uid, amount in payouts:
             conn.execute("UPDATE players SET coins=coins+? WHERE user_id=?", (amount, uid))
+            record_cash_in(conn, match["match_id"], uid, amount, "payout")
         from systems.match_rewards_system import MatchRewardsSystem
         awards = {}
         for uid, role, other in (
@@ -271,6 +287,7 @@ class RiskModeSystem:
                                        (raise_amount, user_id, raise_amount))
                 if charged.rowcount != 1:
                     return {"success": False, "error": "سکه کافی نیست"}
+                record_cash_in(conn, match_id, user_id, -raise_amount, "raise:" + str(match["current_round"]))
                 conn.execute(
                     f"""UPDATE risk_matches SET current_pot=current_pot+?,bluff_phase='raise_pending',
                         raise_amount=?,raise_by=?,{role}_bluff_action='raise' WHERE match_id=?""",
@@ -290,6 +307,7 @@ class RiskModeSystem:
                                            (amount, user_id, amount))
                     if charged.rowcount != 1:
                         return {"success": False, "error": "سکه کافی نیست"}
+                    record_cash_in(conn, match_id, user_id, -amount, "call:" + str(match["current_round"]))
                     ready = True
                 else:
                     if match[f"{role}_bluff_action"]:

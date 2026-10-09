@@ -489,6 +489,8 @@ class DatabaseManager:
         ensure_mode_access_schema(conn)
         from systems.shared_foundation import ensure_foundation_schema
         ensure_foundation_schema(conn)
+        from systems.progression_config import ensure_progression_schema
+        ensure_progression_schema(conn)
         conn.commit()
         conn.close()
         logger.info("Database initialized successfully")
@@ -936,7 +938,7 @@ class DatabaseManager:
                 user_id=result[0],
                 username=result[1] or "",
                 first_name=result[2] or "بازیکن",
-                hearts=int(result[3] or 10),
+                hearts=int(result[3] if result[3] is not None else 10),
                 lives=int(result[4] or 10),
                 total_score=int(result[5] or 0),
                 last_heart_reset=_to_dt(result[6], datetime.now()),
@@ -964,6 +966,12 @@ class DatabaseManager:
                 player.last_heart_reset.isoformat(), player.last_lives_reset.isoformat(),
                 None, player.created_at.isoformat(), 0, 10
             ))
+            from systems.progression_config import enabled_in, config_in
+            if enabled_in(conn):
+                from systems.reward_ledger import new_account_in
+                _, economy_config = config_in(conn)
+                new_account_in(conn, user_id, economy_config)
+                player.hearts = player.max_hearts = economy_config['hearts']['base']
             conn.commit()
             
             # ایجاد رکورد progression برای بازیکن جدید
@@ -1429,7 +1437,8 @@ class DatabaseManager:
         ''', (fight_id, challenger_id, opponent_id, chat_id, now.isoformat(), expires_at.isoformat()))
         
         from systems.shared_foundation import bind_context, legacy_context, settings_in
-        bind_context(conn, "fight:" + fight_id, legacy_context(mode, selection_variant, settings_in(conn)))
+        from systems.shared_foundation import bind_new_context
+        bind_new_context(conn, "fight:" + fight_id, mode, selection_variant)
         conn.commit()
         conn.close()
         
@@ -1703,6 +1712,14 @@ class DatabaseManager:
     
     def reset_all_player_lives(self) -> int:
         """ریست جان همه بازیکنان (برای تست)"""
+        from systems.progression_config import enabled
+        if enabled(self):
+            from systems.progression_economy import ProgressionEconomy
+            with sqlite3.connect(self.db_path) as connection:
+                users = [row[0] for row in connection.execute('SELECT user_id FROM players')]
+            for user in users:
+                ProgressionEconomy(self).refresh_hearts(user)
+            return len(users)
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
@@ -1854,6 +1871,10 @@ class DatabaseManager:
             limit: تعداد نتایج (برای جهانی)
             chat_id: اگه مقدار داشته باشه، فقط اعضای این گروه رو نشون میده
         """
+        from systems.progression_config import enabled
+        if enabled(self):
+            from systems.progression_leaderboard import ProgressionLeaderboard
+            return ProgressionLeaderboard(self).view(timeframe, limit)
         from datetime import datetime, timedelta
         
         conn = sqlite3.connect(self.db_path)
@@ -2047,7 +2068,8 @@ class DatabaseManager:
             VALUES (?, ?, ?, ?)
         ''', (fight_id, player_id, difficulty, datetime.now().isoformat()))
         from systems.shared_foundation import bind_context, legacy_context, settings_in
-        bind_context(conn, "solo:" + fight_id, legacy_context("practice", settings=settings_in(conn)))
+        from systems.shared_foundation import bind_new_context
+        bind_new_context(conn, "solo:" + fight_id, "practice")
         conn.commit()
         conn.close()
         return fight_id
@@ -2170,6 +2192,14 @@ class DatabaseManager:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         try:
+            conn.execute('BEGIN IMMEDIATE')
+            from systems.progression_config import enabled_in, config_in
+            if enabled_in(conn):
+                from systems.reward_ledger import capacities_in
+                capacity = capacities_in(conn, player_id, config_in(conn)[1])
+                count = conn.execute('SELECT COUNT(*) FROM player_decks WHERE player_id=?', (player_id,)).fetchone()[0]
+                if count >= capacity['slots']:
+                    raise ValueError('deck_capacity_exceeded')
             cursor.execute('''
                 INSERT INTO player_decks
                     (deck_id, player_id, deck_name, card_id_1, card_id_2, card_id_3,

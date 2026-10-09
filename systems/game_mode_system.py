@@ -404,7 +404,8 @@ class GameModeSystem:
         row = conn.execute(
             "SELECT * FROM game_requests WHERE request_id = ?", (request_id,)
         ).fetchone()
-        bind_context(conn, request_id, context)
+        from systems.shared_foundation import bind_new_context
+        bind_new_context(conn, request_id, mode, variant)
         return dict(row)
 
     def create_invite(
@@ -1641,11 +1642,12 @@ class GameModeSystem:
                         or len(persisted.get("round_history", [])) + 1 != len(state["round_history"])):
                     raise ValueError("easy_round_already_resolved")
                 if completed:
+                    easy_awards = MatchRewardsSystem.easy_awards(sorted(participants), winners, state["choices"]) if len(participants) >= 2 else {}
+                    for award in easy_awards.values():
+                        award["easy_final"] = {"scores": state["scores"], "participants": sorted(participants)}
                     report["rewards"] = MatchRewardsSystem.award(
                         conn, request_id, "easy",
-                        MatchRewardsSystem.easy_awards(
-                            sorted(participants), winners, state["choices"]
-                        ) if len(participants) >= 2 else {},
+                        easy_awards,
                     )
                     state["report"] = report
                 self._save_state(conn, request_id, state)

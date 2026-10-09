@@ -70,6 +70,9 @@ class MatchRewardsSystem:
         """Run inside the match-completion transaction. Retry returns prior awards."""
         context = context_in(conn, request_id, mode)
         require_settlement_mode(context, mode)
+        if context.policy_version == "future_v2":
+            from systems.progression_match_rewards import award_in
+            return award_in(conn, request_id, mode, context, awards)
         if context.variant != "competitive" or context.policy_version != "legacy_v1":
             raise ValueError("future_policy_not_live")
         conn.execute("""

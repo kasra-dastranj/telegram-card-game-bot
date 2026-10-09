@@ -289,6 +289,7 @@ def _deck_payload(deck: dict) -> dict:
         "deck_id": deck["deck_id"],
         "deck_name": deck["deck_name"],
         "is_valid": bool(deck["is_valid"]),
+        "invalid_reason": deck.get('invalid_reason',''),
         "total_points": deck["total_points"],
         "synergy": synergy,
         "cards": [card_to_dict(card) for card in deck.get("cards", [])],
@@ -743,8 +744,8 @@ def claim_daily_card():
     result = _rewards().claim_daily(g.user_id)
     if not result.get("ok"):
         return jsonify(result), 409
-    card = db.get_card_by_id(result["card_id"])
-    return jsonify({"ok": True, "message": "کارت روزانه و یک Ability دریافت شد", "data": {"card": card_to_dict(card), "ability": result["ability"], "quantity": result["quantity"]}, "profile": _player_hub().get_overview(g.user_id)})
+    card = db.get_card_by_id(result["card_id"]) if result.get("card_id") else None
+    return jsonify({"ok": True, "message": "پاداش روزانه و یک Ability دریافت شد", "data": {"card": card_to_dict(card) if card else None, "reward_type": result.get("reward_type","card"), "ability": result["ability"], "quantity": result["quantity"]}, "profile": _player_hub().get_overview(g.user_id)})
 
 
 @app.route("/api/v1/missions", methods=["GET"])
@@ -762,8 +763,8 @@ def claim_mission_reward(mission_id):
     result = _rewards().claim_mission(g.user_id, mission_id)
     if not result.get("ok"):
         return jsonify(result), 409
-    card = db.get_card_by_id_for_player(result["card_id"], g.user_id)
-    return jsonify({"ok": True, "message": "پاداش مأموریت دریافت شد", "data": {"mission": result, "card": card_to_dict(card)}, "profile": _player_hub().get_overview(g.user_id)})
+    card = db.get_card_by_id_for_player(result["card_id"], g.user_id) if result.get("card_id") else None
+    return jsonify({"ok": True, "message": "پاداش مأموریت دریافت شد", "data": {"mission": result, "card": card_to_dict(card) if card else None}, "profile": _player_hub().get_overview(g.user_id)})
 
 
 @app.route("/api/v1/cards/<card_id>/skins", methods=["GET"])
@@ -842,6 +843,66 @@ def execute_fusion():
 
 
 # ==================== Routes: Quick PvP ====================
+
+def _v2_economy():
+    from systems.progression_economy import ProgressionEconomy
+    return ProgressionEconomy(db)
+
+
+def _economy_response(result):
+    if result.get('ok'):
+        result['profile'] = _player_hub().get_overview(g.user_id)
+    return jsonify(result), 200 if result.get('ok') else 409
+
+
+@app.route('/api/v1/economy', methods=['GET'])
+@require_auth
+def economy_inventory():
+    return _economy_response(_v2_economy().inventory(g.user_id))
+
+
+@app.route('/api/v1/economy/claim/silver', methods=['POST'])
+@require_auth
+def silver_claim():
+    data = request.get_json(silent=True) or {}
+    if not data.get('request_key'):
+        return jsonify({'error':'request_key_required'}), 400
+    return _economy_response(_v2_economy().claim(g.user_id, 'silver', data['request_key']))
+
+
+@app.route('/api/v1/economy/quote', methods=['POST'])
+@require_auth
+def economy_quote():
+    data = request.get_json(silent=True) or {}
+    return _economy_response(_v2_economy().quote(g.user_id, str(data.get('item',''))))
+
+
+@app.route('/api/v1/economy/purchase', methods=['POST'])
+@require_auth
+def economy_purchase():
+    data = request.get_json(silent=True) or {}
+    return _economy_response(_v2_economy().purchase(g.user_id, str(data.get('quote_id',''))))
+
+
+@app.route('/api/v1/economy/cards/<card_id>/sell/preview', methods=['POST'])
+@require_auth
+def economy_sell_preview(card_id):
+    data = request.get_json(silent=True) or {}
+    return _economy_response(_v2_economy().sell_preview(g.user_id, card_id, str(data.get('rarity',''))))
+
+
+@app.route('/api/v1/economy/cards/<card_id>/sell', methods=['POST'])
+@require_auth
+def economy_sell(card_id):
+    data = request.get_json(silent=True) or {}
+    return _economy_response(_v2_economy().sell(g.user_id, card_id, str(data.get('rarity','')), data.get('request_key'), data.get('config_version')))
+
+
+@app.route('/api/v1/economy/cards/<card_id>/upgrade', methods=['POST'])
+@require_auth
+def economy_upgrade(card_id):
+    data = request.get_json(silent=True) or {}
+    return _economy_response(_v2_economy().upgrade(g.user_id, card_id, str(data.get('target','')), data.get('request_key'), data.get('config_version')))
 
 @app.route("/api/v1/quick/matchmaking", methods=["POST"])
 @require_auth
@@ -1503,12 +1564,13 @@ def _finalize_solo_fight(user_id, fight_id, winner, aso: AsoAI, player_card, ai_
     old = conn.execute(
         "SELECT level,tier_points,current_tier FROM player_progression WHERE user_id=?", (user_id,)
     ).fetchone()
-    MatchRewardsSystem.award(conn, f"solo:{fight_id}", "solo", {user_id: {
+    paid = MatchRewardsSystem.award(conn, f"solo:{fight_id}", "solo", {user_id: {
         "result": result, "xp": xp, "score": score,
         "hearts_lost": hearts_lost, "tp_delta": tp,
         "card_id": player_card.card_id, "opponent_card_id": ai_card.card_id,
         "opponent_id": None,
     }})
+    xp, score, hearts_lost = paid[str(user_id)]["xp"], paid[str(user_id)]["score"], paid[str(user_id)].get("hearts_lost", hearts_lost)
     new = conn.execute(
         "SELECT level,tier_points,current_tier FROM player_progression WHERE user_id=?", (user_id,)
     ).fetchone()
@@ -1561,6 +1623,15 @@ def solo_result(fight_id):
 def get_leaderboard():
     period = request.args.get("period", "weekly")
     limit = min(int(request.args.get("limit", 50)), 100)
+    from systems.progression_config import enabled
+    if enabled(db):
+        if period not in ('daily','weekly','monthly','all'):
+            return jsonify({'error':'invalid_period'}), 400
+        from systems.progression_leaderboard import ProgressionLeaderboard
+        entries = ProgressionLeaderboard(db).view(period, limit)
+        mine = next((item for item in entries if item['user_id'] == g.user_id), None)
+        return jsonify({'period':period,'my_rank':mine['rank'] if mine else None,'my_score':mine['period_score'] if mine else 0,
+            'entries':[{**item,'score':item['period_score']} for item in entries]})
 
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row

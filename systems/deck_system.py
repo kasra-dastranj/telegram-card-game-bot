@@ -63,8 +63,13 @@ class DeckSystem:
         """
         # تعداد دک (فقط در ساخت، نه ویرایش)
         if not is_edit:
-            if self.db.count_player_decks(player_id) >= self.MAX_DECKS:
-                return False, ERR_MAX_DECKS
+            maximum = self.MAX_DECKS
+            from systems.progression_config import enabled
+            if enabled(self.db):
+                from systems.progression_economy import ProgressionEconomy
+                maximum = ProgressionEconomy(self.db).inventory(player_id)['capacity']['slots']
+            if self.db.count_player_decks(player_id) >= maximum:
+                return False, f"ظرفیت ذخیرهٔ دک ({maximum}) پر است."
 
         # تعداد کارت
         if len(card_ids) != self.MAX_CARDS_PER_DECK:
@@ -119,10 +124,13 @@ class DeckSystem:
         if not name:
             name = self._generate_default_name(player_id)
 
-        deck_id = self.db.create_deck(
-            player_id, name,
-            card_ids[0], card_ids[1], card_ids[2]
-        )
+        try:
+            deck_id = self.db.create_deck(
+                player_id, name,
+                card_ids[0], card_ids[1], card_ids[2]
+            )
+        except ValueError as error:
+            return False, str(error)
         logger.info(f"Deck created: {deck_id} for player {player_id}")
         return True, deck_id
 
@@ -186,6 +194,7 @@ class DeckSystem:
         """
         raw_decks = self.db.get_player_decks(player_id)
         result = []
+        owned_ids = {card.card_id for card in self.db.get_player_cards(player_id)}
         for d in raw_decks:
             cards = self._load_deck_cards(player_id, d)
             total_pts = self._calc_points(cards)
@@ -195,6 +204,9 @@ class DeckSystem:
                 'is_valid':    bool(d['is_valid']),
                 'total_points': total_pts,
                 'cards':       cards,
+                'invalid_reason': ('یک یا چند کارت این دک دیگر در کلکسیون نیست؛ کارت جایگزین انتخاب کن.'
+                                   if any(d[key] not in owned_ids for key in ('card_id_1','card_id_2','card_id_3'))
+                                   else '' if d['is_valid'] else 'این دک نیاز به بازبینی دارد.'),
             })
         return result
 
@@ -287,5 +299,5 @@ class DeckSystem:
         )
         return (
             f"{status} **{deck['deck_name']}** — {deck['total_points']}pt\n"
-            f"└ {cards_text}"
+            f"└ {cards_text}" + ("\n" + deck.get('invalid_reason','') if not deck['is_valid'] else '')
         )

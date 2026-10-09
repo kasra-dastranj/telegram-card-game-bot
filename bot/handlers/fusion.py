@@ -41,6 +41,11 @@ class FusionHandlersMixin:
 
     async def fusion_menu_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """منوی اصلی Fusion"""
+        from systems.progression_config import enabled
+        if enabled(self.db):
+            from bot.handlers.progression import show_menu
+            await update.callback_query.answer()
+            return await show_menu(self, update, context, 'cards')
         query = update.callback_query
         await query.answer()
         user_id = query.from_user.id

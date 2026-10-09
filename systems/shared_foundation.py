@@ -106,6 +106,18 @@ def bind_context(conn, match_key, context):
     return stored
 
 
+def bind_new_context(conn, match_key, mode, selection_variant="normal"):
+    """Only creators opt into v2. Fallback contexts for old games stay legacy."""
+    from dataclasses import replace
+    from systems.progression_config import enabled_in, config_in
+    context = legacy_context(mode, selection_variant, settings_in(conn))
+    if enabled_in(conn):
+        version, config = config_in(conn)
+        context = replace(context, policy_version="future_v2", easy_min_qualified_players=config["easy"]["min_players"])
+        conn.execute("INSERT INTO match_economy_snapshots VALUES(?,?)", (match_key, version))
+    return bind_context(conn, match_key, context)
+
+
 def context_in(conn, match_key, legacy_mode):
     prior = conn.execute("SELECT context_json FROM match_contexts WHERE match_key=?",
                          (match_key,)).fetchone()

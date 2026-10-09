@@ -154,6 +154,9 @@ class FusionSystem:
         return True, None
 
     def preview(self, user_id: int, card_ids: List[str], selected_card_id: str, target: str) -> Dict:
+        from systems.progression_config import enabled
+        if enabled(self.db):
+            return {"ok": False, "error_code": "distinct_fusion_removed", "error": "فقط نسخه‌های یک شخصیت قابل ترکیب هستند"}
         source = CardRarity.NORMAL if target == "epic" else CardRarity.EPIC if target == "legend" else None
         if source is None:
             return {"ok": False, "error_code": "invalid_target", "error": "هدف Fusion نامعتبر است"}
@@ -175,6 +178,9 @@ class FusionSystem:
 
     def _fuse_atomic(self, user_id: int, card_ids: List[str], selected_card_id: str,
                      target: str, request_key: Optional[str] = None) -> FusionResult:
+        from systems.progression_config import enabled
+        if enabled(self.db):
+            return FusionResult(False, error="ترکیب شخصیت‌های متفاوت حذف شده است", error_code="distinct_fusion_removed")
         source = "normal" if target == "epic" else "epic" if target == "legend" else ""
         if len(card_ids) != 3 or len(set(card_ids)) != 3 or selected_card_id not in card_ids or not source:
             return FusionResult(False, error="انتخاب Fusion نامعتبر است")
@@ -249,6 +255,10 @@ class FusionSystem:
             conn.close()
 
     def preview_identical(self, user_id: int, card_id: str, target: str) -> Dict:
+        from systems.progression_config import enabled
+        if enabled(self.db):
+            from systems.progression_economy import ProgressionEconomy
+            return ProgressionEconomy(self.db).preview_upgrade(user_id, card_id, target)
         source = "normal" if target == "epic" else "epic" if target == "legend" else None
         if source is None:
             return {"ok": False, "error_code": "invalid_target", "error": "فرم مقصد نامعتبر است"}
@@ -271,6 +281,12 @@ class FusionSystem:
 
     def fuse_identical(self, user_id: int, card_id: str, target: str,
                        request_key: Optional[str] = None) -> FusionResult:
+        from systems.progression_config import enabled
+        if enabled(self.db):
+            from systems.progression_economy import ProgressionEconomy
+            result = ProgressionEconomy(self.db).upgrade(user_id, card_id, target, request_key)
+            if not result["ok"]: return FusionResult(False, error=result["error"], error_code=result["error_code"])
+            return FusionResult(True, self.db.get_card_by_id_for_player(card_id, user_id), xp_gained=result["xp"], old_level=result["old_level"], new_level=result["new_level"], replayed=result.get("replayed",False))
         source = "normal" if target == "epic" else "epic" if target == "legend" else None
         if source is None:
             return FusionResult(False, error="فرم مقصد نامعتبر است")

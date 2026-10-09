@@ -43,6 +43,7 @@ export interface UpgradeResult {
 }
 
 export interface DeckData {
+  invalid_reason?: string;
   deck_id: string;
   deck_name: string;
   is_valid: boolean;
@@ -68,6 +69,8 @@ export interface FusionPreview {
 }
 
 export interface ProfileData {
+  progression_v2_enabled?: boolean;
+  economy?: { items: Record<string, number>; capacity: { slots: number; max_hearts: number }; shop: Record<string, { enabled: boolean }>; daily_ticket_percent: number; silver_claim_tickets: number };
   user_id?: number;
   first_name: string;
   username?: string;
@@ -372,6 +375,27 @@ async function requestCardAction<T>(path: string, body: Record<string, unknown>)
 }
 
 export const api = {
+  async economyQuote(item: string): Promise<{ quote_id: string; price: number; config_version: number }> {
+    return request('POST', '/economy/quote', { item });
+  },
+  async economyPurchase(quoteId: string): Promise<{ profile: ProfileData }> {
+    return request('POST', '/economy/purchase', { quote_id: quoteId });
+  },
+  async silverClaim(requestKey: string): Promise<{ card_id: string; rarity: string; profile: ProfileData }> {
+    return request('POST', '/economy/claim/silver', { request_key: requestKey });
+  },
+  async copyPreview(cardId: string, target: string): Promise<{ ok: boolean; error?: string; required: number; upgrade_cards_required: number; xp: number; config_version: number }> {
+    return request('GET', `/cards/${encodeURIComponent(cardId)}/fuse-copies/preview?target=${target}`);
+  },
+  async v2Upgrade(cardId: string, target: string, requestKey: string, configVersion: number): Promise<{ xp_gained: number; profile: ProfileData }> {
+    return request('POST', `/economy/cards/${encodeURIComponent(cardId)}/upgrade`, { target, request_key: requestKey, config_version: configVersion });
+  },
+  async sellPreview(cardId: string, rarity: string): Promise<{ price: number; config_version: number }> {
+    return request('POST', `/economy/cards/${encodeURIComponent(cardId)}/sell/preview`, { rarity });
+  },
+  async sellCard(cardId: string, rarity: string, requestKey: string, configVersion: number): Promise<{ profile: ProfileData }> {
+    return request('POST', `/economy/cards/${encodeURIComponent(cardId)}/sell`, { rarity, request_key: requestKey, config_version: configVersion });
+  },
   async profile(): Promise<ProfileData> {
     if (demoMode) return {
       first_name: "فرمانده",
@@ -480,7 +504,7 @@ export const api = {
     if (demoMode) return { can_claim: !demoClaimed, remaining_seconds: demoClaimed ? 3600 : 0, pool_count: 12 };
     return request("GET", "/claim");
   },
-  async claimDaily(): Promise<{ message: string; data: { card: CardData; ability?: { key: string; title: string } }; profile: ProfileData }> {
+  async claimDaily(): Promise<{ message: string; data: { card: CardData | null; reward_type?: string; ability?: { key: string; title: string } }; profile: ProfileData }> {
     if (demoMode) { demoClaimed = true; return { message: "کارت روزانه و یک Ability دریافت شد", data: { card: demoCards[0], ability: { key: "reveal_opponent", title: "👁 مشاهده کارت حریف" } }, profile: await this.profile() }; }
     return request("POST", "/claim");
   },
@@ -491,7 +515,7 @@ export const api = {
     ];
     return (await request<{ missions: MissionData[] }>("GET", "/missions")).missions;
   },
-  async claimMission(missionId: string): Promise<{ message: string; data: { card: CardData } }> {
+  async claimMission(missionId: string): Promise<{ message: string; data: { card: CardData | null } }> {
     if (demoMode) return { message: "پاداش مأموریت دریافت شد", data: { card: { ...demoCards[1], rarity: "legend" } } };
     return request("POST", `/missions/${encodeURIComponent(missionId)}/claim`);
   },

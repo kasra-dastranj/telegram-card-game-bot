@@ -21,6 +21,7 @@ from systems.fusion_system import FusionSystem
 from systems.phase2_systems import LevelSystem, TierSystem, format_xp_bar, format_tier_badge
 from systems.economy_system import EconomySystem
 from systems.tier_decay_system import TierDecaySystem
+from systems.progression_config import enabled
 from systems.risk_mode_system import RiskModeSystem, RiskTable, RiskAction
 from systems.battle_system_3rounds import BattleSystem3Rounds, BattleState, ARENAS
 from systems.shared_foundation import eligible_cards
@@ -133,7 +134,7 @@ class PvPHandlersMixin:
             await update.message.reply_text("⚠️ شما قبلاً یک چالش فعال دارید.")
             return
 
-        fight_id = self.db.create_fight(challenger_id, 0, chat_id)
+        fight_id = self.db.create_fight(challenger_id, 0, chat_id, mode="three_round" if enabled(self.db) else "legacy_pvp")
         challenger_name = update.effective_user.first_name
         
         text = (
@@ -170,6 +171,9 @@ class PvPHandlersMixin:
         user_id = query.from_user.id
         success, card, error, quick_ability = self.game.claim_daily_card_with_ability(user_id)
         
+        if success and card is None and quick_ability and quick_ability.get("silver_ticket"):
+            await update.effective_message.reply_text("🎟 یک Silver Ticket و ابیلیتی «" + quick_ability["title"] + "» دریافت شد.")
+            return
         if success and card:
             rarity_colors = {
                 CardRarity.NORMAL: "🟢",
@@ -284,7 +288,7 @@ class PvPHandlersMixin:
             return
         
         # ایجاد فایت جدید - ابتدا فقط challenger_id
-        fight_id = self.db.create_fight(challenger_id, 0, chat_id)  # opponent_id موقتاً 0
+        fight_id = self.db.create_fight(challenger_id, 0, chat_id, mode="three_round" if enabled(self.db) else "legacy_pvp")  # opponent_id موقتاً 0
         
         challenger_name = query.from_user.first_name
         
@@ -993,7 +997,7 @@ class PvPHandlersMixin:
             await update.message.reply_text("⚠️ شما قبلاً یک چالش فعال دارید.")
             return
 
-        fight_id = self.db.create_fight(challenger_id, 0, chat_id)
+        fight_id = self.db.create_fight(challenger_id, 0, chat_id, mode="three_round" if enabled(self.db) else "legacy_pvp")
         challenger_name = update.effective_user.first_name
         
         text = (
@@ -1030,6 +1034,9 @@ class PvPHandlersMixin:
         user_id = query.from_user.id
         success, card, error, quick_ability = self.game.claim_daily_card_with_ability(user_id)
         
+        if success and card is None and quick_ability and quick_ability.get("silver_ticket"):
+            await update.effective_message.reply_text("🎟 یک Silver Ticket و ابیلیتی «" + quick_ability["title"] + "» دریافت شد.")
+            return
         if success and card:
             rarity_colors = {
                 CardRarity.NORMAL: "🟢",
@@ -1144,7 +1151,7 @@ class PvPHandlersMixin:
             return
         
         # ایجاد فایت جدید - ابتدا فقط challenger_id
-        fight_id = self.db.create_fight(challenger_id, 0, chat_id)  # opponent_id موقتاً 0
+        fight_id = self.db.create_fight(challenger_id, 0, chat_id, mode="three_round" if enabled(self.db) else "legacy_pvp")  # opponent_id موقتاً 0
         
         challenger_name = query.from_user.first_name
         

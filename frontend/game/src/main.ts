@@ -33,13 +33,17 @@ const state: {
   collectionQuery: string;
   detailCard?: CardData;
   pendingUpgrade?: UpgradePreview;
-  pendingCopyFusion?: { cardId: string; target: "epic" | "legend" };
+  pendingCopyFusion?: { cardId: string; target: "epic" | "legend"; requestKey?: string; preview?: { required: number; upgrade_cards_required: number; xp: number; config_version: number } };
+  shopQuote?: { quote_id: string; price: number };
+  pendingSale?: { cardId: string; rarity: string; requestKey: string; price: number; config_version: number };
+  silverRequestKey?: string;
   decks: DeckData[];
   deckEditor?: { deckId?: string; name: string; cardIds: string[] };
   deleteDeckId?: string;
   claimStatus?: ClaimStatus;
   missions: MissionData[];
   rewardCard?: CardData;
+  rewardTicket?: boolean;
   rewardAbility?: { key: string; title: string };
   skinPanel?: { cardId: string; data: SkinCollection };
   fusion: { target: "epic" | "legend"; cardIds: string[]; retainedId?: string; preview?: FusionPreview };
@@ -318,7 +322,7 @@ function bottomNav(active?: "game" | "cards" | "decks" | "progress" | "shop"): s
     ["cards", "کارت‌ها", "open-collection"],
     ["decks", "دک‌ها", "hub-decks"],
     ["progress", "پیشرفت", "hub-progress"],
-    ["shop", "کارگاه", "hub-shop"],
+    ["shop", state.profile?.progression_v2_enabled ? "فروشگاه" : "کارگاه", "hub-shop"],
   ];
   return `<nav class="hub-nav glass-panel" aria-label="مرکز بازیکن">
     ${items.map(([key, label, action]) => `<button data-action="${action}" class="${active === key ? "is-active" : ""}" aria-current="${active === key ? "page" : "false"}">${navIcon(key)}<span>${label}</span></button>`).join("")}
@@ -334,7 +338,7 @@ function resourceHud(): string {
   const value = (amount?: number) => pending ? "…" : amount === undefined ? "—" : amount.toLocaleString("fa-IR");
   return `<header class="hub-hud glass-panel">
     <button class="hub-avatar" data-action="open-profile" aria-label="نمایش پروفایل ${escapeHtml(p?.first_name || "بازیکن")}">${escapeHtml((p?.first_name || "T").slice(0, 1))}<i aria-hidden="true"></i></button>
-    <div class="hub-level"><span><span><small>فرمانده</small><strong>${escapeHtml(p?.first_name || "بازیکن")}</strong></span><span><b>LV ${p?.level ?? 1}</b><small>${escapeHtml(p?.current_tier ?? "Bronze")}</small></span></span><i><b style="width:${percent}%"></b></i></div>
+    <div class="hub-level"><span><span><small>فرمانده</small><strong>${escapeHtml(p?.first_name || "بازیکن")}</strong></span><span><b>LV ${p?.level ?? 1}</b><small>${p?.progression_v2_enabled ? "" : escapeHtml(p?.current_tier ?? "Bronze")}</small></span></span><i><b style="width:${percent}%"></b></i></div>
     <div class="hub-resources">
       <span class="hub-resource hub-heart">${lobbyIcon("heart")}<span><small>جان</small><b dir="ltr">${p ? `${p.hearts}/${p.max_hearts}` : value()}</b></span></span>
       <span class="hub-resource hub-coin">${lobbyIcon("coin")}<span><small>سکه</small><b>${value(p?.coins)}</b></span></span>
@@ -363,7 +367,7 @@ function profileHubTemplate(): string {
     <section class="screen hub-screen profile-hub-screen">
       ${resourceHud()}
       <div class="hub-scroll">
-        <header class="hub-title"><div><p class="eyebrow">PLAYER HUB</p><h1>مرکز فرمانده</h1></div><span class="tier-badge">${escapeHtml(p?.current_tier ?? "Bronze")} · ${p?.tier_points ?? 0} TP</span></header>
+        <header class="hub-title"><div><p class="eyebrow">PLAYER HUB</p><h1>مرکز فرمانده</h1></div>${p?.progression_v2_enabled ? "" : `<span class="tier-badge">${escapeHtml(p?.current_tier ?? "Bronze")} · ${p?.tier_points ?? 0} TP</span>`}</header>
         <article class="profile-card glass-panel">
           <div class="profile-avatar">${escapeHtml((p?.first_name || "T").slice(0, 1))}</div>
           <div><small>فرمانده</small><h2>${escapeHtml(p?.first_name || "بازیکن")}</h2><p dir="ltr">${p?.username ? `@${escapeHtml(p.username)}` : "TelBattle Player"}</p></div>
@@ -427,9 +431,9 @@ function cardDetailSheet(card: CardData): string {
   const formControls = forms.map((rarity) => `<button class="secondary-button" data-action="activate-card-form" data-value="${rarity}" ${rarity === card.rarity || state.loading ? "disabled" : ""}>${rarity.toUpperCase()} ×${counts[rarity]}${rarity === card.rarity ? " · فعال" : " · انتخاب"}</button>`).join("");
   const copyFusionControls = ([{ source: "normal", target: "epic" }, { source: "epic", target: "legend" }] as const)
     .filter(({ source }) => (counts[source] || 0) > 0)
-    .map(({ source, target }) => `<button class="secondary-button" data-action="ask-copy-fusion" data-value="${target}" ${(counts[source] || 0) < 3 || state.loading ? "disabled" : ""}>۳ ${source.toUpperCase()} → ۱ ${target.toUpperCase()}${(counts[source] || 0) < 3 ? ` · ${counts[source]}/۳` : ""}</button>`).join("");
+    .map(({ source, target }) => `<button class="secondary-button" data-action="ask-copy-fusion" data-value="${target}" ${(!state.profile?.progression_v2_enabled && (counts[source] || 0) < 3) || state.loading ? "disabled" : ""}>${state.profile?.progression_v2_enabled ? "پیش‌نمایش ارتقا: " : "۳ "}${source.toUpperCase()} → ۱ ${target.toUpperCase()}</button>`).join("");
   const pendingCopies = state.pendingCopyFusion?.cardId === card.card_id ? state.pendingCopyFusion : undefined;
-  const upgradeControl = upgrade?.ok
+  const upgradeControl = state.profile?.progression_v2_enabled ? "" : upgrade?.ok
     ? `<button class="primary-button" data-action="preview-upgrade" ${upgrade.blocked_by_match || !upgrade.can_afford || state.loading ? "disabled" : ""}>ارتقا به <b dir="ltr">${escapeHtml(upgrade.to_rarity?.toUpperCase())}</b> · ${Number(upgrade.price || 0).toLocaleString("fa-IR")} سکه</button>
        ${upgrade.blocked_by_match ? '<p class="sheet-warning">تا پایان مسابقه امکان ارتقا وجود ندارد.</p>' : !upgrade.can_afford ? '<p class="sheet-warning">سکه کافی برای این ارتقا نداری.</p>' : ""}`
     : `<p class="upgrade-unavailable">${escapeHtml(upgrade?.error || "این کارت قابل ارتقا نیست.")}</p>`;
@@ -451,8 +455,8 @@ function cardDetailSheet(card: CardData): string {
         ${formControls ? `<div class="card-actions"><strong>فرم‌های موجود</strong>${formControls}</div>` : ""}
         ${copyFusionControls ? `<div class="card-actions"><strong>ترکیب نسخه‌های یک شخصیت</strong>${copyFusionControls}</div>` : ""}
         ${card.is_in_cooldown ? '<p class="sheet-warning">این کارت در Cooldown است.</p>' : ""}
-        <div class="card-actions"><button class="secondary-button" data-action="open-skins" data-id="${escapeHtml(card.card_id)}">ظاهر کارت</button>${upgradeControl}</div>
-        ${pendingCopies ? `<div class="upgrade-confirm" role="alertdialog" aria-label="تأیید ترکیب نسخه‌ها"><strong>سه نسخه را مصرف کنیم؟</strong><p>۳ ${pendingCopies.target === "epic" ? "Normal" : "Epic"} همین شخصیت → ۱ ${pendingCopies.target.toUpperCase()}؛ ${pendingCopies.target === "epic" ? 15 : 30} XP</p><div><button class="secondary-button" data-action="cancel-copy-fusion">انصراف</button><button class="primary-button" data-action="confirm-copy-fusion" ${state.loading ? "disabled" : ""}>تأیید Fusion</button></div></div>` : ""}
+        <div class="card-actions"><button class="secondary-button" data-action="open-skins" data-id="${escapeHtml(card.card_id)}">ظاهر کارت</button>${upgradeControl}${state.profile?.progression_v2_enabled ? forms.map(rarity => `<button class="secondary-button" data-action="preview-sell" data-value="${rarity}">فروش یک ${rarity.toUpperCase()}</button>`).join("") : ""}</div>${state.pendingSale?.cardId === card.card_id ? `<div class="upgrade-confirm"><strong>فروش یک ${state.pendingSale.rarity.toUpperCase()} به ${state.pendingSale.price} سکه؟</strong><p>اگر آخرین نسخه باشد، دک‌های دارای این کارت نامعتبر می‌شوند.</p><button data-action="confirm-sell">تأیید فروش</button><button data-action="cancel-sell">انصراف</button></div>` : ""}
+        ${pendingCopies ? `<div class="upgrade-confirm" role="alertdialog" aria-label="تأیید ترکیب نسخه‌ها"><strong>نسخه‌ها را مصرف کنیم؟</strong><p>${pendingCopies.preview?.required ?? 3} ${pendingCopies.target === "epic" ? "Normal" : "Epic"} همین شخصیت → ۱ ${pendingCopies.target.toUpperCase()}؛ ${pendingCopies.preview?.xp ?? (pendingCopies.target === "epic" ? 15 : 30)} XP${pendingCopies.preview ? ` · ${pendingCopies.preview.upgrade_cards_required} کارت ارتقا` : ""}</p><div><button class="secondary-button" data-action="cancel-copy-fusion">انصراف</button><button class="primary-button" data-action="confirm-copy-fusion" ${state.loading ? "disabled" : ""}>تأیید Fusion</button></div></div>` : ""}
         ${confirm}
       </div>
     </aside>`;
@@ -460,7 +464,7 @@ function cardDetailSheet(card: CardData): string {
 
 function decksTemplate(): string {
   const decks = state.decks.map((deck) => `<article class="deck-panel glass-panel">
-    <header><div><small>${deck.is_valid ? "آماده نبرد" : "نیازمند اصلاح"}</small><h2>${escapeHtml(deck.deck_name)}</h2></div><strong>+${deck.synergy.score}</strong></header>
+    <header><div><small>${deck.is_valid ? "آماده نبرد" : escapeHtml(deck.invalid_reason || "نیازمند اصلاح")}</small><h2>${escapeHtml(deck.deck_name)}</h2></div><strong>+${deck.synergy.score}</strong></header>
     <div class="deck-card-strip">${deck.cards.map((card) => `<span title="${escapeHtml(card.name)}" style="background-image:url('${escapeHtml(card.image_url)}')"><b dir="auto">${escapeHtml(card.name)}</b></span>`).join("")}</div>
     <p>${deck.synergy.reasons.length ? deck.synergy.reasons.map(escapeHtml).join(" · ") : "بدون هم‌افزایی ویژه"}</p>
     <footer><button class="secondary-button" data-action="edit-deck" data-id="${escapeHtml(deck.deck_id)}">ویرایش</button><button class="danger-button" data-action="ask-delete-deck" data-id="${escapeHtml(deck.deck_id)}">حذف</button></footer>
@@ -499,13 +503,14 @@ function progressTemplate(): string {
   const missions = state.missions.map((mission) => `<article class="mission-card glass-panel ${mission.completed ? "is-complete" : ""}">
     <header><div><small dir="auto">${escapeHtml(mission.card_name)}</small><h2>${escapeHtml(mission.name)}</h2></div><strong>${mission.progress_percent}%</strong></header>
     <p>${escapeHtml(mission.description)}</p><i><b style="width:${mission.progress_percent}%"></b></i>
-    <footer><span dir="ltr">${mission.current_progress} / ${mission.target}</span>${mission.reward_claimed ? '<em>دریافت شده</em>' : mission.can_claim ? `<button data-action="claim-mission" data-id="${escapeHtml(mission.mission_id)}">دریافت Legend</button>` : '<em>در حال انجام</em>'}</footer>
+    <footer><span dir="ltr">${mission.current_progress} / ${mission.target}</span>${mission.reward_claimed ? '<em>دریافت شده</em>' : mission.can_claim ? `<button data-action="claim-mission" data-id="${escapeHtml(mission.mission_id)}">${state.profile?.progression_v2_enabled ? "دریافت پاداش" : "دریافت Legend"}</button>` : '<em>در حال انجام</em>'}</footer>
   </article>`).join("");
   return `<section class="screen hub-screen progress-screen">
     ${resourceHud()}<div class="hub-scroll"><header class="hub-title"><div><p class="eyebrow">PROGRESS</p><h1>پیشرفت و پاداش</h1></div></header>
     <article class="daily-claim glass-panel"><div><small>DAILY CARD</small><h2>${claim?.pool_exhausted ? "کارت Normal موجود نیست" : claim?.can_claim ? "کارت روزانه آماده است" : "کارت امروز دریافت شده"}</h2><p>${claim?.pool_exhausted ? "فعلاً کاتالوگ کارت Normal ندارد؛ نوبت Claim مصرف نشده است." : claim?.can_claim ? `${claim.pool_count} کارت در Pool؛ نسخهٔ تکراری هم به موجودی اضافه می‌شود.` : `دریافت بعدی: ${formatDuration(claim?.remaining_seconds)}`}</p></div><button data-action="claim-daily" ${!claim?.can_claim || state.loading ? "disabled" : ""}>${state.loading ? "…" : "دریافت کارت"}</button></article>
-    ${state.rewardCard ? `<article class="reward-reveal glass-panel"><span style="background-image:url('${escapeHtml(state.rewardCard.image_url)}')"></span><div><small>پاداش تازه</small><h2 dir="auto">${escapeHtml(state.rewardCard.name)}</h2><b dir="ltr">${escapeHtml(state.rewardCard.rarity.toUpperCase())}</b>${state.rewardAbility ? `<p>🎁 Ability مصرفی Quick: ${escapeHtml(state.rewardAbility.title)} ×۱</p>` : ""}</div></article>` : ""}
-    <header class="subsection-title"><h2>مأموریت‌های کارت</h2><span>${state.missions.length}</span></header><div class="mission-list">${state.loading ? skeletons() : missions || '<p class="empty-state">برای کارت‌های فعلی مأموریتی ثبت نشده است.</p>'}</div></div>${bottomNav("progress")}
+    ${state.rewardCard ? `<article class="reward-reveal glass-panel"><span style="background-image:url('${escapeHtml(state.rewardCard.image_url)}')"></span><div><small>پاداش تازه</small><h2 dir="auto">${escapeHtml(state.rewardCard.name)}</h2><b dir="ltr">${escapeHtml(state.rewardCard.rarity.toUpperCase())}</b>${state.rewardAbility ? `<p>🎁 ابیلیتی مصرفی: ${escapeHtml(state.rewardAbility.title)} ×۱</p>` : ""}</div></article>` : ""}
+    ${state.rewardTicket ? `<article class="mission-card glass-panel"><h2>🎟 یک Silver Ticket دریافت شد</h2><p>ابیلیتی مصرفی: ${escapeHtml(state.rewardAbility?.title)} ×۱</p></article>` : ""}
+    <header class="subsection-title"><h2>${state.profile?.progression_v2_enabled ? "مأموریت‌ها" : "مأموریت‌های کارت"}</h2><span>${state.missions.length}</span></header><div class="mission-list">${state.loading ? skeletons() : missions || '<p class="empty-state">برای کارت‌های فعلی مأموریتی ثبت نشده است.</p>'}</div></div>${bottomNav("progress")}
   </section>`;
 }
 
@@ -520,7 +525,68 @@ function skinsSheet(): string {
   return `<div class="sheet-backdrop" data-action="close-skins"></div><aside class="skins-sheet glass-panel" role="dialog" aria-modal="true" aria-label="پوسته‌های کارت"><header><div><p class="eyebrow">CARD SKINS</p><h2 dir="auto">${escapeHtml(card?.name || "ظاهر کارت")}</h2></div><button class="sheet-close" data-action="close-skins" aria-label="بستن">×</button></header><button class="default-skin ${panel.data.active_skin_id ? "" : "is-active"}" data-action="activate-default-skin" data-card="${escapeHtml(panel.cardId)}">ظاهر پیش‌فرض ${panel.data.active_skin_id ? "" : "· فعال"}</button><div class="skin-list">${items || '<p class="empty-state">هنوز پوسته‌ای برای این کارت ثبت نشده است.</p>'}</div></aside>`;
 }
 
+function economyShopTemplate(): string {
+  const economy = state.profile?.economy;
+  const labels: Record<string, string> = { upgrade_card: 'کارت ارتقا', silver_ticket: 'Silver Ticket', deck_slot: 'ظرفیت دک', refill: 'پرکردن قلب‌ها', permanent_heart: 'قلب دائمی' };
+  const items = Object.keys(economy?.shop || {}).map(item => `<article class="mission-card glass-panel"><h2>${labels[item] || escapeHtml(item)}</h2><button data-action="v2-quote" data-value="${escapeHtml(item)}">نمایش قیمت</button></article>`).join('');
+  const quote = state.shopQuote ? `<div class="upgrade-confirm" role="alertdialog"><strong>قیمت خرید: ${state.shopQuote.price.toLocaleString('fa-IR')} سکه</strong><p>پس از تأیید از موجودی برداشت می‌شود.</p><button data-action="v2-buy" ${state.loading ? 'disabled' : ''}>تأیید خرید</button><button data-action="v2-cancel">انصراف</button></div>` : '';
+  return `<section class="screen hub-screen shop-screen">${resourceHud()}<div class="hub-scroll"><header class="hub-title"><h1>فروشگاه</h1></header><p>🎟 ${economy?.items.silver_ticket ?? 0} Ticket · ${economy?.items.upgrade_card ?? 0} کارت ارتقا · ${economy?.capacity.slots ?? 3} ظرفیت دک</p><article class="mission-card glass-panel"><h2>Silver Claim</h2><p>${economy?.items.free_silver_claim ?? 0} دریافت رایگان؛ پس از آن با ${economy?.silver_claim_tickets ?? 3} Ticket.</p><button data-action="v2-silver" ${state.loading ? 'disabled' : ''}>دریافت Epic</button></article>${quote}${items}<p>ارتقا و فروش نسخه‌ها از جزئیات کارت در کلکسیون انجام می‌شود.</p><button data-action="open-collection">کلکسیون</button></div>${bottomNav('shop')}</section>`;
+}
+
+async function askCopyFusion(target: 'epic' | 'legend'): Promise<void> {
+  if (!state.detailCard || state.loading) return;
+  const cardId = state.detailCard.card_id;
+  if (!state.profile?.progression_v2_enabled) { state.pendingCopyFusion = { cardId, target }; render(); return; }
+  state.loading = true; render();
+  try {
+    const preview = await api.copyPreview(cardId, target);
+    if (!preview.ok) throw new Error(preview.error || 'نسخه یا کارت ارتقا کافی نیست؛ دستور Legend باید در تنظیمات ادمین ثبت شود.');
+    state.pendingCopyFusion = { cardId, target, preview, requestKey: crypto.randomUUID() };
+  } catch (error) { showToast(error instanceof Error ? error.message : 'پیش‌نمایش دریافت نشد'); }
+  finally { state.loading = false; render(); }
+}
+
+async function quoteEconomy(item: string): Promise<void> {
+  state.loading = true; render();
+  try { state.shopQuote = await api.economyQuote(item); }
+  catch (error) { showToast(error instanceof Error ? error.message : 'قیمت دریافت نشد'); }
+  finally { state.loading = false; render(); }
+}
+
+async function purchaseEconomy(): Promise<void> {
+  if (!state.shopQuote || state.loading) return;
+  state.loading = true; render();
+  try { const result = await api.economyPurchase(state.shopQuote.quote_id); state.profile = result.profile; state.shopQuote = undefined; showToast('خرید انجام شد'); }
+  catch (error) { showToast(error instanceof Error ? error.message : 'خرید انجام نشد'); }
+  finally { state.loading = false; render(); }
+}
+
+async function silverClaim(): Promise<void> {
+  if (state.loading) return;
+  state.loading = true; state.silverRequestKey ||= crypto.randomUUID(); render();
+  try { const result = await api.silverClaim(state.silverRequestKey); state.profile = result.profile; state.silverRequestKey = undefined; showToast('یک Epic دریافت شد؛ در کلکسیون ببین.'); }
+  catch (error) { showToast(error instanceof Error ? error.message : 'دریافت Epic انجام نشد'); }
+  finally { state.loading = false; render(); }
+}
+
+async function previewSale(rarity: string): Promise<void> {
+  if (!state.detailCard || state.loading) return;
+  state.loading = true; render();
+  try { const cardId = state.detailCard.card_id; const preview = await api.sellPreview(cardId, rarity); state.pendingSale = { cardId, rarity, requestKey: crypto.randomUUID(), ...preview }; }
+  catch (error) { showToast(error instanceof Error ? error.message : 'فروش در دسترس نیست'); }
+  finally { state.loading = false; render(); }
+}
+
+async function confirmSale(): Promise<void> {
+  if (!state.pendingSale || state.loading) return;
+  const sale = state.pendingSale; state.loading = true; render();
+  try { const result = await api.sellCard(sale.cardId, sale.rarity, sale.requestKey, sale.config_version); state.profile = result.profile; state.pendingSale = undefined; state.detailCard = undefined; await loadCollection(state.collectionPage); showToast('فروش انجام شد'); }
+  catch (error) { showToast(error instanceof Error ? error.message : 'فروش انجام نشد'); }
+  finally { state.loading = false; render(); }
+}
+
 function shopTemplate(): string {
+  if (state.profile?.progression_v2_enabled) return economyShopTemplate();
   const source = state.fusion.target === "epic" ? "normal" : "epic";
   const eligible = state.cards.filter((card) => card.rarity === source);
   const selectedCards = state.fusion.cardIds.map((id) => state.cards.find((card) => card.card_id === id)).filter(Boolean) as CardData[];
@@ -1041,7 +1107,9 @@ async function confirmCopyFusion(): Promise<void> {
   if (!pending || state.loading) return;
   state.loading = true; render();
   try {
-    const result = await api.fuseCopies(pending.cardId, pending.target);
+    const result = state.profile?.progression_v2_enabled && pending.preview
+      ? await api.v2Upgrade(pending.cardId, pending.target, pending.requestKey!, pending.preview.config_version)
+      : await api.fuseCopies(pending.cardId, pending.target);
     state.profile = { ...(state.profile || {} as ProfileData), ...result.profile };
     state.detailCard = await api.cardDetail(pending.cardId);
     state.pendingCopyFusion = undefined;
@@ -1126,14 +1194,14 @@ async function openProgress(): Promise<void> {
 async function claimDaily(): Promise<void> {
   if (state.loading || !state.claimStatus?.can_claim) return;
   state.loading = true; render();
-  try { const result = await api.claimDaily(); state.rewardCard = result.data.card; state.rewardAbility = result.data.ability; state.profile = { ...(state.profile || {} as ProfileData), ...result.profile }; state.claimStatus = await api.claimStatus(); haptic("success"); showToast(result.message); }
+  try { const result = await api.claimDaily(); state.rewardCard = result.data.card || undefined; state.rewardTicket = result.data.reward_type === "silver_ticket"; state.rewardAbility = result.data.ability; state.profile = { ...(state.profile || {} as ProfileData), ...result.profile }; state.claimStatus = await api.claimStatus(); haptic("success"); showToast(result.message); }
   catch (error) { showToast(error instanceof Error ? error.message : "دریافت کارت انجام نشد"); }
   finally { state.loading = false; render(); }
 }
 
 async function claimMission(missionId: string): Promise<void> {
   if (state.loading) return; state.loading = true; render();
-  try { const result = await api.claimMission(missionId); state.rewardCard = result.data.card; state.rewardAbility = undefined; state.missions = await api.missions(); await refreshProfile(); haptic("success"); showToast(result.message); }
+  try { const result = await api.claimMission(missionId); state.rewardCard = result.data.card || undefined; state.rewardTicket = false; state.rewardAbility = undefined; state.missions = await api.missions(); await refreshProfile(); haptic("success"); showToast(result.message); }
   catch (error) { showToast(error instanceof Error ? error.message : "دریافت پاداش انجام نشد"); }
   finally { state.loading = false; render(); }
 }
@@ -1147,14 +1215,14 @@ async function openSkins(cardId: string): Promise<void> {
 
 async function mutateSkin(cardId: string, skinId: string | null, purchase = false): Promise<void> {
   if (state.loading) return; state.loading = true; render();
-  try { if (purchase && skinId) await api.purchaseSkin(cardId, skinId); await api.activateSkin(cardId, skinId); state.skinPanel = { cardId, data: await api.cardSkins(cardId) }; await refreshProfile(); haptic("success"); showToast(purchase ? "پوسته خریداری و فعال شد" : "ظاهر کارت تغییر کرد"); }
+  try { if (purchase && skinId && state.profile?.progression_v2_enabled) { state.screen = "shop"; state.skinPanel = undefined; await quoteEconomy("skin:" + skinId); return; } if (purchase && skinId) await api.purchaseSkin(cardId, skinId); await api.activateSkin(cardId, skinId); state.skinPanel = { cardId, data: await api.cardSkins(cardId) }; await refreshProfile(); haptic("success"); showToast(purchase ? "پوسته خریداری و فعال شد" : "ظاهر کارت تغییر کرد"); }
   catch (error) { showToast(error instanceof Error ? error.message : "تغییر پوسته انجام نشد"); }
   finally { state.loading = false; render(); }
 }
 
 async function openShop(): Promise<void> {
   state.screen = "shop"; state.loading = true; state.fusion.preview = undefined; render();
-  try { state.cards = await api.cards(); }
+  try { state.cards = await api.cards(); await refreshProfile(); }
   catch (error) { showToast(error instanceof Error ? error.message : "کارت‌ها دریافت نشدند"); }
   finally { state.loading = false; render(); }
 }
@@ -1171,7 +1239,7 @@ async function executeFusion(): Promise<void> {
   const fusion = state.fusion;
   if (state.loading || !fusion.retainedId || !fusion.preview) return;
   state.loading = true; render();
-  try { const result = await api.executeFusion(fusion.cardIds, fusion.retainedId, fusion.target); state.rewardCard = result.data.card; state.rewardAbility = undefined; state.profile = { ...(state.profile || {} as ProfileData), ...result.profile }; state.cards = await api.cards(); state.fusion = { target: fusion.target, cardIds: [] }; haptic("success"); showToast(result.message); }
+  try { const result = await api.executeFusion(fusion.cardIds, fusion.retainedId, fusion.target); state.rewardCard = result.data.card || undefined; state.rewardTicket = false; state.rewardAbility = undefined; state.profile = { ...(state.profile || {} as ProfileData), ...result.profile }; state.cards = await api.cards(); state.fusion = { target: fusion.target, cardIds: [] }; haptic("success"); showToast(result.message); }
   catch (error) { showToast(error instanceof Error ? error.message : "Fusion انجام نشد"); }
   finally { state.loading = false; render(); }
 }
@@ -1608,7 +1676,7 @@ ui.addEventListener("click", (event) => {
   if (action === "cancel-upgrade") { state.pendingUpgrade = undefined; render(); }
   if (action === "confirm-upgrade") void confirmUpgrade();
   if (action === "activate-card-form") void activateCardForm(button.dataset.value || "");
-  if (action === "ask-copy-fusion" && state.detailCard) { state.pendingCopyFusion = { cardId: state.detailCard.card_id, target: button.dataset.value as "epic" | "legend" }; render(); }
+  if (action === "ask-copy-fusion" && state.detailCard) void askCopyFusion(button.dataset.value as "epic" | "legend");
   if (action === "cancel-copy-fusion") { state.pendingCopyFusion = undefined; render(); }
   if (action === "confirm-copy-fusion") void confirmCopyFusion();
   if (action === "collection-page") void loadCollection(Number(button.dataset.page || 1));
@@ -1637,6 +1705,13 @@ ui.addEventListener("click", (event) => {
   if (action === "activate-skin") void mutateSkin(button.dataset.card || "", button.dataset.id || "");
   if (action === "activate-default-skin") void mutateSkin(button.dataset.card || "", null);
   if (action === "hub-shop") void openShop();
+  if (action === "v2-quote") void quoteEconomy(button.dataset.value || "");
+  if (action === "v2-buy") void purchaseEconomy();
+  if (action === "v2-cancel") { state.shopQuote = undefined; render(); }
+  if (action === "v2-silver") void silverClaim();
+  if (action === "preview-sell") void previewSale(button.dataset.value || "");
+  if (action === "confirm-sell") void confirmSale();
+  if (action === "cancel-sell") { state.pendingSale = undefined; render(); }
   if (action === "fusion-target") { state.fusion = { target: button.dataset.value as "epic" | "legend", cardIds: [] }; render(); }
   if (action === "toggle-fusion-card") {
     const cardId = button.dataset.id || ""; const selected = state.fusion.cardIds.includes(cardId);

@@ -312,6 +312,9 @@ class CardMissionsSystem:
         Returns:
             نتیجه بروزرسانی (اگر مرتبط باشد)
         """
+        from systems.progression_config import enabled
+        if enabled(self.db):
+            return None  # v2 derives qualified progress from its immutable event ledger.
         mission = self.get_mission(card_id)
         if not mission:
             return None

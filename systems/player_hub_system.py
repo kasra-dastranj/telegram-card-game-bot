@@ -32,6 +32,9 @@ class PlayerHubSystem:
         return int(card.power + card.speed + card.iq + card.popularity)
 
     def _missions_ready(self, user_id: int) -> int:
+        from systems.progression_config import enabled
+        if enabled(self.db):
+            return sum(item["can_claim"] for item in PlayerRewardsSystem(self.db).missions(user_id))
         try:
             conn = sqlite3.connect(self.db.db_path)
             row = conn.execute(
@@ -68,7 +71,20 @@ class PlayerHubSystem:
             rarity = self._rarity(card)
             rarity_counts[rarity] = rarity_counts.get(rarity, 0) + 1
 
+        from systems.progression_config import enabled
+        v2 = enabled(self.db)
+        from systems.progression_economy import ProgressionEconomy
+        economy = ProgressionEconomy(self.db).inventory(user_id) if v2 else None
+        if v2:
+            from systems.progression_config import config_in
+            from systems.reward_ledger import level_from_xp
+            with sqlite3.connect(self.db.db_path) as conn:
+                _, rules = config_in(conn)
+            level = level_from_xp(rules, total_xp)
+            current_xp = total_xp - rules['level_thresholds'][level - 1]
+            xp_to_next = (rules['level_thresholds'][level] - rules['level_thresholds'][level - 1]) if level < rules['max_level'] else 0
         return {
+            "progression_v2_enabled": v2, "economy": economy,
             "user_id": user_id,
             "first_name": player.first_name,
             "username": player.username or "",
@@ -80,8 +96,8 @@ class PlayerHubSystem:
             "level": level,
             "current_xp": current_xp,
             "xp_to_next_level": xp_to_next,
-            "current_tier": progression.get("current_tier", "Bronze"),
-            "tier_points": int(progression.get("tier_points", 0)),
+            "current_tier": None if v2 else progression.get("current_tier", "Bronze"),
+            "tier_points": None if v2 else int(progression.get("tier_points", 0)),
             "stats": fight_stats,
             "best_card_id": best_card.card_id if best_card else None,
             "claim": self._claim_status(player),

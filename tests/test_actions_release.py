@@ -257,6 +257,17 @@ def test_isolated_preflight_accepts_current_startup_and_rejects_migration_on_cop
     prepare_foundation(copy)
     prepared = subprocess.run(command, cwd=str(tmp_path), env=env, capture_output=True)
     assert prepared.returncode == 0, prepared.stderr.decode('utf-8', errors='replace')
+    # Phase 2 schema must also be prepared on an owner-reviewed copy first.
+    with sqlite3.connect(str(copy)) as legacy:
+        legacy.execute('DROP TABLE reward_ledger')
+    rejected = subprocess.run(command, cwd=str(tmp_path), env=env, capture_output=True)
+    assert rejected.returncode != 0
+    with sqlite3.connect(str(copy)) as legacy:
+        legacy.execute('DROP TABLE reward_ledger')
+    from migrations.migrate_progression_v2 import apply_migration as prepare_economy
+    prepare_economy(copy)
+    prepared = subprocess.run(command, cwd=str(tmp_path), env=env, capture_output=True)
+    assert prepared.returncode == 0, prepared.stderr.decode('utf-8', errors='replace')
     with (release / "core/database.py").open("a", encoding="utf-8") as changed:
         changed.write("\nimport os\nwith sqlite3.connect(os.environ['DATABASE_PATH']) as c:\n    c.execute('CREATE TABLE unreviewed_migration (value INTEGER)')\n")
     failed = subprocess.run(command, cwd=str(tmp_path), env=env, capture_output=True)
