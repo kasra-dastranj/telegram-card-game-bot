@@ -36,6 +36,20 @@ def rows(db,sql,args=()):
     with sqlite3.connect(db.db_path) as conn:return conn.execute(sql,args).fetchall()
 
 
+def test_daily_heart_reset_audited_once_and_legacy_capacity_preserved(game):
+    now=datetime(2026,10,9,12,tzinfo=timezone.utc)
+    with sqlite3.connect(game.db_path) as conn:
+        conn.execute('DELETE FROM progression_capacities WHERE user_id=1')
+        conn.execute('UPDATE players SET max_hearts=24,hearts=2,last_heart_reset=NULL WHERE user_id=1')
+        _,config=config_in(conn)
+        ProgressionEconomy.refresh_hearts_in(conn,1,config,now)
+        assert capacities_in(conn,1,config)['max_hearts']==24
+        conn.execute('UPDATE players SET hearts=23 WHERE user_id=1')
+        ProgressionEconomy.refresh_hearts_in(conn,1,config,now)
+    assert rows(game,'SELECT hearts,max_hearts FROM players WHERE user_id=1')==[(23,24)]
+    assert rows(game,"SELECT hearts FROM reward_ledger WHERE event_type='daily_refill'")==[(22,)]
+
+
 def test_admin_rare_supply_preserves_issued_and_audits(game):
     import subprocess,sys
     from systems.rare_cards_system import RareCardsSystem,create_rare_cards_tables

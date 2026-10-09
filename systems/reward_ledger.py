@@ -32,7 +32,8 @@ def capacities_in(conn,user,config):
                      (user,int(player[0] or config["hearts"]["base"]),max(50,decks)))
         row=conn.execute("SELECT * FROM progression_capacities WHERE user_id=?",(user,)).fetchone()
     values=dict(zip(("user_id","base_hearts","base_slots","level_hearts","level_slots","purchased_hearts","purchased_slots","legacy"),row))
-    values["max_hearts"]=min(config["hearts"]["cap"],values["base_hearts"]+values["level_hearts"]+values["purchased_hearts"])
+    cap=max(config["hearts"]["cap"],values["base_hearts"]) if values["legacy"] else config["hearts"]["cap"]
+    values["max_hearts"]=min(cap,values["base_hearts"]+values["level_hearts"]+values["purchased_hearts"])
     values["slots"]=values["base_slots"]+values["level_slots"]+values["purchased_slots"]
     return values
 

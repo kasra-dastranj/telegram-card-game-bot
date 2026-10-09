@@ -46,6 +46,8 @@
 - `bot/handlers/progression.py`، `web/miniapp_api.py` و Mini App: یک backend مشترک برای بات و وب، نمایش مقدار مصرف/قیمت قبل از تأیید؛ Mining/Score Conversion/Coin Upgrade/Distinct Fusion در v2 بسته هستند.
 - `migrations/migrate_progression_v2.py`: backup سازگار SQLite، کپی آزمایشی، quick_check، بدون restore خودکار یا حذف داده.
 
+پرشدن روزانهٔ قلب در ledger ثبت می‌شود و تکرار آن در همان روز، قلب مصرف‌شدهٔ تازه را دوباره پر نمی‌کند. ظرفیت قلب قدیمی حتی اگر از سقف فروش تازه بالاتر باشد کاهش داده نمی‌شود؛ خرید تازه همچنان سقف ۲۰ دارد.
+
 شناسهٔ درخواست کاربر به فضای نام مستقل Claim/Upgrade/Sell/Rare وصل می‌شود؛ نمی‌تواند رسید مسابقه/لول را اشغال کند. فروش آخرین نسخه، دک را نامعتبر می‌کند و دلیل در بات/API/مینی‌اپ نمایش داده می‌شود. کارت شروع در v2 فقط یک‌بار ثبت می‌شود تا فروش همهٔ کارت‌ها دریافت تازه نسازد.
 
 ## تنظیمات ادمین، بدون تغییر Source Code
@@ -143,7 +145,7 @@ trap "systemctl start telbattle-bot telbattle-api telbattle-admin" EXIT
 
 اعداد نهایی تست/CI و شناسهٔ artifact در PR ثبت می‌شوند؛ شمارش نسخهٔ قبلی نتیجهٔ این نسخه نیست. تست‌ها DB موقت دارند. تست مرورگر Edge با API مصنوعی، و تست API Flask با SQLite واقعی موقت جدا گزارش می‌شوند. بررسی مرورگر جای اثبات Telegram زنده را نمی‌گیرد.
 
-نتیجهٔ نهایی محلی این تغییر: **456 passed / 3 skipped، صفر failure/error** با Python 3.11.9 روی Windows و guard آفلاین SQLite؛ 75 تست فاز دوم اضافه شده‌اند. TypeScript/Vite build و JavaScript پنل موفق‌اند. Smoke مرورگر Edge موفق است و pageerror ندارد. تست‌های API/بات mock، concurrency، retry/restart، کپی migration/quick_check، نسخهٔ تنظیمات، legacy fallback و جلوگیری از migration خودکار در release gate در مجموعه اجرا شدند. سازگاری Python 3.9.25 و بستهٔ واقعی را نتیجهٔ CI همین commit در PR مشخص می‌کند.
+نتیجهٔ نهایی محلی این تغییر: **457 passed / 3 skipped، صفر failure/error** با Python 3.11.9 روی Windows و guard آفلاین SQLite؛ 76 تست فاز دوم اضافه شده‌اند. TypeScript/Vite build و JavaScript پنل موفق‌اند. Smoke مرورگر Edge موفق است و pageerror ندارد. تست‌های API/بات mock، concurrency، retry/restart، کپی migration/quick_check، نسخهٔ تنظیمات، legacy fallback و جلوگیری از migration خودکار در release gate در مجموعه اجرا شدند. سازگاری Python 3.9.25 و بستهٔ واقعی را نتیجهٔ CI همین commit در PR مشخص می‌کند.
 
 آزمون مرورگر قابل تکرار، از ریشهٔ مخزن در Windows با Edge نصب‌شده:
 

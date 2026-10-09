@@ -314,11 +314,17 @@ class ProgressionEconomy:
     def refresh_hearts_in(conn,user,config,now=None):
         capacity=capacities_in(conn,user,config)
         start,end,key=period_bounds(config,'daily',now)
-        row=conn.execute('SELECT last_heart_reset FROM players WHERE user_id=?',(user,)).fetchone()
+        row=conn.execute('SELECT last_heart_reset,hearts FROM players WHERE user_id=?',(user,)).fetchone()
         previous=datetime.fromisoformat(row[0]) if row and row[0] else None
         if previous and previous.tzinfo is None:previous=previous.replace(tzinfo=timezone.utc)
         if previous is None or previous<start:
+            from systems.reward_ledger import record_in
+            operation='daily-heart:'+key
+            if receipt_in(conn,operation,user):return end
             conn.execute('UPDATE players SET hearts=?,max_hearts=?,last_heart_reset=? WHERE user_id=?',(capacity['max_hearts'],capacity['max_hearts'],(now or datetime.now(timezone.utc)).isoformat(),user))
+            record_in(conn,operation,user,'heart','daily_refill',{'period_key':key},
+                      {'max_hearts':capacity['max_hearts']},config_in(conn)[0],
+                      hearts=capacity['max_hearts']-row[1],now=now)
         return end
 
     def refresh_hearts(self,user):
