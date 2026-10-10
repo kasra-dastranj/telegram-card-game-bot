@@ -286,3 +286,29 @@ def test_isolated_preflight_accepts_current_startup_and_rejects_migration_on_cop
     assert failed.returncode != 0
     with sqlite3.connect(str(source)) as original:
         assert not original.execute("SELECT name FROM sqlite_master WHERE name='unreviewed_migration'").fetchall()
+
+
+def test_preflight_can_launch_account_switcher_with_clean_application_path(tmp_path, monkeypatch):
+    from pathlib import PurePosixPath
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(deploy, "ROOT", tmp_path)
+    (tmp_path / ".deploy").mkdir()
+    monkeypatch.setattr(deploy, "service_account", lambda: SimpleNamespace(pw_uid=1000, pw_gid=1000))
+    monkeypatch.setattr(deploy, "backup_sqlite", lambda source, destination: destination.touch())
+    monkeypatch.setattr(deploy.os, "chown", lambda *args: None, raising=False)
+    calls = []
+
+    def run(command, **kwargs):
+        # runuser lives in /usr/sbin on the VPS, outside the unprivileged app PATH.
+        assert PurePosixPath(command[0]).is_absolute()
+        assert PurePosixPath(command[0]).name == "runuser"
+        assert kwargs["env"]["PATH"] == "/usr/bin:/bin"
+        assert "BOT_TOKEN" not in kwargs["env"]
+        assert kwargs["env"]["DATABASE_PATH"] == kwargs["env"]["DB_PATH"]
+        calls.append(command)
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(deploy.subprocess, "run", run)
+    deploy.preflight(tmp_path / "release", tmp_path / "live.db", "/opt/telbattle/venv/bin/python")
+    assert len(calls) == 1

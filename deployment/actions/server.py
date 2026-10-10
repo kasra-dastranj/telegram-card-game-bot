@@ -172,7 +172,7 @@ def preflight(release, database, python):
         env = {"PATH": "/usr/bin:/bin", "PYTHONUTF8": "1", "PYTHONDONTWRITEBYTECODE": "1",
                "DATABASE_PATH": str(copy), "DB_PATH": str(copy), "RUN_LIVE_TELEGRAM_TESTS": "0"}
         # No shared config links, application secrets, or production DB path exist in this process.
-        result = subprocess.run(["runuser", "-u", "telbattle", "--", python,
+        result = subprocess.run(["/usr/sbin/runuser", "-u", "telbattle", "--", python,
                                  "/usr/local/lib/telbattle-deploy/preflight.py", str(release), str(copy)],
                                 cwd=str(working), env=env, stdout=subprocess.DEVNULL,
                                 stderr=subprocess.DEVNULL, timeout=120)
