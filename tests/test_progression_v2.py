@@ -36,6 +36,53 @@ def rows(db,sql,args=()):
     with sqlite3.connect(db.db_path) as conn:return conn.execute(sql,args).fetchall()
 
 
+@pytest.mark.parametrize('v2_enabled', [False, True])
+@pytest.mark.parametrize('scenario,blocked', [
+    ('easy_lobby', False), ('easy_active', True), ('easy_expired', False),
+    ('quick_active', True), ('quick_expired', False), ('quick_cancelled', False),
+])
+def test_management_guard_uses_live_match_for_every_participant(game, v2_enabled, scenario, blocked):
+    from systems.card_upgrade_system import CardUpgradeSystem
+    from systems.game_mode_system import GameModeSystem
+
+    with sqlite3.connect(game.db_path) as conn:
+        conn.execute("UPDATE foundation_settings SET value_json=? WHERE key='progression_v2_enabled'",
+                     (json.dumps(v2_enabled),))
+        conn.execute('UPDATE player_progression SET level=5,total_xp=700 WHERE user_id IN (1,2)')
+    modes = GameModeSystem(game)
+    if scenario.startswith('easy'):
+        request = modes.create_easy_lobby(1, -100, 3)
+        assert modes.join_easy_lobby(request['request_id'], 2)[0]
+        if scenario != 'easy_lobby':
+            assert modes.start_easy_match(request['request_id'])[0]
+    else:
+        request = modes.create_invite(1, 'quick', 'normal')
+        assert modes.accept_invite(request['invite_token'], 2)[0]
+        modes.start_quick_match(request['request_id'])
+    with sqlite3.connect(game.db_path) as conn:
+        if scenario.endswith('expired'):
+            state = json.loads(conn.execute('SELECT state_json FROM game_match_states WHERE request_id=?',
+                                           (request['request_id'],)).fetchone()[0])
+            state['deadline'] = (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat()
+            conn.execute('UPDATE game_match_states SET state_json=? WHERE request_id=?',
+                         (json.dumps(state), request['request_id']))
+        if scenario.endswith('cancelled'):
+            # A cancelled request can retain its last non-terminal state snapshot.
+            conn.execute("UPDATE game_requests SET status='cancelled' WHERE request_id=?",
+                         (request['request_id'],))
+        before = list(conn.iterdump())
+        for user in (1, 2):
+            assert CardUpgradeSystem._active_match(conn, user) is blocked
+            if blocked:
+                with pytest.raises(ValueError, match='^active_match$'):
+                    ProgressionEconomy.active_guard(conn, user)
+            else:
+                ProgressionEconomy.active_guard(conn, user)
+        assert not CardUpgradeSystem._active_match(conn, 3)
+        ProgressionEconomy.active_guard(conn, 3)
+        assert list(conn.iterdump()) == before
+
+
 def test_daily_heart_reset_audited_once_and_legacy_capacity_preserved(game):
     now=datetime(2026,10,9,12,tzinfo=timezone.utc)
     with sqlite3.connect(game.db_path) as conn:
@@ -436,6 +483,125 @@ def test_miniapp_economy_end_to_end_offline(v2_client,game):
     sold=v2_client.post('/api/v1/economy/cards/deadpool/sell',headers=headers,json={'rarity':'epic','request_key':'api-sell','config_version':preview['config_version']})
     assert sold.status_code==200 and sold.get_json()['coins']==60
     assert v2_client.post('/api/v1/cards/deadpool/upgrade',headers=headers,json={'upgrade_key':'normal_to_epic','request_key':'unsafe'}).status_code==409
+
+
+def test_expired_quick_releases_upgrade_api_without_duplicate_reward(v2_client, game):
+    from systems.game_mode_system import GameModeSystem
+
+    modes = GameModeSystem(game)
+    invite = modes.create_invite(1, 'quick', 'normal')
+    assert modes.accept_invite(invite['invite_token'], 2)[0]
+    modes.start_quick_match(invite['request_id'])
+    headers = {'X-Debug-User-Id': '1'}
+    payload = {'target': 'epic', 'request_key': 'after-expiry'}
+    route = '/api/v1/economy/cards/deadpool/upgrade'
+    blocked = v2_client.post(route, headers=headers, json=payload)
+    assert blocked.status_code == 409 and blocked.get_json()['error_code'] == 'active_match'
+    with sqlite3.connect(game.db_path) as conn:
+        assert CardInventorySystem.counts_in(conn, 1, 'deadpool')['normal'] == 12
+        state = json.loads(conn.execute('SELECT state_json FROM game_match_states WHERE request_id=?',
+                                       (invite['request_id'],)).fetchone()[0])
+        state['deadline'] = (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat()
+        conn.execute('UPDATE game_match_states SET state_json=? WHERE request_id=?',
+                     (json.dumps(state), invite['request_id']))
+    completed = v2_client.post(route, headers=headers, json=payload)
+    assert completed.status_code == 200, completed.get_json()
+    assert v2_client.post(route, headers=headers, json=payload).get_json()['replayed']
+    with sqlite3.connect(game.db_path) as conn:
+        assert CardInventorySystem.counts_in(conn, 1, 'deadpool') == {'normal': 9, 'epic': 1}
+        assert conn.execute('SELECT total_xp FROM player_progression WHERE user_id=1').fetchone() == (50,)
+
+
+def test_fresh_tester_progression_without_seeded_wallet(v2_client, game, monkeypatch):
+    """Real SQLite/API flow; only completed-match input, dates and draws are controlled."""
+    import systems.progression_economy as economy_module
+    from systems.game_mode_system import GameModeSystem
+    from systems.mode_access_system import ModeAccessSystem
+    from systems.starter_cards_system import grant_starter_cards
+
+    for card_id, name in [('john_wick', 'John Wick'), ('heisenberg', 'Heisenberg'), ('rehi', 'Rehi')]:
+        game.add_card(Card(card_id=card_id, name=name, rarity=CardRarity.NORMAL,
+                           power=5, speed=5, iq=5, popularity=5, abilities=['hero']))
+    GameModeSystem(game)
+    game.get_or_create_player(10, 'offline_tester', 'Tester')
+    assert grant_starter_cards(game, 10) == ['John Wick', 'Heisenberg', 'Rehi']
+    assert grant_starter_cards(game, 10) == []
+    headers = {'X-Debug-User-Id': '10'}
+
+    def profile():
+        response = v2_client.get('/api/v1/profile', headers=headers)
+        assert response.status_code == 200
+        return response.get_json()
+
+    initial = profile()
+    assert (initial['level'], initial['coins'], initial['total_score']) == (1, 0, 0)
+    assert initial['counts']['cards'] == 3 and initial['counts']['decks'] == 1
+    assert not ModeAccessSystem(game).check(10, 'deck')[0]
+
+    def finish_win(index):
+        with sqlite3.connect(game.db_path) as conn:
+            key = 'tester-quick-' + str(index)
+            bind_new_context(conn, key, 'quick')
+            result = {10: {'result': 'win', 'card_id': 'heisenberg', 'opponent_id': 1}}
+            first = MatchRewardsSystem.award(conn, key, 'quick', result)
+            again = MatchRewardsSystem.award(conn, key, 'quick', result)
+            assert first['10']['xp'] == again['10']['xp'] == 10
+
+    for index in range(10):
+        finish_win(index)
+    earned = profile()
+    assert (earned['level'], earned['coins'], earned['total_score']) == (2, 50, 10)
+    assert earned['economy']['capacity']['slots'] == 4
+
+    clock = [datetime.now(timezone.utc)]
+    class ClaimClock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return clock[0].astimezone(tz) if tz else clock[0].replace(tzinfo=None)
+    monkeypatch.setattr(economy_module, 'datetime', ClaimClock)
+    monkeypatch.setattr(economy_module.random, 'random', lambda: 1.0)
+    monkeypatch.setattr(ProgressionEconomy, 'select_claim',
+                        staticmethod(lambda conn, user, config, kind: 'john_wick'))
+    for _ in range(2):
+        claimed = v2_client.post('/api/v1/claim', headers=headers)
+        assert claimed.status_code == 200, claimed.get_json()
+        assert claimed.get_json()['data']['reward_type'] == 'card'
+        assert v2_client.post('/api/v1/claim', headers=headers).status_code == 409
+        clock[0] += timedelta(days=1)
+
+    version = profile()['economy']['config_version']
+    payload = {'target': 'epic', 'request_key': 'tester-epic', 'config_version': version}
+    upgraded = v2_client.post('/api/v1/economy/cards/john_wick/upgrade', headers=headers, json=payload)
+    assert upgraded.status_code == 200, upgraded.get_json()
+    assert upgraded.get_json()['xp'] == 50
+    assert v2_client.post('/api/v1/economy/cards/john_wick/upgrade', headers=headers, json=payload).get_json()['replayed']
+    with sqlite3.connect(game.db_path) as conn:
+        assert CardInventorySystem.counts_in(conn, 10, 'john_wick').get('normal', 0) == 0
+        assert CardInventorySystem.counts_in(conn, 10, 'john_wick')['epic'] == 1
+        assert conn.execute('SELECT total_xp FROM player_progression WHERE user_id=10').fetchone() == (150,)
+    assert profile()['coins'] == 50
+
+    sold = v2_client.post('/api/v1/economy/cards/john_wick/sell', headers=headers,
+                         json={'rarity': 'epic', 'request_key': 'tester-sell', 'config_version': version})
+    assert sold.status_code == 200, sold.get_json()
+    assert profile()['coins'] == 110
+    quote = v2_client.post('/api/v1/economy/quote', headers=headers, json={'item': 'silver_ticket'}).get_json()
+    assert quote['price'] == 100
+    for attempt in range(2):
+        bought = v2_client.post('/api/v1/economy/purchase', headers=headers, json={'quote_id': quote['quote_id']})
+        assert bought.status_code == 200, bought.get_json()
+        assert bool(bought.get_json().get('replayed')) is bool(attempt)
+    assert profile()['coins'] == 10
+    assert profile()['economy']['items']['silver_ticket'] == 1
+
+    for index in range(10, 65):
+        finish_win(index)
+    final = profile()
+    assert (final['level'], final['coins'], final['total_score']) == (5, 160, 65)
+    assert ModeAccessSystem(game).check(10, 'deck')[0]
+    assert ModeAccessSystem(game).check(10, 'easy')[0]
+    assert not ModeAccessSystem(game).check(10, 'risk')[0]
+    assert rows(game, 'SELECT COUNT(*) FROM level_component_awards WHERE user_id=10') == [(4,)]
 
 
 @pytest.mark.parametrize('difficulty',['easy','medium','hard'])

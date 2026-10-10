@@ -50,10 +50,11 @@ class CardUpgradeSystem:
         try:
             rows = conn.execute(
                 """
-                SELECT r.mode, r.status, r.expires_at, s.state_json
+                SELECT r.mode, r.status, r.expires_at, s.state_json,
+                       r.creator_id, r.opponent_id
                 FROM game_requests r
                 LEFT JOIN game_match_states s ON s.request_id=r.request_id
-                WHERE (r.creator_id=? OR r.opponent_id=?)
+                WHERE (r.creator_id=? OR r.opponent_id=? OR r.mode='easy')
                   AND r.status IN ('accepted', 'active')
                 """,
                 (user_id, user_id),
@@ -61,7 +62,18 @@ class CardUpgradeSystem:
         except sqlite3.OperationalError:
             rows = []
         now = datetime.now(timezone.utc).replace(tzinfo=None)
-        for mode, status, expires_at, state_json in rows:
+        for mode, status, expires_at, state_json, creator_id, opponent_id in rows:
+            try:
+                state = json.loads(state_json or "{}")
+                if not isinstance(state, dict):
+                    continue
+            except (TypeError, ValueError):
+                continue
+            # Easy stores joined participants in its state, not opponent_id.
+            if user_id not in (creator_id, opponent_id) and user_id not in state.get("players", []):
+                continue
+            if state.get("phase") in ("completed", "finished", "cancelled", "expired"):
+                continue
             if status == "accepted":
                 # Deck matches live in active_fights; their accepted request
                 # is not advanced when the fight finishes.
@@ -69,13 +81,7 @@ class CardUpgradeSystem:
                     continue
                 deadline = expires_at
             else:
-                try:
-                    state = json.loads(state_json or "{}")
-                    if state.get("phase") in ("completed", "finished"):
-                        continue
-                    deadline = state.get("deadline")
-                except (TypeError, ValueError):
-                    continue
+                deadline = state.get("deadline")
             try:
                 if not deadline:
                     continue

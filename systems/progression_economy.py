@@ -59,11 +59,6 @@ class ProgressionEconomy:
     def active_guard(conn,user):
         from systems.card_upgrade_system import CardUpgradeSystem
         if CardUpgradeSystem._active_match(conn,user): raise ValueError('active_match')
-        if conn.execute("SELECT 1 FROM sqlite_master WHERE name='game_match_states'").fetchone():
-            for encoded, in conn.execute('SELECT state_json FROM game_match_states'):
-                state=json.loads(encoded)
-                if user in state.get('players',[]) and state.get('phase') not in ('completed','finished','cancelled','expired'):
-                    raise ValueError('active_match')
 
     @staticmethod
     def official(conn,card):
