@@ -87,6 +87,46 @@ def test_trait_mission_uses_settled_metadata_not_ability_or_later_edit(game):
     assert service.claim(1, 'trait-plan')['replayed']
 
 
+def test_trait_mission_counts_active_form_and_keeps_original_settlement(game):
+    from systems.game_mode_system import GameModeSystem
+    from systems.progression_missions import ProgressionMissions, save_mission_in
+    modes = GameModeSystem(game)
+    modes.set_card_metadata('deadpool', traits=['legacy'])
+    for rarity, traits in [('normal', []), ('epic', ['planner'])]:
+        form = game.get_card_variant('deadpool', rarity)
+        game.save_card_variant('deadpool', rarity, dict(form, traits=traits))
+    mission = {'mission_id': 'form-plan', 'title': 'Planner', 'description': 'فرم دارای تریت',
+               'start': None, 'end': None, 'status': 'active', 'type': 'trait_games', 'target': 2,
+               'filters': {'trait': 'PLANNER'}, 'eligibility': {'official_card_id': 'deadpool'},
+               'xp_reward': 10, 'coin_reward': 5, 'repeat_policy': 'once'}
+    with sqlite3.connect(game.db_path) as conn:
+        save_mission_in(conn, mission, 'tester')
+        bind_new_context(conn, 'normal-traits', 'quick')
+        MatchRewardsSystem.award(conn, 'normal-traits', 'quick', {1: {'result': 'win', 'card_id': 'deadpool'}})
+        CardInventorySystem.grant_in(conn, 1, 'deadpool', 'epic', 1)
+    assert ProgressionMissions(game).list(1)[0]['current_progress'] == 0
+    game.set_player_card_rarity_override(1, 'deadpool', 'epic')
+    with sqlite3.connect(game.db_path) as conn:
+        bind_new_context(conn, 'epic-traits', 'quick')
+        original = MatchRewardsSystem.award(conn, 'epic-traits', 'quick', {1: {'result': 'win', 'card_id': 'deadpool'}})
+        payloads = [json.loads(row[0])['traits'] for row in conn.execute(
+            "SELECT payload_json FROM reward_ledger WHERE event_type='match' AND user_id=1 ORDER BY rowid")]
+    assert payloads == [[], ['planner']]
+    assert ProgressionMissions(game).list(1)[0]['current_progress'] == 1
+    form = game.get_card_variant('deadpool', 'epic')
+    game.save_card_variant('deadpool', 'epic', dict(form, traits=[]))
+    game.set_player_card_rarity_override(1, 'deadpool', 'normal')
+    before = rows(game, 'SELECT p.coins,p.total_score,g.total_xp FROM players p JOIN player_progression g USING(user_id) WHERE p.user_id=1')
+    with sqlite3.connect(game.db_path) as conn:
+        replay = MatchRewardsSystem.award(conn, 'epic-traits', 'quick', {1: {'result': 'win', 'card_id': 'deadpool'}})
+        assert [json.loads(row[0])['traits'] for row in conn.execute(
+            "SELECT payload_json FROM reward_ledger WHERE event_type='match' AND user_id=1 ORDER BY rowid")] == payloads
+    assert replay['1']['xp'] == original['1']['xp']
+    assert replay['1']['score'] == original['1']['score']
+    assert rows(game, 'SELECT p.coins,p.total_score,g.total_xp FROM players p JOIN player_progression g USING(user_id) WHERE p.user_id=1') == before
+    assert ProgressionMissions(game).list(1)[0]['current_progress'] == 1
+
+
 def test_claim_weight_rejects_nonfinite_admin_values():
     for weight in (float('inf'), float('nan')):
         config = seed_config()

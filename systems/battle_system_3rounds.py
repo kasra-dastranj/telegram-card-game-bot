@@ -389,10 +389,13 @@ class BattleSystem3Rounds:
             logger.info(f"Arena selector: {selector}")
             return None, selector  # بازیکن باید انتخاب کنه
 
-    def _get_card_traits(self, card_id: str) -> List[str]:
+    def _get_card_traits(self, card_id: str, rarity: Optional[str] = None) -> List[str]:
         """Return normalized mode traits without making the battle engine own metadata."""
         conn = sqlite3.connect(self.db.db_path)
         try:
+            if rarity:
+                from systems.card_trait_registry import variant_traits
+                return [value.casefold() for value in variant_traits(conn, card_id, rarity)]
             row = conn.execute(
                 "SELECT traits FROM card_mode_metadata WHERE card_id=?",
                 (card_id,),
@@ -414,7 +417,10 @@ class BattleSystem3Rounds:
         ranks = arena_info.get("trait_ranks", [])
 
         def best_rank(card: Card) -> Optional[int]:
-            traits = set(self._get_card_traits(card.card_id))
+            frozen = getattr(card, 'snapshot_metadata', None)
+            rarity = getattr(getattr(card, 'rarity', None), 'value', getattr(card, 'rarity', None))
+            traits = ({str(value).strip().casefold() for value in frozen.get('traits', [])}
+                      if frozen is not None else set(self._get_card_traits(card.card_id, rarity)))
             for index, tier in enumerate(ranks, start=1):
                 if traits.intersection(str(value).casefold() for value in tier):
                     return index

@@ -450,6 +450,23 @@ def test_deck_trait_synergy_uses_owned_active_forms(mode_system):
     assert modes.calculate_deck_synergy(ids, user_id=1)['score'] == 0
 
 
+def test_deck_trait_rank_uses_actual_form_and_custom_snapshot(mode_system):
+    modes = mode_system
+    _form_traits(modes, 'alpha', 'normal', [])
+    _form_traits(modes, 'alpha', 'epic', ['Ninja'])
+    _form_traits(modes, 'beta', 'normal', ['Ice'])
+    arena = {'compare_stat': 'power', 'trait_ranks': [['Ninja'], ['Ice']], 'stat_tiebreak_enabled': False}
+    battle = BattleSystem3Rounds(modes.db)
+    opponent = modes.db.get_card_by_id('beta')
+    own = modes.db.get_card_by_id_for_player('alpha', 1)
+    assert battle.resolve_deck_cards(own, opponent, 'fixture', arena)['winner'] == 'opponent'
+    modes.db.set_player_card_rarity_override(1, 'alpha', 'epic')
+    own = modes.db.get_card_by_id_for_player('alpha', 1)
+    assert battle.resolve_deck_cards(own, opponent, 'fixture', arena)['winner'] == 'challenger'
+    own.snapshot_metadata = {'traits': []}
+    assert battle.resolve_deck_cards(own, opponent, 'fixture', arena)['winner'] == 'opponent'
+
+
 def test_easy_traits_follow_active_form_in_questions_and_card_options(mode_system):
     modes = mode_system
     _form_traits(modes, 'alpha', 'normal', [])
