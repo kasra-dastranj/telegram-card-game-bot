@@ -324,7 +324,11 @@ def test_trait_survives_removal_from_last_card_restart_and_card_deletion(tmp_pat
     payload['traits'] = []
     removed = client.put(endpoint, json=payload)
     assert removed.status_code == 200, removed.get_json()
-    assert removed.get_json()['card']['traits'] == []
+    if mode == 'variant':
+        assert removed.get_json()['variant']['traits'] == []
+        assert removed.get_json()['card']['traits'] == [trait]  # Epic was not edited.
+    else:
+        assert removed.get_json()['card']['traits'] == []
     restarted = WebAPI(DatabaseManager(db.db_path)).app.test_client()
     assert trait in restarted.get('/api/card-editor/options').get_json()['traits']
     another = restarted.post('/api/cards', json=_payload(name='Another Hero', traits=[trait]))
@@ -370,3 +374,104 @@ def test_trait_migration_backfills_legacy_database_on_copy_then_idempotently(tmp
     assert apply_migration(db.db_path) == 11
     restarted = WebAPI(db).app.test_client()
     assert 'تریت قدیمی' in restarted.get('/api/card-editor/options').get_json()['traits']
+
+
+def test_family_traits_are_independent_after_save_restart_and_removal(tmp_path):
+    db, client = _client(tmp_path)
+    family = _family()
+    family.pop('traits')
+    expected = {'normal': ['یخ'], 'epic': ['یخ', 'نینجا'], 'legend': ['یخ', 'نینجا', 'رهبر']}
+    for rarity, traits in expected.items():
+        family['variants'][rarity]['traits'] = traits
+    created = client.post('/api/cards/family', json=family)
+    assert created.status_code == 201, created.get_json()
+    card_id = created.get_json()['card']['id']
+    client = WebAPI(DatabaseManager(db.db_path)).app.test_client()
+    stored = client.get('/api/cards').get_json()['cards'][0]
+    assert {v['rarity']: v['traits'] for v in stored['variants']} == expected
+    assert stored['traits'] == expected['normal']
+    # Empty Normal is intentional; it must not inherit Epic or the legacy value.
+    family['variants']['normal']['traits'] = []
+    family['variants']['epic']['traits'] = ['نینجا']
+    updated = client.put(f'/api/cards/{card_id}/family', json=family)
+    assert updated.status_code == 200, updated.get_json()
+    expected.update(normal=[], epic=['نینجا'])
+    restarted = WebAPI(DatabaseManager(db.db_path)).app.test_client()
+    assert {v['rarity']: v['traits'] for v in restarted.get('/api/cards').get_json()['cards'][0]['variants']} == expected
+    assert set(sum(expected.values(), []) + ['یخ']) <= set(restarted.get('/api/card-editor/options').get_json()['traits'])
+    # Invalid traits in one form must roll back the entire family edit.
+    family['variants']['normal']['traits'] = ['must not be stored']
+    family['variants']['legend']['traits'] = {'bad': True}
+    assert restarted.put(f'/api/cards/{card_id}/family', json=family).status_code == 400
+    assert {v['rarity']: v['traits'] for v in db.get_card_variants(card_id)} == expected
+
+
+def test_single_form_edit_keeps_legacy_traits_on_other_forms(tmp_path):
+    db, client = _client(tmp_path)
+    card_id = client.post('/api/cards', json=_payload(traits=['legacy'])).get_json()['card']['id']
+    expected = {rarity: ['legacy'] for rarity in ('normal', 'epic', 'legend')}
+    for rarity in ('normal', 'epic', 'legend'):
+        response = client.put(f'/api/cards/{card_id}/variants/{rarity}', json=_payload(traits=[rarity]))
+        assert response.status_code == 200, response.get_json()
+        expected[rarity] = [rarity]
+        assert {v['rarity']: v['traits'] for v in db.get_card_variants(card_id)} == expected
+    # Updating stats without traits must retain the explicit form traits.
+    form = db.get_card_variant(card_id, 'epic')
+    form.pop('traits')
+    db.save_card_variant(card_id, 'epic', form)
+    assert db.get_card_variant(card_id, 'epic')['traits'] == ['epic']
+
+
+def test_legacy_card_edit_only_updates_traits_of_its_target_form(tmp_path):
+    db, client = _client(tmp_path)
+    card_id = client.post('/api/cards', json=_payload(traits=['legacy'])).get_json()['card']['id']
+    updated = client.put(f'/api/cards/{card_id}', json=_payload(traits=['new epic']))
+    assert updated.status_code == 200, updated.get_json()
+    assert updated.get_json()['card']['traits'] == ['new epic']
+    assert {v['rarity']: v['traits'] for v in db.get_card_variants(card_id)} == {
+        'normal': ['legacy'], 'epic': ['new epic'], 'legend': ['legacy']}
+
+
+def test_registry_backfill_includes_trait_only_stored_on_one_form(tmp_path):
+    from migrations.migrate_card_variant_traits import apply_migration
+    db, client = _client(tmp_path)
+    family = _family(traits=[])
+    family['variants']['legend']['traits'] = ['فقط لجند']
+    card_id = client.post('/api/cards/family', json=family).get_json()['card']['id']
+    with sqlite3.connect(db.db_path) as conn:
+        assert conn.execute('SELECT traits FROM card_mode_metadata WHERE card_id=?', (card_id,)).fetchone() == ('[]',)
+        conn.execute('DROP TABLE card_trait_registry')
+    apply_migration(db.db_path)
+    assert 'فقط لجند' in WebAPI(db).app.test_client().get('/api/card-editor/options').get_json()['traits']
+    form = db.get_card_variant(card_id, 'legend')
+    db.save_card_variant(card_id, 'legend', dict(form, traits=[]))
+    restarted = WebAPI(DatabaseManager(db.db_path)).app.test_client()
+    assert 'فقط لجند' in restarted.get('/api/card-editor/options').get_json()['traits']
+
+
+def test_form_traits_migration_preserves_legacy_rows_and_explicit_empty(tmp_path):
+    from migrations.migrate_card_variant_traits import apply_migration, copy_database
+    db, client = _client(tmp_path)
+    card_id = client.post('/api/cards', json=_payload(traits=['قدیمی'])).get_json()['card']['id']
+    with sqlite3.connect(db.db_path) as conn:
+        conn.execute('ALTER TABLE card_variants DROP COLUMN traits')
+        before_metadata = conn.execute('SELECT * FROM card_mode_metadata').fetchall()
+        before_cards = conn.execute('SELECT * FROM cards').fetchall()
+        before_variants = conn.execute('SELECT * FROM card_variants').fetchall()
+    preview = copy_database(db.db_path, tmp_path / 'preview.db')
+    apply_migration(preview)
+    apply_migration(preview)
+    with sqlite3.connect(db.db_path) as original, sqlite3.connect(str(preview)) as copy:
+        assert 'traits' not in {row[1] for row in original.execute('PRAGMA table_info(card_variants)')}
+        assert copy.execute('SELECT * FROM cards').fetchall() == before_cards
+        assert copy.execute('SELECT * FROM card_mode_metadata').fetchall() == before_metadata
+        assert [row[:-1] for row in copy.execute('SELECT * FROM card_variants')] == before_variants
+        assert copy.execute('SELECT traits FROM card_variants').fetchall() == [(None,)] * 3
+        assert copy.execute('PRAGMA quick_check').fetchall() == [('ok',)]
+    prepared = DatabaseManager(str(preview))
+    assert all(v['traits'] == ['قدیمی'] for v in prepared.get_card_variants(card_id))
+    form = prepared.get_card_variant(card_id, 'normal')
+    prepared.save_card_variant(card_id, 'normal', dict(form, traits=[]))
+    apply_migration(preview)
+    assert prepared.get_card_variant(card_id, 'normal')['traits'] == []
+    assert prepared.get_card_variant(card_id, 'epic')['traits'] == ['قدیمی']

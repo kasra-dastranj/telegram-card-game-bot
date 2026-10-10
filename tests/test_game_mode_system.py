@@ -414,6 +414,62 @@ def test_deck_synergy_uses_series_and_common_trait(mode_system):
     assert len(synergy["reasons"]) == 2
 
 
+def _form_traits(modes, card_id, rarity, traits):
+    form = modes.db.get_card_variant(card_id, rarity)
+    modes.db.save_card_variant(card_id, rarity, dict(form, traits=traits))
+
+
+def test_quick_opponent_trait_uses_active_form_and_not_other_forms(mode_system):
+    modes = mode_system
+    modes.set_card_metadata('alpha', passive={
+        'name': 'Anti Ninja', 'condition': {'opponent_trait': 'Ninja'},
+        'effect': {'stat': 'power', 'delta': 2}})
+    _form_traits(modes, 'beta', 'normal', ['Ice'])
+    _form_traits(modes, 'beta', 'epic', ['Ice', 'Ninja'])
+    own = modes.db.get_card_by_id('alpha')
+    for rarity, expected in [('normal', 90), ('epic', 92)]:
+        modes.db.set_player_card_rarity_override(1, 'beta', rarity)
+        opponent = modes.db.get_card_by_id_for_player('beta', 1)
+        values = {'power': 90}
+        modes._apply_passive(own, opponent, {'id': 'city'}, values)
+        assert values['power'] == expected
+
+
+def test_deck_trait_synergy_uses_owned_active_forms(mode_system):
+    modes = mode_system
+    ids = ['alpha', 'beta', 'gamma']
+    for card_id in ids:
+        _form_traits(modes, card_id, 'normal', [])
+        _form_traits(modes, card_id, 'epic', ['Ninja'])
+        modes.db.set_player_card_rarity_override(1, card_id, 'epic')
+    assert modes.calculate_deck_synergy(ids)['score'] == 0
+    assert modes.calculate_deck_synergy(ids, user_id=1)['score'] == 3
+    cards = [modes.db.get_card_by_id_for_player(card_id, 1) for card_id in ids]
+    assert modes.calculate_deck_synergy(cards)['score'] == 3
+    modes.db.set_player_card_rarity_override(1, 'gamma', 'normal')
+    assert modes.calculate_deck_synergy(ids, user_id=1)['score'] == 0
+
+
+def test_easy_traits_follow_active_form_in_questions_and_card_options(mode_system):
+    modes = mode_system
+    _form_traits(modes, 'alpha', 'normal', [])
+    _form_traits(modes, 'alpha', 'epic', ['Ninja'])
+    modes.db.set_player_card_rarity_override(1, 'alpha', 'epic')
+    assert not any(q.get('trait') == 'Ninja' for q in modes._easy_question_pool([1, 2]))
+    modes.db.set_player_card_rarity_override(2, 'alpha', 'epic')
+    assert any(q.get('trait') == 'Ninja' for q in modes._easy_question_pool([1, 2]))
+    request = modes.create_easy_lobby(1, -100, rounds=1)
+    modes.join_easy_lobby(request['request_id'], 2)
+    _, _, state = modes.start_easy_match(request['request_id'])
+    state['question'] = {'id': 'trait:ninja:iq', 'text': 'Ninja IQ', 'attribute': 'iq', 'trait': 'Ninja'}
+    state['options'] = {}
+    with modes._connect() as conn:
+        modes._save_state(conn, request['request_id'], state)
+    modes.db.set_player_card_rarity_override(2, 'alpha', 'normal')
+    assert [card.card_id for card in modes.get_easy_options(request['request_id'], 1)] == ['alpha']
+    assert modes.get_easy_options(request['request_id'], 2) == []
+
+
 def test_easy_composite_questions_only_offer_eligible_cards(mode_system):
     mode_system.set_card_metadata("alpha", traits=["Hero"], series="Telverse")
     mode_system.set_card_metadata("beta", traits=["Villain"], series="Other")

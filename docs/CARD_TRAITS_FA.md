@@ -1,4 +1,58 @@
-# فهرست دائمی Traitهای کارت
+# Traitهای مستقل فرم‌ها و فهرست دائمی
+
+## اصلاح اتصال تریت‌های Normal، Epic و Legend
+
+تریت‌های هر فرم مستقل‌اند: مثلاً Subzero در Normal فقط «یخ»، در Epic «یخ، نینجا» و در Legend «یخ، نینجا، رهبر» می‌تواند داشته باشد. در تب اطلاعات پایه فرم را انتخاب کنید؛ در تب مودهای جدید عنوان Trait همان فرم را نشان می‌دهد. انتخاب و برداشتن تریت فقط به آن فرم تعلق دارد. تغییر فرم قبل از ذخیره، انتخاب‌های هر سه فرم را حفظ می‌کند؛ «ذخیره کارت» هر سه فرم را در یک تراکنش ثبت می‌کند. پس از refresh هم انتخاب‌ها جدا می‌مانند.
+
+Quick برای شرط Passive حریف، Easy برای سؤال و گزینه‌ها، و هم‌افزایی دک، تریت **فرم فعال بازیکن** را می‌خوانند. Series، متن و Hidden Stats همچنان اطلاعات شخصیت هستند. کارت‌های سفارشی metadata ثبت‌شدهٔ خودشان را استفاده می‌کنند.
+
+در `card_variants.traits` یک ستون nullable اضافه شده است. مقدار `NULL` فقط برای سازگاری با اطلاعات قدیمی به `card_mode_metadata.traits` رجوع می‌کند؛ `[]` یعنی فرم عمداً بدون تریت است. مهاجرت هیچ کارت، آمار، موجودی، Level یا اقتصاد را تغییر نمی‌دهد. مقدارهای قبلی برای هر سه فرم محفوظ‌اند؛ انتخاب‌هایی که قبلاً بر اثر این باگ بازنویسی شده‌اند قابل حدس یا بازیابی خودکار نیستند و پس از انتشار باید یک بار فرم‌ها را مطابق نظر خود تنظیم کنید.
+
+### آماده‌سازی همین اصلاح روی سرور
+
+زیرساخت انتشار و مهاجرت قبلی فهرست دائمی آماده‌اند؛ bootstrap را تکرار نکنید. این اصلاح فقط ستون تازهٔ بالا را می‌خواهد. مالک ابتدا PR و CI را بازبینی و ادغام کند، clone خودش را روی **SHA دقیق بازبینی‌شدهٔ main** قرار دهد و از ریشهٔ همان clone دستور زیر را اجرا کند. همکار به سرور یا دیتابیس وارد نمی‌شود. preflight همچنان تغییر خودکار دیتابیس را رد می‌کند؛ پس از این آماده‌سازی Deploy از Actions و تأیید Environment انجام می‌شود.
+
+```bash
+sudo flock -x /opt/telbattle/deploy.lock bash -s -- "$PWD" <<'FORM_TRAITS'
+set -euo pipefail
+umask 077
+cd "$1"
+stamp="$(date -u +%Y%m%dT%H%M%S)-$$"
+/opt/telbattle/venv/bin/python migrations/migrate_card_variant_traits.py \
+  --database /opt/telbattle/shared/game_bot.db \
+  --preview-copy "/opt/telbattle/backups/form-traits-preview-$stamp.db"
+# همان migration ابتدا روی کپی آزمایش می‌شود؛ اصل داده هنوز دست‌نخورده است.
+trap 'systemctl start telbattle-bot telbattle-api telbattle-admin' EXIT
+systemctl stop telbattle-bot telbattle-api telbattle-admin
+/opt/telbattle/venv/bin/python migrations/migrate_card_variant_traits.py \
+  --database /opt/telbattle/shared/game_bot.db \
+  --apply --backup "/opt/telbattle/backups/before-form-traits-$stamp.db"
+systemctl start telbattle-bot telbattle-api telbattle-admin
+trap - EXIT
+systemctl is-active telbattle-bot telbattle-api telbattle-admin
+FORM_TRAITS
+```
+
+این ابزار از SQLite backup API، quick_check و تراکنش استفاده می‌کند؛ بکاپ موجود را بازنویسی نمی‌کند و اجرای مجدد overrideهای ثبت‌شده را پاک نمی‌کند. backup/preview روی VPS باقی می‌مانند و به GitHub یا چت فرستاده نمی‌شوند. rollback کد ستون را حذف یا دیتابیس را restore نمی‌کند؛ تا بازگشت به کد جدید، با پنل قدیمی تریت فرم‌ها را ویرایش نکنید.
+
+قرارداد API: `variants.normal.traits`، `variants.epic.traits` و `variants.legend.traits` آرایه‌های مستقل هستند. `traits` بالای پاسخ card برای فرم پایه است. کلاینت قدیمی family هنوز می‌تواند traits را در سطح مشترک بفرستد؛ آن درخواست صریحاً همان مقدار را برای هر سه فرم قرار می‌دهد، مگر اینکه فرم override خودش را بفرستد. حذف فیلد traits از درخواست family مقدار قبلی همان فرم را حفظ می‌کند. مسیر ویرایش variant و مسیر قدیمی ویرایش card فقط تریت فرم هدف را تغییر می‌دهند.
+
+آزمون مرورگر محلی با Flask واقعی و SQLite تازه (هیچ API ذخیرهٔ کارت mock نشده است):
+
+```powershell
+# Playwright ابزار محلی است؛ dependency تولیدی یا تغییر lockfile نیست.
+cd frontend/game
+npm install --no-save --package-lock=false playwright
+cd ../..
+$env:TELBATTLE_BROWSER_PATH='C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe'
+node scripts/smoke_card_traits_ui.mjs
+```
+
+برای Linux مسیر مرورگر و `TELBATTLE_TEST_PYTHON` را صریح تنظیم کنید. آزمون فقط دیتابیس تازه در `.test-tmp-form-traits/` می‌سازد و سرور محلی را پس از پایان می‌بندد. سناریو: ۱/۲/۳ تریت، تعویض فرم، ذخیره، بارگذاری کل صفحه، حذف همهٔ تریت‌های Legend و حفظ دو فرم دیگر و فهرست دائمی. نتیجهٔ CI و بستهٔ دقیق در PR ثبت می‌شود؛ ساخت فایل‌ها به‌معنی انتشار روی سرور نیست.
+
+نتیجهٔ محلی همین اصلاح، ۱۰ اکتبر ۲۰۲۶: **۵۵۲ موفق، ۳ skipped** در تست کامل Windows/Python 3.11.9؛ بررسی syntax جاوااسکریپت هر دو پنل موفق؛ آزمون Edge برای **ساخت و ویرایش کارت** با API و SQLite واقعی موفق. تست‌ها حفظ دادهٔ مهاجرت، مقدار خالی مستقل، backfill نام فقط موجود در Legend، هر سه مسیر family/card/variant، Passive حریف، سؤال/گزینهٔ Easy، فرم فعال دک و توقف preflight پیش از مهاجرت را هم پوشش می‌دهند. نتیجهٔ GitHub در هر دو Python 3.11 و 3.9.25 جدا در PR گزارش می‌شود.
+
+## فهرست دائمی (اصلاح قبلی، حفظ‌شده)
 
 نام تریت‌ها در `card_trait_registry` داخل همان دیتابیس برنامه نگه‌داری می‌شود و به تعداد کارت‌های دارای آن تریت وابسته نیست.
 
@@ -8,7 +62,7 @@
 - افزودن دوبارهٔ نام با فاصلهٔ ابتدا/انتها یا تفاوت بزرگی حروف لاتین، گزینهٔ تکراری نمی‌سازد. نام تازه حداکثر ۱۰۰ کاراکتر است.
 - تریت‌های قدیمیِ هنوز موجود در دیتابیس به فهرست منتقل می‌شوند. نامی که پیش از این اصلاح از همهٔ کارت‌ها حذف شده و دیگر جایی ذخیره نیست، قابل بازیابی خودکار نیست؛ یک بار دوباره اضافه‌اش کنید.
 
-## آماده‌سازی دیتابیس؛ فقط صاحب پروژه، پیش از انتشار این اصلاح
+## مهاجرت قبلی فهرست دائمی؛ برای نصب قدیمیِ فاقد registry
 
 این تغییر یک جدول افزایشی و backfill لازم دارد؛ schema یا دادهٔ کارت‌ها و بازیکنان تغییر نمی‌کند. محافظت `no-change` انتشار Actions حفظ شده است و تا آماده‌شدن این جدول روی سرور، preflight انتشار را متوقف می‌کند. bootstrap انتشار به‌تنهایی این migration را اجرا نمی‌کند.
 
