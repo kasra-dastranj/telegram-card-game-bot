@@ -31,7 +31,7 @@ from PIL import Image, UnidentifiedImageError
 from game_core import DatabaseManager, Card, CardRarity, CardManager, GameLogic
 from systems.game_mode_system import CORE_STATS, GameModeSystem
 from systems.arena_registry import ArenaRegistry, ArenaValidationError, MODE_KEYS, PLATFORMS
-from systems.card_trait_registry import CardTraitRegistry, remember_card_traits
+from systems.card_trait_registry import CardTraitRegistry, remember_card_traits, save_variant_traits
 
 class WebAPI:
     def __init__(self, db_manager: DatabaseManager):
@@ -206,9 +206,16 @@ class WebAPI:
             },
         }
 
-    def _save_card_extras(self, card_id, payload):
-        metadata = payload['metadata']
+    def _save_card_extras(self, card_id, payload, form_only=False):
+        metadata = dict(payload['metadata'])
+        if form_only:
+            # The legacy edit endpoint edits the incoming base form, too.
+            # Keep the fallback unchanged for other, not-yet-edited legacy forms.
+            metadata['traits'] = self.modes.get_card_metadata(card_id)['traits']
         self.modes.set_card_metadata(card_id, **metadata)
+        if form_only:
+            with sqlite3.connect(self.db.db_path) as conn:
+                save_variant_traits(conn, card_id, payload['card'].rarity.value, payload['metadata']['traits'])
         for kind, file_id in payload['media'].items():
             if file_id:
                 self.db.set_card_media_file_id(card_id, file_id, kind)
@@ -222,9 +229,9 @@ class WebAPI:
         rarities = ('normal', 'epic', 'legend')
         if set(data['variants']) != set(rarities):
             raise ValueError('فرم‌های Normal، Epic و Legend باید کامل باشند')
-        shared_keys = {'name', 'biography', 'dialogs', 'traits', 'series', 'hidden_stats'}
+        shared_keys = {'name', 'biography', 'dialogs', 'series', 'hidden_stats'}
         form_keys = {'power', 'speed', 'iq', 'popularity', 'card_type', 'abilities',
-                     'card_effects', 'passive', 'image_path', 'photo_file_id', 'sticker_file_id'}
+                     'card_effects', 'passive', 'traits', 'image_path', 'photo_file_id', 'sticker_file_id'}
         validated = {}
         for rarity in rarities:
             form = data['variants'][rarity]
@@ -233,6 +240,11 @@ class WebAPI:
             if any(form.get(stat) in (None, '') for stat in CORE_STATS):
                 raise ValueError(f'چهار Stat فرم {rarity} باید پر شوند')
             merged = {key: data.get(key) for key in shared_keys}
+            # Accept old family clients, while each form can override even with [].
+            if 'traits' in data:
+                merged['traits'] = data['traits']
+            else:
+                merged['traits'] = self.modes.get_card_metadata(existing.card_id, rarity)['traits'] if existing else []
             merged.update(form)
             merged['rarity'] = rarity
             try:
@@ -299,6 +311,7 @@ class WebAPI:
                      json.dumps(card.card_effects, ensure_ascii=False), card.image_path,
                      card.card_type, json.dumps(item['metadata']['passive'], ensure_ascii=False), now, now),
                 )
+                save_variant_traits(conn, card_id, rarity, item['metadata']['traits'])
                 for kind in ('photo', 'sticker'):
                     file_id = item['media'][kind]
                     # A new image invalidates a Telegram photo id from the old image.
@@ -540,7 +553,7 @@ class WebAPI:
                     return jsonify({'success': False, 'error': 'کارت دیگری با این نام وجود دارد'}), 409
                 if not self.db.update_card(payload['card']):
                     return jsonify({'success': False, 'error': 'خطا در ویرایش کارت'}), 500
-                self._save_card_extras(card_id, payload)
+                self._save_card_extras(card_id, payload, form_only=True)
                 return jsonify({
                     'success': True,
                     'message': f"کارت {payload['card'].name} به‌روزرسانی شد",
@@ -566,7 +579,7 @@ class WebAPI:
                 if duplicate and duplicate.card_id != card_id:
                     return jsonify({'success': False, 'error': 'کارت دیگری با این نام وجود دارد'}), 409
 
-                # متن، Trait، Series و Hidden Stats شخصیت‌محورند؛ اما مشخصات
+                # متن، Series و Hidden Stats شخصیت‌محورند؛ اما Trait و مشخصات
                 # جنگی و مدیا فقط به فرمی که کاربر انتخاب کرده تعلق دارد.
                 shared = existing
                 incoming = payload['card']
@@ -588,7 +601,7 @@ class WebAPI:
                 old_metadata = self.modes.get_card_metadata(card_id)
                 self.modes.set_card_metadata(
                     card_id,
-                    traits=payload['metadata']['traits'],
+                    traits=old_metadata['traits'],
                     series=payload['metadata']['series'],
                     hidden_stats=payload['metadata']['hidden_stats'],
                     passive=old_metadata.get('passive') or {},
@@ -606,6 +619,7 @@ class WebAPI:
                         'image_path': incoming.image_path,
                         'card_type': incoming.card_type,
                         'passive': payload['metadata']['passive'],
+                        'traits': payload['metadata']['traits'],
                         'photo_file_id': payload['media'].get('photo', ''),
                         'sticker_file_id': payload['media'].get('sticker', ''),
                     },

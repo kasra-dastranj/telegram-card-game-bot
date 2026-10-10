@@ -4,6 +4,8 @@ from datetime import datetime, timezone
 from systems.progression_config import config_in
 from systems.reward_ledger import apply_in
 from systems.shared_foundation import require_card_in
+from systems.card_trait_registry import variant_traits
+from systems.custom_cards import snapshot_in
 
 
 def shared_ranks(scores):
@@ -35,7 +37,6 @@ def award_in(conn,key,mode,context,awards):
     ranks=shared_ranks(easy_scores)
     result={}
     now=datetime.now(timezone.utc)
-    has_metadata=conn.execute("SELECT 1 FROM sqlite_master WHERE name='card_mode_metadata' AND type='table'").fetchone()
     for user,item in awards.items():
         prior=conn.execute("SELECT xp,score,hearts_lost,tp_delta FROM match_reward_events WHERE request_id=? AND user_id=?",(key,user)).fetchone()
         if prior:
@@ -65,9 +66,14 @@ def award_in(conn,key,mode,context,awards):
         elif valid and context.variant=='friendly': hearts=context.friendly_loss_hearts if outcome=='loss' else 0
         payload={'mode':context.mode,'result':outcome,'card_id':item.get('card_id'),'qualified':qualified,
                  'rank':ranks.get(user),'rounds':rounds,'variant':context.variant}
-        metadata=conn.execute('SELECT traits FROM card_mode_metadata WHERE card_id=?',(item.get('card_id'),)).fetchone() if has_metadata else None
         # Record the traits used at settlement; later card edits cannot rewrite mission progress.
-        payload['traits']=json.loads(metadata[0] or '[]') if metadata else []
+        card_id = item.get('card_id')
+        form = conn.execute('''SELECT COALESCE(
+            (SELECT rarity_override FROM player_cards WHERE card_id=c.card_id AND user_id=?), c.rarity)
+            FROM cards c WHERE c.card_id=?''', (None if context.mode == 'risk' else user, card_id)).fetchone()
+        frozen = snapshot_in(conn, key, user, card_id) if card_id else None
+        payload['traits'] = (frozen.get('_metadata', {}).get('traits', []) if frozen else
+                             variant_traits(conn, card_id, form[0]) if form else [])
         paid=apply_in(conn,'match:'+key,user,context.mode,'match',version,payload=payload,xp=xp,score=score,hearts=-hearts,extra={'ranked_progress':qualified})
         conn.execute("INSERT INTO match_reward_events(request_id,user_id,mode,xp,score,hearts_lost,tp_delta,awarded_at) VALUES(?,?,?,?,?,?,0,?)",(key,user,mode,xp,score,hearts,now.isoformat()))
         conn.execute("""INSERT INTO fight_history(user_id,user_card_id,opponent_card_id,stat_used,result,score_gained,hearts_lost,fought_at,fight_type,opponent_user_id,xp_gained) VALUES(?,?,?,?,?,?,?,?,?,?,?)""",

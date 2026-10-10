@@ -480,6 +480,8 @@ class DatabaseManager:
         except Exception as e:
             logger.warning(f"Index creation warning: {e}")
         
+        from systems.card_trait_registry import ensure_variant_traits_schema
+        ensure_variant_traits_schema(conn)
         self._ensure_card_variants(conn)
         from systems.card_inventory_system import ensure_inventory_schema
         ensure_inventory_schema(conn)
@@ -586,8 +588,10 @@ class DatabaseManager:
                 (card_id,),
             ).fetchall()
             variants = []
+            from systems.card_trait_registry import variant_traits
             for row in rows:
                 item = dict(row)
+                item["traits"] = variant_traits(conn, card_id, item["rarity"])
                 item["abilities"] = self._json_list(item["abilities"])
                 item["card_effects"] = self._json_list(item["card_effects"])
                 try:
@@ -661,6 +665,11 @@ class DatabaseManager:
                     now, now,
                 ),
             )
+            # The stats upsert leaves traits untouched, so the old vocabulary is
+            # still available here. An omitted traits field preserves its value.
+            if 'traits' in data:
+                from systems.card_trait_registry import save_variant_traits
+                save_variant_traits(conn, card_id, rarity, data['traits'])
             for media_kind in ("photo", "sticker"):
                 file_id = str(data.get(f"{media_kind}_file_id") or "").strip()
                 if file_id:

@@ -286,7 +286,7 @@ def _skin_payload(skin: dict) -> dict:
 
 
 def _deck_payload(deck: dict) -> dict:
-    synergy = GameModeSystem(db).calculate_deck_synergy([card.card_id for card in deck.get("cards", [])])
+    synergy = GameModeSystem(db).calculate_deck_synergy(deck.get("cards", []))
     return {
         "deck_id": deck["deck_id"],
         "deck_name": deck["deck_name"],

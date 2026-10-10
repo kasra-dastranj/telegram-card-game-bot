@@ -1480,10 +1480,10 @@ class BattleHandlersMixin:
         if game_over:
             deck_state = self.db.get_battle_deck_state(fight_id)
             ch_synergy = self.modes.calculate_deck_synergy(
-                deck_state.get("challenger_deck_cards", [])
+                deck_state.get("challenger_deck_cards", []), user_id=ch_id
             )
             op_synergy = self.modes.calculate_deck_synergy(
-                deck_state.get("opponent_deck_cards", [])
+                deck_state.get("opponent_deck_cards", []), user_id=op_id
             )
             ch_points = ch_rounds_won * 5 + ch_synergy["score"]
             op_points = op_rounds_won * 5 + op_synergy["score"]

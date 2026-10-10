@@ -316,7 +316,7 @@
         if (preferredId && state.cards.some(card => card.id === preferredId)) selectCard(preferredId); else renderList();
       } catch (error) { toast(error.message, true); }
     }
-    function blankVariant() { return { card_type:'POWER_TYPE', power:'', speed:'', iq:'', popularity:'', abilities:[], card_effects:[], passive:{}, image_path:'', photo_file_id:'', sticker_file_id:'' }; }
+    function blankVariant() { return { card_type:'POWER_TYPE', power:'', speed:'', iq:'', popularity:'', traits:[], abilities:[], card_effects:[], passive:{}, image_path:'', photo_file_id:'', sticker_file_id:'' }; }
     function blankCard() { return { name:'', rarity:'normal', biography:'', dialogs:[], traits:[], series:'', hidden_stats:{}, variants:[] }; }
     function selectCard(id) {
       const card = state.cards.find(item => item.id === id); if (!card) return;
@@ -331,7 +331,7 @@
       }
       return { card_type:$('cardType').value, power:$('power').value, speed:$('speed').value,
         iq:$('iq').value, popularity:$('popularity').value, abilities:splitList($('abilities').value),
-        card_effects:selectedValues('cardEffects'), passive, image_path:$('imagePath').value.trim(),
+        traits:selectedValues('traits'), card_effects:selectedValues('cardEffects'), passive, image_path:$('imagePath').value.trim(),
         photo_file_id:$('photoFileId').value.trim(), sticker_file_id:$('stickerFileId').value.trim() };
     }
     function stashVariant() { state.drafts[state.currentRarity] = collectVariant(); updateVariantProgress(); }
@@ -343,23 +343,26 @@
       }).join('  ·  ') + ' — هر سه فرم با هم ذخیره می‌شوند.';
     }
     function fillVariant(variant) {
+      setChoices('traits', state.options.traits, variant.traits || []);
+      document.querySelector('label[for="traits"]').textContent = `Traitهای فرم ${rarityLabel[state.currentRarity]}`;
       $('cardType').value = variant.card_type || 'POWER_TYPE';
       ['power','speed','iq','popularity'].forEach(key => $(key).value = variant[key] ?? '');
       $('abilities').value = (variant.abilities || []).join(', '); setMultiValues('cardEffects', variant.card_effects || []);
       const passive = variant.passive || {}; $('passiveEnabled').checked = Object.keys(passive).length > 0; $('passiveFields').disabled = !$('passiveEnabled').checked;
       $('passiveName').value = passive.name || ''; const condition = passive.condition || {}; const conditionType = Object.keys(condition)[0] || 'arena'; $('conditionType').value = conditionType; refreshConditionChoices(condition[conditionType] || ''); $('passiveStat').value = passive.effect?.stat || 'power'; $('passiveDelta').value = passive.effect?.delta ?? 1;
       $('imagePath').value = variant.image_path || ''; $('photoFileId').value = variant.photo_file_id || ''; $('stickerFileId').value = variant.sticker_file_id || '';
-      $('variantHint').textContent = `در حال ویرایش فرم ${rarityLabel[state.currentRarity]}: آمار، Ability، Passive و مدیا مستقل است.`;
+      $('variantHint').textContent = `در حال ویرایش فرم ${rarityLabel[state.currentRarity]}: Trait، آمار، Ability، Passive و مدیا مستقل است.`;
       updatePreview();
     }
     function fillForm(card) {
       $('emptyState').hidden = true; $('cardForm').hidden = false; $('editorTitle').textContent = state.creating ? 'کارت جدید' : card.name; $('cardId').textContent = state.creating ? 'new' : card.id;
       $('name').value = card.name || ''; state.currentRarity = 'normal'; $('rarity').value = 'normal'; $('biography').value = card.biography || ''; $('dialogs').value = (card.dialogs || []).join('\n');
-      setChoices('traits', state.options.traits, card.traits || []); $('newTrait').value = ''; $('series').value = card.series || '';
+      $('newTrait').value = ''; $('series').value = card.series || '';
       ['funny','scary','charisma','cute','evil','leadership'].forEach(key => $(key).value = card.hidden_stats?.[key] ?? '');
       state.drafts = Object.fromEntries(rarities.map(rarity => {
         const source = (card.variants || []).find(item => item.rarity === rarity) || (card.rarity === rarity ? card : blankVariant());
         const form = Object.fromEntries(['power','speed','iq','popularity','card_type','abilities','card_effects','passive','image_path','photo_file_id','sticker_file_id'].map(key => [key, source[key] ?? blankVariant()[key]]));
+        form.traits = source.traits ?? card.traits ?? [];
         if (!Object.keys(form.passive || {}).length && card.legacy_passive && Object.keys(card.legacy_passive).length) form.passive = card.legacy_passive;
         return [rarity, form];
       }));
@@ -384,7 +387,7 @@
       for (const rarity of rarities) if (state.drafts[rarity].passive?.condition && !Object.values(state.drafts[rarity].passive.condition)[0])
         throw new Error(`فرم ${rarityLabel[rarity]}: مقدار شرط Passive را انتخاب کنید`);
       return { name, biography:$('biography').value.trim(), dialogs:splitList($('dialogs').value),
-        traits:selectedValues('traits'), series:$('series').value.trim(), hidden_stats:hidden,
+        series:$('series').value.trim(), hidden_stats:hidden,
         variants:Object.fromEntries(rarities.map(rarity => [rarity, state.drafts[rarity]])) };
     }
     async function saveCard(event) {

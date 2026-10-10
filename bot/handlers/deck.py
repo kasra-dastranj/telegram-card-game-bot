@@ -48,7 +48,7 @@ class DeckHandlersMixin:
             for deck in decks:
                 status = "✅" if deck['is_valid'] else "⚠️"
                 synergy = self.modes.calculate_deck_synergy(
-                    card.card_id for card in deck['cards']
+                    deck['cards']
                 )
                 card_line = "  ".join(
                     f"{RARITY_EMOJI.get(_rarity_val(c), '⚪')}{c.name[:10]}"

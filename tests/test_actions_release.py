@@ -234,6 +234,17 @@ def test_isolated_preflight_accepts_current_startup_and_rejects_migration_on_cop
     command = [sys.executable, str(TOOLS / "preflight.py"), str(release), str(copy)]
     passed = subprocess.run(command, cwd=str(tmp_path), env=env, capture_output=True)
     assert passed.returncode == 0, passed.stderr.decode("utf-8", errors="replace")
+    # Independent form traits require owner preparation; no-change remains enforced.
+    with sqlite3.connect(str(copy)) as legacy:
+        legacy.execute('ALTER TABLE card_variants DROP COLUMN traits')
+    rejected = subprocess.run(command, cwd=str(tmp_path), env=env, capture_output=True)
+    assert rejected.returncode != 0
+    with sqlite3.connect(str(copy)) as legacy:
+        legacy.execute('ALTER TABLE card_variants DROP COLUMN traits')
+    from migrations.migrate_card_variant_traits import apply_migration as prepare_form_traits
+    prepare_form_traits(copy)
+    prepared = subprocess.run(command, cwd=str(tmp_path), env=env, capture_output=True)
+    assert prepared.returncode == 0, prepared.stderr.decode('utf-8', errors='replace')
     # The new vocabulary must be prepared explicitly; deployment keeps its no-change guard.
     with sqlite3.connect(str(copy)) as legacy:
         legacy.execute('DROP TABLE card_trait_registry')

@@ -1088,23 +1088,31 @@ class GameModeSystem:
             "hidden_stats": _loads(row["hidden_stats"], {}),
             "passive": _loads(row["passive"], {}),
             }
-        # Passive is form-specific; story-oriented mode metadata remains shared.
+        # Traits and passive follow the actual form; series/hidden stats are shared.
         if rarity and hasattr(self.db, "get_card_variant"):
             variant = self.db.get_card_variant(card_id, rarity)
+            if variant:
+                metadata['traits'] = variant['traits']
             if variant and variant.get("passive"):
                 metadata["passive"] = variant["passive"]
         return metadata
 
-    def calculate_deck_synergy(self, card_ids: Iterable[str]) -> Dict[str, Any]:
+    def metadata_for_card(self, card):
+        rarity = getattr(getattr(card, 'rarity', None), 'value', getattr(card, 'rarity', None))
+        return getattr(card, 'snapshot_metadata', None) or self.get_card_metadata(card.card_id, rarity)
+
+    def calculate_deck_synergy(self, card_ids: Iterable, user_id: Optional[int] = None) -> Dict[str, Any]:
         """Calculate the initial, data-driven deck-construction bonuses.
 
         The product document leaves the complete bonus catalog for a later
         balancing pass.  These rules implement its concrete examples without
-        coupling them to card rarity.
+        changing their numeric rewards. Trait membership follows each active form.
         """
-        cards = [self.db.get_card_by_id(card_id) for card_id in card_ids]
+        cards = [item if hasattr(item, 'card_id') else
+                 self.db.get_card_by_id_for_player(item, user_id) if user_id is not None else
+                 self.db.get_card_by_id(item) for item in card_ids]
         cards = [card for card in cards if card]
-        metadata = [self.get_card_metadata(card.card_id) for card in cards]
+        metadata = [self.metadata_for_card(card) for card in cards]
         score = 0
         reasons: List[str] = []
 
@@ -1152,8 +1160,7 @@ class GameModeSystem:
     ) -> Optional[Dict[str, Any]]:
         if not arena.get("passives_enabled", True):
             return None
-        rarity = getattr(getattr(card, "rarity", None), "value", getattr(card, "rarity", None))
-        metadata = getattr(card,"snapshot_metadata",None) or self.get_card_metadata(card.card_id, rarity)
+        metadata = self.metadata_for_card(card)
         passive = metadata.get("passive") or {}
         condition = passive.get("condition") or {}
         effect = passive.get("effect") or {}
@@ -1165,7 +1172,7 @@ class GameModeSystem:
         if condition.get("opponent_name") and condition["opponent_name"].casefold() != opponent_card.name.casefold():
             matches = False
         if condition.get("opponent_trait"):
-            opponent_traits = (getattr(opponent_card,"snapshot_metadata",None) or self.get_card_metadata(opponent_card.card_id)).get("traits", [])
+            opponent_traits = self.metadata_for_card(opponent_card).get("traits", [])
             if condition["opponent_trait"].casefold() not in {t.casefold() for t in opponent_traits}:
                 matches = False
         if not matches:
@@ -1449,7 +1456,7 @@ class GameModeSystem:
             traits = set()
             series_values = set()
             for card in eligible_cards(self.db, self.db.get_player_cards(user_id), "easy"):
-                metadata = self.get_card_metadata(card.card_id)
+                metadata = self.metadata_for_card(card)
                 for trait in metadata.get("traits", []):
                     key = str(trait).strip().casefold()
                     if key:
@@ -1536,7 +1543,7 @@ class GameModeSystem:
         if trait or series:
             eligible = []
             for card in cards:
-                metadata = self.get_card_metadata(card.card_id)
+                metadata = self.metadata_for_card(card)
                 trait_ok = not trait or trait.casefold() in {t.casefold() for t in metadata.get("traits", [])}
                 series_ok = not series or (metadata.get("series") or "").casefold() == series.casefold()
                 if trait_ok and series_ok:

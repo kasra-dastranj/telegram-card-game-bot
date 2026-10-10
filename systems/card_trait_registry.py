@@ -32,6 +32,40 @@ def remember_card_traits(conn, card_id, traits):
     remember_traits(conn, traits)
 
 
+def ensure_variant_traits_schema(conn):
+    """NULL inherits legacy character traits; [] is an explicitly empty form."""
+    columns = {row[1] for row in conn.execute('PRAGMA table_info(card_variants)')}
+    if not columns:
+        raise RuntimeError('Expected card_variants table is missing')
+    if 'traits' not in columns:
+        conn.execute('ALTER TABLE card_variants ADD COLUMN traits TEXT')
+
+
+def variant_traits(conn, card_id, rarity):
+    row = conn.execute('SELECT traits FROM card_variants WHERE card_id=? AND rarity=?',
+                       (card_id, rarity)).fetchone()
+    if row and row[0] is not None:
+        return _stored_traits(row[0])
+    if conn.execute("SELECT 1 FROM sqlite_master WHERE name='card_mode_metadata' AND type='table'").fetchone():
+        row = conn.execute('SELECT traits FROM card_mode_metadata WHERE card_id=?', (card_id,)).fetchone()
+        if row:
+            return _stored_traits(row[0])
+    return []
+
+
+def save_variant_traits(conn, card_id, rarity, traits):
+    """Persist a form override and its vocabulary in the caller's transaction."""
+    if rarity not in ('normal', 'epic', 'legend'):
+        raise ValueError('Invalid card form')
+    if not isinstance(traits, list) or any(not isinstance(value, str) for value in traits):
+        raise ValueError('Card traits must be a list of strings')
+    ensure_trait_registry_schema(conn)
+    remember_traits(conn, variant_traits(conn, card_id, rarity))
+    remember_traits(conn, traits)
+    conn.execute('UPDATE card_variants SET traits=? WHERE card_id=? AND rarity=?',
+                 (json.dumps(traits, ensure_ascii=False), card_id, rarity))
+
+
 def ensure_trait_registry_schema(conn):
     """Additive, idempotent migration; backfill all existing card traits."""
     conn.execute('''CREATE TABLE IF NOT EXISTS card_trait_registry (
@@ -41,6 +75,9 @@ def ensure_trait_registry_schema(conn):
     remember_traits(conn, DEFAULT_TRAITS)
     if conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='card_mode_metadata'").fetchone():
         for row in conn.execute('SELECT traits FROM card_mode_metadata').fetchall():
+            remember_traits(conn, _stored_traits(row[0]))
+    if 'traits' in {row[1] for row in conn.execute('PRAGMA table_info(card_variants)')}:
+        for row in conn.execute('SELECT traits FROM card_variants WHERE traits IS NOT NULL').fetchall():
             remember_traits(conn, _stored_traits(row[0]))
 
 
