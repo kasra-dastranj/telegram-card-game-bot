@@ -67,7 +67,9 @@ try {
     await page.locator('[data-action="three-random"]').click();
     await page.locator('.three-ability-menu summary').click();
     await page.locator('.three-ability-menu .ability-list').evaluate(node => { node.scrollTop = 90; });
+    const viewportElement = await page.locator('.screen').elementHandle();
     await page.waitForTimeout(2700); // Polling must preserve the expanded menu and its scroll position.
+    assert(await viewportElement.evaluate(node => node.isConnected), 'Polling must preserve the live scroll container');
     assert(await page.locator('.three-ability-menu').evaluate(node => node.open));
     assert(await page.locator('.three-ability-menu .ability-list').evaluate(node => node.scrollTop > 0));
     assert.equal(await page.locator('[data-action="three-ability"]').count(), 6);

@@ -155,8 +155,26 @@ game.events.on("card-dropped", (cardId: string) => {
   else void submitQuickCard();
 });
 
+let lastBattleMarkup = "";
+
+function renderBattleScreen(markup: string, sameScreen: boolean): void {
+  // Polling must not replace the scroll container while a player is scrolling.
+  if (sameScreen && markup === lastBattleMarkup) return;
+  lastBattleMarkup = markup;
+  const existing = sameScreen ? ui.querySelector<HTMLElement>(".screen") : null;
+  if (!existing) {
+    ui.innerHTML = markup;
+    return;
+  }
+  const template = document.createElement("template");
+  template.innerHTML = markup;
+  const replacement = template.content.firstElementChild;
+  if (replacement) existing.replaceChildren(...Array.from(replacement.childNodes));
+}
+
 function render(): void {
-  const screenScroll = ui.dataset.screen === state.screen ? ui.querySelector<HTMLElement>(".screen")?.scrollTop ?? 0 : 0;
+  const sameScreen = ui.dataset.screen === state.screen;
+  const screenScroll = sameScreen ? ui.querySelector<HTMLElement>(".screen")?.scrollTop ?? 0 : 0;
   const abilityScroll = ui.querySelector<HTMLElement>(".three-ability-menu .ability-list")?.scrollTop ?? 0;
   ui.dataset.screen = state.screen;
   document.body.dataset.appScreen = state.screen;
@@ -172,12 +190,12 @@ function render(): void {
   if (state.screen === "quickWait") ui.innerHTML = quickWaitTemplate();
   if (state.screen === "threeMenu") ui.innerHTML = threeMenuTemplate();
   if (state.screen === "threeWait") ui.innerHTML = threeWaitTemplate();
-  if (state.screen === "threeMatch") ui.innerHTML = threeMatchTemplate();
+  if (state.screen === "threeMatch") renderBattleScreen(threeMatchTemplate(), sameScreen);
   if (state.screen === "threeResult") ui.innerHTML = threeResultTemplate();
   if (state.screen === "cards") ui.innerHTML = cardsTemplate();
   if (state.screen === "quickMatch") ui.innerHTML = quickMatchTemplate();
   if (state.screen === "quickResult") ui.innerHTML = quickResultTemplate();
-  if (state.screen === "battle") ui.innerHTML = battleTemplate();
+  if (state.screen === "battle") renderBattleScreen(battleTemplate(), sameScreen);
   if (state.screen === "result") ui.innerHTML = resultTemplate();
   const abilityList = ui.querySelector<HTMLElement>(".three-ability-menu .ability-list");
   if (abilityList) abilityList.scrollTop = abilityScroll;
