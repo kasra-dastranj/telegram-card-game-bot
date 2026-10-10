@@ -124,6 +124,16 @@ class ShopHandlersMixin:
             return
         card_id, skin_id = skin["card_id"], skin["skin_id"]
 
+        from systems.progression_config import enabled
+        if enabled(self.db):
+            from systems.progression_economy import ProgressionEconomy
+            quote = ProgressionEconomy(self.db).quote(user_id, 'skin:' + skin_id)
+            if not quote.get('ok'):
+                await query.edit_message_text(quote.get('error','خطا'))
+                return
+            await query.edit_message_text('قیمت پوسته: ' + str(quote['price']) + ' سکه؛ تأیید می‌کنی؟',
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton('تأیید خرید', callback_data='v2_buy_' + quote['quote_id'])]]))
+            return
         result = self.skins.unlock_skin(user_id, skin_id)
 
         if result['success']:
@@ -271,6 +281,11 @@ class ShopHandlersMixin:
 
     async def shop_menu_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """منوی اصلی شاپ"""
+        from systems.progression_config import enabled
+        if enabled(self.db):
+            from bot.handlers.progression import show_menu
+            await update.callback_query.answer()
+            return await show_menu(self, update, context)
         query = update.callback_query
         await query.answer()
         user_id = query.from_user.id

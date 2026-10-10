@@ -478,6 +478,10 @@ class TelegramCardBot(
         app.add_handler(CommandHandler("recalc", self.recalc_command))
         
         # کالبک‌های اصلی
+        async def progression_callback(update, context):
+            from bot.handlers.progression import handle
+            return await handle(self, update, context)
+        app.add_handler(CallbackQueryHandler(progression_callback, pattern='^v2_'))
         app.add_handler(CallbackQueryHandler(self.daily_claim_handler, pattern="^daily_claim$"))
         app.add_handler(CallbackQueryHandler(self.my_cards_handler, pattern="^my_cards$"))
         app.add_handler(CallbackQueryHandler(self.my_cards_navigation_handler, pattern="^my_cards_nav_"))
@@ -631,6 +635,9 @@ class TelegramCardBot(
 
     async def tier_decay_task(self, context: ContextTypes.DEFAULT_TYPE):
         """تسک روزانه Tier Decay"""
+        from systems.progression_config import enabled
+        if enabled(self.db):
+            return
         try:
             stats = self.tier_decay.apply_decay_to_all_players()
             logger.info(
@@ -642,6 +649,9 @@ class TelegramCardBot(
 
     async def weekly_leaderboard_task(self, context: ContextTypes.DEFAULT_TYPE):
         """تسک هفتگی — پاداش لیدربرد"""
+        from systems.progression_config import enabled
+        if enabled(self.db):
+            return
         try:
             today = datetime.now(MAINTENANCE_TIMEZONE).date()
             current_monday = today - timedelta(days=today.weekday())
@@ -678,6 +688,24 @@ class TelegramCardBot(
         except Exception as e:
             logger.error(f"Error in weekly_leaderboard_task: {e}", exc_info=True)
 
+    async def progression_settlement_task(self, context: ContextTypes.DEFAULT_TYPE):
+        from systems.progression_config import enabled, config_in
+        if not enabled(self.db):
+            return
+        import sqlite3
+        from systems.progression_leaderboard import ProgressionLeaderboard
+        with sqlite3.connect(self.db.db_path) as conn:
+            _, rules = config_in(conn)
+        local = datetime.now(ZoneInfo(rules['timezone']))
+        if (local.hour, local.minute) < (rules['settlement_hour'], rules['settlement_minute']):
+            return
+        # Both periods are protected by durable ledgers. Repetition catches missed jobs after restart.
+        service = ProgressionLeaderboard(self.db)
+        for period in ('weekly', 'monthly'):
+            awards = service.settle(period)
+            if awards:
+                logger.info('V2 %s awards: %s', period, awards)
+
 # ==================== IMAGE SETUP HELPER ====================
 
 
@@ -709,6 +737,8 @@ def schedule_maintenance_jobs(job_queue, bot):
         first=10,
         name="hourly-cleanup",
     )
+    if hasattr(bot, 'progression_settlement_task'):
+        job_queue.run_repeating(bot.progression_settlement_task, interval=300, first=30, name='progression-settlement')
     job_queue.run_daily(
         bot.reset_lives_task,
         time=dt_time(hour=0, minute=5, tzinfo=MAINTENANCE_TIMEZONE),

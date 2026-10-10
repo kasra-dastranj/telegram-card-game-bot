@@ -60,6 +60,9 @@ class CardInventorySystem:
         card = conn.execute("SELECT rarity FROM cards WHERE card_id=?", (card_id,)).fetchone()
         if not card:
             raise ValueError("card_not_found")
+        from systems.shared_foundation import economic_card_in
+        if not economic_card_in(conn, card_id):
+            raise ValueError("custom_assignment_not_implemented")
         conn.execute("""
             INSERT INTO player_card_stacks(user_id,card_id,rarity,quantity)
             VALUES(?,?,?,?)
@@ -80,6 +83,9 @@ class CardInventorySystem:
     @staticmethod
     def consume_in(conn, user_id: int, card_id: str, rarity: str, quantity: int = 1) -> bool:
         if rarity not in RARITIES or type(quantity) is not int or quantity <= 0:
+            return False
+        from systems.shared_foundation import economic_card_in
+        if not economic_card_in(conn, card_id):
             return False
         row = conn.execute(
             "SELECT quantity FROM player_card_stacks WHERE user_id=? AND card_id=? AND rarity=?",

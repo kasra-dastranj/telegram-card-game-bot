@@ -38,12 +38,16 @@ class PlayerRewardsSystem:
         return {"can_claim": True, "remaining_seconds": 0}
 
     def claim_status(self, user_id: int) -> Dict[str, Any]:
+        from systems.progression_config import enabled
+        if enabled(self.db):
+            from systems.progression_economy import ProgressionEconomy
+            return ProgressionEconomy(self.db).claim_status(user_id)
         conn = sqlite3.connect(self.db.db_path)
         try:
             row = conn.execute("SELECT last_claim FROM players WHERE user_id=?", (user_id,)).fetchone()
             status = self._claim_status_from(row[0] if row else None)
             pool = conn.execute(
-                "SELECT COUNT(*) FROM cards WHERE rarity='normal'"
+                "SELECT COUNT(*) FROM cards WHERE rarity='normal' AND origin='official'"
             ).fetchone()[0]
             return {
                 **status,
@@ -55,6 +59,10 @@ class PlayerRewardsSystem:
             conn.close()
 
     def claim_daily(self, user_id: int) -> Dict[str, Any]:
+        from systems.progression_config import enabled
+        if enabled(self.db):
+            from systems.progression_economy import ProgressionEconomy
+            return ProgressionEconomy(self.db).claim(user_id)
         # The Quick inventory and its definitions must exist before the claim
         # transaction, including when the Telegram bot starts before the web app.
         GameModeSystem(self.db)
@@ -71,7 +79,7 @@ class PlayerRewardsSystem:
                 conn.rollback()
                 return {"ok": False, "error_code": "already_claimed", "error": "کارت روزانه امروز دریافت شده است", **status}
             rows = conn.execute(
-                "SELECT card_id FROM cards WHERE rarity='normal'"
+                "SELECT card_id FROM cards WHERE rarity='normal' AND origin='official'"
             ).fetchall()
             if not rows:
                 conn.rollback()
@@ -99,6 +107,10 @@ class PlayerRewardsSystem:
             conn.close()
 
     def missions(self, user_id: int) -> List[Dict[str, Any]]:
+        from systems.progression_config import enabled
+        if enabled(self.db):
+            from systems.progression_missions import ProgressionMissions
+            return ProgressionMissions(self.db).list(user_id)
         conn = sqlite3.connect(self.db.db_path)
         conn.row_factory = sqlite3.Row
         try:
@@ -113,6 +125,7 @@ class PlayerRewardsSystem:
                 JOIN cards c ON c.card_id=m.card_id
                 JOIN player_cards pc ON pc.card_id=m.card_id AND pc.user_id=?
                 LEFT JOIN player_card_missions pm ON pm.user_id=? AND pm.card_id=m.card_id
+                WHERE c.origin='official'
                 ORDER BY completed DESC, current_progress DESC, c.name COLLATE NOCASE
                 """,
                 (user_id, user_id),
@@ -134,6 +147,10 @@ class PlayerRewardsSystem:
             conn.close()
 
     def claim_mission(self, user_id: int, card_id: str) -> Dict[str, Any]:
+        from systems.progression_config import enabled
+        if enabled(self.db):
+            from systems.progression_missions import ProgressionMissions
+            return ProgressionMissions(self.db).claim(user_id, card_id)
         conn = sqlite3.connect(self.db.db_path, timeout=15)
         conn.row_factory = sqlite3.Row
         try:
@@ -148,7 +165,7 @@ class PlayerRewardsSystem:
                 FROM player_card_missions pm
                 JOIN player_cards pc ON pc.user_id=pm.user_id AND pc.card_id=pm.card_id
                 JOIN cards c ON c.card_id=pm.card_id
-                WHERE pm.user_id=? AND pm.card_id=?
+                WHERE pm.user_id=? AND pm.card_id=? AND c.origin='official'
                 """,
                 (user_id, card_id),
             ).fetchone()
@@ -204,6 +221,9 @@ class PlayerRewardsSystem:
             conn.close()
 
     def purchase_skin(self, user_id: int, card_id: str, skin_id: str) -> Dict[str, Any]:
+        from systems.progression_config import enabled
+        if enabled(self.db):
+            return {"ok":False,"error_code":"quote_required","error":"پیش‌نمایش قیمت و تأیید خرید لازم است"}
         conn = sqlite3.connect(self.db.db_path, timeout=15)
         conn.row_factory = sqlite3.Row
         try:

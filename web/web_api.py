@@ -31,6 +31,7 @@ from PIL import Image, UnidentifiedImageError
 from game_core import DatabaseManager, Card, CardRarity, CardManager, GameLogic
 from systems.game_mode_system import CORE_STATS, GameModeSystem
 from systems.arena_registry import ArenaRegistry, ArenaValidationError, MODE_KEYS, PLATFORMS
+from systems.card_trait_registry import CardTraitRegistry, remember_card_traits
 
 class WebAPI:
     def __init__(self, db_manager: DatabaseManager):
@@ -45,9 +46,12 @@ class WebAPI:
         self.card_manager = CardManager(db_manager)
         self.game_logic = GameLogic(db_manager)
         self.modes = GameModeSystem(db_manager)
+        self.trait_registry = CardTraitRegistry(db_manager)
         self.arena_registry = ArenaRegistry(db_manager)
         
         self.setup_routes()
+        from web.custom_admin_api import register_custom_admin
+        register_custom_admin(self)
 
     def _arena_admin_actor(self, scope='write'):
         """Fail-closed token auth with optional independent high-risk scopes."""
@@ -248,6 +252,7 @@ class WebAPI:
         conn = sqlite3.connect(self.db.db_path)
         try:
             conn.execute('BEGIN IMMEDIATE')
+            remember_card_traits(conn, card_id, shared['traits'])
             conn.execute(
                 """INSERT INTO cards(card_id,name,rarity,power,speed,iq,popularity,abilities,
                    card_effects,dialogs,biography,image_path,card_type,created_at)
@@ -422,7 +427,7 @@ class WebAPI:
 
         @self.app.route('/api/card-editor/options', methods=['GET'])
         def card_editor_options():
-            cards = self.db.get_all_cards()
+            cards = [card for card in self.db.get_all_cards() if card.origin=="official"]
             metadata = [self.modes.get_card_metadata(card.card_id) for card in cards]
             images_dir = PROJECT_ROOT / 'assets' / 'card_images'
             images = sorted(
@@ -433,17 +438,28 @@ class WebAPI:
                             'arenas': sorted(item['arena_id'] for item in self.arena_registry.list_arenas(False)
                                              if self.arena_registry.arena_exists_for_mode(
                                                  item['arena_id'], 'quick', include_draft=True)),
-                            'traits': sorted({'hero', 'funny', 'leader', 'villain', 'monster', 'god',
-                                              'warrior', 'assassin', 'detective', 'mage'} |
+                            'traits': sorted(set(self.trait_registry.list_traits()) |
                                              {str(value) for item in metadata for value in item['traits']}),
                             'series': sorted({item['series'] for item in metadata if item['series']}),
                             'names': sorted({card.name for card in cards}), 'images': images})
         
+        @self.app.route('/api/card-editor/traits', methods=['POST'])
+        def add_card_trait():
+            try:
+                data = request.get_json(silent=True)
+                if not isinstance(data, dict):
+                    raise ValueError('بدنهٔ درخواست باید JSON باشد')
+                name = self.trait_registry.add_trait(data.get('name'))
+                return jsonify({'success': True, 'trait': name,
+                                'traits': self.trait_registry.list_traits()})
+            except ValueError as exc:
+                return jsonify({'success': False, 'error': str(exc)}), 400
+
         @self.app.route('/api/cards', methods=['GET'])
         def get_all_cards():
             """دریافت تمام کارت‌ها"""
             try:
-                cards = self.db.get_all_cards()
+                cards = [card for card in self.db.get_all_cards() if card.origin=="official"]
                 cards_data = [self._serialize_card(card) for card in cards]
                 
                 return jsonify({

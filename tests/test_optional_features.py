@@ -17,11 +17,11 @@ from systems.rare_cards_system import RareCardsSystem, create_rare_cards_tables
 from systems.card_missions_system import CardMissionsSystem, create_missions_tables
 
 
-def test_tier_decay():
+def test_tier_decay(tmp_path):
     """تست Tier Decay System"""
     print("🧪 Testing Tier Decay System...")
     
-    db_path = "test_optional.db"
+    db_path = str(tmp_path / "optional.db")
     if os.path.exists(db_path):
         os.remove(db_path)
     
@@ -83,11 +83,11 @@ def test_tier_decay():
     print("✅ Tier Decay tests passed!\n")
 
 
-def test_rare_cards():
+def test_rare_cards(tmp_path):
     """تست Rare Cards System"""
     print("🧪 Testing Rare Cards System...")
     
-    db_path = "test_optional.db"
+    db_path = str(tmp_path / "optional.db")
     if os.path.exists(db_path):
         os.remove(db_path)
     
@@ -130,11 +130,11 @@ def test_rare_cards():
     print("✅ Rare Cards tests passed!\n")
 
 
-def test_card_missions():
+def test_card_missions(tmp_path):
     """تست Card Missions System"""
     print("🧪 Testing Card Missions System...")
     
-    db_path = "test_optional.db"
+    db_path = str(tmp_path / "optional.db")
     if os.path.exists(db_path):
         os.remove(db_path)
     
@@ -200,25 +200,5 @@ def test_card_missions():
 
 
 if __name__ == "__main__":
-    print("=" * 50)
-    print("🧪 Optional Features Tests")
-    print("=" * 50)
-    print()
-    
-    try:
-        test_tier_decay()
-        test_rare_cards()
-        test_card_missions()
-        
-        print("=" * 50)
-        print("✅ All tests passed!")
-        print("=" * 50)
-        
-    except AssertionError as e:
-        print(f"\n❌ Test failed: {e}")
-        sys.exit(1)
-    except Exception as e:
-        print(f"\n❌ Unexpected error: {e}")
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
+    import pytest
+    raise SystemExit(pytest.main([__file__, "-q"]))

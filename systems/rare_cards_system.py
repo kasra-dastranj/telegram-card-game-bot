@@ -65,6 +65,11 @@ class RareCardsSystem:
         Returns:
             موفقیت
         """
+        from systems.progression_config import enabled
+        if enabled(self.db):
+            with sqlite3.connect(self.db.db_path) as conn:
+                if conn.execute('SELECT 1 FROM rare_cards_info WHERE card_id=?',(card_id,)).fetchone():
+                    return False  # Existing supply/serials must never be reset by re-creation.
         card = Card(
             card_id=card_id,
             name=name,
@@ -149,7 +154,7 @@ class RareCardsSystem:
         
         return info["remaining"] > 0
     
-    def issue_rare_card(self, user_id: int, card_id: str, source: str = "leaderboard") -> Dict:
+    def issue_rare_card(self, user_id: int, card_id: str, source: str = "leaderboard", request_key=None) -> Dict:
         """
         صدور کارت Rare به بازیکن
         
@@ -161,6 +166,10 @@ class RareCardsSystem:
         Returns:
             نتیجه
         """
+        from systems.progression_config import enabled
+        if enabled(self.db):
+            from systems.progression_rare import issue
+            return issue(self.db, user_id, card_id, source, request_key)
         # بررسی موجودی
         if not self.can_issue_rare_card(card_id):
             return {
@@ -227,7 +236,7 @@ class RareCardsSystem:
                    r.price_coins, r.limited_quantity, r.total_issued
             FROM cards c
             JOIN rare_cards_info r ON c.card_id = r.card_id
-            WHERE c.rarity = 'rare'
+            WHERE c.rarity = 'rare' AND c.origin='official'
             ORDER BY c.name
         ''')
         
@@ -263,6 +272,12 @@ class RareCardsSystem:
         Returns:
             نتیجه
         """
+        from systems.progression_config import enabled
+        if enabled(self.db):
+            return {'success':False,'error':'خرید مستقیم Rare در اقتصاد جدید فعال نشده است؛ مسیر event به شناسهٔ تراکنش نیاز دارد.'}
+        from systems.shared_foundation import economic_card_eligible
+        if not economic_card_eligible(self.db.get_card_by_id(card_id)):
+            return {"success": False, "error": "کارت سفارشی قابل خرید نیست"}
         # دریافت اطلاعات کارت
         info = self.get_rare_card_info(card_id)
         if not info:

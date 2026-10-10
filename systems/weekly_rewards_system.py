@@ -36,6 +36,10 @@ class WeeklyRewardsSystem:
         return [{"user_id": user_id, "period_score": score} for user_id, score in rows]
 
     def distribute(self, period_key: str, leaderboard: list[dict]) -> list[tuple[int, int, int]]:
+        from systems.progression_config import enabled
+        if enabled(self.db):
+            from systems.progression_leaderboard import ProgressionLeaderboard
+            return ProgressionLeaderboard(self.db).settle('weekly')
         """Atomically record the period and pay its top ten players.
 
         An empty return value means the period was already paid or had no winners.

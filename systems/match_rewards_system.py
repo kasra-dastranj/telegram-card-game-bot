@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 
 from systems.phase2_systems import LevelSystem, TierSystem, XP_SOURCES
 from systems.level_rewards_system import LevelRewardsSystem
+from systems.shared_foundation import context_in, require_card_in, require_settlement_mode
 
 
 class MatchRewardsSystem:
@@ -67,6 +68,13 @@ class MatchRewardsSystem:
     @staticmethod
     def award(conn, request_id: str, mode: str, awards: dict[int, dict]) -> dict[str, dict]:
         """Run inside the match-completion transaction. Retry returns prior awards."""
+        context = context_in(conn, request_id, mode)
+        require_settlement_mode(context, mode)
+        if context.policy_version == "future_v2":
+            from systems.progression_match_rewards import award_in
+            return award_in(conn, request_id, mode, context, awards)
+        if context.variant != "competitive" or context.policy_version != "legacy_v1":
+            raise ValueError("future_policy_not_live")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS match_reward_events (
                 request_id TEXT NOT NULL,
@@ -95,6 +103,10 @@ class MatchRewardsSystem:
             if prior:
                 result[str(user_id)] = {"xp": prior[0], "score": prior[1]}
                 continue
+            if item.get("card_id"):
+                require_card_in(conn, item["card_id"], context, None if context.mode == "risk" else user_id)
+            if item.get("opponent_card_id"):
+                require_card_in(conn, item["opponent_card_id"], context)
             xp, score = int(item["xp"]), int(item["score"])
             hearts_lost, tp_delta = int(item.get("hearts_lost", 0)), int(item.get("tp_delta", 0))
             if xp < 0 or score < 0 or hearts_lost < 0:
@@ -136,7 +148,8 @@ class MatchRewardsSystem:
                 (request_id, user_id, mode, xp, score, hearts_lost, tp_delta, now),
             )
             card_id = item.get("card_id")
-            if card_id and item["result"] == "win":
+            from systems.shared_foundation import economic_card_in
+            if card_id and item["result"] == "win" and economic_card_in(conn, card_id):
                 mission = conn.execute(
                     "SELECT mission_type,target,target_card FROM card_missions WHERE card_id=?",
                     (card_id,),

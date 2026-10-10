@@ -25,6 +25,7 @@ from telegram.ext import ContextTypes
 from bot.utils import get_victory_dialog
 from core.models import FightStatus
 from systems.deck_system import DeckSystem, DECK_SELECTION_TTL_SECONDS
+from systems.shared_foundation import eligible_cards
 from systems.game_mode_system import (
     ABILITY_DEFINITIONS,
     EASY_CHOICE_TTL_SECONDS,
@@ -117,9 +118,15 @@ class GameModeHandlersMixin:
             await query.answer("حالت نامعتبر است.", show_alert=True)
             return
         keyboard = [
-            [InlineKeyboardButton("🎯 Normal", callback_data=f"gm_variant_{mode}_normal")],
+            [InlineKeyboardButton("🎯 اصلی / Normal", callback_data=f"gm_variant_{mode}_normal")],
             [InlineKeyboardButton("🎲 Random", callback_data=f"gm_variant_{mode}_random")],
         ]
+        from systems.progression_config import enabled
+        from systems.shared_foundation import settings_in
+        import sqlite3
+        with sqlite3.connect(self.db.db_path) as flags_conn:flags=settings_in(flags_conn)
+        if mode=="quick" and enabled(self.db) and flags["quick_friendly_enabled"]:
+            keyboard.insert(1,[InlineKeyboardButton("🤝 دوستانه",callback_data="gm_variant_quick_friendly")])
         await query.edit_message_text(
             f"{'⚡ Quick' if mode == 'quick' else '🃏 Deck'} Mode\n\nنوع بازی را انتخاب کن:",
             reply_markup=InlineKeyboardMarkup(keyboard),
@@ -139,7 +146,7 @@ class GameModeHandlersMixin:
                 query.from_user.id, mode, variant, query.message.chat_id
             )
             mode_title = "Quick" if mode == "quick" else "Deck"
-            variant_title = "Normal" if variant == "normal" else "Random"
+            variant_title = "دوستانه (بدون پاداش؛ باخت یک قلب)" if variant.startswith("friendly") else "Normal" if variant == "normal" else "Random"
             text = (
                 f"⚔️ {query.from_user.first_name} یک چالش {mode_title} / {variant_title} ساخته!\n\n"
                 "اولین بازیکنی که قبول کند وارد بازی می‌شود.\n"
@@ -166,7 +173,7 @@ class GameModeHandlersMixin:
         keyboard = [[
             InlineKeyboardButton(
                 "👤 انتخاب بازی در پی‌وی دوست",
-                switch_inline_query="",
+                switch_inline_query=f"game {mode} {variant}" if variant.startswith('friendly') else "",
             )
         ]]
         if mode == "quick":
@@ -191,6 +198,11 @@ class GameModeHandlersMixin:
         raw = (inline_query.query or "").strip().casefold()
         parts = raw.split()
         options = []
+        from systems.progression_config import enabled
+        from systems.shared_foundation import settings_in
+        import sqlite3
+        with sqlite3.connect(self.db.db_path) as flags_conn:
+            friendly_enabled = enabled(self.db) and settings_in(flags_conn)['quick_friendly_enabled']
         if not parts or parts in (["game"], ["بازی"]):
             options = [
                 ("quick", "normal"),
@@ -198,9 +210,11 @@ class GameModeHandlersMixin:
                 ("deck", "normal"),
                 ("deck", "random"),
             ]
+            if friendly_enabled:
+                options.extend([('quick', 'friendly'), ('quick', 'friendly_random')])
         elif len(parts) == 3 and parts[0] in ("game", "بازی"):
             mode, variant = parts[1], parts[2]
-            if mode in ("quick", "deck") and variant in ("normal", "random"):
+            if mode in ("quick", "deck") and (variant in ("normal", "random") or (mode=='quick' and friendly_enabled and variant in ('friendly','friendly_random'))):
                 options = [(mode, variant)]
         if not options:
             return
@@ -239,7 +253,7 @@ class GameModeHandlersMixin:
                 continue
             request = self.modes.create_inline_private_challenge(user_id, mode, variant)
             mode_title = "Quick" if mode == "quick" else "Deck"
-            variant_title = "Normal" if variant == "normal" else "Random"
+            variant_title = "دوستانه (بدون پاداش؛ باخت یک قلب)" if variant.startswith("friendly") else "Normal" if variant == "normal" else "Random"
             emoji = "⚡" if mode == "quick" else "🃏"
             text = (
                 f"{emoji} دعوت {mode_title} / {variant_title}\n\n"
@@ -525,7 +539,7 @@ class GameModeHandlersMixin:
             await self._send_quick_ability_panels(context, request["request_id"], state)
 
     async def _send_quick_card_page(self, context, request_id: str, user_id: int, page: int, query=None):
-        cards = self.db.get_player_cards(user_id)
+        cards = eligible_cards(self.db,self.db.get_player_cards(user_id),"quick",request_id)
         per_page = 8
         total_pages = max(1, (len(cards) + per_page - 1) // per_page)
         page = max(0, min(page, total_pages - 1))
@@ -781,6 +795,7 @@ class GameModeHandlersMixin:
         )
         if any(item.get("scored_stats") for item in report.get("breakdown", {}).values()):
             text += "\n\nامتیاز هر کارت از جمع دو ویژگی انتخابی به دست آمد. برای دیدن محاسبه، «📋 مشاهده جزئیات» را بزن."
+        if report.get("variant")=="friendly":text += "\n🤝 دوستانه: 0 XP / 0 Score / 0 Coin؛ باخت: -1 Heart"
         if report.get("rewards"):
             text += "\n\n🎁 پاداش نبرد\n" + "\n".join(
                 f"{names[int(uid)]}: +{reward['xp']} XP، +{reward['score']} Score"
@@ -796,7 +811,7 @@ class GameModeHandlersMixin:
         )
         for chat_id in dict.fromkeys(targets):
             try:
-                if winner_card and hasattr(self, "_send_round_winner_card_media"):
+                if winner_card and getattr(winner_card, "origin", "official")=="official" and hasattr(self, "_send_round_winner_card_media"):
                     await self._send_round_winner_card_media(context, chat_id, winner_card)
                 await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=markup)
             except Exception as exc:
@@ -860,7 +875,7 @@ class GameModeHandlersMixin:
     async def _launch_deck_match(self, context, request: dict):
         ch_id, op_id = request["creator_id"], request["opponent_id"]
         chat_id = request.get("origin_chat_id") or ch_id
-        fight_id = self.db.create_fight(ch_id, op_id, chat_id)
+        fight_id = self.db.create_fight(ch_id, op_id, chat_id, mode="deck", selection_variant=request["variant"])
         inline_message_id = request.get("origin_inline_message_id")
         if inline_message_id:
             context.bot_data[f"deck_{fight_id}_inline_message_id"] = inline_message_id
@@ -902,8 +917,8 @@ class GameModeHandlersMixin:
             )
             return
 
-        ch_cards = self.db.get_player_cards(ch_id)
-        op_cards = self.db.get_player_cards(op_id)
+        ch_cards = eligible_cards(self.db, self.db.get_player_cards(ch_id), "deck")
+        op_cards = eligible_cards(self.db, self.db.get_player_cards(op_id), "deck")
         if len(ch_cards) < 3 or len(op_cards) < 3:
             await self._edit_request_panel(
                 context,
@@ -979,8 +994,20 @@ class GameModeHandlersMixin:
         if not allowed:
             await query.answer(reason, show_alert=True)
             return
-        rounds = int(query.data.removeprefix("gm_erounds_"))
-        request = self.modes.create_easy_lobby(query.from_user.id, query.message.chat_id, rounds)
+        parts=query.data.removeprefix("gm_erounds_").split("_")
+        rounds=int(parts[0])
+        from systems.shared_foundation import settings_in
+        import sqlite3
+        with sqlite3.connect(self.db.db_path) as flags_conn:flags=settings_in(flags_conn)
+        if len(parts)==1 and flags["easy_custom_cards_enabled"] and flags["custom_cards_enabled"]:
+            await query.edit_message_text("کارت سفارشی در این Easy مجاز باشد؟ پاداش عادی برقرار است.",reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("خیر",callback_data=f"gm_erounds_{rounds}_no"),InlineKeyboardButton("بله",callback_data=f"gm_erounds_{rounds}_yes")]]))
+            return
+        allow_custom=len(parts)==2 and parts[1]=="yes"
+        try:
+            request = self.modes.create_easy_lobby(query.from_user.id, query.message.chat_id, rounds,allow_custom_cards=allow_custom)
+        except ValueError:
+            await query.answer('این تنظیم فعلاً مجاز نیست؛ منوی Easy را دوباره باز کن.', show_alert=True)
+            return
         await query.edit_message_text(
             self._easy_lobby_text(request["request_id"]),
             reply_markup=self._easy_lobby_markup(request["request_id"]),
@@ -1001,6 +1028,8 @@ class GameModeHandlersMixin:
         return (
             f"🎉 Easy Mode — {state['rounds']} راند\n\n"
             f"بازیکنان آماده: {len(state['players'])}\n"
+            + ("کارت سفارشی مجاز است؛ پاداش عادی Easy برقرار است.\n" if state.get('allow_custom_cards') else "")
+            +
             "برای ورود Ready را بزنید. بازی پس از ۳ دقیقه خودکار شروع می‌شود."
         )
 

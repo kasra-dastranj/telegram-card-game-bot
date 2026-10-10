@@ -223,6 +223,9 @@ class EconomySystem:
             (success, coins_earned, error_message)
         """
         # بررسی امکان
+        from systems.progression_config import enabled
+        if enabled(self.db):
+            return False, 0, "ماینینگ در اقتصاد جدید حذف شده است"
         can_claim, error = self.can_claim_mining(user_id)
         if not can_claim:
             return False, 0, error
@@ -278,6 +281,9 @@ class EconomySystem:
         Returns:
             (success, coins_earned, error_message)
         """
+        from systems.progression_config import enabled
+        if enabled(self.db):
+            return False, 0, "تبدیل امتیاز به سکه حذف شده است"
         if type(score_amount) is not int or score_amount < self.SCORE_TO_COIN_RATE:
             return False, 0, f"حداقل {self.SCORE_TO_COIN_RATE} امتیاز نیاز است!"
         if score_amount % self.SCORE_TO_COIN_RATE != 0:
@@ -331,6 +337,9 @@ class EconomySystem:
     
     def buy_heart_increase(self, user_id: int) -> Tuple[bool, Optional[str]]:
         """Debit the price and increase the heart cap in one transaction."""
+        from systems.progression_config import enabled
+        if enabled(self.db):
+            return False, "خرید قلب فقط با پیش‌نمایش قیمت و تأیید انجام می‌شود"
         price = self.PRICES['heart_increase']
         conn = sqlite3.connect(self.db.db_path, timeout=15)
         try:
@@ -365,6 +374,9 @@ class EconomySystem:
         Returns:
             (success, error_message)
         """
+        from systems.progression_config import enabled
+        if enabled(self.db):
+            return False, "ارتقای سکه‌ای حذف شده است"
         if upgrade_type == 'normal_to_epic':
             price = self.PRICES['upgrade_normal_to_epic']
         elif upgrade_type == 'epic_to_legend':

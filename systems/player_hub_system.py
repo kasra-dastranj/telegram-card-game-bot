@@ -32,6 +32,9 @@ class PlayerHubSystem:
         return int(card.power + card.speed + card.iq + card.popularity)
 
     def _missions_ready(self, user_id: int) -> int:
+        from systems.progression_config import enabled
+        if enabled(self.db):
+            return sum(item["can_claim"] for item in PlayerRewardsSystem(self.db).missions(user_id))
         try:
             conn = sqlite3.connect(self.db.db_path)
             row = conn.execute(
@@ -55,7 +58,8 @@ class PlayerHubSystem:
         player = self.game.check_and_reset_hearts(self.db.get_or_create_player(user_id))
         progression = self.db.get_player_progression_full(user_id) or {}
         fight_stats = self.db.get_fight_stats(user_id) or {}
-        cards = self.db.get_player_cards(user_id)
+        all_cards=self.db.get_player_cards(user_id)
+        cards=[card for card in all_cards if card.origin=="official"]
         decks = self.db.get_player_decks(user_id)
         heart_remaining = self.game.get_heart_reset_time_remaining(player)
         total_xp = int(progression.get("total_xp", 0))
@@ -68,7 +72,20 @@ class PlayerHubSystem:
             rarity = self._rarity(card)
             rarity_counts[rarity] = rarity_counts.get(rarity, 0) + 1
 
+        from systems.progression_config import enabled
+        v2 = enabled(self.db)
+        from systems.progression_economy import ProgressionEconomy
+        economy = ProgressionEconomy(self.db).inventory(user_id) if v2 else None
+        if v2:
+            from systems.progression_config import config_in
+            from systems.reward_ledger import level_from_xp
+            with sqlite3.connect(self.db.db_path) as conn:
+                _, rules = config_in(conn)
+            level = level_from_xp(rules, total_xp)
+            current_xp = total_xp - rules['level_thresholds'][level - 1]
+            xp_to_next = (rules['level_thresholds'][level] - rules['level_thresholds'][level - 1]) if level < rules['max_level'] else 0
         return {
+            "progression_v2_enabled": v2, "economy": economy,
             "user_id": user_id,
             "first_name": player.first_name,
             "username": player.username or "",
@@ -80,13 +97,14 @@ class PlayerHubSystem:
             "level": level,
             "current_xp": current_xp,
             "xp_to_next_level": xp_to_next,
-            "current_tier": progression.get("current_tier", "Bronze"),
-            "tier_points": int(progression.get("tier_points", 0)),
+            "current_tier": None if v2 else progression.get("current_tier", "Bronze"),
+            "tier_points": None if v2 else int(progression.get("tier_points", 0)),
             "stats": fight_stats,
             "best_card_id": best_card.card_id if best_card else None,
             "claim": self._claim_status(player),
             "counts": {
                 "cards": len(cards),
+                "custom_cards":len(all_cards)-len(cards),
                 "decks": len(decks),
                 "missions_ready": self._missions_ready(user_id),
                 "rarities": rarity_counts,
@@ -102,11 +120,16 @@ class PlayerHubSystem:
         rarity: str = "all",
         sort: str = "rarity",
         query: str = "",
+        match_key: str = None,
     ) -> Tuple[List, int, int, int]:
         page = max(1, int(page))
         limit = max(1, min(int(limit), 60))
         sort = sort if sort in self.SORT_KEYS else "rarity"
         cards = list(self.db.get_player_cards(user_id))
+        if match_key:
+            from systems.shared_foundation import eligible_cards
+            with sqlite3.connect(self.db.db_path) as conn:mode=conn.execute("SELECT mode FROM game_requests WHERE request_id=?",(match_key,)).fetchone()[0]
+            cards=eligible_cards(self.db,cards,mode,match_key)
 
         if rarity != "all":
             cards = [card for card in cards if self._rarity(card) == rarity]

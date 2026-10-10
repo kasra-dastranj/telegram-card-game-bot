@@ -97,9 +97,11 @@ def test_quick_stat_panel_shows_selected_card_and_final_values():
     assert button_texts == ["💪 قدرت: 93", "⚡ سرعت: 29", "🧠 هوش: 40", "❤️ محبوبیت: 50"]
 
 
-def test_inline_private_quick_query_builds_an_accept_invitation():
+def test_inline_private_quick_query_builds_an_accept_invitation(tmp_path):
     handler = GameModeHandlersMixin()
     handler.db = SimpleNamespace(get_player_cards=Mock(return_value=[SimpleNamespace()]))
+    from core.database import DatabaseManager
+    handler.db.db_path = DatabaseManager(str(tmp_path/'inline.db')).db_path
     handler.modes = SimpleNamespace(
         mode_access=SimpleNamespace(check=Mock(return_value=(True, ""))),
         create_inline_private_challenge=Mock(
@@ -127,10 +129,12 @@ def test_inline_private_quick_query_builds_an_accept_invitation():
     )
 
 
-def test_inline_private_blank_or_whitespace_query_shows_all_game_modes():
+def test_inline_private_blank_or_whitespace_query_shows_all_game_modes(tmp_path):
     handler = GameModeHandlersMixin()
     cards = [SimpleNamespace(), SimpleNamespace(), SimpleNamespace()]
     handler.db = SimpleNamespace(get_player_cards=Mock(return_value=cards))
+    from core.database import DatabaseManager
+    handler.db.db_path = DatabaseManager(str(tmp_path/'inline.db')).db_path
     handler.modes = SimpleNamespace(
         mode_access=SimpleNamespace(check=Mock(return_value=(True, ""))),
         create_inline_private_challenge=Mock(

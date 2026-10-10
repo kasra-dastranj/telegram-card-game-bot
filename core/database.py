@@ -487,6 +487,12 @@ class DatabaseManager:
         ensure_level_reward_schema(conn)
         from systems.mode_access_system import ensure_mode_access_schema
         ensure_mode_access_schema(conn)
+        from systems.shared_foundation import ensure_foundation_schema
+        ensure_foundation_schema(conn)
+        from systems.progression_config import ensure_progression_schema
+        ensure_progression_schema(conn)
+        from systems.custom_cards import ensure_custom_schema
+        ensure_custom_schema(conn)
         conn.commit()
         conn.close()
         logger.info("Database initialized successfully")
@@ -717,7 +723,9 @@ class DatabaseManager:
             conn.close()
     
     def add_card(self, card: Card) -> bool:
-        """اضافه کردن کارت جدید"""
+        """اضافه کردن کارت جدید؛ تخصیص Custom در فاز سوم پیاده می‌شود."""
+        if card.origin != "official":
+            return False
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
@@ -791,21 +799,27 @@ class DatabaseManager:
         cursor = conn.cursor()
         
         cursor.execute('''
-            SELECT card_id, name, rarity, power, speed, iq, popularity, abilities, card_effects, dialogs, biography, image_path, card_type, created_at
+            SELECT card_id, name, rarity, power, speed, iq, popularity, abilities, card_effects, dialogs, biography, image_path, card_type, created_at, origin
             FROM cards WHERE card_id = ?
         ''', (card_id,))
         result = cursor.fetchone()
         conn.close()
         
         if result:
-            columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'card_effects', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at']
+            columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'card_effects', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at', 'origin']
             card = Card.from_dict(dict(zip(columns, result)))
+            if card.origin=="custom":
+                from systems.custom_cards import display_card_in
+                with sqlite3.connect(self.db_path) as custom_conn:card=display_card_in(custom_conn,card)
             self.card_cache.set(f"card_{card_id}", card)
             return card
         return None
     
     def get_card_by_id_for_player(self, card_id: str, user_id: int) -> Optional[Card]:
         """دریافت کارت با احتساب فرم ارتقایافتهٔ بازیکن."""
+        from systems.custom_cards import access_in,user_card_in
+        with sqlite3.connect(self.db_path) as custom_conn:
+            if access_in(custom_conn,user_id,card_id):return user_card_in(self,custom_conn,user_id,card_id)
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute('''
@@ -814,17 +828,17 @@ class DatabaseManager:
                    COALESCE(v.iq, c.iq), COALESCE(v.popularity, c.popularity),
                    COALESCE(v.abilities, c.abilities), COALESCE(v.card_effects, c.card_effects),
                    c.dialogs, c.biography, COALESCE(v.image_path, c.image_path),
-                   COALESCE(v.card_type, c.card_type), c.created_at
+                   COALESCE(v.card_type, c.card_type), c.created_at, c.origin
             FROM cards c
             JOIN player_cards pc ON c.card_id = pc.card_id
             LEFT JOIN card_variants v ON v.card_id = c.card_id
                 AND v.rarity = COALESCE(pc.rarity_override, c.rarity)
-            WHERE c.card_id = ? AND pc.user_id = ?
+            WHERE c.card_id = ? AND pc.user_id = ? AND c.origin='official'
         ''', (card_id, user_id))
         result = cursor.fetchone()
         conn.close()
         if result:
-            columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'card_effects', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at']
+            columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'card_effects', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at', 'origin']
             return Card.from_dict(dict(zip(columns, result)))
         return None
 
@@ -865,14 +879,14 @@ class DatabaseManager:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute('''
-            SELECT card_id, name, rarity, power, speed, iq, popularity, abilities, card_effects, dialogs, biography, image_path, card_type, created_at
+            SELECT card_id, name, rarity, power, speed, iq, popularity, abilities, card_effects, dialogs, biography, image_path, card_type, created_at, origin
             FROM cards WHERE lower(name) = lower(?) LIMIT 1
         ''', (name,))
         result = cursor.fetchone()
         conn.close()
         
         if result:
-            columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'card_effects', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at']
+            columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'card_effects', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at', 'origin']
             return Card.from_dict(dict(zip(columns, result)))
         return None
     
@@ -882,13 +896,13 @@ class DatabaseManager:
         cursor = conn.cursor()
         
         cursor.execute('''
-            SELECT card_id, name, rarity, power, speed, iq, popularity, abilities, card_effects, dialogs, biography, image_path, card_type, created_at
-            FROM cards ORDER BY created_at DESC
+            SELECT card_id, name, rarity, power, speed, iq, popularity, abilities, card_effects, dialogs, biography, image_path, card_type, created_at, origin
+            FROM cards WHERE origin='official' ORDER BY created_at DESC
         ''')
         results = cursor.fetchall()
         conn.close()
         
-        columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'card_effects', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at']
+        columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'card_effects', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at', 'origin']
         return [Card.from_dict(dict(zip(columns, r))) for r in results]
     
     def delete_card(self, card_id: str) -> bool:
@@ -932,7 +946,7 @@ class DatabaseManager:
                 user_id=result[0],
                 username=result[1] or "",
                 first_name=result[2] or "بازیکن",
-                hearts=int(result[3] or 10),
+                hearts=int(result[3] if result[3] is not None else 10),
                 lives=int(result[4] or 10),
                 total_score=int(result[5] or 0),
                 last_heart_reset=_to_dt(result[6], datetime.now()),
@@ -960,6 +974,12 @@ class DatabaseManager:
                 player.last_heart_reset.isoformat(), player.last_lives_reset.isoformat(),
                 None, player.created_at.isoformat(), 0, 10
             ))
+            from systems.progression_config import enabled_in, config_in
+            if enabled_in(conn):
+                from systems.reward_ledger import new_account_in
+                _, economy_config = config_in(conn)
+                new_account_in(conn, user_id, economy_config)
+                player.hearts = player.max_hearts = economy_config['hearts']['base']
             conn.commit()
             
             # ایجاد رکورد progression برای بازیکن جدید
@@ -1013,27 +1033,33 @@ class DatabaseManager:
                    COALESCE(v.iq, c.iq), COALESCE(v.popularity, c.popularity),
                    COALESCE(v.abilities, c.abilities), COALESCE(v.card_effects, c.card_effects),
                    c.dialogs, c.biography, COALESCE(v.image_path, c.image_path),
-                   COALESCE(v.card_type, c.card_type), c.created_at
+                   COALESCE(v.card_type, c.card_type), c.created_at, c.origin
             FROM cards c
             JOIN player_cards pc ON c.card_id = pc.card_id
             LEFT JOIN card_variants v ON v.card_id = c.card_id
                 AND v.rarity = COALESCE(pc.rarity_override, c.rarity)
-            WHERE pc.user_id = ?
+            WHERE pc.user_id = ? AND c.origin='official'
             ORDER BY pc.obtained_at DESC
         ''', (user_id,))
         
         results = cursor.fetchall()
         conn.close()
         
-        columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'card_effects', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at']
-        return [Card.from_dict(dict(zip(columns, r))) for r in results]
+        columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'card_effects', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at', 'origin']
+        from systems.custom_cards import user_cards
+        return [Card.from_dict(dict(zip(columns, r))) for r in results] + user_cards(self,user_id)
     
     def get_player_cards_by_rarity(self, user_id: int, rarity: CardRarity = None, page: int = 1, per_page: int = 6) -> Tuple[List[Card], int]:
         """دریافت کارت‌های بازیکن با فیلتر rarity و pagination"""
+        from systems.custom_cards import user_cards
+        if user_cards(self,user_id):
+            cards=self.get_player_cards(user_id)
+            if rarity:cards=[card for card in cards if card.rarity==rarity]
+            return cards[(page-1)*per_page:page*per_page],len(cards)
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         offset = (page - 1) * per_page
-        columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'card_effects', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at']
+        columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'card_effects', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at', 'origin']
         
         if rarity:
             cursor.execute('''
@@ -1042,18 +1068,18 @@ class DatabaseManager:
                        COALESCE(v.iq, c.iq), COALESCE(v.popularity, c.popularity),
                        COALESCE(v.abilities, c.abilities), COALESCE(v.card_effects, c.card_effects),
                        c.dialogs, c.biography, COALESCE(v.image_path, c.image_path),
-                       COALESCE(v.card_type, c.card_type), c.created_at
+                       COALESCE(v.card_type, c.card_type), c.created_at, c.origin
                 FROM cards c JOIN player_cards pc ON c.card_id = pc.card_id
                 LEFT JOIN card_variants v ON v.card_id=c.card_id
                     AND v.rarity=COALESCE(pc.rarity_override, c.rarity)
-                WHERE pc.user_id = ? AND COALESCE(pc.rarity_override, c.rarity) = ?
+                WHERE pc.user_id = ? AND c.origin='official' AND COALESCE(pc.rarity_override, c.rarity) = ?
                 ORDER BY pc.usage_count DESC, pc.obtained_at DESC
                 LIMIT ? OFFSET ?
             ''', (user_id, rarity.value, per_page, offset))
             results = cursor.fetchall()
             cursor.execute('''
                 SELECT COUNT(*) FROM cards c JOIN player_cards pc ON c.card_id = pc.card_id
-                WHERE pc.user_id = ? AND COALESCE(pc.rarity_override, c.rarity) = ?
+                WHERE pc.user_id = ? AND c.origin='official' AND COALESCE(pc.rarity_override, c.rarity) = ?
             ''', (user_id, rarity.value))
         else:
             cursor.execute('''
@@ -1062,16 +1088,16 @@ class DatabaseManager:
                        COALESCE(v.iq, c.iq), COALESCE(v.popularity, c.popularity),
                        COALESCE(v.abilities, c.abilities), COALESCE(v.card_effects, c.card_effects),
                        c.dialogs, c.biography, COALESCE(v.image_path, c.image_path),
-                       COALESCE(v.card_type, c.card_type), c.created_at
+                       COALESCE(v.card_type, c.card_type), c.created_at, c.origin
                 FROM cards c JOIN player_cards pc ON c.card_id = pc.card_id
                 LEFT JOIN card_variants v ON v.card_id=c.card_id
                     AND v.rarity=COALESCE(pc.rarity_override, c.rarity)
-                WHERE pc.user_id = ?
+                WHERE pc.user_id = ? AND c.origin='official'
                 ORDER BY pc.usage_count DESC, pc.obtained_at DESC
                 LIMIT ? OFFSET ?
             ''', (user_id, per_page, offset))
             results = cursor.fetchall()
-            cursor.execute('SELECT COUNT(*) FROM player_cards WHERE user_id = ?', (user_id,))
+            cursor.execute("SELECT COUNT(*) FROM player_cards pc JOIN cards c USING(card_id) WHERE pc.user_id=? AND c.origin='official'", (user_id,))
         
         total_count = cursor.fetchone()[0]
         conn.close()
@@ -1082,7 +1108,7 @@ class DatabaseManager:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         offset = (page - 1) * per_page
-        columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'card_effects', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at']
+        columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq', 'popularity', 'abilities', 'card_effects', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at', 'origin']
         
         cursor.execute('''
             SELECT c.card_id, c.name, COALESCE(pc.rarity_override,c.rarity),
@@ -1090,7 +1116,7 @@ class DatabaseManager:
                    COALESCE(v.iq,c.iq), COALESCE(v.popularity,c.popularity),
                    COALESCE(v.abilities,c.abilities), COALESCE(v.card_effects,c.card_effects),
                    c.dialogs, c.biography, COALESCE(v.image_path,c.image_path),
-                   COALESCE(v.card_type,c.card_type), c.created_at
+                   COALESCE(v.card_type,c.card_type), c.created_at, c.origin
             FROM cards c JOIN player_cards pc ON c.card_id = pc.card_id
             LEFT JOIN card_variants v ON v.card_id=c.card_id
                 AND v.rarity=COALESCE(pc.rarity_override,c.rarity)
@@ -1408,7 +1434,8 @@ class DatabaseManager:
         
         return [row[0] for row in results]
     
-    def create_fight(self, challenger_id: int, opponent_id: int, chat_id: int) -> str:
+    def create_fight(self, challenger_id: int, opponent_id: int, chat_id: int, *,
+                     mode: str = "legacy_pvp", selection_variant: str = "normal") -> str:
         """ایجاد فایت جدید"""
         fight_id = str(uuid.uuid4())[:8]
         conn = sqlite3.connect(self.db_path)
@@ -1423,6 +1450,9 @@ class DatabaseManager:
             VALUES (?, ?, ?, 'waiting_opponent', ?, ?, ?)
         ''', (fight_id, challenger_id, opponent_id, chat_id, now.isoformat(), expires_at.isoformat()))
         
+        from systems.shared_foundation import bind_context, legacy_context, settings_in
+        from systems.shared_foundation import bind_new_context
+        bind_new_context(conn, "fight:" + fight_id, mode, selection_variant)
         conn.commit()
         conn.close()
         
@@ -1520,6 +1550,17 @@ class DatabaseManager:
         """بروزرسانی فایت"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
+        from systems.shared_foundation import context_in, require_card_in
+        try:
+            context = context_in(conn, "fight:" + fight_id, "legacy_pvp")
+            fight = conn.execute("SELECT challenger_id,opponent_id FROM active_fights WHERE fight_id=?", (fight_id,)).fetchone()
+            for index, key in enumerate(("challenger_card_id", "opponent_card_id")):
+                if kwargs.get(key):
+                    require_card_in(conn, kwargs[key], context, fight[index] if fight else -1)
+        except ValueError:
+            conn.rollback()
+            conn.close()
+            return False
         
         updates = []
         values = []
@@ -1662,7 +1703,7 @@ class DatabaseManager:
                 SUM(CASE WHEN result = 'loss' THEN 1 ELSE 0 END) as losses,
                 SUM(CASE WHEN result = 'tie' THEN 1 ELSE 0 END) as ties
             FROM fight_history
-            WHERE user_id = ? AND user_card_id = ?
+            WHERE user_id = ? AND user_card_id = ? AND fight_type!='quick_friendly'
         ''', (user_id, card_id))
         
         result = cursor.fetchone()
@@ -1685,6 +1726,14 @@ class DatabaseManager:
     
     def reset_all_player_lives(self) -> int:
         """ریست جان همه بازیکنان (برای تست)"""
+        from systems.progression_config import enabled
+        if enabled(self):
+            from systems.progression_economy import ProgressionEconomy
+            with sqlite3.connect(self.db_path) as connection:
+                users = [row[0] for row in connection.execute('SELECT user_id FROM players')]
+            for user in users:
+                ProgressionEconomy(self).refresh_hearts(user)
+            return len(users)
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
@@ -1732,7 +1781,7 @@ class DatabaseManager:
                    SUM(CASE WHEN result = 'win' THEN 1 ELSE 0 END),
                    SUM(CASE WHEN result = 'loss' THEN 1 ELSE 0 END),
                    SUM(CASE WHEN result = 'tie' THEN 1 ELSE 0 END)
-            FROM fight_history WHERE user_id = ?
+            FROM fight_history WHERE user_id = ? AND fight_type!='quick_friendly'
         ''', (user_id,))
         
         total_result = cursor.fetchone()
@@ -1836,6 +1885,10 @@ class DatabaseManager:
             limit: تعداد نتایج (برای جهانی)
             chat_id: اگه مقدار داشته باشه، فقط اعضای این گروه رو نشون میده
         """
+        from systems.progression_config import enabled
+        if enabled(self):
+            from systems.progression_leaderboard import ProgressionLeaderboard
+            return ProgressionLeaderboard(self).view(timeframe, limit)
         from datetime import datetime, timedelta
         
         conn = sqlite3.connect(self.db_path)
@@ -2019,7 +2072,7 @@ class DatabaseManager:
 
     # ==================== SOLO FIGHT (Mini App) ====================
 
-    def create_solo_fight(self, player_id: int, difficulty: str) -> str:
+    def create_solo_fight(self, player_id: int, difficulty: str, *, player_card_id=None) -> str:
         import uuid
         fight_id = str(uuid.uuid4())[:8]
         conn = sqlite3.connect(self.db_path)
@@ -2028,8 +2081,21 @@ class DatabaseManager:
             INSERT INTO solo_fights (fight_id, player_id, difficulty, created_at)
             VALUES (?, ?, ?, ?)
         ''', (fight_id, player_id, difficulty, datetime.now().isoformat()))
-        conn.commit()
-        conn.close()
+        from systems.shared_foundation import bind_context, legacy_context, settings_in
+        from systems.shared_foundation import bind_new_context
+        try:
+            context = bind_new_context(conn, "solo:" + fight_id, "practice")
+            if player_card_id:
+                from systems.shared_foundation import require_card_in
+                from systems.custom_cards import freeze_in
+                require_card_in(conn, player_card_id, context, player_id)
+                freeze_in(conn, "solo:" + fight_id, player_id, player_card_id)
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
         return fight_id
 
     def get_solo_fight(self, fight_id: str) -> Optional[Dict]:
@@ -2048,6 +2114,18 @@ class DatabaseManager:
         values = list(kwargs.values()) + [fight_id]
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
+        from systems.shared_foundation import context_in, require_card_in
+        try:
+            context = context_in(conn, "solo:" + fight_id, "practice")
+            fight = conn.execute("SELECT player_id FROM solo_fights WHERE fight_id=?", (fight_id,)).fetchone()
+            if kwargs.get("player_card_id"):
+                require_card_in(conn, kwargs["player_card_id"], context, fight[0] if fight else -1)
+            if kwargs.get("ai_card_id"):
+                require_card_in(conn, kwargs["ai_card_id"], context)
+        except ValueError:
+            conn.rollback()
+            conn.close()
+            return False
         cursor.execute(f'UPDATE solo_fights SET {fields} WHERE fight_id = ?', values)
         conn.commit()
         conn.close()
@@ -2082,13 +2160,13 @@ class DatabaseManager:
         cursor = conn.cursor()
         cursor.execute('''
             SELECT card_id, name, rarity, power, speed, iq, popularity,
-                   abilities, card_effects, dialogs, biography, image_path, card_type, created_at
-            FROM cards WHERE rarity = ?
+                   abilities, card_effects, dialogs, biography, image_path, card_type, created_at, origin
+            FROM cards WHERE rarity = ? AND origin='official'
         ''', (rarity,))
         results = cursor.fetchall()
         conn.close()
         columns = ['card_id', 'name', 'rarity', 'power', 'speed', 'iq',
-                   'popularity', 'abilities', 'card_effects', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at']
+                   'popularity', 'abilities', 'card_effects', 'dialogs', 'biography', 'image_path', 'card_type', 'created_at', 'origin']
         return [Card.from_dict(dict(zip(columns, r))) for r in results]
 
     def get_player_progression_full(self, user_id: int) -> Dict:
@@ -2113,7 +2191,7 @@ class DatabaseManager:
                 SUM(CASE WHEN fight_type = 'solo' AND result = 'win' THEN 1 ELSE 0 END) as solo_wins,
                 SUM(CASE WHEN fight_type = 'pvp' THEN 1 ELSE 0 END) as pvp_total,
                 SUM(CASE WHEN fight_type = 'pvp' AND result = 'win' THEN 1 ELSE 0 END) as pvp_wins
-            FROM fight_history WHERE user_id = ?
+            FROM fight_history WHERE user_id = ? AND fight_type!='quick_friendly'
         ''', (user_id,))
         row = cursor.fetchone()
         conn.close()
@@ -2138,6 +2216,14 @@ class DatabaseManager:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         try:
+            conn.execute('BEGIN IMMEDIATE')
+            from systems.progression_config import enabled_in, config_in
+            if enabled_in(conn):
+                from systems.reward_ledger import capacities_in
+                capacity = capacities_in(conn, player_id, config_in(conn)[1])
+                count = conn.execute('SELECT COUNT(*) FROM player_decks WHERE player_id=?', (player_id,)).fetchone()[0]
+                if count >= capacity['slots']:
+                    raise ValueError('deck_capacity_exceeded')
             cursor.execute('''
                 INSERT INTO player_decks
                     (deck_id, player_id, deck_name, card_id_1, card_id_2, card_id_3,

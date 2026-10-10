@@ -169,7 +169,7 @@
 
           <div class="section" data-section="modes">
             <div class="grid">
-              <div class="field"><label for="traits">Traitها</label><select id="traits" class="input" multiple></select><div class="inline-add"><input id="newTrait" class="input" type="text" placeholder="Trait جدید را بنویسید" aria-label="Trait جدید"><button id="addTraitBtn" class="btn" type="button">افزودن Trait</button></div><span class="hint">Trait تازه خودکار انتخاب می‌شود. برای انتخاب چند مورد موجود از Ctrl یا لمس چند گزینه استفاده کنید. با ذخیرهٔ کارت، Trait تازه برای کارت‌های بعدی هم در فهرست می‌ماند.</span></div>
+              <div class="field"><label for="traits">Traitها</label><select id="traits" class="input" multiple></select><div class="inline-add"><input id="newTrait" class="input" type="text" maxlength="100" placeholder="Trait جدید را بنویسید" aria-label="Trait جدید"><button id="addTraitBtn" class="btn" type="button">افزودن Trait</button></div><span class="hint">با افزودن، Trait در فهرست دائمی ذخیره و خودکار انتخاب می‌شود؛ حتی اگر از همهٔ کارت‌ها برداشته شود، در فهرست می‌ماند. برای ثبت انتخاب‌ها روی کارت، کارت را ذخیره کنید.</span></div>
               <div class="field"><label for="series">Series / مجموعه</label><input id="series" class="input" list="seriesOptions" placeholder="Game of Thrones"><datalist id="seriesOptions"></datalist><span class="hint">از مجموعه‌های قبلی انتخاب کنید یا نام تازه بنویسید.</span></div>
               <div class="group-title">Hidden Stats برای Easy (اختیاری)</div>
               <div class="grid grid-4 field full">
@@ -241,14 +241,21 @@
       values.forEach(value => { if (![...$(id).options].some(option => option.value === value)) $(id).add(new Option(value, value)); });
       [...$(id).options].forEach(option => option.selected = values.includes(option.value));
     }
-    function addTrait() {
+    async function addTrait() {
+      const button = $('addTraitBtn');
+      if (button.disabled) return;
       const input = $('newTrait'); const name = input.value.trim();
       if (!name) { toast('نام Trait را وارد کنید', true); input.focus(); return; }
-      const values = [...$('traits').options].map(option => option.value);
-      const trait = values.find(value => value.toLocaleLowerCase() === name.toLocaleLowerCase()) || name;
-      setChoices('traits', [...values, trait], [...selectedValues('traits'), trait]);
-      input.value = ''; input.focus();
-      toast(`Trait «${trait}» انتخاب شد؛ برای ثبت آن کارت را ذخیره کنید`);
+      button.disabled = true; input.disabled = true;
+      try {
+        const data = await api('/api/card-editor/traits', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name})});
+        state.options.traits = data.traits;
+        setChoices('traits', state.options.traits, [...selectedValues('traits'), data.trait]);
+        refreshConditionChoices($('conditionValue').value);
+        input.value = '';
+        toast(`Trait «${data.trait}» در فهرست دائمی ثبت شد؛ برای اعمال روی کارت، کارت را ذخیره کنید`);
+      } catch (error) { toast(error.message, true); }
+      finally { button.disabled = false; input.disabled = false; input.focus(); }
     }
     function refreshConditionChoices(value = '') {
       const type = $('conditionType').value;

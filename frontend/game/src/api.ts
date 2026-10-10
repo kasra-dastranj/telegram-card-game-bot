@@ -4,6 +4,7 @@ export type StatKey = "power" | "speed" | "iq" | "popularity";
 export interface CardData {
   card_id: string;
   name: string;
+  origin?: "official" | "custom";
   rarity: "normal" | "rare" | "epic" | "legend" | string;
   power: number;
   speed: number;
@@ -43,6 +44,7 @@ export interface UpgradeResult {
 }
 
 export interface DeckData {
+  invalid_reason?: string;
   deck_id: string;
   deck_name: string;
   is_valid: boolean;
@@ -68,6 +70,8 @@ export interface FusionPreview {
 }
 
 export interface ProfileData {
+  progression_v2_enabled?: boolean;
+  economy?: { items: Record<string, number>; capacity: { slots: number; max_hearts: number }; shop: Record<string, { enabled: boolean }>; daily_ticket_percent: number; silver_claim_tickets: number };
   user_id?: number;
   first_name: string;
   username?: string;
@@ -124,18 +128,29 @@ export class ApiError extends Error {
   }
 }
 
-export interface FightData {
+export interface ThreeRoundAbilityState {
+  abilities?: QuickAbility[];
+  abilities_enabled?: boolean;
+  my_ability_used?: boolean;
+  my_ability?: { ability_key: string; round: number; title: string } | null;
+  my_stat_locked?: boolean;
+}
+
+export interface FightData extends ThreeRoundAbilityState {
   fight_id: string;
   player_card: CardData;
-  ai_card: CardData;
+  ai_card: CardData | null;
   ai_name: string;
   aso_dialog: string;
   arena: { arena_id: string; name_fa: string; boost_stat: StatKey; emoji: string; version?: number | null; background_url?: string | null };
   current_round: number;
   available_stats: StatKey[];
+  my_values?: Record<StatKey, number>;
+  my_boosts?: Record<StatKey, number>;
 }
 
 export interface RoundData {
+  fight?: FightData;
   round_number: number;
   player_stat: StatKey;
   player_value: number;
@@ -173,7 +188,7 @@ export interface QuickReport {
   is_tie: boolean;
   forfeit?: boolean;
   reason?: string;
-  rewards?: Record<string, { xp: number; score: number }>;
+  rewards?: Record<string, { xp: number; score: number; hearts_lost?: number }>;
   breakdown: Record<string, {
     card_name: string;
     selected_stat: StatKey;
@@ -190,7 +205,7 @@ export interface QuickState {
   user_id: number;
   status: "waiting" | "accepted" | "active" | "completed" | "expired" | "cancelled";
   source: "random_queue" | "invite_link";
-  variant: "normal" | "random";
+  variant: "normal" | "random" | "friendly" | "friendly_random";
   expires_at: string;
   matchmaking_status?: "waiting" | "matched";
   invite_token?: string;
@@ -227,7 +242,7 @@ export interface QuickState {
   report?: QuickReport;
 }
 
-export interface ThreeRoundState {
+export interface ThreeRoundState extends ThreeRoundAbilityState {
   request_id: string;
   user_id: number;
   status: QuickState["status"];
@@ -251,14 +266,16 @@ export interface ThreeRoundState {
   my_boosts?: Record<StatKey, number>;
   available_stats?: StatKey[];
   rounds_won?: Record<string, number>;
+  opponent_ability_used?: boolean;
   last_round?: ThreeRoundResult | null;
-  report?: { winner_id: number | null; is_tie: boolean; forfeit: boolean; reason?: string; rounds_won: Record<string, number>; rounds: ThreeRoundResult[]; rewards?: Record<string, { xp: number; score: number }> } | null;
+  report?: { winner_id: number | null; is_tie: boolean; forfeit: boolean; reason?: string; rounds_won: Record<string, number>; rounds: ThreeRoundResult[]; rewards?: Record<string, { xp: number; score: number; hearts_lost?: number }> } | null;
 }
 
 export interface ThreeRoundResult {
   round: number;
   winner_id: number | null;
   values: Record<string, { stat: StatKey; base: number; boost: number; total: number }>;
+  arena?: ThreeRoundState["arena"];
 }
 
 const API_BASE = "/api/v1";
@@ -333,7 +350,17 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     const payload = data as { error?: string; error_code?: string };
     throw new ApiError(payload.error || "ارتباط با سرور برقرار نشد", response.status, payload.error_code);
   }
+  await resolvePrivateImages(data);
   return data as T;
+}
+
+async function resolvePrivateImages(value: unknown): Promise<void> {
+  if (!value || typeof value !== "object") return;
+  const item = value as Record<string, unknown>;
+  if (typeof item.image_url === "string" && item.image_url.startsWith("/api/v1/custom/cards/")) {
+    try { const response = await fetch(item.image_url, { headers: authHeaders(), cache:"no-store" }); if (!response.ok) throw Error(); const url = URL.createObjectURL(await response.blob()); item.image_url=url; window.setTimeout(()=>URL.revokeObjectURL(url),60_000); } catch { item.image_url=""; }
+  }
+  await Promise.all(Object.values(item).filter(part=>part && typeof part === "object").map(resolvePrivateImages));
 }
 
 async function requestCardAction<T>(path: string, body: Record<string, unknown>): Promise<T> {
@@ -359,6 +386,28 @@ async function requestCardAction<T>(path: string, body: Record<string, unknown>)
 }
 
 export const api = {
+  async customSettings(): Promise<{ quick_friendly_enabled: boolean; order_contact?: string | null }> { return request("GET","/custom/settings"); },
+  async economyQuote(item: string): Promise<{ quote_id: string; price: number; config_version: number }> {
+    return request('POST', '/economy/quote', { item });
+  },
+  async economyPurchase(quoteId: string): Promise<{ profile: ProfileData }> {
+    return request('POST', '/economy/purchase', { quote_id: quoteId });
+  },
+  async silverClaim(requestKey: string): Promise<{ card_id: string; rarity: string; profile: ProfileData }> {
+    return request('POST', '/economy/claim/silver', { request_key: requestKey });
+  },
+  async copyPreview(cardId: string, target: string): Promise<{ ok: boolean; error?: string; required: number; upgrade_cards_required: number; xp: number; config_version: number }> {
+    return request('GET', `/cards/${encodeURIComponent(cardId)}/fuse-copies/preview?target=${target}`);
+  },
+  async v2Upgrade(cardId: string, target: string, requestKey: string, configVersion: number): Promise<{ xp_gained: number; profile: ProfileData }> {
+    return request('POST', `/economy/cards/${encodeURIComponent(cardId)}/upgrade`, { target, request_key: requestKey, config_version: configVersion });
+  },
+  async sellPreview(cardId: string, rarity: string): Promise<{ price: number; config_version: number }> {
+    return request('POST', `/economy/cards/${encodeURIComponent(cardId)}/sell/preview`, { rarity });
+  },
+  async sellCard(cardId: string, rarity: string, requestKey: string, configVersion: number): Promise<{ profile: ProfileData }> {
+    return request('POST', `/economy/cards/${encodeURIComponent(cardId)}/sell`, { rarity, request_key: requestKey, config_version: configVersion });
+  },
   async profile(): Promise<ProfileData> {
     if (demoMode) return {
       first_name: "فرمانده",
@@ -426,12 +475,12 @@ export const api = {
     if (demoMode) return { card: { ...(await this.cardDetail(cardId)), rarity: target }, xp_gained: target === "epic" ? 15 : 30, profile: await this.profile() };
     return requestCardAction(`/cards/${encodeURIComponent(cardId)}/fuse-copies`, { target });
   },
-  async cards(): Promise<CardData[]> {
+  async cards(matchKey?: string): Promise<CardData[]> {
     if (demoMode) return demoCards;
-    const first = await request<CardPage>("GET", "/cards?limit=60&page=1");
+    const first = await request<CardPage>("GET", `/cards?limit=60&page=1${matchKey ? `&match_key=${encodeURIComponent(matchKey)}` : ""}`);
     const cards = [...first.cards];
     for (let page = 2; page <= first.page_count; page += 1) {
-      const next = await request<CardPage>("GET", `/cards?limit=60&page=${page}`);
+      const next = await request<CardPage>("GET", `/cards?limit=60&page=${page}${matchKey ? `&match_key=${encodeURIComponent(matchKey)}` : ""}`);
       cards.push(...next.cards);
     }
     return cards;
@@ -467,7 +516,7 @@ export const api = {
     if (demoMode) return { can_claim: !demoClaimed, remaining_seconds: demoClaimed ? 3600 : 0, pool_count: 12 };
     return request("GET", "/claim");
   },
-  async claimDaily(): Promise<{ message: string; data: { card: CardData; ability?: { key: string; title: string } }; profile: ProfileData }> {
+  async claimDaily(): Promise<{ message: string; data: { card: CardData | null; reward_type?: string; ability?: { key: string; title: string } }; profile: ProfileData }> {
     if (demoMode) { demoClaimed = true; return { message: "کارت روزانه و یک Ability دریافت شد", data: { card: demoCards[0], ability: { key: "reveal_opponent", title: "👁 مشاهده کارت حریف" } }, profile: await this.profile() }; }
     return request("POST", "/claim");
   },
@@ -478,7 +527,7 @@ export const api = {
     ];
     return (await request<{ missions: MissionData[] }>("GET", "/missions")).missions;
   },
-  async claimMission(missionId: string): Promise<{ message: string; data: { card: CardData } }> {
+  async claimMission(missionId: string): Promise<{ message: string; data: { card: CardData | null } }> {
     if (demoMode) return { message: "پاداش مأموریت دریافت شد", data: { card: { ...demoCards[1], rarity: "legend" } } };
     return request("POST", `/missions/${encodeURIComponent(missionId)}/claim`);
   },
@@ -528,6 +577,12 @@ export const api = {
     const gameOver = demoRound >= 2;
     return { round_number: demoRound, player_stat: stat, player_value: 91, player_boost: stat === "iq" ? 8 : 0, player_total: stat === "iq" ? 99 : 91, ai_stat: demoRound === 1 ? "power" : "popularity", ai_value: 88, ai_boost: 0, ai_total: 88, round_winner: "player", player_rounds_won: playerWins, ai_rounds_won: 0, game_over: gameOver, next_round: demoRound + 1, available_stats: ["power", "speed", "iq", "popularity"].filter((item) => item !== stat) as StatKey[], aso_dialog: demoRound === 1 ? "این فقط شروع بود..." : "این نبرد را به خاطر می‌سپارم.", final_result: gameOver ? { winner: "player", aso_dialog: "امروز میدان برای تو بود.", rewards: { coins: 180, score: 240, xp: 90 } } : undefined };
   },
+  async soloAbility(fightId: string, abilityKey: string, round: number): Promise<FightData> {
+    return request("POST", "/solo/ability", { fight_id: fightId, ability_key: abilityKey, round });
+  },
+  async soloStatus(fightId: string): Promise<FightData> {
+    return request("GET", `/solo/fights/${encodeURIComponent(fightId)}`);
+  },
   async quickMatchmaking(variant: QuickState["variant"] = "normal"): Promise<QuickState> {
     if (demoMode) return makeDemoQuick("random_queue");
     return request("POST", "/quick/matchmaking", { variant });
@@ -543,6 +598,10 @@ export const api = {
       return { ...demoQuick };
     }
     return request("POST", `/quick/invites/${encodeURIComponent(token)}/accept`);
+  },
+  async quickInviteInfo(token: string): Promise<{variant: QuickState['variant']}> {
+    if (demoMode) return {variant:'normal'};
+    return request('GET', `/quick/invites/${encodeURIComponent(token)}`);
   },
   async quickStatus(requestId: string): Promise<QuickState> {
     if (demoMode) return advanceDemoQueue();
@@ -594,6 +653,9 @@ export const api = {
   },
   async threeStat(requestId: string, stat: StatKey): Promise<ThreeRoundState> {
     return request("POST", `/three-round/matches/${encodeURIComponent(requestId)}/stat`, { stat });
+  },
+  async threeAbility(requestId: string, abilityKey: string, round: number): Promise<ThreeRoundState> {
+    return request("POST", `/three-round/matches/${encodeURIComponent(requestId)}/ability`, { ability_key: abilityKey, round });
   },
 };
 

@@ -30,7 +30,11 @@ from systems.battle_system_3rounds import BattleSystem3Rounds, ARENAS
 from systems.arena_registry import ArenaRegistry
 from systems.game_mode_system import GameModeSystem
 from systems.mini_three_round_system import MiniThreeRoundSystem, MODE as MINI_THREE_ROUND_MODE
+from systems.three_round_abilities import (
+    SOLO_ABILITY_FIELD, ability_definition, available_abilities, consume_ability, select_arena,
+)
 from systems.player_hub_system import PlayerHubSystem
+from systems.shared_foundation import eligible_cards
 from systems.card_upgrade_system import CardUpgradeSystem
 from systems.deck_system import DeckSystem
 from systems.player_rewards_system import PlayerRewardsSystem
@@ -233,6 +237,7 @@ def card_to_dict(card) -> dict:
     image_name = os.path.basename(str(image_path).replace("\\", "/"))
     return {
         "card_id": card.card_id,
+        "origin":card.origin,
         "name": card.name,
         "rarity": card.rarity.value if hasattr(card.rarity, 'value') else card.rarity,
         "power": card.power,
@@ -242,7 +247,7 @@ def card_to_dict(card) -> dict:
         "card_type": card.card_type,
         "abilities": abilities,
         "biography": card.biography or "",
-        "image_url": f"/card-images/{quote(image_name)}?w=480" if image_name else "",
+        "image_url": (f"/api/v1/custom/cards/{quote(card.card_id)}/image" if card.origin=="custom" else f"/card-images/{quote(image_name)}?w=480" if image_name else ""),
         "score": card.power + card.speed + card.iq + card.popularity,
     }
 
@@ -286,6 +291,7 @@ def _deck_payload(deck: dict) -> dict:
         "deck_id": deck["deck_id"],
         "deck_name": deck["deck_name"],
         "is_valid": bool(deck["is_valid"]),
+        "invalid_reason": deck.get('invalid_reason',''),
         "total_points": deck["total_points"],
         "synergy": synergy,
         "cards": [card_to_dict(card) for card in deck.get("cards", [])],
@@ -365,7 +371,7 @@ def _optimized_card_image(filename: str, width: int) -> bytes:
 
 # ==================== Helpers: Quick Mode ====================
 
-QUICK_VARIANTS = {"normal", "random"}
+QUICK_VARIANTS = {"normal", "random", "friendly", "friendly_random"}
 QUICK_ERROR_MESSAGES = {
     "not_found": "درخواست پیدا نشد.",
     "self_accept": "نمی‌توانی دعوت خودت را قبول کنی.",
@@ -378,6 +384,11 @@ QUICK_ERROR_MESSAGES = {
     "abilities_disabled": "در این میدان Ability غیرفعال است.",
     "ability_not_owned": "این Ability را در موجودی نداری.",
     "unknown_ability": "Ability نامعتبر است.",
+    "ability_not_supported": "این Ability در بازی سه‌راوندی قابل استفاده نیست؛ قفل ویژگی مربوط به Quick است.",
+    "ability_already_used": "در هر مسابقهٔ سه‌راوندی فقط یک بار می‌توانی Ability مصرف کنی.",
+    "no_alternative_arena": "زمین فعال دیگری برای تغییر وجود ندارد؛ Ability مصرف نشد.",
+    "invalid_round": "شمارهٔ راوند نامعتبر است.",
+    "round_changed": "راوند عوض شده است؛ وضعیت مسابقه را تازه کن.",
     "stat_not_allowed": "این ویژگی در میدان فعلی قابل انتخاب نیست.",
     "match_not_ready": "مسابقه هنوز آماده نیست یا به پایان رسیده است.",
     "deadline_passed": "مهلت انتخاب به پایان رسیده است.",
@@ -484,7 +495,8 @@ def _quick_snapshot(game_request: dict, user_id: int) -> dict:
     opponent_key = str(opponent_id) if opponent_id is not None else ""
     arena = quick_modes.arena_for_state(state) if state.get("arena") else None
     own_card_id = state.get("cards", {}).get(user_key)
-    own_card = db.get_card_by_id(own_card_id) if own_card_id else None
+    from systems.custom_cards import match_card
+    own_card = match_card(db,request_id,user_id,own_card_id) if own_card_id else None
     reveal_opponent = (
         state.get("phase") == "completed"
         or (
@@ -493,7 +505,7 @@ def _quick_snapshot(game_request: dict, user_id: int) -> dict:
         )
     )
     opponent_card_id = state.get("cards", {}).get(opponent_key) if reveal_opponent else None
-    opponent_card = db.get_card_by_id(opponent_card_id) if opponent_card_id else None
+    opponent_card = match_card(db,request_id,opponent_id,opponent_card_id) if opponent_card_id else None
     preview = None
     if own_card and opponent_key in state.get("cards", {}):
         try:
@@ -551,6 +563,32 @@ def get_player_hub_overview():
 
 # ==================== Routes: Cards ====================
 
+@app.route('/api/v1/custom/settings')
+@require_auth
+def custom_settings():
+    from systems.shared_foundation import settings_in
+    from systems.progression_config import enabled_in
+    with sqlite3.connect(db.db_path) as conn:
+        flags=settings_in(conn)
+        contact=conn.execute("SELECT value_json FROM foundation_settings WHERE key='custom_admin_contact'").fetchone()
+        orders=conn.execute("SELECT value_json FROM foundation_settings WHERE key='custom_card_orders_enabled'").fetchone()
+        return jsonify(custom_cards_enabled=flags['custom_cards_enabled'],quick_friendly_enabled=flags['quick_friendly_enabled'] and enabled_in(conn),easy_custom_cards_enabled=flags['easy_custom_cards_enabled'],order_contact=json.loads(contact[0]) if orders and json.loads(orders[0]) and contact else None)
+
+
+@app.route('/api/v1/custom/cards/<card_id>/image')
+@require_auth
+def custom_card_image(card_id):
+    from systems.custom_cards import access_in,media_root
+    from flask import send_file
+    with sqlite3.connect(db.db_path) as conn:
+        if not access_in(conn,g.user_id,card_id):return jsonify(error='not_found'),404
+        row=conn.execute('SELECT m.filename FROM custom_definitions d JOIN custom_media m USING(media_id) WHERE d.card_id=? AND m.removed=0',(card_id,)).fetchone()
+    if not row:return jsonify(error='not_found'),404
+    response=send_file(media_root(db)/row[0],mimetype='image/png',max_age=0)
+    response.headers['Cache-Control']='private, no-store'
+    response.headers['X-Content-Type-Options']='nosniff'
+    return response
+
 @app.route("/api/v1/cards", methods=["GET"])
 @require_auth
 def get_cards():
@@ -561,6 +599,10 @@ def get_cards():
         limit = int(request.args.get("limit", 20))
     except (TypeError, ValueError):
         return jsonify({"error": "پارامتر صفحه نامعتبر است", "error_code": "invalid_pagination"}), 400
+    match_key=request.args.get("match_key")
+    if match_key:
+        game_request=quick_modes.get_request(match_key)
+        if not game_request or user_id not in (game_request["creator_id"],game_request.get("opponent_id")):return _quick_error("not_found",404)
     cards, total, page, limit = _player_hub().get_cards(
         user_id,
         page=page,
@@ -568,6 +610,7 @@ def get_cards():
         rarity=rarity_filter,
         sort=request.args.get("sort", "rarity"),
         query=request.args.get("query", ""),
+        match_key=match_key,
     )
 
     result = []
@@ -735,8 +778,8 @@ def claim_daily_card():
     result = _rewards().claim_daily(g.user_id)
     if not result.get("ok"):
         return jsonify(result), 409
-    card = db.get_card_by_id(result["card_id"])
-    return jsonify({"ok": True, "message": "کارت روزانه و یک Ability دریافت شد", "data": {"card": card_to_dict(card), "ability": result["ability"], "quantity": result["quantity"]}, "profile": _player_hub().get_overview(g.user_id)})
+    card = db.get_card_by_id(result["card_id"]) if result.get("card_id") else None
+    return jsonify({"ok": True, "message": "پاداش روزانه و یک Ability دریافت شد", "data": {"card": card_to_dict(card) if card else None, "reward_type": result.get("reward_type","card"), "ability": result["ability"], "quantity": result["quantity"]}, "profile": _player_hub().get_overview(g.user_id)})
 
 
 @app.route("/api/v1/missions", methods=["GET"])
@@ -754,8 +797,8 @@ def claim_mission_reward(mission_id):
     result = _rewards().claim_mission(g.user_id, mission_id)
     if not result.get("ok"):
         return jsonify(result), 409
-    card = db.get_card_by_id_for_player(result["card_id"], g.user_id)
-    return jsonify({"ok": True, "message": "پاداش مأموریت دریافت شد", "data": {"mission": result, "card": card_to_dict(card)}, "profile": _player_hub().get_overview(g.user_id)})
+    card = db.get_card_by_id_for_player(result["card_id"], g.user_id) if result.get("card_id") else None
+    return jsonify({"ok": True, "message": "پاداش مأموریت دریافت شد", "data": {"mission": result, "card": card_to_dict(card) if card else None}, "profile": _player_hub().get_overview(g.user_id)})
 
 
 @app.route("/api/v1/cards/<card_id>/skins", methods=["GET"])
@@ -835,6 +878,66 @@ def execute_fusion():
 
 # ==================== Routes: Quick PvP ====================
 
+def _v2_economy():
+    from systems.progression_economy import ProgressionEconomy
+    return ProgressionEconomy(db)
+
+
+def _economy_response(result):
+    if result.get('ok'):
+        result['profile'] = _player_hub().get_overview(g.user_id)
+    return jsonify(result), 200 if result.get('ok') else 409
+
+
+@app.route('/api/v1/economy', methods=['GET'])
+@require_auth
+def economy_inventory():
+    return _economy_response(_v2_economy().inventory(g.user_id))
+
+
+@app.route('/api/v1/economy/claim/silver', methods=['POST'])
+@require_auth
+def silver_claim():
+    data = request.get_json(silent=True) or {}
+    if not data.get('request_key'):
+        return jsonify({'error':'request_key_required'}), 400
+    return _economy_response(_v2_economy().claim(g.user_id, 'silver', data['request_key']))
+
+
+@app.route('/api/v1/economy/quote', methods=['POST'])
+@require_auth
+def economy_quote():
+    data = request.get_json(silent=True) or {}
+    return _economy_response(_v2_economy().quote(g.user_id, str(data.get('item',''))))
+
+
+@app.route('/api/v1/economy/purchase', methods=['POST'])
+@require_auth
+def economy_purchase():
+    data = request.get_json(silent=True) or {}
+    return _economy_response(_v2_economy().purchase(g.user_id, str(data.get('quote_id',''))))
+
+
+@app.route('/api/v1/economy/cards/<card_id>/sell/preview', methods=['POST'])
+@require_auth
+def economy_sell_preview(card_id):
+    data = request.get_json(silent=True) or {}
+    return _economy_response(_v2_economy().sell_preview(g.user_id, card_id, str(data.get('rarity',''))))
+
+
+@app.route('/api/v1/economy/cards/<card_id>/sell', methods=['POST'])
+@require_auth
+def economy_sell(card_id):
+    data = request.get_json(silent=True) or {}
+    return _economy_response(_v2_economy().sell(g.user_id, card_id, str(data.get('rarity','')), data.get('request_key'), data.get('config_version')))
+
+
+@app.route('/api/v1/economy/cards/<card_id>/upgrade', methods=['POST'])
+@require_auth
+def economy_upgrade(card_id):
+    data = request.get_json(silent=True) or {}
+    return _economy_response(_v2_economy().upgrade(g.user_id, card_id, str(data.get('target','')), data.get('request_key'), data.get('config_version')))
+
 @app.route("/api/v1/quick/matchmaking", methods=["POST"])
 @require_auth
 def quick_matchmaking():
@@ -845,7 +948,8 @@ def quick_matchmaking():
     variant = data.get("variant", "normal")
     if variant not in QUICK_VARIANTS:
         return jsonify({"error": "نوع Quick نامعتبر است", "reason": "invalid_variant"}), 400
-    status, game_request = quick_modes.matchmake_random(g.user_id, "quick", variant)
+    try:status, game_request = quick_modes.matchmake_random(g.user_id, "quick", variant)
+    except ValueError as exc:return _quick_error(str(exc),409)
     snapshot = _quick_snapshot(game_request, g.user_id)
     snapshot["matchmaking_status"] = status
     return jsonify(snapshot), 200 if status == "matched" else 201
@@ -861,13 +965,23 @@ def quick_create_invite():
     variant = data.get("variant", "normal")
     if variant not in QUICK_VARIANTS:
         return jsonify({"error": "نوع Quick نامعتبر است", "reason": "invalid_variant"}), 400
-    game_request = quick_modes.create_invite(g.user_id, "quick", variant)
+    try:game_request = quick_modes.create_invite(g.user_id, "quick", variant)
+    except ValueError as exc:return _quick_error(str(exc),409)
     snapshot = _quick_snapshot(game_request, g.user_id)
     snapshot.update({
         "invite_token": game_request["invite_token"],
         "invite_url": f"{request.host_url.rstrip('/')}?invite={game_request['invite_token']}",
     })
     return jsonify(snapshot), 201
+
+
+@app.route('/api/v1/quick/invites/<token>', methods=['GET'])
+@require_auth
+def quick_invite_info(token):
+    invite = quick_modes.get_request_by_token(token)
+    if not invite or invite['mode'] != 'quick' or invite['source'] != 'invite_link':
+        return _quick_error('not_found', 404)
+    return jsonify(variant=invite['variant'], expires_at=invite['expires_at'], status=invite['status'])
 
 
 @app.route("/api/v1/quick/invites/<token>/accept", methods=["POST"])
@@ -1097,7 +1211,118 @@ def three_choose_stat(request_id: str):
     return jsonify(_three_snapshot(quick_modes.get_request(request_id), g.user_id))
 
 
+@app.route("/api/v1/three-round/matches/<request_id>/ability", methods=["POST"])
+@require_auth
+def three_choose_ability(request_id: str):
+    game_request, error = _three_active_request(request_id)
+    if error:
+        return error
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or not isinstance(data.get('ability_key'), str) or not data['ability_key']:
+        return _quick_error('unknown_ability', 400)
+    try:
+        mini_three_round.choose_ability(request_id, g.user_id, data['ability_key'], data.get('round'))
+    except ValueError as exc:
+        reason = str(exc)
+        return _quick_error(reason, 400 if reason in {'invalid_round', 'unknown_ability', 'ability_not_supported'} else 409)
+    return jsonify(_three_snapshot(quick_modes.get_request(request_id), g.user_id))
+
+
 # ==================== Routes: Solo Fight ====================
+
+def _solo_snapshot(fight, user_id):
+    """Player-scoped ASO view; ability use lives in existing persistent JSON."""
+    arena = json.loads(fight.get('arena_snapshot') or '{}')
+    used = arena.pop(SOLO_ABILITY_FIELD, None)
+    from systems.custom_cards import match_card
+    player_card = match_card(db,'solo:'+fight['fight_id'],user_id,fight['player_card_id'])
+    revealed = fight['status'] == 'completed' or (used and used['ability_key'] == 'reveal_opponent')
+    ai_card = db.get_card_by_id(fight['ai_card_id']) if revealed else None
+    aso = AsoAI(fight['difficulty'])
+    enabled = arena.get('abilities_enabled', True)
+    stats = json.loads(fight['player_current_stats'])
+    boosts = {stat: battle_system.calculate_boost(player_card, fight['arena'], stat, arena or None)
+              for stat in ('power', 'speed', 'iq', 'popularity')} if player_card else {}
+    used_stats = json.loads(fight['player_used_stats'] or '[]')
+    return {
+        'fight_id': fight['fight_id'], 'status': fight['status'],
+        'player_card': card_to_dict(player_card) if player_card else None,
+        'ai_card': card_to_dict(ai_card) if ai_card else None,
+        'ai_name': aso.mode['name'], 'aso_dialog': aso.get_greeting(),
+        'arena': arena, 'current_round': fight['current_round'],
+        'available_stats': [stat for stat in ('power', 'speed', 'iq', 'popularity') if stat not in used_stats],
+        'my_values': {stat: value + boosts.get(stat, 0) for stat, value in stats.items()},
+        'my_boosts': boosts, 'my_ability_used': bool(used), 'my_ability': used,
+        'abilities_enabled': enabled,
+        'abilities': available_abilities(quick_modes, user_id)
+            if not used and enabled and fight['status'] == 'in_progress' else [],
+    }
+
+
+@app.route('/api/v1/solo/fights/<fight_id>', methods=['GET'])
+@require_auth
+def solo_fight_status(fight_id):
+    fight = db.get_solo_fight(fight_id)
+    if not fight or fight['player_id'] != g.user_id:
+        return _quick_error('not_found', 404)
+    return jsonify(_solo_snapshot(fight, g.user_id))
+
+
+@app.route('/api/v1/solo/ability', methods=['POST'])
+@require_auth
+def solo_ability():
+    data = request.get_json(silent=True) or {}
+    if not isinstance(data, dict) or not isinstance(data.get('fight_id'), str):
+        return _quick_error('not_found', 400)
+    if not isinstance(data.get('ability_key'), str):
+        return _quick_error('unknown_ability', 400)
+    try:
+        with closing(sqlite3.connect(db.db_path, timeout=15)) as conn, conn:
+            conn.row_factory = sqlite3.Row
+            conn.execute('BEGIN IMMEDIATE')
+            row = conn.execute('SELECT * FROM solo_fights WHERE fight_id=?', (data['fight_id'],)).fetchone()
+            if not row or row['player_id'] != g.user_id:
+                return _quick_error('not_found', 404)
+            fight = dict(row)
+            if fight['status'] != 'in_progress':
+                raise ValueError('match_not_ready')
+            if type(data.get('round')) is not int or not 1 <= data['round'] <= 3:
+                raise ValueError('invalid_round')
+            if data['round'] != fight['current_round']:
+                raise ValueError('round_changed')
+            arena = json.loads(fight.get('arena_snapshot') or '{}')
+            if arena.get(SOLO_ABILITY_FIELD):
+                raise ValueError('ability_already_used')
+            if not arena.get('abilities_enabled', True):
+                raise ValueError('abilities_disabled')
+            definition = ability_definition(data['ability_key'])
+            effect = definition['effect']
+            event = {'ability_key': data['ability_key'], 'round': fight['current_round'],
+                     'title': definition['title']}
+            if effect['type'] == 'reroll_arena':
+                arena = select_arena(arena_registry, fight['arena'],
+                                     allow_fallback=arena.get('version') is None)
+                event.update(previous_arena=fight['arena'], arena=arena['arena_id'])
+                fight['arena'] = arena['arena_id']
+                fight['arena_version'] = arena.get('version')
+            elif effect['type'] == 'weaken_stat':
+                current = json.loads(fight['ai_current_stats'])
+                stat = effect['stat']
+                before = current[stat]
+                current[stat] = max(0, before + int(effect['delta']))
+                fight['ai_current_stats'] = json.dumps(current)
+                event.update(stat=stat, delta=current[stat]-before)
+            arena[SOLO_ABILITY_FIELD] = event
+            fight['arena_snapshot'] = json.dumps(arena, ensure_ascii=False)
+            consume_ability(conn, g.user_id, data['ability_key'])
+            conn.execute('''UPDATE solo_fights SET arena=?, arena_version=?, arena_snapshot=?,
+                ai_current_stats=? WHERE fight_id=?''',
+                (fight['arena'], fight.get('arena_version'), fight['arena_snapshot'],
+                 fight['ai_current_stats'], fight['fight_id']))
+            return jsonify(_solo_snapshot(fight, g.user_id))
+    except ValueError as exc:
+        reason = str(exc)
+        return _quick_error(reason, 400 if reason in {'invalid_round', 'unknown_ability', 'ability_not_supported'} else 409)
 
 @app.route("/api/v1/solo/daily-limit", methods=["GET"])
 @require_auth
@@ -1138,7 +1363,13 @@ def solo_start():
 
     player_card = db.get_card_by_id_for_player(player_card_id, user_id)
     if not player_card:
+        raw = db.get_card_by_id(player_card_id)
+        if raw and raw.origin == "custom":
+            return jsonify({"error": "این کارت در این مود مجاز نیست", "code": "card_ineligible"}), 400
         return jsonify({"error": "کارت انتخاب‌شده معتبر نیست"}), 400
+    from systems.shared_foundation import eligible_cards
+    if not eligible_cards(db, [player_card], "practice"):
+        return jsonify({"error": "این کارت در این مود مجاز نیست", "code": "card_ineligible"}), 400
 
     player_cards = db.get_player_cards(user_id)
     player_card_ids = [c.card_id for c in player_cards]
@@ -1167,7 +1398,12 @@ def solo_start():
         logger.info("arena_selected arena=%s mode=three_round platform=miniapp", arena_id)
         arena_snapshot = arena_registry.snapshot_for_match(arena_id, "three_round", "miniapp", arena_info["version"])
 
-    fight_id = db.create_solo_fight(user_id, difficulty)
+    try:
+        fight_id = db.create_solo_fight(user_id, difficulty, player_card_id=player_card_id)
+    except ValueError:
+        return jsonify({"error": "این کارت دیگر قابل استفاده نیست", "code": "card_ineligible"}), 409
+    from systems.custom_cards import match_card
+    player_card = match_card(db, 'solo:' + fight_id, user_id, player_card_id)
     db.update_solo_fight(
         fight_id,
         player_card_id=player_card_id,
@@ -1190,16 +1426,7 @@ def solo_start():
         }),
     )
 
-    return jsonify({
-        "fight_id": fight_id,
-        "player_card": card_to_dict(player_card),
-        "ai_card": card_to_dict(ai_card),
-        "ai_name": aso.mode["name"],
-        "aso_dialog": aso.get_greeting(),
-        "arena": arena_snapshot,
-        "current_round": 1,
-        "available_stats": ["power", "speed", "iq", "popularity"],
-    })
+    return jsonify(_solo_snapshot(db.get_solo_fight(fight_id), user_id))
 
 
 @app.route("/api/v1/solo/round", methods=["POST"])
@@ -1247,7 +1474,8 @@ def _play_solo_round(conn, user_id, fight_id, player_stat):
     if player_stat not in available_stats:
         return jsonify({"error": "این stat قبلاً استفاده شده"}), 400
 
-    player_card = db.get_card_by_id_for_player(fight["player_card_id"], user_id)
+    from systems.custom_cards import match_card
+    player_card = match_card(db,"solo:"+fight["fight_id"],user_id,fight["player_card_id"])
     ai_card = db.get_card_by_id(fight["ai_card_id"])
     if not player_card or not ai_card:
         return jsonify({"error": "کارت این نبرد دیگر در دسترس نیست"}), 409
@@ -1300,6 +1528,9 @@ def _play_solo_round(conn, user_id, fight_id, player_stat):
         "ai_stat": ai_stat,
         "ai_total": ai_total,
         "winner": round_winner,
+        "arena": {key: value for key, value in arena_snapshot.items() if key != SOLO_ABILITY_FIELD},
+        "ability": arena_snapshot.get(SOLO_ABILITY_FIELD)
+            if arena_snapshot.get(SOLO_ABILITY_FIELD, {}).get('round') == fight['current_round'] else None,
     })
 
     # بازی تموم میشه وقتی یکی ۲ راوند برنده بشه یا ۳ راوند بگذره
@@ -1362,6 +1593,8 @@ def _play_solo_round(conn, user_id, fight_id, player_stat):
             "rounds_detail": rounds_history,
         }
 
+    fight.update(update_data)
+    response['fight'] = _solo_snapshot(fight, user_id)
     return jsonify(response)
 
 
@@ -1386,12 +1619,13 @@ def _finalize_solo_fight(user_id, fight_id, winner, aso: AsoAI, player_card, ai_
     old = conn.execute(
         "SELECT level,tier_points,current_tier FROM player_progression WHERE user_id=?", (user_id,)
     ).fetchone()
-    MatchRewardsSystem.award(conn, f"solo:{fight_id}", "solo", {user_id: {
+    paid = MatchRewardsSystem.award(conn, f"solo:{fight_id}", "solo", {user_id: {
         "result": result, "xp": xp, "score": score,
         "hearts_lost": hearts_lost, "tp_delta": tp,
         "card_id": player_card.card_id, "opponent_card_id": ai_card.card_id,
         "opponent_id": None,
     }})
+    xp, score, hearts_lost = paid[str(user_id)]["xp"], paid[str(user_id)]["score"], paid[str(user_id)].get("hearts_lost", hearts_lost)
     new = conn.execute(
         "SELECT level,tier_points,current_tier FROM player_progression WHERE user_id=?", (user_id,)
     ).fetchone()
@@ -1444,6 +1678,15 @@ def solo_result(fight_id):
 def get_leaderboard():
     period = request.args.get("period", "weekly")
     limit = min(int(request.args.get("limit", 50)), 100)
+    from systems.progression_config import enabled
+    if enabled(db):
+        if period not in ('daily','weekly','monthly','all'):
+            return jsonify({'error':'invalid_period'}), 400
+        from systems.progression_leaderboard import ProgressionLeaderboard
+        entries = ProgressionLeaderboard(db).view(period, limit)
+        mine = next((item for item in entries if item['user_id'] == g.user_id), None)
+        return jsonify({'period':period,'my_rank':mine['rank'] if mine else None,'my_score':mine['period_score'] if mine else 0,
+            'entries':[{**item,'score':item['period_score']} for item in entries]})
 
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row

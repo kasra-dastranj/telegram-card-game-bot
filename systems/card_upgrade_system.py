@@ -25,7 +25,8 @@ class CardUpgradeSystem:
     def __init__(self, db):
         self.db = db
 
-    def _active_match(self, conn: sqlite3.Connection, user_id: int) -> bool:
+    @staticmethod
+    def _active_match(conn: sqlite3.Connection, user_id: int) -> bool:
         row = conn.execute(
             """
             SELECT 1 FROM active_fights
@@ -95,6 +96,9 @@ class CardUpgradeSystem:
             conn.close()
 
     def preview(self, user_id: int, card_id: str) -> Dict[str, Any]:
+        from systems.progression_config import enabled
+        if enabled(self.db):
+            return {"ok": False, "error_code": "coin_upgrade_removed", "error": "ارتقا با نسخه‌های یکسان انجام می‌شود"}
         conn = sqlite3.connect(self.db.db_path)
         conn.row_factory = sqlite3.Row
         try:
@@ -105,7 +109,7 @@ class CardUpgradeSystem:
                 FROM player_cards pc
                 JOIN cards c ON c.card_id=pc.card_id
                 JOIN players p ON p.user_id=pc.user_id
-                WHERE pc.user_id=? AND pc.card_id=?
+                WHERE pc.user_id=? AND pc.card_id=? AND c.origin='official'
                 """,
                 (user_id, card_id),
             ).fetchone()
@@ -140,6 +144,9 @@ class CardUpgradeSystem:
 
     def upgrade(self, user_id: int, card_id: str, upgrade_key: str,
                 request_key: Optional[str] = None) -> Dict[str, Any]:
+        from systems.progression_config import enabled
+        if enabled(self.db):
+            return {"ok": False, "error_code": "coin_upgrade_removed", "error": "ارتقای سکه‌ای حذف شده است"}
         rule = self.UPGRADES.get(upgrade_key)
         if not rule:
             return {"ok": False, "error_code": "invalid_upgrade", "error": "نوع ارتقا نامعتبر است"}
@@ -164,7 +171,7 @@ class CardUpgradeSystem:
                 FROM player_cards pc
                 JOIN cards c ON c.card_id=pc.card_id
                 JOIN players p ON p.user_id=pc.user_id
-                WHERE pc.user_id=? AND pc.card_id=?
+                WHERE pc.user_id=? AND pc.card_id=? AND c.origin='official'
                 """,
                 (user_id, card_id),
             ).fetchone()

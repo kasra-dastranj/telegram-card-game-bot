@@ -21,8 +21,10 @@ from systems.fusion_system import FusionSystem
 from systems.phase2_systems import LevelSystem, TierSystem, format_xp_bar, format_tier_badge
 from systems.economy_system import EconomySystem
 from systems.tier_decay_system import TierDecaySystem
+from systems.progression_config import enabled
 from systems.risk_mode_system import RiskModeSystem, RiskTable, RiskAction
 from systems.battle_system_3rounds import BattleSystem3Rounds, BattleState, ARENAS
+from systems.shared_foundation import eligible_cards
 from systems.deck_system import DeckSystem, DECK_SELECTION_TTL_SECONDS
 from systems.card_missions_system import CardMissionsSystem, MISSION_TYPES
 from systems.skins_system import SkinsSystem, SKIN_TYPES
@@ -132,7 +134,7 @@ class PvPHandlersMixin:
             await update.message.reply_text("⚠️ شما قبلاً یک چالش فعال دارید.")
             return
 
-        fight_id = self.db.create_fight(challenger_id, 0, chat_id)
+        fight_id = self.db.create_fight(challenger_id, 0, chat_id, mode="three_round" if enabled(self.db) else "legacy_pvp")
         challenger_name = update.effective_user.first_name
         
         text = (
@@ -169,6 +171,9 @@ class PvPHandlersMixin:
         user_id = query.from_user.id
         success, card, error, quick_ability = self.game.claim_daily_card_with_ability(user_id)
         
+        if success and card is None and quick_ability and quick_ability.get("silver_ticket"):
+            await update.effective_message.reply_text("🎟 یک Silver Ticket و ابیلیتی «" + quick_ability["title"] + "» دریافت شد.")
+            return
         if success and card:
             rarity_colors = {
                 CardRarity.NORMAL: "🟢",
@@ -283,7 +288,7 @@ class PvPHandlersMixin:
             return
         
         # ایجاد فایت جدید - ابتدا فقط challenger_id
-        fight_id = self.db.create_fight(challenger_id, 0, chat_id)  # opponent_id موقتاً 0
+        fight_id = self.db.create_fight(challenger_id, 0, chat_id, mode="three_round" if enabled(self.db) else "legacy_pvp")  # opponent_id موقتاً 0
         
         challenger_name = query.from_user.first_name
         
@@ -352,7 +357,7 @@ class PvPHandlersMixin:
             return
 
         # بررسی داشتن کارت
-        opponent_cards = self.db.get_player_cards(opponent_id)
+        opponent_cards = eligible_cards(self.db, self.db.get_player_cards(opponent_id), "legacy_pvp")
         if not opponent_cards:
             await query.answer("❌ ابتدا باید کارتی داشته باشید! در خصوصی /start بزنید.", show_alert=True)
             return
@@ -371,7 +376,7 @@ class PvPHandlersMixin:
             logger.warning(f"Failed to extend fight {fight_id} expiry: {e}")
 
         # انتخاب کارت تصادفی برای هر بازیکن از دک
-        challenger_cards = self.db.get_player_cards(fight.challenger_id)
+        challenger_cards = eligible_cards(self.db, self.db.get_player_cards(fight.challenger_id), "legacy_pvp")
         ch_card = random.choice(challenger_cards)
         op_card = random.choice(opponent_cards)
 
@@ -470,7 +475,7 @@ class PvPHandlersMixin:
             return
         
         # بررسی داشتن کارت
-        opponent_cards = self.db.get_player_cards(opponent_id)
+        opponent_cards = eligible_cards(self.db, self.db.get_player_cards(opponent_id), "legacy_pvp")
         if not opponent_cards:
             await query.answer("❌ ابتدا کارتی باید داشته باشید! در خصوصی /start بزنید.", show_alert=True)
             return
@@ -992,7 +997,7 @@ class PvPHandlersMixin:
             await update.message.reply_text("⚠️ شما قبلاً یک چالش فعال دارید.")
             return
 
-        fight_id = self.db.create_fight(challenger_id, 0, chat_id)
+        fight_id = self.db.create_fight(challenger_id, 0, chat_id, mode="three_round" if enabled(self.db) else "legacy_pvp")
         challenger_name = update.effective_user.first_name
         
         text = (
@@ -1029,6 +1034,9 @@ class PvPHandlersMixin:
         user_id = query.from_user.id
         success, card, error, quick_ability = self.game.claim_daily_card_with_ability(user_id)
         
+        if success and card is None and quick_ability and quick_ability.get("silver_ticket"):
+            await update.effective_message.reply_text("🎟 یک Silver Ticket و ابیلیتی «" + quick_ability["title"] + "» دریافت شد.")
+            return
         if success and card:
             rarity_colors = {
                 CardRarity.NORMAL: "🟢",
@@ -1143,7 +1151,7 @@ class PvPHandlersMixin:
             return
         
         # ایجاد فایت جدید - ابتدا فقط challenger_id
-        fight_id = self.db.create_fight(challenger_id, 0, chat_id)  # opponent_id موقتاً 0
+        fight_id = self.db.create_fight(challenger_id, 0, chat_id, mode="three_round" if enabled(self.db) else "legacy_pvp")  # opponent_id موقتاً 0
         
         challenger_name = query.from_user.first_name
         
@@ -1212,7 +1220,7 @@ class PvPHandlersMixin:
             return
 
         # بررسی داشتن کارت
-        opponent_cards = self.db.get_player_cards(opponent_id)
+        opponent_cards = eligible_cards(self.db, self.db.get_player_cards(opponent_id), "legacy_pvp")
         if not opponent_cards:
             await query.answer("❌ ابتدا باید کارتی داشته باشید! در خصوصی /start بزنید.", show_alert=True)
             return
@@ -1231,7 +1239,7 @@ class PvPHandlersMixin:
             logger.warning(f"Failed to extend fight {fight_id} expiry: {e}")
 
         # انتخاب کارت تصادفی برای هر بازیکن از دک
-        challenger_cards = self.db.get_player_cards(fight.challenger_id)
+        challenger_cards = eligible_cards(self.db, self.db.get_player_cards(fight.challenger_id), "legacy_pvp")
         ch_card = random.choice(challenger_cards)
         op_card = random.choice(opponent_cards)
 
@@ -1330,7 +1338,7 @@ class PvPHandlersMixin:
             return
         
         # بررسی داشتن کارت
-        opponent_cards = self.db.get_player_cards(opponent_id)
+        opponent_cards = eligible_cards(self.db, self.db.get_player_cards(opponent_id), "legacy_pvp")
         if not opponent_cards:
             await query.answer("❌ ابتدا کارتی باید داشته باشید! در خصوصی /start بزنید.", show_alert=True)
             return

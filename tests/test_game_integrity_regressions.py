@@ -12,6 +12,7 @@ from core.models import Card, CardRarity
 from systems.economy_system import EconomySystem
 from systems.arena_registry import ArenaRegistry
 from systems.battle_system_3rounds import BattleSystem3Rounds
+from systems.game_mode_system import GameModeSystem
 from systems.risk_mode_system import RiskModeSystem, RiskTable, RiskAction
 import web.miniapp_api as miniapp
 
@@ -73,6 +74,7 @@ def solo_client(game_db, monkeypatch):
     monkeypatch.setattr(miniapp, "DB_PATH", game_db.db_path)
     monkeypatch.setattr(miniapp, "arena_registry", ArenaRegistry(game_db))
     monkeypatch.setattr(miniapp, "battle_system", BattleSystem3Rounds(game_db))
+    monkeypatch.setattr(miniapp, "quick_modes", GameModeSystem(game_db))
     monkeypatch.setitem(miniapp.app.config, "TESTING", True)
     monkeypatch.setitem(miniapp.app.config, "DEBUG", True)
     return miniapp.app.test_client()

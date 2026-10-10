@@ -5,6 +5,8 @@
 سیستم بازی شرط‌بندی با Bluff
 """
 
+from systems.shared_foundation import bind_context, legacy_context, settings_in, context_in, require_card_in, eligible_cards
+
 import sqlite3
 import logging
 import random
@@ -15,6 +17,18 @@ from enum import Enum
 from systems.mode_access_system import ModeAccessSystem
 
 logger = logging.getLogger(__name__)
+
+
+def record_cash_in(conn, match_id, user_id, amount, stage):
+    """Audit an escrow transfer in its existing wallet transaction."""
+    if not conn.execute("SELECT 1 FROM sqlite_master WHERE name='match_economy_snapshots'").fetchone():
+        return
+    snapshot = conn.execute("SELECT config_version FROM match_economy_snapshots WHERE match_key=?", ("risk:" + match_id,)).fetchone()
+    if snapshot:
+        from systems.reward_ledger import record_in
+        record_in(conn, "risk-cash:" + match_id + ":" + stage, user_id,
+                  "risk", "risk_cash", {"stage": stage}, {"coins": amount},
+                  snapshot[0], coins=amount)
 
 
 # ==================== RISK MODE CONSTANTS ====================
@@ -90,7 +104,7 @@ class RiskModeSystem:
             allowed, reason = self.can_enter_risk(uid, table)
             if not allowed:
                 return {"success": False, "error": reason}
-        cards = [card.card_id for card in self.db.get_all_cards()]
+        cards = [card.card_id for card in eligible_cards(self.db, self.db.get_all_cards(), "risk")]
         if len(cards) < 3:
             return {"success": False, "error": "حداقل سه کارت برای بازی لازم است"}
         challenger_cards = random.sample(cards, 3)
@@ -117,6 +131,10 @@ class RiskModeSystem:
                  ','.join(challenger_cards), ','.join(opponent_cards), table.value * 2,
                  datetime.now().isoformat()),
             )
+            from systems.shared_foundation import bind_new_context
+            bind_new_context(conn, "risk:" + match_id, "risk")
+            for uid in (challenger_id, opponent_id):
+                record_cash_in(conn, match_id, uid, -table.value, "entry")
             conn.commit()
             return {"success": True, "match_id": match_id, "table_value": table.value,
                     "current_pot": table.value * 2, "challenger_cards": challenger_cards,
@@ -196,6 +214,10 @@ class RiskModeSystem:
                 return {"success": False, "error": "انتخاب کارت قبلاً ثبت شده است"}
             if card_id not in match[f"{role}_cards"].split(","):
                 return {"success": False, "error": "کارت نامعتبر است"}
+            try:
+                require_card_in(conn, card_id, context_in(conn, "risk:" + match_id, "risk"))
+            except ValueError:
+                return {"success": False, "error": "کارت در این مود مجاز نیست"}
             conn.execute(f"UPDATE risk_matches SET {role}_selected_card=? WHERE match_id=?", (card_id, match_id))
             conn.commit()
             return {"success": True}
@@ -220,6 +242,7 @@ class RiskModeSystem:
             payouts = ((winner_id, match["current_pot"]),)
         for uid, amount in payouts:
             conn.execute("UPDATE players SET coins=coins+? WHERE user_id=?", (amount, uid))
+            record_cash_in(conn, match["match_id"], uid, amount, "payout")
         from systems.match_rewards_system import MatchRewardsSystem
         awards = {}
         for uid, role, other in (
@@ -264,6 +287,7 @@ class RiskModeSystem:
                                        (raise_amount, user_id, raise_amount))
                 if charged.rowcount != 1:
                     return {"success": False, "error": "سکه کافی نیست"}
+                record_cash_in(conn, match_id, user_id, -raise_amount, "raise:" + str(match["current_round"]))
                 conn.execute(
                     f"""UPDATE risk_matches SET current_pot=current_pot+?,bluff_phase='raise_pending',
                         raise_amount=?,raise_by=?,{role}_bluff_action='raise' WHERE match_id=?""",
@@ -283,6 +307,7 @@ class RiskModeSystem:
                                            (amount, user_id, amount))
                     if charged.rowcount != 1:
                         return {"success": False, "error": "سکه کافی نیست"}
+                    record_cash_in(conn, match_id, user_id, -amount, "call:" + str(match["current_round"]))
                     ready = True
                 else:
                     if match[f"{role}_bluff_action"]:
@@ -312,6 +337,12 @@ class RiskModeSystem:
             o_card = self.db.get_card_by_id(match["opponent_selected_card"])
             if not c_card or not o_card:
                 return {"success": False, "error": "هر دو کارت باید انتخاب شوند"}
+            context = context_in(conn, "risk:" + match_id, "risk")
+            try:
+                require_card_in(conn, c_card.card_id, context)
+                require_card_in(conn, o_card.card_id, context)
+            except ValueError:
+                return {"success": False, "error": "کارت در این مود مجاز نیست"}
             selected_stat = random.choice(["power", "speed", "iq", "popularity"])
             c_value, o_value = getattr(c_card, selected_stat), getattr(o_card, selected_stat)
             winner = "challenger" if c_value > o_value else "opponent" if o_value > c_value else "tie"

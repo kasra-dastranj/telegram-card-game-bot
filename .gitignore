@@ -74,3 +74,5 @@ telbattle-deploy-*.tar.gz
 
 # Generated deployment bundles (source and release notes remain versioned)
 deployment/artifacts/
+release-artifact/
+deployment-receipt.json

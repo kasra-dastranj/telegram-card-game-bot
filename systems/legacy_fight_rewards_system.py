@@ -108,8 +108,8 @@ class LegacyFightRewardsSystem:
                     ).fetchone()
                     result["awards"][str(user_id)] = {
                         **paid[str(user_id)],
-                        "hearts_lost": awards[user_id]["hearts_lost"],
-                        "tp_delta": awards[user_id]["tp_delta"],
+                        "hearts_lost": paid[str(user_id)].get("hearts_lost", awards[user_id]["hearts_lost"]),
+                        "tp_delta": paid[str(user_id)].get("tp_delta", awards[user_id]["tp_delta"]),
                         "old_level": old[user_id]["level"],
                         "new_level": int(row[0]),
                         "old_tier": old[user_id]["tier"],
@@ -188,8 +188,8 @@ class LegacyFightRewardsSystem:
                     ).fetchone()
                     result["awards"][str(uid)] = {
                         **paid[str(uid)],
-                        "hearts_lost": int(awards[uid].get("hearts_lost", 0)),
-                        "tp_delta": awards[uid]["tp_delta"],
+                        "hearts_lost": paid[str(uid)].get("hearts_lost", int(awards[uid].get("hearts_lost", 0))),
+                        "tp_delta": paid[str(uid)].get("tp_delta", awards[uid]["tp_delta"]),
                         "old_level": old[uid]["level"],
                         "new_level": int(row[0]),
                         "old_tier": old[uid]["tier"],

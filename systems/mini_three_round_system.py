@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import json
-import random
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
-from systems.battle_system_3rounds import ARENAS
 from systems.match_rewards_system import MatchRewardsSystem
+from systems.shared_foundation import context_in, require_card_in
+from systems.game_mode_system import ABILITY_DEFINITIONS
+from systems.three_round_abilities import ability_definition, available_abilities, consume_ability, select_arena
 
 
 MODE = "mini_three_round"
@@ -32,14 +33,8 @@ class MiniThreeRoundSystem:
         self.arena_registry = arena_registry
         self.battle_system = battle_system
 
-    def _arena(self) -> Dict[str, Any]:
-        selected = self.arena_registry.select_for_match("three_round", "miniapp")
-        if selected:
-            return self.arena_registry.snapshot_for_match(
-                selected["arena_id"], "three_round", "miniapp", selected["version"]
-            )
-        arena_id = random.choice(list(ARENAS))
-        return {"arena_id": arena_id, "version": None, "mode": "three_round", **ARENAS[arena_id]}
+    def _arena(self, exclude_id=None, allow_fallback=True) -> Dict[str, Any]:
+        return select_arena(self.arena_registry, exclude_id, allow_fallback)
 
     def start(self, request_id: str) -> Dict[str, Any]:
         with closing(self.modes._connect()) as conn:
@@ -64,6 +59,7 @@ class MiniThreeRoundSystem:
                     "used_stats": {str(uid): [] for uid in players},
                     "current_stats": {}, "rounds_won": {str(uid): 0 for uid in players},
                     "history": [], "arena": self._arena(),
+                    "ability_uses": {},
                     "deadline": _iso(_now() + timedelta(seconds=CHOICE_SECONDS)),
                 }
                 self.modes._save_state(conn, request_id, state)
@@ -97,6 +93,7 @@ class MiniThreeRoundSystem:
                 card = self.db.get_card_by_id_for_player(card_id, user_id)
                 if not card:
                     raise ValueError("card_not_owned")
+                require_card_in(conn, card_id, context_in(conn, request_id, MODE), user_id)
                 state["cards"][key] = card_id
                 state["current_stats"][key] = {stat: int(getattr(card, stat)) for stat in STATS}
                 if len(state["cards"]) == 2:
@@ -104,6 +101,50 @@ class MiniThreeRoundSystem:
                     state["deadline"] = _iso(_now() + timedelta(seconds=CHOICE_SECONDS))
                 self.modes._save_state(conn, request_id, state)
                 return state
+
+    def choose_ability(self, request_id: str, user_id: int, ability_key: str,
+                       round_number: int) -> Dict[str, Any]:
+        """Atomically consume shared inventory once in the match, before one's stat pick."""
+        with closing(self.modes._connect()) as conn, conn:
+            conn.execute('BEGIN IMMEDIATE')
+            row = conn.execute('SELECT state_json FROM game_match_states WHERE request_id=?',
+                               (request_id,)).fetchone()
+            state = json.loads(row[0]) if row else None
+            if not state or state.get('mode') != MODE:
+                raise ValueError('match_not_ready')
+            key = self._check_choice(state, user_id, 'stat_selection')
+            if type(round_number) is not int or not 1 <= round_number <= 3:
+                raise ValueError('invalid_round')
+            if round_number != state['round']:
+                raise ValueError('round_changed')
+            uses = state.setdefault('ability_uses', {})  # Compatible with active older matches.
+            if key in uses:
+                raise ValueError('ability_already_used')
+            if key in state['stat_choices']:
+                raise ValueError('choice_locked')
+            if not state['arena'].get('abilities_enabled', True):
+                raise ValueError('abilities_disabled')
+            definition = ability_definition(ability_key)
+            effect = definition['effect']
+            event = {'ability_key': ability_key, 'round': state['round']}
+            if effect['type'] == 'reroll_arena':
+                old = state['arena']
+                replacement = self._arena(old['arena_id'], allow_fallback=old.get('version') is None)
+                event.update(previous_arena=old['arena_id'], arena=replacement['arena_id'])
+                state['arena'] = replacement
+            elif effect['type'] == 'weaken_stat':
+                target = next(uid for uid in state['players'] if uid != user_id)
+                stat = effect['stat']
+                if stat not in STATS:
+                    raise ValueError('unknown_ability')
+                before = state['current_stats'][str(target)][stat]
+                after = max(0, before + int(effect['delta']))
+                state['current_stats'][str(target)][stat] = after
+                event.update(target_id=target, stat=stat, delta=after-before)
+            consume_ability(conn, user_id, ability_key)
+            uses[key] = event
+            self.modes._save_state(conn, request_id, state)
+            return state
 
     def _complete(self, conn, request_id: str, state: Dict[str, Any], *, winner_id=None,
                   forfeit=False, reason=None) -> None:
@@ -181,6 +222,9 @@ class MiniThreeRoundSystem:
                     state["rounds_won"][str(winner_id)] += 1
                 state["history"].append({
                     "round": state["round"], "winner_id": winner_id, "values": entries,
+                    "arena": arena,
+                    "abilities": {key: event for key, event in state.get('ability_uses', {}).items()
+                                  if event['round'] == state['round']},
                 })
                 for player_id in (first, second):
                     player_key = str(player_id)
@@ -236,7 +280,9 @@ class MiniThreeRoundSystem:
             return response
         mine = str(user_id)
         opponent = str(response["opponent_id"])
-        show_opponent = len(state["cards"]) == 2 or state["phase"] == "completed"
+        own_ability = state.get('ability_uses', {}).get(mine)
+        show_opponent = (state["phase"] == "completed" or
+                         (own_ability or {}).get('ability_key') == 'reveal_opponent')
         own_card = self.db.get_card_by_id_for_player(state["cards"][mine], user_id) if mine in state["cards"] else None
         boosts = ({stat: self.battle_system.calculate_boost(
             own_card, state["arena"]["arena_id"], stat, state["arena"]
@@ -256,5 +302,14 @@ class MiniThreeRoundSystem:
             "rounds_won": state["rounds_won"],
             "last_round": state["history"][-1] if state["history"] else None,
             "report": state.get("report") if state["phase"] == "completed" else None,
+            "my_ability": {**own_ability,
+                           'title': ABILITY_DEFINITIONS.get(own_ability['ability_key'], {}).get('title', 'Ability')}
+                if own_ability else None,
+            "my_ability_used": own_ability is not None,
+            "opponent_ability_used": opponent in state.get('ability_uses', {}),
+            "abilities_enabled": state['arena'].get('abilities_enabled', True),
+            "abilities": available_abilities(self.modes, user_id)
+                if state['phase'] == 'stat_selection' and not own_ability
+                and mine not in state['stat_choices'] and state['arena'].get('abilities_enabled', True) else [],
         })
         return response

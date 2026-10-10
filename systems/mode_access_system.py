@@ -39,6 +39,9 @@ class ModeAccessSystem:
             "SELECT min_level FROM mode_unlock_rules WHERE mode=?", (mode,)
         ).fetchone()
         min_level = int(row[0]) if row else DEFAULT_MODE_LEVELS[mode]
+        from systems.progression_config import enabled_in, config_in
+        if enabled_in(conn):
+            min_level = config_in(conn)[1]['mode_levels'][mode]
         progression = conn.execute(
             "SELECT level FROM player_progression WHERE user_id=?", (user_id,)
         ).fetchone()
@@ -55,6 +58,9 @@ class ModeAccessSystem:
         if mode not in DEFAULT_MODE_LEVELS:
             raise ValueError("invalid mode")
         with closing(sqlite3.connect(self.db.db_path, timeout=15)) as conn:
+            from systems.progression_config import enabled_in, config_in
+            if enabled_in(conn):
+                return config_in(conn)[1]['mode_levels'][mode]
             row = conn.execute(
                 "SELECT min_level FROM mode_unlock_rules WHERE mode=?", (mode,)
             ).fetchone()

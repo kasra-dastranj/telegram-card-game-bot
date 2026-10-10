@@ -373,6 +373,8 @@ class BattleHandlersMixin:
 
     async def _get_inline_card_sticker_file_id(self, context, user_id: int, card) -> Optional[str]:
         """Get or lazily upload/cache a Telegram sticker file_id for inline results."""
+        if getattr(card, 'origin', 'official') == 'custom':
+            return None
         rarity = str(getattr(getattr(card, "rarity", None), "value", getattr(card, "rarity", "normal")))
         cached = self.db.get_card_variant_media_file_id(card.card_id, rarity, "sticker")
         if cached:
@@ -2048,6 +2050,12 @@ class BattleHandlersMixin:
 
         if card_id not in remaining:
             return False, None, "این کارت دیگر قابل انتخاب نیست"
+
+        from systems.shared_foundation import validate_match_card
+        try:
+            validate_match_card(self.db, "fight:" + fight_id, "legacy_pvp", card_id, user_id)
+        except ValueError:
+            return False, None, "این کارت در این مود مجاز نیست"
 
         if context.bot_data.get(f"r3_{fight_id}_{role}_card"):
             return False, None, "برای این راوند کارت انتخاب شده"

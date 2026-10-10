@@ -1,4 +1,4 @@
-from unittest.mock import Mock
+from unittest.mock import Mock, call
 
 from bot.main import MAINTENANCE_TIMEZONE, PANEL_TIMEOUT, schedule_maintenance_jobs
 
@@ -13,12 +13,10 @@ def test_maintenance_jobs_do_not_run_daily_or_weekly_tasks_on_startup():
 
     schedule_maintenance_jobs(job_queue, bot)
 
-    job_queue.run_repeating.assert_called_once_with(
-        bot.cleanup_task,
-        interval=3600,
-        first=10,
-        name="hourly-cleanup",
-    )
+    assert job_queue.run_repeating.call_args_list == [
+        call(bot.cleanup_task, interval=3600, first=10, name="hourly-cleanup"),
+        call(bot.progression_settlement_task, interval=300, first=30, name="progression-settlement"),
+    ]
 
     daily_calls = job_queue.run_daily.call_args_list
     assert len(daily_calls) == 3

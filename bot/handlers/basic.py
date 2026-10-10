@@ -119,7 +119,7 @@ class BasicHandlersMixin:
                 [InlineKeyboardButton("⚔️ چالش PvP", callback_data="request_pvp_fight"),
                  InlineKeyboardButton("🎲 Risk Mode", callback_data="risk_menu")],
                 [InlineKeyboardButton("🎁 کلیم روزانه", callback_data="daily_claim"),
-                 InlineKeyboardButton("⛏️ ماینینگ", callback_data="mining_claim")],
+                 InlineKeyboardButton("🎟 Silver Claim", callback_data="v2_silver_claim") if __import__("systems.progression_config", fromlist=["enabled"]).enabled(self.db) else InlineKeyboardButton("⛏️ ماینینگ", callback_data="mining_claim")],
                 [InlineKeyboardButton("🔮 Fusion کارت‌ها", callback_data="fusion_menu"),
                  InlineKeyboardButton("🛒 شاپ", callback_data="shop_menu")],
             ]
@@ -265,13 +265,16 @@ class BasicHandlersMixin:
         else:
             xp_text = "MAX LEVEL ✨"
 
+        from systems.progression_config import enabled
+        v2 = enabled(self.db)
         tier_badge = format_tier_badge(tier)
+        level_line = f"⭐ Level {level}\n" if v2 else f"⭐ Level {level}  {tier_badge} {tier}  •  {tp} TP\n"
         rank_text = f"#{rank}" if rank else "N/A"
         total_stats = stats.get('total', {'games_played': 0, 'wins': 0, 'losses': 0, 'ties': 0, 'win_rate': 0})
 
         text = (
             f"👤 **{user.first_name}**\n\n"
-            f"⭐ Level {level}  {tier_badge} {tier}  •  {tp} TP\n"
+            f"{level_line}"
             f"📈 XP: {xp_text}\n\n"
             f"💰 سکه: {getattr(player, 'coins', 0):,}\n"
             f"❤️ جان: {player.hearts}/{getattr(player, 'max_hearts', self.game.DAILY_HEARTS)}\n"
@@ -310,19 +313,8 @@ class BasicHandlersMixin:
             try:
                 card_count = len(self.db.get_player_cards(user.id))
                 if card_count == 0:
-                    default_names = ["John Wick", "Heisenberg", "Rehi"]
-                    granted = []
-                    for nm in default_names:
-                        card_obj = self.db.get_card_by_name(nm)
-                        if not card_obj:
-                            for card in self.db.get_all_cards():
-                                if card.name.lower() == nm.lower():
-                                    card_obj = card
-                                    break
-                        if card_obj:
-                            added = self.db.add_card_to_player(user.id, card_obj.card_id)
-                            if added:
-                                granted.append(card_obj.name)
+                    from systems.starter_cards_system import grant_starter_cards
+                    granted = grant_starter_cards(self.db, user.id)
                     if granted:
                         await context.bot.send_message(chat_id=chat.id, text=f"🎴 کارت‌های شروعی بهت داده شد: {', '.join(granted)}")
             except Exception as e:
@@ -503,6 +495,9 @@ class BasicHandlersMixin:
         message = update.effective_message
         success, card, error, quick_ability = self.game.claim_daily_card_with_ability(user_id)
 
+        if success and card is None and quick_ability and quick_ability.get("silver_ticket"):
+            await update.effective_message.reply_text("🎟 یک Silver Ticket و ابیلیتی «" + quick_ability["title"] + "» دریافت شد.")
+            return
         if success and card:
             rarity_colors = {
                 CardRarity.NORMAL: "🟢",
@@ -628,6 +623,7 @@ class BasicHandlersMixin:
         card_id = query.data.removeprefix("card_view_")
         user_id = query.from_user.id
         card = self.db.get_card_by_id_for_player(card_id, user_id)
+        if card and card.origin=="custom" and query.message.chat_id!=user_id:card.image_path=""
         if not card:
             await query.edit_message_text("❌ کارت یافت نشد!")
             return
@@ -639,6 +635,8 @@ class BasicHandlersMixin:
             CardRarity.LEGEND: "🟡 Legend"
         }
         header = f"{rarity_map.get(card.rarity, '🔶 Card')} — {escape(card.name)}"
+        if card.origin == 'custom':
+            header += ' · سفارشی'
         text = (
             f"{header}\n"
             f"💪 {card.power} ⚡ {card.speed} 🧠 {card.iq} ❤️ {card.popularity}\n"
@@ -648,7 +646,12 @@ class BasicHandlersMixin:
             f"📝 <b>Biography:</b>\n{escape(card.biography or '')}"
         )
         # ارسال تصویر
-        await send_card_image_safely(query.message, card.name, self.config)
+        if card.origin == 'custom':
+            if card.image_path and query.message.chat_id == user_id:
+                with open(card.image_path, 'rb') as picture:
+                    await query.message.reply_photo(photo=picture)
+        else:
+            await send_card_image_safely(query.message, card.name, self.config)
         keyboard = [
             [InlineKeyboardButton("🔙 بازگشت", callback_data="my_cards")]
         ]
@@ -752,6 +755,7 @@ class BasicHandlersMixin:
         
         # عنوان
         timeframe_names = {
+            "daily": "روزانه",
             "weekly": "هفتگی",
             "monthly": "ماهانه",
             "all": "کل زمان‌ها"
@@ -769,10 +773,11 @@ class BasicHandlersMixin:
             display_limit = min(limit, 30)  # حداکثر 30 نفر نشون بده
             
             for i, player_info in enumerate(leaderboard[:display_limit]):
-                if i < 3:
-                    medal = medals[i]
+                display_rank = player_info.get('rank', i + 1)
+                if display_rank <= 3:
+                    medal = medals[display_rank - 1]
                 else:
-                    medal = f"{i+1}."
+                    medal = f"{display_rank}."
                 
                 # نام بازیکن - escape کردن کاراکترهای HTML
                 first_name = player_info.get('first_name', '').strip()
@@ -793,7 +798,8 @@ class BasicHandlersMixin:
                 # Level و Tier
                 try:
                     prog = self.db.get_or_create_progression(player_info['user_id'])
-                    tier_badge = format_tier_badge(prog['current_tier'])
+                    from systems.progression_config import enabled
+                    tier_badge = "" if enabled(self.db) else format_tier_badge(prog['current_tier'])
                     level = prog['level']
                     extra = f" {tier_badge}Lv{level}"
                 except Exception:
@@ -1153,12 +1159,13 @@ class BasicHandlersMixin:
         player = self.db.get_or_create_player(user_id)
         card_count = len(self.db.get_player_cards(user_id))
         prog = self.db.get_or_create_progression(user_id)
-        tier_badge = format_tier_badge(prog['current_tier'])
+        from systems.progression_config import enabled
+        tier_badge = "" if enabled(self.db) else format_tier_badge(prog['current_tier'])
 
         text = (
             f"🎮 **منوی اصلی**\n\n"
             f"سلام {user.first_name}! 👋\n\n"
-            f"⭐ Level {prog['level']}  {tier_badge} {prog['current_tier']}\n"
+            f"⭐ Level {prog['level']}  {tier_badge} {'' if enabled(self.db) else prog['current_tier']}\n"
             f"❤️ جان: {player.hearts}/{getattr(player, 'max_hearts', self.game.DAILY_HEARTS)}  "
             f"💰 سکه: {getattr(player, 'coins', 0):,}\n"
             f"🎴 کارت‌ها: {card_count}  •  🏆 امتیاز: {player.total_score}\n\n"
@@ -1170,7 +1177,7 @@ class BasicHandlersMixin:
             [InlineKeyboardButton("⚔️ چالش PvP", callback_data="request_pvp_fight"),
              InlineKeyboardButton("🎲 Risk Mode", callback_data="risk_menu")],
             [InlineKeyboardButton("🎁 کلیم روزانه", callback_data="daily_claim"),
-             InlineKeyboardButton("⛏️ ماینینگ", callback_data="mining_claim")],
+             InlineKeyboardButton("🎟 Silver Claim", callback_data="v2_silver_claim") if __import__("systems.progression_config", fromlist=["enabled"]).enabled(self.db) else InlineKeyboardButton("⛏️ ماینینگ", callback_data="mining_claim")],
             [InlineKeyboardButton("🔮 Fusion کارت‌ها", callback_data="fusion_menu"),
              InlineKeyboardButton("🛒 شاپ", callback_data="shop_menu")],
         ]
@@ -1247,7 +1254,10 @@ class BasicHandlersMixin:
         user_id = query.from_user.id
         
         # با rarity_override بازیکن
-        card = self.db.get_card_by_id_for_player(card_id, user_id) or self.db.get_card_by_id(card_id)
+        owned_card=self.db.get_card_by_id_for_player(card_id,user_id)
+        card=owned_card or self.db.get_card_by_id(card_id)
+        if card and card.origin=="custom" and not owned_card:card=None
+        if card and card.origin=="custom" and query.message.chat_id!=user_id:card.image_path=""
         if not card:
             await query.answer("❌ کارت یافت نشد!", show_alert=True)
             return
@@ -1279,6 +1289,8 @@ class BasicHandlersMixin:
         # بیوگرافی کوتاه
         bio = getattr(card, 'biography', '') or ''
         bio_text = f"\n📖 <i>{escape(bio[:80])}{'...' if len(bio) > 80 else ''}</i>\n" if bio else ""
+        if card.origin == 'custom':
+            bio_text = '\n🏷 سفارشی\n' + bio_text
         
         text = (
             f"{color} <b>{escape(card.name)}</b> ({card.rarity.value.title()})\n"
@@ -1299,7 +1311,8 @@ class BasicHandlersMixin:
         
         # اگه کارت Epic هست، ماموریت رو نشون بده
         if card.rarity == CardRarity.EPIC:
-            mission_progress = self.missions.get_player_mission_progress(user_id, card_id)
+            from systems.progression_config import enabled
+            mission_progress = None if enabled(self.db) else self.missions.get_player_mission_progress(user_id, card_id)
             if mission_progress:
                 prog = mission_progress['current_progress']
                 tgt = mission_progress['target']
@@ -1313,7 +1326,7 @@ class BasicHandlersMixin:
                     )])
         
         # دکمه اسکین
-        all_skins = self.skins.get_card_skins(card_id)
+        all_skins = self.skins.get_card_skins(card_id) if card.origin == 'official' else []
         if all_skins:
             keyboard.append([InlineKeyboardButton("🎨 اسکین‌ها", callback_data=f"skins_menu_{card_id}")])
         

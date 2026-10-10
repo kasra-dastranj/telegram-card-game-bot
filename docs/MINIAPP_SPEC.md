@@ -460,16 +460,10 @@ Response:
 {
   "fight_id": "uuid-xxxx",
   "player_card": { ...card object... },
-  "ai_card": {
-    "card_id": "heisenberg_epic",
-    "name": "Heisenberg",
-    "rarity": "epic",
-    "power": 45,
-    "speed": 38,
-    "iq": 60,
-    "popularity": 56,
-    "sticker_file_id": "CAACAgIA..."
-  },
+  "ai_card": null,
+  "my_ability_used": false,
+  "my_ability": null,
+  "abilities": [{ "ability_key": "reveal_opponent", "quantity": 1, "title": "مشاهده کارت حریف", "description": "کارت حریف را می‌بینی" }],
   "arena": {
     "arena_id": "power_arena",
     "name_fa": "عرصه قدرت",
@@ -485,6 +479,8 @@ Response:
 ---
 
 ### 4.4 بازی راوند
+
+در پیاده‌سازی فعلی، کارت ASO تا مصرف `reveal_opponent` یا پایان مسابقه مخفی است. هر بازیکن در کل مسابقهٔ سه‌راوندی فقط یک ابیلیتی از موجودی مشترک Quick دارد و می‌تواند آن را برای راوند دوم یا سوم نگه دارد. پاسخ `/solo/round` وضعیت به‌روز را در `fight` نیز برمی‌گرداند. قرارداد کامل ابیلیتی، تغییر زمین و مسیرهای API در [راهنمای ابیلیتی سه‌راوندی](THREE_ROUND_ABILITIES_FA.md) آمده است.
 
 **POST** `/solo/round`
 ```json
