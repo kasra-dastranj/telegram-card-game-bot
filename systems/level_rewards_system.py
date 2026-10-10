@@ -32,6 +32,13 @@ class LevelRewardsSystem:
         """Call inside the same write transaction as the XP award."""
         if new_level <= old_level:
             return 0
+        # Matches started before cutover still settle with their old XP policy.
+        # Their legacy award path must honor the owner's frozen level prizes.
+        from systems.progression_config import enabled_in, config_in
+        from systems.reward_ledger import capacities_in
+        if conn.execute("SELECT 1 FROM sqlite_master WHERE name='foundation_settings'").fetchone():
+            if enabled_in(conn) and capacities_in(conn, user_id, config_in(conn)[1])['legacy']:
+                return 0
         total = 0
         rules = conn.execute(
             "SELECT level,coins FROM level_coin_rules WHERE level>? AND level<=? AND coins>0 ORDER BY level",

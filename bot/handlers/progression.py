@@ -39,7 +39,7 @@ async def show_menu(bot,update,context,section='shop',page=0):
         if navigation:keyboard.append(navigation)
     elif section=='missions':
         missions=PlayerRewardsSystem(bot.db).missions(user)
-        text='مأموریت‌ها\n'+('\n'.join(item['name']+': '+str(item['current_progress'])+'/'+str(item['target']) for item in missions[:20]) or 'مأموریتی فعال نیست.')
+        text='مأموریت‌ها\n'+('\n'.join(item['name']+': '+str(item['current_progress'])+'/'+str(item['target'])+'؛ '+str(item.get('xp_reward',0))+' XP و '+str(item.get('coin_reward',0))+' سکه' for item in missions[:20]) or 'مأموریتی فعال نیست.')
         for item in missions[:20]:
             if item['can_claim']:keyboard.append([action_button(context,'دریافت '+item['name'],{'kind':'mission','mission_id':item['mission_id']})])
     keyboard.append([Button('🔙 منوی اصلی',callback_data='back_to_main')])
@@ -71,15 +71,17 @@ async def handle(bot,update,context):
         if kind=='card_menu':
             counts=__import__('systems.card_inventory_system',fromlist=['CardInventorySystem']).CardInventorySystem(bot.db).counts(user,card)
             keyboard=[]
+            details=[]
             for target in ('epic','legend'):
                 preview=economy.preview_upgrade(user,card,target)
+                details.append(target+': '+str(preview.get('error') or (str(preview['required'])+' نسخه + '+str(preview['upgrade_cards_required'])+' کارت ارتقا')))
                 if preview.get('ok'):
                     keyboard.append([action_button(context,'ارتقا به '+target+': '+str(preview['required'])+' نسخه + '+str(preview['upgrade_cards_required'])+' کارت ارتقا؛ '+str(preview['xp'])+' XP',{'kind':'upgrade','card_id':card,'target':target,'config_version':preview['config_version'],'request_key':'tg-upgrade:'+uuid.uuid4().hex})])
             for rarity,count in counts.items():
                 preview=economy.sell_preview(user,card,rarity)
                 if preview.get('ok'):keyboard.append([action_button(context,'فروش یک '+rarity+' از '+str(count)+' نسخه: '+str(preview['price'])+' سکه',{'kind':'sell','card_id':card,'rarity':rarity,'config_version':preview['config_version'],'request_key':'tg-sell:'+uuid.uuid4().hex})])
             keyboard.append([Button('🔙 کارت‌ها',callback_data='v2_cards_0')])
-            await query.edit_message_text('تأیید ارتقا یا فروش؛ عملیات نسخه‌های انتخاب‌شده را مصرف می‌کند.',reply_markup=InlineKeyboardMarkup(keyboard));return
+            await query.edit_message_text('تأیید ارتقا یا فروش؛ عملیات نسخه‌های انتخاب‌شده را مصرف می‌کند.\n'+'\n'.join(details),reply_markup=InlineKeyboardMarkup(keyboard));return
         if kind=='upgrade':result=economy.upgrade(user,card,action['target'],action['request_key'],action['config_version'])
         elif kind=='sell':result=economy.sell(user,card,action['rarity'],action['request_key'],action['config_version'])
         elif kind=='mission':result=PlayerRewardsSystem(bot.db).claim_mission(user,action['mission_id'])

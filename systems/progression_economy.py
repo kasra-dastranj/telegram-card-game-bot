@@ -168,7 +168,10 @@ class ProgressionEconomy:
             source,rule=self.recipe(conn,config,card,target)
             if not conn.execute('SELECT 1 FROM card_variants WHERE card_id=? AND rarity=?',(card,target)).fetchone(): raise ValueError('variant_unavailable')
             count=Inventory.counts_in(conn,user,card).get(source,0)
-            return {'ok':count>=rule['copies'] and items_in(conn,user,'upgrade_card')>=rule['items'],'card_id':card,'from_rarity':source,'to_rarity':target,'owned':count,'required':rule['copies'],'upgrade_cards_required':rule['items'],'xp':rule['xp'],'config_version':version,'error':None if count>=rule['copies'] else 'نسخهٔ کافی نیست'}
+            upgrade_items=items_in(conn,user,'upgrade_card')
+            code='insufficient_copies' if count<rule['copies'] else 'insufficient_upgrade_card' if upgrade_items<rule['items'] else None
+            error='نسخهٔ کافی نیست' if code=='insufficient_copies' else 'کارت ارتقا کافی نیست؛ آن را از فروشگاه بگیر.' if code else None
+            return {'ok':code is None,'card_id':card,'from_rarity':source,'to_rarity':target,'owned':count,'required':rule['copies'],'upgrade_cards_owned':upgrade_items,'upgrade_cards_required':rule['items'],'xp':rule['xp'],'config_version':version,'error_code':code,'error':error}
         return self.run(action)
 
     def upgrade(self,user,card,target,request_key,expected_version=None):

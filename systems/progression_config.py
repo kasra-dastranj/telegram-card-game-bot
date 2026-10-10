@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import copy
 import json
+import math
 import sqlite3
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
@@ -93,6 +94,11 @@ def validate_config(value):
     for pool in (claim["daily_pool"],claim["silver_pool"]):
         if any(not isinstance(key,str) or not key for key in pool) or len(pool)!=len(set(pool)): raise ValueError("invalid_claim_pool")
     if any(not isinstance(key,str) or type(weight) not in (int,float) or weight<=0 for key,weight in claim["weights"].items()): raise ValueError("invalid_claim_weight")
+    try:
+        if not math.isfinite(sum(float(weight) for weight in [claim['base_weight'], *claim['weights'].values()])):
+            raise ValueError('invalid_claim_weight')
+    except OverflowError:
+        raise ValueError('invalid_claim_weight') from None
     for rule in value["upgrade"].values():
         if rule["copies"]<1: raise ValueError("invalid_recipe")
     for rule in value["shop"].values():

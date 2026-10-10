@@ -15,7 +15,7 @@ await page.route('**/api/v1/**',async route=>{
   if(path==='/profile'||path==='/player-hub/overview')body=profile;
   else if(path==='/cards')body={cards:[card],total:1,page:1,limit:60,page_count:1};
   else if(path==='/cards/deadpool')body=card;
-  else if(path==='/cards/deadpool/fuse-copies/preview')body={ok:true,required:url.searchParams.get('target')==='legend'?2:3,upgrade_cards_required:1,xp:200,config_version:1};
+  else if(path==='/cards/deadpool/fuse-copies/preview')body={ok:true,required:3,upgrade_cards_required:1,xp:200,config_version:1};
   else if(path==='/economy/quote')body={ok:true,quote_id:'test-quote',price:100,config_version:1};
   else if(path==='/economy/purchase'){spent++;body={ok:true,profile:{...profile,coins:900}};}
   else if(path==='/economy/cards/deadpool/upgrade'){upgrades++;body={ok:true,xp_gained:200,profile};}
@@ -23,7 +23,7 @@ await page.route('**/api/v1/**',async route=>{
   else if(path==='/economy/cards/deadpool/sell'){sales++;body={ok:true,profile};}
   else if(path==='/claim'&&route.request().method()==='GET')body={can_claim:true,remaining_seconds:0,pool_count:1};
   else if(path==='/claim'){body={ok:true,message:'یک Silver Ticket دریافت شد',data:{card:null,reward_type:'silver_ticket',quantity:1,ability:{key:'reveal_opponent',title:'دیدن حریف'}},profile};}
-  else if(path==='/missions')body={missions:[]};
+  else if(path==='/missions')body={missions:[{mission_id:'test-mission',card_name:'سه نبرد Quick',name:'سه نبرد Quick',description:'سه نبرد واقعی را تمام کن.',progress_percent:0,current_progress:0,target:3,completed:false,reward_claimed:false,can_claim:false,xp_reward:10,coin_reward:10}]};
   else if(path==='/decks')body={decks:[]};
   else if(path==='/solo/quota')body={used:0,remaining:10,limit:10};
   await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(body)});
@@ -44,6 +44,8 @@ await page.locator('[data-action="preview-sell"][data-value="epic"]').click();
 await page.locator('[data-action="confirm-sell"]').click();
 assert.equal(sales,1);
 await page.locator('[data-action="hub-progress"]').click();
+await page.getByText('پاداش: 10 XP · 10 سکه').waitFor();
+await page.getByText('80٪ کارت Normal یا 20٪ Silver Ticket؛ همراه یک ابیلیتی مصرفی.').waitFor();
 await page.locator('[data-action="claim-daily"]').click();
 await page.getByRole('heading',{name:'🎟 یک Silver Ticket دریافت شد'}).waitFor();
 assert.equal(await page.locator('.tier-badge').count(),0);
@@ -51,4 +53,4 @@ assert.deepEqual(errors,[]);
 await page.screenshot({path:'.test-tmp-phase2/browser-progress.png',fullPage:true});
 fs.writeFileSync('.test-tmp-phase2/browser-results.json',JSON.stringify({browser:'Edge headless',api:'local fixtures; no live Telegram',spent,upgrades,sales,errors},null,2));
 await browser.close();
-process.stdout.write('Phase2 browser smoke passed: quote/purchase, 2-Epic recipe preview/upgrade, sell, Ticket claim, legacy Fusion/Tier hidden.\n');
+process.stdout.write('Phase2 browser smoke passed: quote/purchase, 3-Epic recipe preview/upgrade, sell, Ticket claim, mission rewards, daily odds, legacy Fusion/Tier hidden.\n');

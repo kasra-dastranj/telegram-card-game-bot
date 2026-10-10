@@ -38,6 +38,10 @@ class ProgressionLeaderboard:
             version,config=config_in(conn)
             current_start,_,_=period_bounds(config,period,now)
             start,end,key=period_bounds(config,period,current_start-timedelta(seconds=1))
+            cutover=conn.execute("SELECT value FROM economy_state WHERE key='progression_v2_rollout'").fetchone()
+            if cutover and end<=datetime.fromisoformat(json.loads(cutover[0])['activated_at']):
+                # Closed periods before activation have no v2 entitlement.
+                return []
             prior=conn.execute('SELECT receipt_json FROM leaderboard_settlements WHERE period_type=? AND period_key=?',(period,key)).fetchone()
             if prior:return []
             legacy=conn.execute("SELECT 1 FROM sqlite_master WHERE name='weekly_reward_batches'").fetchone()

@@ -64,8 +64,8 @@ class ProgressionMissions:
             if filters.get('modes') and mode not in filters['modes']:continue
             if filters.get('card_id') and payload.get('card_id')!=filters['card_id']:continue
             if filters.get('trait'):
-                row=conn.execute('SELECT abilities FROM cards WHERE card_id=? AND origin=\'official\'',(payload.get('card_id'),)).fetchone()
-                if not row or filters['trait'] not in json.loads(row[0] or '[]'):continue
+                traits=payload.get('traits',[])
+                if filters['trait'].strip().casefold() not in {trait.strip().casefold() for trait in traits}:continue
             kind=mission['type'];eligible=False
             if event_type=='match' and payload.get('qualified'):
                 eligible=(kind=='quick_games' and mode in ('quick','legacy_pvp') or kind=='deck_games' and mode in ('deck','three_round') or kind=='competitive_wins' and payload.get('result')=='win' or kind in ('character_games','trait_games') or kind=='easy_games' and mode=='easy')

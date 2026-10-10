@@ -519,14 +519,19 @@ function deleteDeckConfirm(): string {
 
 function progressTemplate(): string {
   const claim = state.claimStatus;
+  const v2 = state.profile?.progression_v2_enabled;
+  const ticketChance = state.profile?.economy?.daily_ticket_percent ?? 20;
+  const claimTitle = v2 ? "پاداش روزانه" : "کارت روزانه";
+  const claimDescription = v2 ? `${100 - ticketChance}٪ کارت Normal یا ${ticketChance}٪ Silver Ticket؛ همراه یک ابیلیتی مصرفی.` : `${claim?.pool_count ?? 0} کارت در Pool؛ نسخهٔ تکراری هم به موجودی اضافه می‌شود.`;
   const missions = state.missions.map((mission) => `<article class="mission-card glass-panel ${mission.completed ? "is-complete" : ""}">
     <header><div><small dir="auto">${escapeHtml(mission.card_name)}</small><h2>${escapeHtml(mission.name)}</h2></div><strong>${mission.progress_percent}%</strong></header>
     <p>${escapeHtml(mission.description)}</p><i><b style="width:${mission.progress_percent}%"></b></i>
+    ${state.profile?.progression_v2_enabled ? `<p>پاداش: ${mission.xp_reward ?? 0} XP · ${mission.coin_reward ?? 0} سکه</p>` : ""}
     <footer><span dir="ltr">${mission.current_progress} / ${mission.target}</span>${mission.reward_claimed ? '<em>دریافت شده</em>' : mission.can_claim ? `<button data-action="claim-mission" data-id="${escapeHtml(mission.mission_id)}">${state.profile?.progression_v2_enabled ? "دریافت پاداش" : "دریافت Legend"}</button>` : '<em>در حال انجام</em>'}</footer>
   </article>`).join("");
   return `<section class="screen hub-screen progress-screen">
     ${resourceHud()}<div class="hub-scroll"><header class="hub-title"><div><p class="eyebrow">PROGRESS</p><h1>پیشرفت و پاداش</h1></div></header>
-    <article class="daily-claim glass-panel"><div><small>DAILY CARD</small><h2>${claim?.pool_exhausted ? "کارت Normal موجود نیست" : claim?.can_claim ? "کارت روزانه آماده است" : "کارت امروز دریافت شده"}</h2><p>${claim?.pool_exhausted ? "فعلاً کاتالوگ کارت Normal ندارد؛ نوبت Claim مصرف نشده است." : claim?.can_claim ? `${claim.pool_count} کارت در Pool؛ نسخهٔ تکراری هم به موجودی اضافه می‌شود.` : `دریافت بعدی: ${formatDuration(claim?.remaining_seconds)}`}</p></div><button data-action="claim-daily" ${!claim?.can_claim || state.loading ? "disabled" : ""}>${state.loading ? "…" : "دریافت کارت"}</button></article>
+    <article class="daily-claim glass-panel"><div><small>${v2 ? "DAILY REWARD" : "DAILY CARD"}</small><h2>${claim?.pool_exhausted ? "کارت Normal موجود نیست" : claim?.can_claim ? `${claimTitle} آماده است` : "پاداش امروز دریافت شده"}</h2><p>${claim?.pool_exhausted ? "فعلاً کاتالوگ کارت Normal ندارد؛ نوبت Claim مصرف نشده است." : claim?.can_claim ? claimDescription : `دریافت بعدی: ${formatDuration(claim?.remaining_seconds)}`}</p></div><button data-action="claim-daily" ${!claim?.can_claim || state.loading ? "disabled" : ""}>${state.loading ? "…" : v2 ? "دریافت پاداش" : "دریافت کارت"}</button></article>
     ${state.rewardCard ? `<article class="reward-reveal glass-panel"><span style="background-image:url('${escapeHtml(state.rewardCard.image_url)}')"></span><div><small>پاداش تازه</small><h2 dir="auto">${escapeHtml(state.rewardCard.name)}</h2><b dir="ltr">${escapeHtml(state.rewardCard.rarity.toUpperCase())}</b>${state.rewardAbility ? `<p>🎁 ابیلیتی مصرفی: ${escapeHtml(state.rewardAbility.title)} ×۱</p>` : ""}</div></article>` : ""}
     ${state.rewardTicket ? `<article class="mission-card glass-panel"><h2>🎟 یک Silver Ticket دریافت شد</h2><p>ابیلیتی مصرفی: ${escapeHtml(state.rewardAbility?.title)} ×۱</p></article>` : ""}
     <header class="subsection-title"><h2>${state.profile?.progression_v2_enabled ? "مأموریت‌ها" : "مأموریت‌های کارت"}</h2><span>${state.missions.length}</span></header><div class="mission-list">${state.loading ? skeletons() : missions || '<p class="empty-state">برای کارت‌های فعلی مأموریتی ثبت نشده است.</p>'}</div></div>${bottomNav("progress")}

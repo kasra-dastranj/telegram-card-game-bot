@@ -58,6 +58,7 @@ export interface MissionData {
   mission_id: string; card_id: string; card_name: string; name: string; description: string;
   target: number; current_progress: number; progress_percent: number; completed: boolean;
   reward_claimed: boolean; rarity: string; can_claim: boolean;
+  xp_reward?: number; coin_reward?: number;
 }
 export interface SkinData {
   skin_id: string; card_id: string; name: string; skin_type: string; image_url: string;

@@ -35,6 +35,7 @@ def award_in(conn,key,mode,context,awards):
     ranks=shared_ranks(easy_scores)
     result={}
     now=datetime.now(timezone.utc)
+    has_metadata=conn.execute("SELECT 1 FROM sqlite_master WHERE name='card_mode_metadata' AND type='table'").fetchone()
     for user,item in awards.items():
         prior=conn.execute("SELECT xp,score,hearts_lost,tp_delta FROM match_reward_events WHERE request_id=? AND user_id=?",(key,user)).fetchone()
         if prior:
@@ -64,6 +65,9 @@ def award_in(conn,key,mode,context,awards):
         elif valid and context.variant=='friendly': hearts=context.friendly_loss_hearts if outcome=='loss' else 0
         payload={'mode':context.mode,'result':outcome,'card_id':item.get('card_id'),'qualified':qualified,
                  'rank':ranks.get(user),'rounds':rounds,'variant':context.variant}
+        metadata=conn.execute('SELECT traits FROM card_mode_metadata WHERE card_id=?',(item.get('card_id'),)).fetchone() if has_metadata else None
+        # Record the traits used at settlement; later card edits cannot rewrite mission progress.
+        payload['traits']=json.loads(metadata[0] or '[]') if metadata else []
         paid=apply_in(conn,'match:'+key,user,context.mode,'match',version,payload=payload,xp=xp,score=score,hearts=-hearts,extra={'ranked_progress':qualified})
         conn.execute("INSERT INTO match_reward_events(request_id,user_id,mode,xp,score,hearts_lost,tp_delta,awarded_at) VALUES(?,?,?,?,?,?,0,?)",(key,user,mode,xp,score,hearts,now.isoformat()))
         conn.execute("""INSERT INTO fight_history(user_id,user_card_id,opponent_card_id,stat_used,result,score_gained,hearts_lost,fought_at,fight_type,opponent_user_id,xp_gained) VALUES(?,?,?,?,?,?,?,?,?,?,?)""",

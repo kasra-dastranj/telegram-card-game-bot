@@ -36,6 +36,65 @@ def rows(db,sql,args=()):
     with sqlite3.connect(db.db_path) as conn:return conn.execute(sql,args).fetchall()
 
 
+@pytest.mark.parametrize('writer', ['match', 'xp_helper'])
+@pytest.mark.parametrize('v2_enabled', [False, True])
+def test_legacy_level_coin_writer_respects_cutover_freeze(game, writer, v2_enabled):
+    with sqlite3.connect(game.db_path) as conn:
+        conn.execute("UPDATE foundation_settings SET value_json='false' WHERE key='progression_v2_enabled'")
+        bind_new_context(conn, 'before-cutover', 'quick')
+        conn.execute('UPDATE progression_capacities SET legacy=1 WHERE user_id=1')
+        conn.execute('UPDATE player_progression SET level=1,total_xp=95 WHERE user_id=1')
+        conn.execute('INSERT INTO level_coin_rules VALUES(2,100)')
+        conn.execute("UPDATE foundation_settings SET value_json=? WHERE key='progression_v2_enabled'",
+                     (json.dumps(v2_enabled),))
+        if writer == 'match':
+            MatchRewardsSystem.award(conn, 'before-cutover', 'quick', {1: {'result': 'win', 'xp': 10, 'score': 0, 'card_id': 'deadpool'}})
+    if writer == 'xp_helper':
+        game.add_xp(1, 10)
+    assert rows(game, 'SELECT level,total_xp FROM player_progression WHERE user_id=1') == [(2, 105)]
+    assert rows(game, 'SELECT coins FROM players WHERE user_id=1') == [(0 if v2_enabled else 100,)]
+    assert rows(game, 'SELECT COUNT(*) FROM player_level_coin_awards WHERE user_id=1') == [(0 if v2_enabled else 1,)]
+
+
+def test_legend_preview_explains_missing_upgrade_item(game):
+    with sqlite3.connect(game.db_path) as conn:
+        CardInventorySystem.grant_in(conn, 1, 'deadpool', 'epic', 2)
+    preview = ProgressionEconomy(game).preview_upgrade(1, 'deadpool', 'legend')
+    assert not preview['ok'] and preview['error_code'] == 'insufficient_upgrade_card'
+    assert preview['error'] and preview['upgrade_cards_owned'] == 0
+    assert preview['upgrade_cards_required'] == 1
+
+
+def test_trait_mission_uses_settled_metadata_not_ability_or_later_edit(game):
+    from systems.game_mode_system import GameModeSystem
+    from systems.progression_missions import ProgressionMissions, save_mission_in
+
+    modes = GameModeSystem(game)
+    modes.set_card_metadata('deadpool', traits=['planner'])
+    mission = {'mission_id':'trait-plan','title':'Planner','description':'یک بازی با این Trait',
+               'start':None,'end':None,'status':'active','type':'trait_games','target':1,
+               'filters':{'trait':'PLANNER'},'eligibility':{'official_card_id':'deadpool'},
+               'xp_reward':10,'coin_reward':5,'repeat_policy':'once'}
+    with sqlite3.connect(game.db_path) as conn:
+        save_mission_in(conn, mission, 'tester')
+        bind_new_context(conn, 'trait-match', 'quick')
+        MatchRewardsSystem.award(conn, 'trait-match', 'quick', {1:{'result':'win','card_id':'deadpool'}})
+    modes.set_card_metadata('deadpool', traits=[])
+    service = ProgressionMissions(game)
+    status = service.list(1)[0]
+    assert status['current_progress'] == 1 and status['can_claim']
+    assert service.claim(1, 'trait-plan')['ok']
+    assert service.claim(1, 'trait-plan')['replayed']
+
+
+def test_claim_weight_rejects_nonfinite_admin_values():
+    for weight in (float('inf'), float('nan')):
+        config = seed_config()
+        config['claim']['weights']['deadpool'] = weight
+        with pytest.raises(ValueError, match='invalid_claim_weight'):
+            validate_config(config)
+
+
 @pytest.mark.parametrize('v2_enabled', [False, True])
 @pytest.mark.parametrize('scenario,blocked', [
     ('easy_lobby', False), ('easy_active', True), ('easy_expired', False),
