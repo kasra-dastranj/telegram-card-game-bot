@@ -89,7 +89,7 @@ class GameModeHandlersMixin:
                     [InlineKeyboardButton("🗂 مدیریت دک‌ها", callback_data="deck_menu")],
                 ]
             )
-        return "🎮 حالت بازی را انتخاب کن:", InlineKeyboardMarkup(keyboard)
+        return "🎮 حالت بازی رو انتخاب کن:", InlineKeyboardMarkup(keyboard)
 
     async def game_mode_select_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
@@ -128,7 +128,7 @@ class GameModeHandlersMixin:
         if mode=="quick" and enabled(self.db) and flags["quick_friendly_enabled"]:
             keyboard.insert(1,[InlineKeyboardButton("🤝 دوستانه",callback_data="gm_variant_quick_friendly")])
         await query.edit_message_text(
-            f"{'⚡ Quick' if mode == 'quick' else '🃏 Deck'} Mode\n\nنوع بازی را انتخاب کن:",
+            "⚡ Quick Mode\nنوع بازی رو انتخاب کن:" if mode == "quick" else "🃏 Deck Mode\n\nنوع بازی را انتخاب کن:",
             reply_markup=InlineKeyboardMarkup(keyboard),
         )
 
@@ -147,11 +147,17 @@ class GameModeHandlersMixin:
             )
             mode_title = "Quick" if mode == "quick" else "Deck"
             variant_title = "دوستانه (بدون پاداش؛ باخت یک قلب)" if variant.startswith("friendly") else "Normal" if variant == "normal" else "Random"
-            text = (
-                f"⚔️ {query.from_user.first_name} یک چالش {mode_title} / {variant_title} ساخته!\n\n"
-                "اولین بازیکنی که قبول کند وارد بازی می‌شود.\n"
-                f"⏳ مهلت پذیرش: {QUICK_GROUP_TTL_SECONDS} ثانیه"
-            )
+            if mode == "quick" and variant in ("normal", "random"):
+                text = (
+                    f"⚔️ کی حاضره نبرد {bidi_isolate(f'Quick-{variant_title}')} با {bidi_isolate(query.from_user.first_name)} رو بپذیره\n"
+                    f"⏳ مهلت پذیرش: {QUICK_GROUP_TTL_SECONDS} ثانیه"
+                )
+            else:
+                text = (
+                    f"⚔️ {query.from_user.first_name} یک چالش {mode_title} / {variant_title} ساخته!\n\n"
+                    "اولین بازیکنی که قبول کند وارد بازی می‌شود.\n"
+                    f"⏳ مهلت پذیرش: {QUICK_GROUP_TTL_SECONDS} ثانیه"
+                )
             await query.edit_message_text(
                 text,
                 reply_markup=InlineKeyboardMarkup(
@@ -450,7 +456,15 @@ class GameModeHandlersMixin:
             if reason == "expired":
                 await query.edit_message_text("⏳ زمان درخواست تمام شد.\nاین درخواست منقضی شد.")
             return
-        await query.edit_message_text("✅ چالش پذیرفته شد؛ ادامه‌ی بازی طبق حالت انتخاب‌شده انجام می‌شود.")
+        if request["mode"] == "quick":
+            creator = self.db.get_or_create_player(request["creator_id"])
+            text = (
+                f"✅ نبرد بین {bidi_isolate(creator.first_name)} و {bidi_isolate(query.from_user.first_name)} انجام میشه، "
+                f"بیاید اینجا @{context.bot.username} و آماده مبارزه شید!"
+            )
+        else:
+            text = "✅ چالش پذیرفته شد؛ ادامه‌ی بازی طبق حالت انتخاب‌شده انجام می‌شود."
+        await query.edit_message_text(text)
         await self._launch_mode_match(context, request)
 
     async def game_cancel_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -555,7 +569,7 @@ class GameModeHandlersMixin:
         if page + 1 < total_pages:
             navigation.append(InlineKeyboardButton("»", callback_data=f"gm_qpage_{request_id}_{page + 1}"))
         keyboard.append(navigation)
-        text = "🎴 کارت Quick خودت را انتخاب کن.\nاولین انتخاب نهایی است. ⏳ ۶۰ ثانیه"
+        text = "مبارزت رو انتخاب کن\n⏳ ۶۰ ثانیه وقت داری!"
         markup = InlineKeyboardMarkup(keyboard)
         try:
             if query:

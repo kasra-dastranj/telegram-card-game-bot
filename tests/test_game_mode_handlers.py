@@ -16,6 +16,79 @@ def _readable_text(text):
     return text.translate(str.maketrans('', '', '\u2066\u2068\u2069'))
 
 
+@pytest.mark.parametrize('variant,bot_username', [('normal', 'TelBattleTest_bot'), ('random', 'TelBattleProduction_bot')])
+def test_quick_group_prompts_keep_buttons_acceptance_and_card_pagination(tmp_path, variant, bot_username):
+    from core.database import DatabaseManager
+    from core.models import Card, CardRarity
+    from systems.game_mode_system import GameModeSystem
+
+    handler = GameModeHandlersMixin()
+    handler.db = DatabaseManager(str(tmp_path / 'quick-prompts.db'))
+    for uid, name in [(1, 'MH'), (2, 'کسری')]:
+        handler.db.get_or_create_player(uid, first_name=name)
+    for index in range(9):
+        card = Card(card_id=f'hero-{index}', name=f'Hero {index}', rarity=CardRarity.NORMAL,
+                    power=5, speed=5, iq=5, popularity=5, abilities=[])
+        handler.db.add_card(card)
+        handler.db.add_card_to_player(1, card.card_id)
+        handler.db.add_card_to_player(2, card.card_id)
+    handler.modes = GameModeSystem(handler.db)
+    handler._schedule_mode_job = Mock()
+    handler._launch_mode_match = AsyncMock()
+    context = SimpleNamespace(bot=SimpleNamespace(username=bot_username, send_message=AsyncMock()))
+    message = SimpleNamespace(chat=SimpleNamespace(type='supergroup'), chat_id=-100123, message_id=12, reply_text=AsyncMock())
+    actor = SimpleNamespace(id=1, first_name='MH')
+    update = SimpleNamespace(effective_chat=message.chat, effective_user=actor, message=message)
+    asyncio.run(handler.fight_command(update, context))
+    assert message.reply_text.await_args.args[0] == '🎮 حالت بازی رو انتخاب کن:'
+    assert [[b.callback_data for b in row] for row in message.reply_text.await_args.kwargs['reply_markup'].inline_keyboard] == [
+        ['gm_mode_quick'], ['gm_mode_deck'], ['gm_mode_easy']]
+
+    query = SimpleNamespace(data='gm_mode_quick', from_user=actor, message=message,
+                            answer=AsyncMock(), edit_message_text=AsyncMock())
+    update.callback_query = query
+    asyncio.run(handler.game_mode_select_handler(update, context))
+    assert query.edit_message_text.await_args.args[0] == '⚡ Quick Mode\nنوع بازی رو انتخاب کن:'
+    assert [[b.callback_data for b in row] for row in query.edit_message_text.await_args.kwargs['reply_markup'].inline_keyboard] == [
+        ['gm_variant_quick_normal'], ['gm_variant_quick_random']]
+
+    query.data = f'gm_variant_quick_{variant}'
+    asyncio.run(handler.game_variant_handler(update, context))
+    assert _readable_text(query.edit_message_text.await_args.args[0]) == (
+        f'⚔️ کی حاضره نبرد Quick-{variant.title()} با MH رو بپذیره\n⏳ مهلت پذیرش: 60 ثانیه')
+    button = query.edit_message_text.await_args.kwargs['reply_markup'].inline_keyboard[0][0]
+    assert button.text == '✊ قبول مبارزه'
+    request_id = button.callback_data.removeprefix('gm_accept_')
+    request = handler.modes.get_request(request_id)
+    assert request['creator_id'] == 1 and request['origin_chat_id'] == -100123
+    assert handler._schedule_mode_job.call_args.args[2] == 60
+
+    query.data = button.callback_data
+    query.from_user = SimpleNamespace(id=2, first_name='کسری')
+    asyncio.run(handler.game_accept_handler(update, context))
+    assert _readable_text(query.edit_message_text.await_args.args[0]) == (
+        f'✅ نبرد بین MH و کسری انجام میشه، بیاید اینجا @{bot_username} و آماده مبارزه شید!')
+    accepted = handler.modes.get_request(request_id)
+    assert accepted['opponent_id'] == 2
+    handler._launch_mode_match.assert_awaited_once_with(context, accepted)
+
+    # Normal card selection: names, callback IDs and next/previous pages remain usable.
+    asyncio.run(handler._send_quick_card_page(context, request_id, 1, 0))
+    sent = context.bot.send_message.await_args.kwargs
+    assert sent['text'] == 'مبارزت رو انتخاب کن\n⏳ ۶۰ ثانیه وقت داری!'
+    rows = sent['reply_markup'].inline_keyboard
+    assert len(rows) == 9
+    assert all(row[0].callback_data.startswith(f'gm_qcard_{request_id}_hero-') for row in rows[:-1])
+    assert rows[-1][-1].callback_data == f'gm_qpage_{request_id}_1'
+    query.data = rows[-1][-1].callback_data
+    query.from_user = actor
+    asyncio.run(handler.quick_card_page_handler(update, context))
+    page = query.edit_message_text.await_args
+    assert page.args[0] == sent['text']
+    assert len(page.kwargs['reply_markup'].inline_keyboard) == 2
+    assert page.kwargs['reply_markup'].inline_keyboard[-1][0].callback_data == f'gm_qpage_{request_id}_0'
+
+
 def test_quick_arena_text_names_target_card_type_and_affected_stat():
     handler = GameModeHandlersMixin()
     handler.modes = SimpleNamespace(
