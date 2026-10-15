@@ -89,7 +89,7 @@ class GameModeHandlersMixin:
                     [InlineKeyboardButton("🗂 مدیریت دک‌ها", callback_data="deck_menu")],
                 ]
             )
-        return "🎮 حالت بازی را انتخاب کن:", InlineKeyboardMarkup(keyboard)
+        return "🎮 حالت بازی رو انتخاب کن:", InlineKeyboardMarkup(keyboard)
 
     async def game_mode_select_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
@@ -128,7 +128,7 @@ class GameModeHandlersMixin:
         if mode=="quick" and enabled(self.db) and flags["quick_friendly_enabled"]:
             keyboard.insert(1,[InlineKeyboardButton("🤝 دوستانه",callback_data="gm_variant_quick_friendly")])
         await query.edit_message_text(
-            f"{'⚡ Quick' if mode == 'quick' else '🃏 Deck'} Mode\n\nنوع بازی را انتخاب کن:",
+            "⚡ Quick Mode\nنوع بازی رو انتخاب کن:" if mode == "quick" else "🃏 Deck Mode\n\nنوع بازی را انتخاب کن:",
             reply_markup=InlineKeyboardMarkup(keyboard),
         )
 
@@ -147,11 +147,17 @@ class GameModeHandlersMixin:
             )
             mode_title = "Quick" if mode == "quick" else "Deck"
             variant_title = "دوستانه (بدون پاداش؛ باخت یک قلب)" if variant.startswith("friendly") else "Normal" if variant == "normal" else "Random"
-            text = (
-                f"⚔️ {query.from_user.first_name} یک چالش {mode_title} / {variant_title} ساخته!\n\n"
-                "اولین بازیکنی که قبول کند وارد بازی می‌شود.\n"
-                f"⏳ مهلت پذیرش: {QUICK_GROUP_TTL_SECONDS} ثانیه"
-            )
+            if mode == "quick" and variant in ("normal", "random"):
+                text = (
+                    f"⚔️ کی حاضره نبرد {bidi_isolate(f'Quick-{variant_title}')} با {bidi_isolate(query.from_user.first_name)} رو بپذیره\n"
+                    f"⏳ مهلت پذیرش: {QUICK_GROUP_TTL_SECONDS} ثانیه"
+                )
+            else:
+                text = (
+                    f"⚔️ {query.from_user.first_name} یک چالش {mode_title} / {variant_title} ساخته!\n\n"
+                    "اولین بازیکنی که قبول کند وارد بازی می‌شود.\n"
+                    f"⏳ مهلت پذیرش: {QUICK_GROUP_TTL_SECONDS} ثانیه"
+                )
             await query.edit_message_text(
                 text,
                 reply_markup=InlineKeyboardMarkup(
@@ -450,7 +456,15 @@ class GameModeHandlersMixin:
             if reason == "expired":
                 await query.edit_message_text("⏳ زمان درخواست تمام شد.\nاین درخواست منقضی شد.")
             return
-        await query.edit_message_text("✅ چالش پذیرفته شد؛ ادامه‌ی بازی طبق حالت انتخاب‌شده انجام می‌شود.")
+        if request["mode"] == "quick":
+            creator = self.db.get_or_create_player(request["creator_id"])
+            text = (
+                f"✅ نبرد بین {bidi_isolate(creator.first_name)} و {bidi_isolate(query.from_user.first_name)} انجام میشه، "
+                f"بیاید اینجا @{context.bot.username} و آماده مبارزه شید!"
+            )
+        else:
+            text = "✅ چالش پذیرفته شد؛ ادامه‌ی بازی طبق حالت انتخاب‌شده انجام می‌شود."
+        await query.edit_message_text(text)
         await self._launch_mode_match(context, request)
 
     async def game_cancel_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -555,7 +569,7 @@ class GameModeHandlersMixin:
         if page + 1 < total_pages:
             navigation.append(InlineKeyboardButton("»", callback_data=f"gm_qpage_{request_id}_{page + 1}"))
         keyboard.append(navigation)
-        text = "🎴 کارت Quick خودت را انتخاب کن.\nاولین انتخاب نهایی است. ⏳ ۶۰ ثانیه"
+        text = "مبارزت رو انتخاب کن\n⏳ ۶۰ ثانیه وقت داری!"
         markup = InlineKeyboardMarkup(keyboard)
         try:
             if query:
@@ -769,13 +783,9 @@ class GameModeHandlersMixin:
     async def _announce_quick_result(self, context, report: dict):
         request = self.modes.get_request(report["request_id"])
         players = report["players"]
-        names = {uid: self.db.get_or_create_player(uid).first_name for uid in players}
         winner_card = None
         if report.get("forfeit"):
-            if report.get("winner_id"):
-                text = f"🏆 {names[report['winner_id']]} برنده شد.\n⏳ حریف در زمان مقرر انتخاب خود را ثبت نکرد."
-            else:
-                text = "⏳ هیچ‌کدام در زمان مقرر انتخاب نکردند؛ بازی بدون برنده تمام شد."
+            text = "⏳ وقت انتخاب تموم شد."
         elif report.get("is_tie"):
             text = "🤝 نبرد Quick مساوی شد."
         else:
@@ -789,18 +799,10 @@ class GameModeHandlersMixin:
                 winner["card_name"],
                 getattr(winner_card, "dialogs", None),
             )
-            text = f"🏆 پیروزی {names[winner_id]}\n\n💬 «{victory_line}»"
+            text = f"💬 «{victory_line}»"
         markup = InlineKeyboardMarkup(
             [[InlineKeyboardButton("📋 مشاهده جزئیات", callback_data=f"gm_report_{report['request_id']}")]]
         )
-        if any(item.get("scored_stats") for item in report.get("breakdown", {}).values()):
-            text += "\n\nامتیاز هر کارت از جمع دو ویژگی انتخابی به دست آمد. برای دیدن محاسبه، «📋 مشاهده جزئیات» را بزن."
-        if report.get("variant")=="friendly":text += "\n🤝 دوستانه: 0 XP / 0 Score / 0 Coin؛ باخت: -1 Heart"
-        if report.get("rewards"):
-            text += "\n\n🎁 پاداش نبرد\n" + "\n".join(
-                f"{names[int(uid)]}: +{reward['xp']} XP، +{reward['score']} Score"
-                for uid, reward in report["rewards"].items()
-            )
         if request and request.get("source") == "inline_private":
             await self._edit_request_panel(context, request, text, reply_markup=markup)
             return
@@ -826,48 +828,73 @@ class GameModeHandlersMixin:
             return
         await query.answer()
         if report["mode"] == "quick":
-            request = self.modes.get_request(request_id)
-            lines = ["📋 گزارش کامل Quick", ""]
+            names = {str(uid): self.db.get_or_create_player(int(uid)).first_name
+                     for uid in report["players"]}
+            lines = ["📋 جزئیات Quick"]
+            if report.get("winner_id") is not None:
+                lines.append(f"🏆 {bidi_isolate(names[str(report['winner_id'])])} برد!")
+            elif report.get("forfeit"):
+                lines.append("⏳ بازی بدون برنده تموم شد.")
+            else:
+                lines.append("🤝 مساوی شد!")
+            if report.get("variant") == "friendly":
+                lines.append("🤝 دوستانه · بدون XP، Score و Coin")
             if report.get("forfeit"):
-                lines.append("نتیجه با پایان مهلت تعیین شد.")
+                missing = "، ".join(bidi_isolate(names[str(uid)]) for uid in report.get("loser_ids", []))
+                lines.append(f"⏳ {missing}: انتخاب به‌موقع ثبت نشد." if missing else "⏳ نتیجه با پایان مهلت انتخاب مشخص شد.")
             else:
                 initial_arena = report.get("initial_arena_data") or self.modes._arena(report.get("initial_arena"))
                 final_arena = report.get("arena_data") or self.modes._arena(report.get("arena"))
-                lines.append(f"زمین اولیه: {initial_arena['emoji']} {initial_arena['name']}")
-                lines.append(f"زمین نهایی: {final_arena['emoji']} {final_arena['name']}")
-                lines.extend(["", "قانون زمین نهایی:", self._quick_arena_text({"arena": final_arena["id"],
-                                                                             "arena_snapshot": final_arena})])
+                lines.append("")
+                if initial_arena["id"] != final_arena["id"]:
+                    lines.append(f"🔄 زمین قبلی: {initial_arena['emoji']} {initial_arena['name']}")
+                if (final_arena.get("effects") or final_arena.get("disabled_stats")
+                        or not final_arena.get("abilities_enabled", True)
+                        or not final_arena.get("passives_enabled", True)):
+                    lines.append(self._quick_arena_text({"arena": final_arena["id"], "arena_snapshot": final_arena}))
+                else:
+                    lines.append(f"{final_arena['emoji']} زمین: {final_arena['name']}")
                 if any(item.get("scored_stats") for item in report.get("breakdown", {}).values()):
-                    lines.extend(["", "امتیاز هر کارت = جمع دو ویژگی انتخابی، پس از اثر زمین، Passive و Ability.",
-                                  "اگر هر دو نفر یک ویژگی را انتخاب کنند، همان ویژگی دو بار حساب می‌شود."])
-                for uid, item in report.get("breakdown", {}).items():
-                    name = self.db.get_or_create_player(int(uid)).first_name
-                    applied_arena = self._quick_arena_effect_lines({"effects": item.get("arena_effects", [])})
-                    lines.extend(["", f"{name}: {item['card_name']}"])
+                    lines.append("امتیاز = جمع دو ویژگی انتخابی بعد از اثرها.")
+                    if any(len(set(item.get("scored_stats", []))) == 1 for item in report["breakdown"].values() if item.get("scored_stats")):
+                        lines.append("ویژگی یکسان رو دو بار حساب کردیم.")
+            for index, uid in enumerate(report["players"]):
+                key = str(uid)
+                item = report.get("breakdown", {}).get(key)
+                reward = report.get("rewards", {}).get(key)
+                marker = "🔵" if index == 0 else "🔴"
+                lines.extend(["", f"{marker} {bidi_isolate(names[key])}" + (f" · {bidi_isolate(item['card_name'])}" if item else "")])
+                if item:
                     if item.get("scored_stats"):
                         for stat, base, final in zip(item["scored_stats"], item["base_components"], item["final_components"]):
-                            lines.append(f"{STAT_LABELS.get(stat, stat)}: پایه {base} → نهایی {final}")
-                        lines.append("جمع پایه: " + " + ".join(map(str, item["base_components"])) + f" = {item['base_value']}")
-                        lines.append("امتیاز نهایی: " + " + ".join(map(str, item["final_components"])) + f" = {item['final_value']}")
+                            lines.append(f"{STAT_LABELS.get(stat, stat)}: \u2066{base} → {final}\u2069")
+                        equation = " + ".join(map(str, item["final_components"])) + f" = {item['final_value']}"
+                        lines.append(f"امتیاز نهایی: \u2066{equation}\u2069")
                     else:
                         # Reports persisted before the scoring change keep their original meaning.
                         lines.append(f"ویژگی: {STAT_LABELS.get(item['selected_stat'], item['selected_stat'])}")
                         lines.append(f"عدد پایه: {item['base_value']} → نهایی: {item['final_value']}")
-                    lines.extend([
-                        "اثر عددی زمین: " + ("، ".join(applied_arena) if applied_arena else "روی نوع این کارت اعمال نشد"),
-                        f"Ability: {item['ability_used']}",
-                        "Passive: " + (
-                            f"{item['passive'].get('name', 'Passive')} — "
-                            f"{STAT_LABELS.get(item['passive']['stat'], item['passive']['stat'])} {item['passive']['delta']:+d}"
-                            if item.get("passive") else "فعال نشد"
-                        ),
-                    ])
+                    changes = [f"زمین: {STAT_LABELS.get(effect['stat'], effect['stat'])} \u2066{int(effect['delta']):+d}\u2069"
+                               for effect in item.get("arena_effects", [])]
+                    ability = item.get("ability_used")
+                    if ability and ability != "skip":
+                        lines.append("ابیلیتی: " + ABILITY_DEFINITIONS.get(ability, {}).get("title", ability))
+                    if item.get("passive"):
+                        passive = item["passive"]
+                        changes.append(f"Passive {bidi_isolate(passive.get('name', ''))}: {STAT_LABELS.get(passive['stat'], passive['stat'])} \u2066{passive['delta']:+d}\u2069")
                     opponent_ability = item.get("opponent_ability_effect")
                     if opponent_ability:
                         stat = opponent_ability["stat"]
-                        lines.append(
-                            f"اثر Ability حریف: {STAT_LABELS.get(stat, stat)} {opponent_ability['delta']:+d}"
-                        )
+                        changes.append(f"ابیلیتی حریف: {STAT_LABELS.get(stat, stat)} \u2066{opponent_ability['delta']:+d}\u2069")
+                    if changes:
+                        lines.append("اثرها · " + " · ".join(changes))
+                if reward:
+                    parts = [f"{reward['xp']:+d} XP", f"{reward['score']:+d} Score"] if report.get("variant") != "friendly" else []
+                    if reward.get("coins"):
+                        parts.append(f"{reward['coins']:+d} Coin")
+                    if reward.get("hearts_lost"):
+                        parts.append(f"-{reward['hearts_lost']} ❤️")
+                    lines.append("🎁 " + " · ".join(f"\u2066{part}\u2069" for part in parts) if parts else "🎁 بدون پاداش")
             await context.bot.send_message(chat_id=query.from_user.id, text="\n".join(lines))
 
     # -------------------- Deck Mode --------------------

@@ -1,5 +1,6 @@
 import asyncio
 import re
+import pytest
 from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
@@ -9,6 +10,83 @@ from bot.handlers.pvp import PvPHandlersMixin
 from core.models import FightStatus
 from systems.deck_system import DECK_SELECTION_TTL_SECONDS
 from systems.game_mode_system import EASY_LOBBY_TTL_SECONDS
+
+
+def _readable_text(text):
+    return text.translate(str.maketrans('', '', '\u2066\u2068\u2069'))
+
+
+@pytest.mark.parametrize('variant,bot_username', [('normal', 'TelBattleTest_bot'), ('random', 'TelBattleProduction_bot')])
+def test_quick_group_prompts_keep_buttons_acceptance_and_card_pagination(tmp_path, variant, bot_username):
+    from core.database import DatabaseManager
+    from core.models import Card, CardRarity
+    from systems.game_mode_system import GameModeSystem
+
+    handler = GameModeHandlersMixin()
+    handler.db = DatabaseManager(str(tmp_path / 'quick-prompts.db'))
+    for uid, name in [(1, 'MH'), (2, 'کسری')]:
+        handler.db.get_or_create_player(uid, first_name=name)
+    for index in range(9):
+        card = Card(card_id=f'hero-{index}', name=f'Hero {index}', rarity=CardRarity.NORMAL,
+                    power=5, speed=5, iq=5, popularity=5, abilities=[])
+        handler.db.add_card(card)
+        handler.db.add_card_to_player(1, card.card_id)
+        handler.db.add_card_to_player(2, card.card_id)
+    handler.modes = GameModeSystem(handler.db)
+    handler._schedule_mode_job = Mock()
+    handler._launch_mode_match = AsyncMock()
+    context = SimpleNamespace(bot=SimpleNamespace(username=bot_username, send_message=AsyncMock()))
+    message = SimpleNamespace(chat=SimpleNamespace(type='supergroup'), chat_id=-100123, message_id=12, reply_text=AsyncMock())
+    actor = SimpleNamespace(id=1, first_name='MH')
+    update = SimpleNamespace(effective_chat=message.chat, effective_user=actor, message=message)
+    asyncio.run(handler.fight_command(update, context))
+    assert message.reply_text.await_args.args[0] == '🎮 حالت بازی رو انتخاب کن:'
+    assert [[b.callback_data for b in row] for row in message.reply_text.await_args.kwargs['reply_markup'].inline_keyboard] == [
+        ['gm_mode_quick'], ['gm_mode_deck'], ['gm_mode_easy']]
+
+    query = SimpleNamespace(data='gm_mode_quick', from_user=actor, message=message,
+                            answer=AsyncMock(), edit_message_text=AsyncMock())
+    update.callback_query = query
+    asyncio.run(handler.game_mode_select_handler(update, context))
+    assert query.edit_message_text.await_args.args[0] == '⚡ Quick Mode\nنوع بازی رو انتخاب کن:'
+    assert [[b.callback_data for b in row] for row in query.edit_message_text.await_args.kwargs['reply_markup'].inline_keyboard] == [
+        ['gm_variant_quick_normal'], ['gm_variant_quick_random']]
+
+    query.data = f'gm_variant_quick_{variant}'
+    asyncio.run(handler.game_variant_handler(update, context))
+    assert _readable_text(query.edit_message_text.await_args.args[0]) == (
+        f'⚔️ کی حاضره نبرد Quick-{variant.title()} با MH رو بپذیره\n⏳ مهلت پذیرش: 60 ثانیه')
+    button = query.edit_message_text.await_args.kwargs['reply_markup'].inline_keyboard[0][0]
+    assert button.text == '✊ قبول مبارزه'
+    request_id = button.callback_data.removeprefix('gm_accept_')
+    request = handler.modes.get_request(request_id)
+    assert request['creator_id'] == 1 and request['origin_chat_id'] == -100123
+    assert handler._schedule_mode_job.call_args.args[2] == 60
+
+    query.data = button.callback_data
+    query.from_user = SimpleNamespace(id=2, first_name='کسری')
+    asyncio.run(handler.game_accept_handler(update, context))
+    assert _readable_text(query.edit_message_text.await_args.args[0]) == (
+        f'✅ نبرد بین MH و کسری انجام میشه، بیاید اینجا @{bot_username} و آماده مبارزه شید!')
+    accepted = handler.modes.get_request(request_id)
+    assert accepted['opponent_id'] == 2
+    handler._launch_mode_match.assert_awaited_once_with(context, accepted)
+
+    # Normal card selection: names, callback IDs and next/previous pages remain usable.
+    asyncio.run(handler._send_quick_card_page(context, request_id, 1, 0))
+    sent = context.bot.send_message.await_args.kwargs
+    assert sent['text'] == 'مبارزت رو انتخاب کن\n⏳ ۶۰ ثانیه وقت داری!'
+    rows = sent['reply_markup'].inline_keyboard
+    assert len(rows) == 9
+    assert all(row[0].callback_data.startswith(f'gm_qcard_{request_id}_hero-') for row in rows[:-1])
+    assert rows[-1][-1].callback_data == f'gm_qpage_{request_id}_1'
+    query.data = rows[-1][-1].callback_data
+    query.from_user = actor
+    asyncio.run(handler.quick_card_page_handler(update, context))
+    page = query.edit_message_text.await_args
+    assert page.args[0] == sent['text']
+    assert len(page.kwargs['reply_markup'].inline_keyboard) == 2
+    assert page.kwargs['reply_markup'].inline_keyboard[-1][0].callback_data == f'gm_qpage_{request_id}_0'
 
 
 def test_quick_arena_text_names_target_card_type_and_affected_stat():
@@ -314,7 +392,9 @@ def test_easy_duplicate_last_confirmation_recovers_without_waiting_for_timer():
     )
 
 
-def test_quick_group_result_shows_winner_card_and_slogan_in_group():
+@pytest.mark.parametrize('source', ['group_challenge', 'inline_private', 'invite_link'])
+@pytest.mark.parametrize('variant', ['normal', 'friendly'])
+def test_quick_result_shows_only_card_slogan_with_details_button(source, variant):
     handler = GameModeHandlersMixin()
     winner_card = SimpleNamespace(
         card_id="winner-card",
@@ -323,7 +403,7 @@ def test_quick_group_result_shows_winner_card_and_slogan_in_group():
     )
     request = {
         "request_id": "request-1",
-        "source": "group_challenge",
+        "source": source,
         "origin_chat_id": -100123,
     }
     handler.modes = SimpleNamespace(get_request=Mock(return_value=request))
@@ -337,12 +417,15 @@ def test_quick_group_result_shows_winner_card_and_slogan_in_group():
         get_card_by_id=Mock(return_value=None),
     )
     handler._send_round_winner_card_media = AsyncMock(return_value=True)
+    handler._edit_request_panel = AsyncMock()
     context = SimpleNamespace(bot=SimpleNamespace(send_message=AsyncMock()))
     report = {
         "request_id": "request-1",
         "players": [1, 2],
         "winner_id": 1,
         "is_tie": False,
+        "variant": variant,
+        "rewards": {'1': {'xp': 10, 'score': 1}, '2': {'xp': 1, 'score': 0}},
         "breakdown": {
             "1": {"card_id": "winner-card", "card_name": "Abbas Araqchi", "scored_stats": ["power", "iq"]},
             "2": {"card_id": "loser-card", "card_name": "Other", "scored_stats": ["iq", "power"]},
@@ -351,19 +434,19 @@ def test_quick_group_result_shows_winner_card_and_slogan_in_group():
 
     asyncio.run(handler._announce_quick_result(context, report))
 
-    handler._send_round_winner_card_media.assert_awaited_once_with(
-        context, -100123, winner_card
-    )
-    sent = context.bot.send_message.await_args.kwargs
-    assert sent["chat_id"] == -100123
-    assert "🏆 پیروزی Ali" in sent["text"]
-    assert "میز مذاکره هم گاهی میدان نبرد است." in sent["text"]
-    assert "جمع دو ویژگی" in sent["text"]
-    assert "مشاهده جزئیات" in sent["text"]
-    assert "با کارت" not in sent["text"]
-    assert sent["reply_markup"].inline_keyboard[0][0].callback_data == (
-        "gm_report_request-1"
-    )
+    expected = '💬 «میز مذاکره هم گاهی میدان نبرد است.»'
+    if source == 'inline_private':
+        assert handler._edit_request_panel.await_args.args[2] == expected
+        markup = handler._edit_request_panel.await_args.kwargs['reply_markup']
+        context.bot.send_message.assert_not_awaited()
+    else:
+        targets = [-100123] if source == 'group_challenge' else [1, 2]
+        assert [call.kwargs['chat_id'] for call in context.bot.send_message.await_args_list] == targets
+        assert [call.args[1] for call in handler._send_round_winner_card_media.await_args_list] == targets
+        assert all(call.kwargs['text'] == expected for call in context.bot.send_message.await_args_list)
+        markup = context.bot.send_message.await_args.kwargs['reply_markup']
+    assert markup.inline_keyboard[0][0].text == '📋 مشاهده جزئیات'
+    assert markup.inline_keyboard[0][0].callback_data == 'gm_report_request-1'
 
 
 def test_quick_group_details_are_delivered_privately_to_clicking_player():
@@ -418,6 +501,9 @@ def test_quick_group_details_are_delivered_privately_to_clicking_player():
     )
 
     assert context.bot.send_message.await_args.kwargs["chat_id"] == 1
+    text = context.bot.send_message.await_args.kwargs['text']
+    assert 'عدد پایه: 80 → نهایی: 90' in text  # Older single-stat reports remain readable.
+    assert text.count('🏙️') == 1
 
 
 def test_quick_report_explains_both_components_and_effects():
@@ -427,6 +513,8 @@ def test_quick_report_explains_both_components_and_effects():
                       "passives_enabled": True}
     report = {
         "request_id": "sum-report", "mode": "quick", "players": [1, 2],
+        'winner_id': 1, 'is_tie': False,
+        'rewards': {'1': {'xp': 10, 'score': 1}, '2': {'xp': 1, 'score': 0}},
         "initial_arena": "desert", "arena": "desert",
         "initial_arena_data": arena_snapshot, "arena_data": arena_snapshot,
         "breakdown": {
@@ -450,11 +538,78 @@ def test_quick_report_explains_both_components_and_effects():
     context = SimpleNamespace(bot=SimpleNamespace(send_message=AsyncMock()))
 
     asyncio.run(handler.game_report_handler(SimpleNamespace(callback_query=query), context))
-    text = context.bot.send_message.await_args.kwargs["text"]
-    assert "جمع پایه: 90 + 40 = 130" in text
+    raw_text = context.bot.send_message.await_args.kwargs["text"]
+    assert '\u2066' in raw_text and '\u2068Ali\u2069' in raw_text
+    text = _readable_text(raw_text)
+    assert '🏆 Ali برد!' in text
+    assert '90 → 93' in text and '40 → 40' in text
     assert "امتیاز نهایی: 93 + 40 = 133" in text
-    assert "اثر Ability حریف" in text
+    assert 'ابیلیتی حریف' in text
     assert "Desert strength" in text
+    assert '🎁 +10 XP · +1 Score' in text
+    assert '🎁 +1 XP · +0 Score' in text
+    assert text.count('🏜️') == 1
+    assert 'جمع پایه' not in text and 'Ability: skip' not in text
+    assert 'فعال نشد' not in text and 'دو بار' not in text
+
+
+@pytest.mark.parametrize('outcome', ['tie', 'forfeit_win', 'forfeit_both'])
+def test_quick_private_details_include_non_win_results_and_rewards(outcome):
+    handler = GameModeHandlersMixin()
+    forfeit = outcome.startswith('forfeit')
+    arena = {'id': 'city', 'name': 'شهر', 'emoji': '🏙️', 'effects': []}
+    report = {'request_id': 'finished', 'mode': 'quick', 'players': [1, 2],
+              'winner_id': 1 if outcome == 'forfeit_win' else None,
+              'is_tie': outcome != 'forfeit_win', 'forfeit': forfeit,
+              'loser_ids': [2] if outcome == 'forfeit_win' else [1, 2],
+              'initial_arena_data': arena, 'arena_data': arena, 'breakdown': {},
+              'rewards': {'1': {'xp': 3, 'score': 0}, '2': {'xp': 3, 'score': 0}}}
+    handler.modes = SimpleNamespace(get_report=Mock(return_value=report))
+    handler.db = SimpleNamespace(get_or_create_player=Mock(side_effect=lambda uid: SimpleNamespace(first_name={1: 'MH', 2: 'ßoozad'}[uid])))
+    query = SimpleNamespace(data='gm_report_finished', from_user=SimpleNamespace(id=2), answer=AsyncMock())
+    context = SimpleNamespace(bot=SimpleNamespace(send_message=AsyncMock()))
+    asyncio.run(handler.game_report_handler(SimpleNamespace(callback_query=query), context))
+    sent = context.bot.send_message.await_args.kwargs
+    assert sent['chat_id'] == 2
+    text = _readable_text(sent['text'])
+    expected = 'MH برد!' if outcome == 'forfeit_win' else 'بدون برنده' if forfeit else 'مساوی شد!'
+    assert expected in text
+    if forfeit:
+        assert 'انتخاب' in sent['text'] and 'ßoozad' in sent['text']
+    assert text.count('🎁 +3 XP · +0 Score') == 2
+
+
+def test_quick_details_keep_changed_arena_duplicate_stat_and_friendly_cost_private():
+    handler = GameModeHandlersMixin()
+    initial = {'id': 'desert', 'name': 'بیابان', 'emoji': '🏜️', 'effects': []}
+    arena = {'id': 'city', 'name': 'شهر', 'emoji': '🏙️', 'effects': [], 'disabled_stats': ['iq']}
+    report = {'request_id': 'friendly', 'mode': 'quick', 'players': [1, 2], 'winner_id': 1,
+              'variant': 'friendly', 'initial_arena_data': initial, 'arena_data': arena,
+              'breakdown': {'1': {'card_name': 'Alpha', 'scored_stats': ['power', 'power'],
+                  'base_components': [80, 80], 'final_components': [78, 78], 'final_value': 156,
+                  'ability_used': 'reveal_opponent'}},
+              'rewards': {'1': {'xp': 0, 'score': 0}, '2': {'xp': 0, 'score': 0, 'hearts_lost': 1}}}
+    handler.modes = SimpleNamespace(get_report=Mock(return_value=report), _arena=Mock(side_effect=AssertionError('use snapshot')))
+    handler.db = SimpleNamespace(get_or_create_player=Mock(side_effect=lambda uid: SimpleNamespace(first_name=f'P{uid}')))
+    query = SimpleNamespace(data='gm_report_friendly', from_user=SimpleNamespace(id=1), answer=AsyncMock())
+    context = SimpleNamespace(bot=SimpleNamespace(send_message=AsyncMock()))
+    asyncio.run(handler.game_report_handler(SimpleNamespace(callback_query=query), context))
+    text = _readable_text(context.bot.send_message.await_args.kwargs['text'])
+    assert 'زمین قبلی: 🏜️ بیابان' in text and '🏙️ زمین: شهر' in text
+    assert 'غیرفعال:' in text and 'دو بار' in text
+    assert '78 + 78 = 156' in text
+    assert '👁 مشاهده کارت حریف' in text and 'reveal_opponent' not in text
+    assert 'دوستانه · بدون XP، Score و Coin' in text and '-1 ❤️' in text
+
+
+def test_quick_details_are_not_sent_to_a_nonparticipant():
+    handler = GameModeHandlersMixin()
+    handler.modes = SimpleNamespace(get_report=Mock(return_value={'players': [1, 2], 'mode': 'quick'}))
+    query = SimpleNamespace(data='gm_report_private', from_user=SimpleNamespace(id=3), answer=AsyncMock())
+    context = SimpleNamespace(bot=SimpleNamespace(send_message=AsyncMock()))
+    asyncio.run(handler.game_report_handler(SimpleNamespace(callback_query=query), context))
+    context.bot.send_message.assert_not_awaited()
+    assert query.answer.await_args.kwargs['show_alert'] is True
 
 
 def test_easy_lobby_waits_three_minutes_before_auto_start():
