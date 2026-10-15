@@ -129,7 +129,7 @@ def test_quick_random_ability_panel_reveals_auto_selected_card():
         list_player_abilities=Mock(return_value=[]),
     )
     handler._quick_arena_text = Mock(return_value="🏛️ زمین: معبد خاموش")
-    handler._send_quick_random_card_preview = AsyncMock()
+    handler._send_quick_card_preview = AsyncMock()
     handler._schedule_mode_job = Mock()
     context = SimpleNamespace(bot=SimpleNamespace(send_message=AsyncMock()))
     state = {
@@ -141,9 +141,12 @@ def test_quick_random_ability_panel_reveals_auto_selected_card():
 
     asyncio.run(handler._send_quick_ability_panels(context, "request-random", state))
 
-    handler._send_quick_random_card_preview.assert_any_await(context, 1, alpha)
-    first_message = context.bot.send_message.await_args_list[0].kwargs
-    assert "🎲 کارت تصادفی شما: Alpha" in first_message["text"]
+    handler._send_quick_card_preview.assert_any_await(context, 1, alpha)
+    sent = context.bot.send_message.await_args_list
+    assert [(call.kwargs['chat_id'], call.kwargs['text']) for call in sent] == [
+        (1, '🏛️ زمین: معبد خاموش'), (1, 'از کدوم Ability card استفاده میکنی؟'),
+        (2, '🏛️ زمین: معبد خاموش'), (2, 'از کدوم Ability card استفاده میکنی؟')]
+    assert sent[1].kwargs['reply_markup'].inline_keyboard[-1][0].callback_data == 'gm_qability_request-random_skip'
 
 
 def test_quick_stat_panel_shows_selected_card_and_final_values():
@@ -170,12 +173,14 @@ def test_quick_stat_panel_shows_selected_card_and_final_values():
     asyncio.run(handler._send_quick_stat_panels(context, "request-1", state))
 
     first_message = context.bot.send_message.await_args_list[0].kwargs
-    assert "🎴 کارت شما: Alpha" in first_message["text"]
+    assert first_message['text'] == 'یه ویژگی انتخاب کن، ۶۰ ثانیه ⏳ وقت داری\n(عددهای زیر با اثر زمین، Passive و Ability محاسبه شدن)'
+    assert context.bot.send_message.await_count == 2
     button_texts = [row[0].text for row in first_message["reply_markup"].inline_keyboard]
     assert button_texts == ["💪 قدرت: 93", "⚡ سرعت: 29", "🧠 هوش: 40", "❤️ محبوبیت: 50"]
 
 
-def test_inline_private_quick_query_builds_an_accept_invitation(tmp_path):
+@pytest.mark.parametrize('variant', ['normal', 'random'])
+def test_inline_private_quick_query_builds_an_accept_invitation(tmp_path, variant):
     handler = GameModeHandlersMixin()
     handler.db = SimpleNamespace(get_player_cards=Mock(return_value=[SimpleNamespace()]))
     from core.database import DatabaseManager
@@ -187,7 +192,7 @@ def test_inline_private_quick_query_builds_an_accept_invitation(tmp_path):
         )
     )
     inline_query = SimpleNamespace(
-        query="game quick normal",
+        query=f"game quick {variant}",
         from_user=SimpleNamespace(id=1, first_name="Ali"),
         answer=AsyncMock(),
     )
@@ -202,6 +207,10 @@ def test_inline_private_quick_query_builds_an_accept_invitation(tmp_path):
     results = inline_query.answer.await_args.args[0]
     assert len(results) == 1
     assert results[0].id == "gmi|request-1"
+    assert results[0].input_message_content.message_text == (
+        f"🎮 بیا یه دست بازی کنیم\nQuick mode ({variant.title()})"
+    )
+    handler.modes.create_inline_private_challenge.assert_called_once_with(1, 'quick', variant)
     assert results[0].reply_markup.inline_keyboard[0][0].callback_data == (
         "gm_inline_accept_request-1"
     )
@@ -244,6 +253,9 @@ def test_inline_private_blank_or_whitespace_query_shows_all_game_modes(tmp_path)
         "gmi|deck-normal",
         "gmi|deck-random",
     ]
+    assert results[0].input_message_content.message_text == '🎮 بیا یه دست بازی کنیم\nQuick mode (Normal)'
+    assert results[1].input_message_content.message_text == '🎮 بیا یه دست بازی کنیم\nQuick mode (Random)'
+    assert results[2].input_message_content.message_text.startswith('🃏 دعوت Deck / Normal\n\n')
     assert re.match(GAME_INLINE_QUERY_PATTERN, "")
     assert re.match(GAME_INLINE_QUERY_PATTERN, "   ")
 
@@ -267,12 +279,16 @@ def test_private_invite_button_opens_default_game_mode_picker():
     )
 
     markup = query.edit_message_text.await_args.kwargs["reply_markup"]
+    assert query.edit_message_text.await_args.args[0] == '🎮 میخوای با کی بازی کنی؟'
+    assert [row[0].callback_data for row in markup.inline_keyboard[1:]] == [
+        'gm_source_quick_normal_queue', 'gm_source_quick_normal_invite']
     invite_button = markup.inline_keyboard[0][0]
     assert invite_button.text == "👤 انتخاب بازی در پی‌وی دوست"
     assert invite_button.switch_inline_query == ""
 
 
-def test_inline_accept_records_shared_message_before_launching_match():
+@pytest.mark.parametrize('bot_username', ['TelBattleTest_bot', 'TelBattleProduction_bot'])
+def test_inline_accept_records_shared_message_before_launching_match(bot_username):
     handler = GameModeHandlersMixin()
     request = {
         "request_id": "request-1",
@@ -296,7 +312,7 @@ def test_inline_accept_records_shared_message_before_launching_match():
         answer=AsyncMock(),
         edit_message_text=AsyncMock(),
     )
-    context = SimpleNamespace()
+    context = SimpleNamespace(bot=SimpleNamespace(username=bot_username))
 
     asyncio.run(
         handler.game_inline_accept_handler(
@@ -308,6 +324,8 @@ def test_inline_accept_records_shared_message_before_launching_match():
         "request-1", "inline-1"
     )
     handler._launch_mode_match.assert_awaited_once_with(context, accepted)
+    query.edit_message_text.assert_awaited_once_with(
+        f'✅ نبرد شروع شد، بیا اینجا @{bot_username} بازی کنیم')
 
 
 def test_easy_inline_result_has_fallback_confirmation_button():
@@ -419,6 +437,9 @@ def test_quick_result_shows_only_card_slogan_with_details_button(source, variant
     handler._send_round_winner_card_media = AsyncMock(return_value=True)
     handler._edit_request_panel = AsyncMock()
     context = SimpleNamespace(bot=SimpleNamespace(send_message=AsyncMock()))
+    delivery = Mock()
+    delivery.attach_mock(handler._send_round_winner_card_media, 'media')
+    delivery.attach_mock(context.bot.send_message, 'message')
     report = {
         "request_id": "request-1",
         "players": [1, 2],
@@ -435,18 +456,52 @@ def test_quick_result_shows_only_card_slogan_with_details_button(source, variant
     asyncio.run(handler._announce_quick_result(context, report))
 
     expected = '💬 «میز مذاکره هم گاهی میدان نبرد است.»'
-    if source == 'inline_private':
-        assert handler._edit_request_panel.await_args.args[2] == expected
-        markup = handler._edit_request_panel.await_args.kwargs['reply_markup']
-        context.bot.send_message.assert_not_awaited()
-    else:
-        targets = [-100123] if source == 'group_challenge' else [1, 2]
-        assert [call.kwargs['chat_id'] for call in context.bot.send_message.await_args_list] == targets
-        assert [call.args[1] for call in handler._send_round_winner_card_media.await_args_list] == targets
-        assert all(call.kwargs['text'] == expected for call in context.bot.send_message.await_args_list)
-        markup = context.bot.send_message.await_args.kwargs['reply_markup']
+    targets = [-100123] if source == 'group_challenge' else [1, 2]
+    handler._edit_request_panel.assert_not_awaited()
+    assert [call.kwargs['chat_id'] for call in context.bot.send_message.await_args_list] == targets
+    assert [call.args[1] for call in handler._send_round_winner_card_media.await_args_list] == targets
+    assert all(call.kwargs['text'] == expected for call in context.bot.send_message.await_args_list)
+    assert [(call[0], call.args[1] if call[0] == 'media' else call.kwargs['chat_id'])
+            for call in delivery.mock_calls] == [
+        item for uid in targets for item in [('media', uid), ('message', uid)]]
+    markup = context.bot.send_message.await_args.kwargs['reply_markup']
     assert markup.inline_keyboard[0][0].text == '📋 مشاهده جزئیات'
     assert markup.inline_keyboard[0][0].callback_data == 'gm_report_request-1'
+
+
+@pytest.mark.parametrize('outcome', ['tie', 'timeout', 'missing_media', 'blocked_dm', 'custom'])
+def test_inline_quick_result_handles_unavailable_media_and_non_winning_results(outcome):
+    handler = GameModeHandlersMixin()
+    handler.modes = SimpleNamespace(get_request=Mock(return_value={
+        'source': 'inline_private', 'origin_inline_message_id': 'keep-invitation'}))
+    card = SimpleNamespace(name='Alpha', origin='custom' if outcome == 'custom' else 'official',
+                           dialogs=['آماده بودم!'])
+    handler.db = SimpleNamespace(get_card_by_id_for_player=Mock(return_value=card))
+    handler._send_round_winner_card_media = AsyncMock(return_value=False)
+    handler._edit_request_panel = AsyncMock()
+    context = SimpleNamespace(bot=SimpleNamespace(send_message=AsyncMock()))
+    if outcome == 'blocked_dm':
+        context.bot.send_message.side_effect = [RuntimeError('bot blocked by first player'), None]
+    report = {'request_id': 'request-1', 'players': [1, 2], 'winner_id': 1,
+              'is_tie': outcome == 'tie', 'forfeit': outcome == 'timeout',
+              'breakdown': {'1': {'card_id': 'alpha', 'card_name': 'Alpha'}}}
+
+    asyncio.run(handler._announce_quick_result(context, report))
+
+    handler._edit_request_panel.assert_not_awaited()
+    assert [call.kwargs['chat_id'] for call in context.bot.send_message.await_args_list] == [1, 2]
+    if outcome in ('tie', 'timeout', 'custom'):
+        handler._send_round_winner_card_media.assert_not_awaited()
+    else:
+        assert handler._send_round_winner_card_media.await_count == 2
+    for call in context.bot.send_message.await_args_list:
+        assert call.kwargs['reply_markup'].inline_keyboard[0][0].callback_data == 'gm_report_request-1'
+        if outcome == 'tie':
+            assert call.kwargs['text'] == '🤝 نبرد Quick مساوی شد.'
+        elif outcome == 'timeout':
+            assert call.kwargs['text'] == '⏳ وقت انتخاب تموم شد.'
+        else:
+            assert call.kwargs['text'] == '💬 «آماده بودم!»'
 
 
 def test_quick_group_details_are_delivered_privately_to_clicking_player():
@@ -503,7 +558,7 @@ def test_quick_group_details_are_delivered_privately_to_clicking_player():
     assert context.bot.send_message.await_args.kwargs["chat_id"] == 1
     text = context.bot.send_message.await_args.kwargs['text']
     assert 'عدد پایه: 80 → نهایی: 90' in text  # Older single-stat reports remain readable.
-    assert text.count('🏙️') == 1
+    assert 'زمین:' not in text
 
 
 def test_quick_report_explains_both_components_and_effects():
@@ -519,7 +574,7 @@ def test_quick_report_explains_both_components_and_effects():
         "initial_arena_data": arena_snapshot, "arena_data": arena_snapshot,
         "breakdown": {
             "1": {
-                "card_name": "Alpha", "selected_stat": "power", "opponent_selected_stat": "iq",
+                "card_name": "Alpha", "card_rarity": "epic", "selected_stat": "power", "opponent_selected_stat": "iq",
                 "scored_stats": ["power", "iq"], "base_components": [90, 40],
                 "final_components": [93, 40], "base_value": 130, "final_value": 133,
                 "arena_effects": [{"card_type": "power", "stat": "power", "delta": 2}],
@@ -541,14 +596,15 @@ def test_quick_report_explains_both_components_and_effects():
     raw_text = context.bot.send_message.await_args.kwargs["text"]
     assert '\u2066' in raw_text and '\u2068Ali\u2069' in raw_text
     text = _readable_text(raw_text)
-    assert '🏆 Ali برد!' in text
+    assert text.startswith('📋 جزئیات بازی Quick\n🏆 Ali برنده شد')
+    assert 'Alpha (Epic)' in text
     assert '90 → 93' in text and '40 → 40' in text
     assert "امتیاز نهایی: 93 + 40 = 133" in text
     assert 'ابیلیتی حریف' in text
     assert "Desert strength" in text
     assert '🎁 +10 XP · +1 Score' in text
     assert '🎁 +1 XP · +0 Score' in text
-    assert text.count('🏜️') == 1
+    assert '🏜️' not in text and 'امتیاز = جمع' not in text
     assert 'جمع پایه' not in text and 'Ability: skip' not in text
     assert 'فعال نشد' not in text and 'دو بار' not in text
 
@@ -572,7 +628,7 @@ def test_quick_private_details_include_non_win_results_and_rewards(outcome):
     sent = context.bot.send_message.await_args.kwargs
     assert sent['chat_id'] == 2
     text = _readable_text(sent['text'])
-    expected = 'MH برد!' if outcome == 'forfeit_win' else 'بدون برنده' if forfeit else 'مساوی شد!'
+    expected = 'MH برنده شد' if outcome == 'forfeit_win' else 'بدون برنده' if forfeit else 'مساوی شد!'
     assert expected in text
     if forfeit:
         assert 'انتخاب' in sent['text'] and 'ßoozad' in sent['text']
@@ -595,8 +651,8 @@ def test_quick_details_keep_changed_arena_duplicate_stat_and_friendly_cost_priva
     context = SimpleNamespace(bot=SimpleNamespace(send_message=AsyncMock()))
     asyncio.run(handler.game_report_handler(SimpleNamespace(callback_query=query), context))
     text = _readable_text(context.bot.send_message.await_args.kwargs['text'])
-    assert 'زمین قبلی: 🏜️ بیابان' in text and '🏙️ زمین: شهر' in text
-    assert 'غیرفعال:' in text and 'دو بار' in text
+    assert '🏜️' not in text and '🏙️' not in text
+    assert 'غیرفعال:' not in text and 'دو بار' not in text
     assert '78 + 78 = 156' in text
     assert '👁 مشاهده کارت حریف' in text and 'reveal_opponent' not in text
     assert 'دوستانه · بدون XP، Score و Coin' in text and '-1 ❤️' in text

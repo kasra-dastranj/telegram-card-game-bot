@@ -996,6 +996,7 @@ class GameModeSystem:
         return {
             "card_id": card.card_id,
             "card_name": card.name,
+            "card_rarity": card.rarity.value,
             "card_type": card_type,
             "base_values": base_values,
             "final_values": final_values,
@@ -1214,6 +1215,7 @@ class GameModeSystem:
                     item = {
                         "card_id": preview["card_id"],
                         "card_name": preview["card_name"],
+                        "card_rarity": preview["card_rarity"],
                         "card_type": preview["card_type"],
                         "selected_stat": selected_stat,
                         "base_value": sum(base_components),

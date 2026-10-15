@@ -190,8 +190,10 @@ class GameModeHandlersMixin:
                 ]
             )
         await query.edit_message_text(
-            "حریف را چطور پیدا کنیم؟\n\n"
-            "برای بازی داخل گفت‌وگوی خصوصی دوستت، دکمه‌ی اول را بزن؛ سپس همان‌جا یکی از حالت‌های Quick یا Deck را انتخاب کن.",
+            "🎮 میخوای با کی بازی کنی؟" if mode == "quick" else (
+                "حریف را چطور پیدا کنیم؟\n\n"
+                "برای بازی داخل گفت‌وگوی خصوصی دوستت، دکمه‌ی اول را بزن؛ سپس همان‌جا یکی از حالت‌های Quick یا Deck را انتخاب کن."
+            ),
             reply_markup=InlineKeyboardMarkup(keyboard),
         )
 
@@ -267,6 +269,8 @@ class GameModeHandlersMixin:
                 "دوستش می‌تواند با دکمه‌ی پایین وارد بازی شود.\n"
                 f"⏳ اعتبار دعوت: {QUICK_GROUP_TTL_SECONDS} ثانیه"
             )
+            if mode == "quick":
+                text = f"🎮 بیا یه دست بازی کنیم\nQuick mode ({variant_title})"
             results.append(
                 InlineQueryResultArticle(
                     id=f"gmi|{request['request_id']}",
@@ -348,6 +352,8 @@ class GameModeHandlersMixin:
             return
         await query.answer("بازی شروع شد!")
         await query.edit_message_text(
+            f"✅ نبرد شروع شد، بیا اینجا @{context.bot.username} بازی کنیم"
+            if request["mode"] == "quick" else
             "✅ دعوت پذیرفته شد؛ انتخاب‌های بازی برای هر بازیکن باز می‌شود."
         )
         await self._launch_mode_match(context, accepted)
@@ -594,9 +600,10 @@ class GameModeHandlersMixin:
             message = "این انتخاب قبلاً ثبت شده و قابل تغییر نیست." if str(exc) == "choice_locked" else "انتخاب معتبر نیست."
             await query.answer(message, show_alert=True)
             return
-        card = self.db.get_card_by_id(card_id)
+        card = self.db.get_card_by_id_for_player(card_id, query.from_user.id) or self.db.get_card_by_id(card_id)
         await query.answer("کارت ثبت شد.")
         await query.edit_message_text(f"✅ {card.name if card else 'کارت'} انتخاب شد.\nمنتظر حریف…")
+        await self._send_quick_card_preview(context, query.from_user.id, card)
         if advanced:
             await self._send_quick_ability_panels(context, request_id, state)
 
@@ -623,50 +630,66 @@ class GameModeHandlersMixin:
             lines.append(f"کارت‌های {card_type}: {stat} {delta}")
         return lines
 
-    async def _send_quick_random_card_preview(self, context, user_id: int, card) -> None:
-        """Show the auto-selected Random card before the player chooses an Ability."""
+    async def _send_quick_card_preview(self, context, user_id: int, card) -> None:
+        """Send the player's actual form privately, for manual and Random choices."""
         if not card:
             return
-        resolver = getattr(self, "_resolve_card_media_path", None)
-        media_path = resolver(card) if callable(resolver) else None
-        if not media_path or not os.path.exists(media_path):
-            return
+        rarity = getattr(getattr(card, "rarity", None), "value", getattr(card, "rarity", "normal"))
+        if getattr(card, "origin", "official") != "custom":
+            try:
+                cached = self.db.get_card_variant_media_file_id(card.card_id, rarity, "sticker")
+                if cached:
+                    await context.bot.send_sticker(chat_id=user_id, sticker=cached)
+                    return
+            except Exception as exc:
+                logger.warning("Could not send cached Quick card sticker to %s: %s", user_id, exc)
         try:
-            with open(media_path, "rb") as media:
-                if media_path.lower().endswith(".webp"):
-                    await context.bot.send_sticker(chat_id=user_id, sticker=media)
-                else:
-                    await context.bot.send_photo(
-                        chat_id=user_id,
-                        photo=media,
-                        caption=f"🎲 کارت تصادفی شما: {card.name}",
-                    )
+            resolver = getattr(self, "_resolve_card_media_path", None)
+            media_path = (getattr(card, "image_path", None) if getattr(card, "origin", "official") == "custom"
+                          else resolver(card) if callable(resolver) else None)
+            if media_path and os.path.exists(media_path):
+                with open(media_path, "rb") as media:
+                    if media_path.lower().endswith(".webp"):
+                        await context.bot.send_sticker(chat_id=user_id, sticker=media)
+                    else:
+                        await context.bot.send_photo(chat_id=user_id, photo=media,
+                                                     caption=f"🎴 {card.name} ({str(rarity).title()})")
+                return
         except Exception as exc:
-            logger.warning("Could not send Random Quick card preview to %s: %s", user_id, exc)
+            logger.warning("Could not send Quick card preview to %s: %s", user_id, exc)
+        # Missing artwork must not leave the player choosing without card information.
+        text = f"🎴 {bidi_isolate(card.name)} ({bidi_isolate(str(rarity).title())})"
+        for stat in ("power", "speed", "iq", "popularity"):
+            if getattr(card, stat, None) is not None:
+                text += f"\n{STAT_LABELS[stat]}: {getattr(card, stat)}"
+        try:
+            await context.bot.send_message(chat_id=user_id, text=text)
+        except Exception as exc:
+            logger.warning("Could not send Quick card information to %s: %s", user_id, exc)
+
+    async def _send_quick_arena_message(self, context, user_id: int, state: dict):
+        try:
+            await context.bot.send_message(chat_id=user_id, text=self._quick_arena_text(state))
+        except Exception as exc:
+            logger.warning("Could not send Quick arena to %s: %s", user_id, exc)
 
     async def _send_quick_ability_panels(self, context, request_id: str, state: dict):
-        arena = self.modes._arena(state["arena"])
+        arena = state.get("arena_snapshot") or self.modes._arena(state["arena"])
         for user_id in state["players"]:
             card_id = state.get("cards", {}).get(str(user_id))
             card = None
             if card_id:
                 card = self.db.get_card_by_id_for_player(card_id, user_id) or self.db.get_card_by_id(card_id)
-            if state.get("variant") == "random":
-                await self._send_quick_random_card_preview(context, user_id, card)
+            if state.get("variant") in ("random", "friendly_random"):
+                await self._send_quick_card_preview(context, user_id, card)
+            await self._send_quick_arena_message(context, user_id, state)
             abilities = self.modes.list_player_abilities(user_id) if arena.get("abilities_enabled", True) else []
             keyboard = [
                 [InlineKeyboardButton(f"{item['title']} ×{item['quantity']}", callback_data=f"gm_qability_{request_id}_{item['ability_key']}")]
                 for item in abilities
             ]
             keyboard.append([InlineKeyboardButton("بدون Ability", callback_data=f"gm_qability_{request_id}_skip")])
-            card_line = (
-                f"🎲 کارت تصادفی شما: {card.name}"
-                if state.get("variant") == "random" and card
-                else f"🎴 کارت شما: {card.name}"
-                if card
-                else "🎴 کارت انتخاب‌شده پیدا نشد"
-            )
-            text = self._quick_arena_text(state) + f"\n\n{card_line}\n\nیک Ability مصرفی انتخاب کن یا رد شو."
+            text = "از کدوم Ability card استفاده میکنی؟"
             try:
                 await context.bot.send_message(chat_id=user_id, text=text, reply_markup=InlineKeyboardMarkup(keyboard))
             except Exception as exc:
@@ -696,13 +719,18 @@ class GameModeHandlersMixin:
 
     async def _send_quick_stat_panels(self, context, request_id: str, state: dict):
         for user_id in state["players"]:
+            if state.get("arena") != state.get("initial_arena"):
+                await self._send_quick_arena_message(context, user_id, state)
             actor_ability = state["ability_choices"].get(str(user_id))
-            extra = ""
             if actor_ability == "reveal_opponent":
                 opponent_id = next(pid for pid in state["players"] if pid != user_id)
-                opponent_card = self.db.get_card_by_id(state["cards"][str(opponent_id)])
+                card_id = state["cards"][str(opponent_id)]
+                opponent_card = self.db.get_card_by_id_for_player(card_id, opponent_id) or self.db.get_card_by_id(card_id)
                 if opponent_card:
-                    extra = f"\n👁 کارت حریف: {opponent_card.name}"
+                    try:
+                        await context.bot.send_message(chat_id=user_id, text=f"👁 کارت حریف: {bidi_isolate(opponent_card.name)}")
+                    except Exception as exc:
+                        logger.warning("Could not reveal Quick card to %s: %s", user_id, exc)
             allowed = self.modes.allowed_quick_stats(state, user_id)
             try:
                 preview = self.modes.quick_stat_preview(state, user_id)
@@ -718,15 +746,7 @@ class GameModeHandlersMixin:
                 ]
                 for stat in allowed
             ]
-            text = (
-                self._quick_arena_text(state)
-                + extra
-                + f"\n\n🎴 کارت شما: {preview['card_name']}"
-                + "\nعددهای زیر با اثر زمین، Passive و Ability محاسبه شده‌اند."
-                + ("\nامتیاز نهایی کارت، جمع ویژگی انتخابی شما و حریف است."
-                   if state.get("scoring_rule") == "sum_selected_stats_v1" else "")
-                + "\n\nویژگی خودت را انتخاب کن. ⏳ ۶۰ ثانیه"
-            )
+            text = "یه ویژگی انتخاب کن، ۶۰ ثانیه ⏳ وقت داری\n(عددهای زیر با اثر زمین، Passive و Ability محاسبه شدن)"
             try:
                 await context.bot.send_message(chat_id=user_id, text=text, reply_markup=InlineKeyboardMarkup(keyboard))
             except Exception as exc:
@@ -803,9 +823,6 @@ class GameModeHandlersMixin:
         markup = InlineKeyboardMarkup(
             [[InlineKeyboardButton("📋 مشاهده جزئیات", callback_data=f"gm_report_{report['request_id']}")]]
         )
-        if request and request.get("source") == "inline_private":
-            await self._edit_request_panel(context, request, text, reply_markup=markup)
-            return
         targets = (
             [request["origin_chat_id"]]
             if request and request.get("source") == "group_challenge"
@@ -830,9 +847,9 @@ class GameModeHandlersMixin:
         if report["mode"] == "quick":
             names = {str(uid): self.db.get_or_create_player(int(uid)).first_name
                      for uid in report["players"]}
-            lines = ["📋 جزئیات Quick"]
+            lines = ["📋 جزئیات بازی Quick"]
             if report.get("winner_id") is not None:
-                lines.append(f"🏆 {bidi_isolate(names[str(report['winner_id'])])} برد!")
+                lines.append(f"🏆 {bidi_isolate(names[str(report['winner_id'])])} برنده شد")
             elif report.get("forfeit"):
                 lines.append("⏳ بازی بدون برنده تموم شد.")
             else:
@@ -842,28 +859,16 @@ class GameModeHandlersMixin:
             if report.get("forfeit"):
                 missing = "، ".join(bidi_isolate(names[str(uid)]) for uid in report.get("loser_ids", []))
                 lines.append(f"⏳ {missing}: انتخاب به‌موقع ثبت نشد." if missing else "⏳ نتیجه با پایان مهلت انتخاب مشخص شد.")
-            else:
-                initial_arena = report.get("initial_arena_data") or self.modes._arena(report.get("initial_arena"))
-                final_arena = report.get("arena_data") or self.modes._arena(report.get("arena"))
-                lines.append("")
-                if initial_arena["id"] != final_arena["id"]:
-                    lines.append(f"🔄 زمین قبلی: {initial_arena['emoji']} {initial_arena['name']}")
-                if (final_arena.get("effects") or final_arena.get("disabled_stats")
-                        or not final_arena.get("abilities_enabled", True)
-                        or not final_arena.get("passives_enabled", True)):
-                    lines.append(self._quick_arena_text({"arena": final_arena["id"], "arena_snapshot": final_arena}))
-                else:
-                    lines.append(f"{final_arena['emoji']} زمین: {final_arena['name']}")
-                if any(item.get("scored_stats") for item in report.get("breakdown", {}).values()):
-                    lines.append("امتیاز = جمع دو ویژگی انتخابی بعد از اثرها.")
-                    if any(len(set(item.get("scored_stats", []))) == 1 for item in report["breakdown"].values() if item.get("scored_stats")):
-                        lines.append("ویژگی یکسان رو دو بار حساب کردیم.")
             for index, uid in enumerate(report["players"]):
                 key = str(uid)
                 item = report.get("breakdown", {}).get(key)
                 reward = report.get("rewards", {}).get(key)
                 marker = "🔵" if index == 0 else "🔴"
-                lines.extend(["", f"{marker} {bidi_isolate(names[key])}" + (f" · {bidi_isolate(item['card_name'])}" if item else "")])
+                card_label = f" · {bidi_isolate(item['card_name'])}" if item else ""
+                rarity = item.get("card_rarity") if item else None
+                if rarity in ("normal", "epic", "legend", "rare"):
+                    card_label += f" ({bidi_isolate(rarity.title())})"
+                lines.extend(["", f"{marker} {bidi_isolate(names[key])}{card_label}"])
                 if item:
                     if item.get("scored_stats"):
                         for stat, base, final in zip(item["scored_stats"], item["base_components"], item["final_components"]):
