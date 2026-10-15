@@ -190,8 +190,10 @@ class GameModeHandlersMixin:
                 ]
             )
         await query.edit_message_text(
-            "حریف را چطور پیدا کنیم؟\n\n"
-            "برای بازی داخل گفت‌وگوی خصوصی دوستت، دکمه‌ی اول را بزن؛ سپس همان‌جا یکی از حالت‌های Quick یا Deck را انتخاب کن.",
+            "🎮 میخوای با کی بازی کنی؟" if mode == "quick" else (
+                "حریف را چطور پیدا کنیم؟\n\n"
+                "برای بازی داخل گفت‌وگوی خصوصی دوستت، دکمه‌ی اول را بزن؛ سپس همان‌جا یکی از حالت‌های Quick یا Deck را انتخاب کن."
+            ),
             reply_markup=InlineKeyboardMarkup(keyboard),
         )
 
@@ -267,6 +269,8 @@ class GameModeHandlersMixin:
                 "دوستش می‌تواند با دکمه‌ی پایین وارد بازی شود.\n"
                 f"⏳ اعتبار دعوت: {QUICK_GROUP_TTL_SECONDS} ثانیه"
             )
+            if mode == "quick":
+                text = f"🎮 بیا یه دست بازی کنیم\nQuick mode ({variant_title})"
             results.append(
                 InlineQueryResultArticle(
                     id=f"gmi|{request['request_id']}",
@@ -348,6 +352,8 @@ class GameModeHandlersMixin:
             return
         await query.answer("بازی شروع شد!")
         await query.edit_message_text(
+            f"✅ نبرد شروع شد، بیا اینجا @{context.bot.username} بازی کنیم"
+            if request["mode"] == "quick" else
             "✅ دعوت پذیرفته شد؛ انتخاب‌های بازی برای هر بازیکن باز می‌شود."
         )
         await self._launch_mode_match(context, accepted)
@@ -817,9 +823,6 @@ class GameModeHandlersMixin:
         markup = InlineKeyboardMarkup(
             [[InlineKeyboardButton("📋 مشاهده جزئیات", callback_data=f"gm_report_{report['request_id']}")]]
         )
-        if request and request.get("source") == "inline_private":
-            await self._edit_request_panel(context, request, text, reply_markup=markup)
-            return
         targets = (
             [request["origin_chat_id"]]
             if request and request.get("source") == "group_challenge"

@@ -46,6 +46,52 @@ def _query(data, uid=1):
     return SimpleNamespace(data=data, from_user=SimpleNamespace(id=uid), answer=AsyncMock(), edit_message_text=AsyncMock())
 
 
+def test_inline_invitation_stays_started_and_both_players_receive_winner_sticker_then_result(quick_ui, tmp_path):
+    from bot.handlers.battle import BattleHandlersMixin
+
+    handler, context = quick_ui
+    context.bot.username = 'TelBattleTest_bot'
+    context.bot.edit_message_text = AsyncMock()
+    # Use the normal winner media sender with a synthetic, local sticker.
+    sticker = tmp_path / 'winner.webp'
+    sticker.write_bytes(b'synthetic winner sticker')
+    handler._resolve_card_media_path = Mock(return_value=str(sticker))
+    handler._send_round_winner_card_media = BattleHandlersMixin._send_round_winner_card_media.__get__(handler)
+    request = handler.modes.create_inline_private_challenge(1, 'quick', 'normal')
+    key = request['request_id']
+    invitation = _query(f'gm_inline_accept_{key}', 2)
+    invitation.inline_message_id = 'friend-private-invitation'
+    asyncio.run(handler.game_inline_accept_handler(SimpleNamespace(callback_query=invitation), context))
+    invitation.edit_message_text.assert_awaited_once_with(
+        '✅ نبرد شروع شد، بیا اینجا @TelBattleTest_bot بازی کنیم')
+    handler.modes.select_quick_card(key, 1, 'alpha')
+    handler.modes.select_quick_card(key, 2, 'beta')
+    handler.modes.select_quick_ability(key, 1, 'skip')
+    handler.modes.select_quick_ability(key, 2, 'skip')
+    handler.modes.select_quick_stat(key, 1, 'power')
+    context.bot.send_message.reset_mock()
+    context.bot.send_sticker.reset_mock()
+    delivery = Mock()
+    delivery.attach_mock(context.bot.send_sticker, 'sticker')
+    delivery.attach_mock(context.bot.send_message, 'message')
+
+    asyncio.run(handler.quick_stat_handler(
+        SimpleNamespace(callback_query=_query(f'gm_qstat_{key}_iq', 2)), context))
+
+    report = handler.modes.get_report(key)
+    assert report['winner_id'] == 1  # Alpha's Epic form beats Beta's Normal form.
+    assert [(call[0], call.kwargs['chat_id']) for call in delivery.mock_calls] == [
+        ('sticker', 1), ('message', 1), ('sticker', 2), ('message', 2)]
+    for call in context.bot.send_message.await_args_list:
+        assert call.kwargs['text'].startswith('💬 «')
+        button = call.kwargs['reply_markup'].inline_keyboard[0][0]
+        assert button.text == '📋 مشاهده جزئیات'
+        assert button.callback_data == f'gm_report_{key}'
+    assert invitation.edit_message_text.await_count == 1
+    context.bot.edit_message_text.assert_not_awaited()
+    assert handler.modes.get_request(key)['origin_inline_message_id'] == invitation.inline_message_id
+
+
 def test_manual_choice_sends_actual_form_immediately_and_duplicate_click_does_not_resend(quick_ui):
     handler, context = quick_ui
     key = _request(handler)['request_id']

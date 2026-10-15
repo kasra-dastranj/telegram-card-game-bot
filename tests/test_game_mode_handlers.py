@@ -179,7 +179,8 @@ def test_quick_stat_panel_shows_selected_card_and_final_values():
     assert button_texts == ["💪 قدرت: 93", "⚡ سرعت: 29", "🧠 هوش: 40", "❤️ محبوبیت: 50"]
 
 
-def test_inline_private_quick_query_builds_an_accept_invitation(tmp_path):
+@pytest.mark.parametrize('variant', ['normal', 'random'])
+def test_inline_private_quick_query_builds_an_accept_invitation(tmp_path, variant):
     handler = GameModeHandlersMixin()
     handler.db = SimpleNamespace(get_player_cards=Mock(return_value=[SimpleNamespace()]))
     from core.database import DatabaseManager
@@ -191,7 +192,7 @@ def test_inline_private_quick_query_builds_an_accept_invitation(tmp_path):
         )
     )
     inline_query = SimpleNamespace(
-        query="game quick normal",
+        query=f"game quick {variant}",
         from_user=SimpleNamespace(id=1, first_name="Ali"),
         answer=AsyncMock(),
     )
@@ -206,6 +207,10 @@ def test_inline_private_quick_query_builds_an_accept_invitation(tmp_path):
     results = inline_query.answer.await_args.args[0]
     assert len(results) == 1
     assert results[0].id == "gmi|request-1"
+    assert results[0].input_message_content.message_text == (
+        f"🎮 بیا یه دست بازی کنیم\nQuick mode ({variant.title()})"
+    )
+    handler.modes.create_inline_private_challenge.assert_called_once_with(1, 'quick', variant)
     assert results[0].reply_markup.inline_keyboard[0][0].callback_data == (
         "gm_inline_accept_request-1"
     )
@@ -248,6 +253,9 @@ def test_inline_private_blank_or_whitespace_query_shows_all_game_modes(tmp_path)
         "gmi|deck-normal",
         "gmi|deck-random",
     ]
+    assert results[0].input_message_content.message_text == '🎮 بیا یه دست بازی کنیم\nQuick mode (Normal)'
+    assert results[1].input_message_content.message_text == '🎮 بیا یه دست بازی کنیم\nQuick mode (Random)'
+    assert results[2].input_message_content.message_text.startswith('🃏 دعوت Deck / Normal\n\n')
     assert re.match(GAME_INLINE_QUERY_PATTERN, "")
     assert re.match(GAME_INLINE_QUERY_PATTERN, "   ")
 
@@ -271,12 +279,16 @@ def test_private_invite_button_opens_default_game_mode_picker():
     )
 
     markup = query.edit_message_text.await_args.kwargs["reply_markup"]
+    assert query.edit_message_text.await_args.args[0] == '🎮 میخوای با کی بازی کنی؟'
+    assert [row[0].callback_data for row in markup.inline_keyboard[1:]] == [
+        'gm_source_quick_normal_queue', 'gm_source_quick_normal_invite']
     invite_button = markup.inline_keyboard[0][0]
     assert invite_button.text == "👤 انتخاب بازی در پی‌وی دوست"
     assert invite_button.switch_inline_query == ""
 
 
-def test_inline_accept_records_shared_message_before_launching_match():
+@pytest.mark.parametrize('bot_username', ['TelBattleTest_bot', 'TelBattleProduction_bot'])
+def test_inline_accept_records_shared_message_before_launching_match(bot_username):
     handler = GameModeHandlersMixin()
     request = {
         "request_id": "request-1",
@@ -300,7 +312,7 @@ def test_inline_accept_records_shared_message_before_launching_match():
         answer=AsyncMock(),
         edit_message_text=AsyncMock(),
     )
-    context = SimpleNamespace()
+    context = SimpleNamespace(bot=SimpleNamespace(username=bot_username))
 
     asyncio.run(
         handler.game_inline_accept_handler(
@@ -312,6 +324,8 @@ def test_inline_accept_records_shared_message_before_launching_match():
         "request-1", "inline-1"
     )
     handler._launch_mode_match.assert_awaited_once_with(context, accepted)
+    query.edit_message_text.assert_awaited_once_with(
+        f'✅ نبرد شروع شد، بیا اینجا @{bot_username} بازی کنیم')
 
 
 def test_easy_inline_result_has_fallback_confirmation_button():
@@ -423,6 +437,9 @@ def test_quick_result_shows_only_card_slogan_with_details_button(source, variant
     handler._send_round_winner_card_media = AsyncMock(return_value=True)
     handler._edit_request_panel = AsyncMock()
     context = SimpleNamespace(bot=SimpleNamespace(send_message=AsyncMock()))
+    delivery = Mock()
+    delivery.attach_mock(handler._send_round_winner_card_media, 'media')
+    delivery.attach_mock(context.bot.send_message, 'message')
     report = {
         "request_id": "request-1",
         "players": [1, 2],
@@ -439,18 +456,52 @@ def test_quick_result_shows_only_card_slogan_with_details_button(source, variant
     asyncio.run(handler._announce_quick_result(context, report))
 
     expected = '💬 «میز مذاکره هم گاهی میدان نبرد است.»'
-    if source == 'inline_private':
-        assert handler._edit_request_panel.await_args.args[2] == expected
-        markup = handler._edit_request_panel.await_args.kwargs['reply_markup']
-        context.bot.send_message.assert_not_awaited()
-    else:
-        targets = [-100123] if source == 'group_challenge' else [1, 2]
-        assert [call.kwargs['chat_id'] for call in context.bot.send_message.await_args_list] == targets
-        assert [call.args[1] for call in handler._send_round_winner_card_media.await_args_list] == targets
-        assert all(call.kwargs['text'] == expected for call in context.bot.send_message.await_args_list)
-        markup = context.bot.send_message.await_args.kwargs['reply_markup']
+    targets = [-100123] if source == 'group_challenge' else [1, 2]
+    handler._edit_request_panel.assert_not_awaited()
+    assert [call.kwargs['chat_id'] for call in context.bot.send_message.await_args_list] == targets
+    assert [call.args[1] for call in handler._send_round_winner_card_media.await_args_list] == targets
+    assert all(call.kwargs['text'] == expected for call in context.bot.send_message.await_args_list)
+    assert [(call[0], call.args[1] if call[0] == 'media' else call.kwargs['chat_id'])
+            for call in delivery.mock_calls] == [
+        item for uid in targets for item in [('media', uid), ('message', uid)]]
+    markup = context.bot.send_message.await_args.kwargs['reply_markup']
     assert markup.inline_keyboard[0][0].text == '📋 مشاهده جزئیات'
     assert markup.inline_keyboard[0][0].callback_data == 'gm_report_request-1'
+
+
+@pytest.mark.parametrize('outcome', ['tie', 'timeout', 'missing_media', 'blocked_dm', 'custom'])
+def test_inline_quick_result_handles_unavailable_media_and_non_winning_results(outcome):
+    handler = GameModeHandlersMixin()
+    handler.modes = SimpleNamespace(get_request=Mock(return_value={
+        'source': 'inline_private', 'origin_inline_message_id': 'keep-invitation'}))
+    card = SimpleNamespace(name='Alpha', origin='custom' if outcome == 'custom' else 'official',
+                           dialogs=['آماده بودم!'])
+    handler.db = SimpleNamespace(get_card_by_id_for_player=Mock(return_value=card))
+    handler._send_round_winner_card_media = AsyncMock(return_value=False)
+    handler._edit_request_panel = AsyncMock()
+    context = SimpleNamespace(bot=SimpleNamespace(send_message=AsyncMock()))
+    if outcome == 'blocked_dm':
+        context.bot.send_message.side_effect = [RuntimeError('bot blocked by first player'), None]
+    report = {'request_id': 'request-1', 'players': [1, 2], 'winner_id': 1,
+              'is_tie': outcome == 'tie', 'forfeit': outcome == 'timeout',
+              'breakdown': {'1': {'card_id': 'alpha', 'card_name': 'Alpha'}}}
+
+    asyncio.run(handler._announce_quick_result(context, report))
+
+    handler._edit_request_panel.assert_not_awaited()
+    assert [call.kwargs['chat_id'] for call in context.bot.send_message.await_args_list] == [1, 2]
+    if outcome in ('tie', 'timeout', 'custom'):
+        handler._send_round_winner_card_media.assert_not_awaited()
+    else:
+        assert handler._send_round_winner_card_media.await_count == 2
+    for call in context.bot.send_message.await_args_list:
+        assert call.kwargs['reply_markup'].inline_keyboard[0][0].callback_data == 'gm_report_request-1'
+        if outcome == 'tie':
+            assert call.kwargs['text'] == '🤝 نبرد Quick مساوی شد.'
+        elif outcome == 'timeout':
+            assert call.kwargs['text'] == '⏳ وقت انتخاب تموم شد.'
+        else:
+            assert call.kwargs['text'] == '💬 «آماده بودم!»'
 
 
 def test_quick_group_details_are_delivered_privately_to_clicking_player():
