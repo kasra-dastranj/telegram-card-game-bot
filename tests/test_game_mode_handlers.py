@@ -129,7 +129,7 @@ def test_quick_random_ability_panel_reveals_auto_selected_card():
         list_player_abilities=Mock(return_value=[]),
     )
     handler._quick_arena_text = Mock(return_value="🏛️ زمین: معبد خاموش")
-    handler._send_quick_random_card_preview = AsyncMock()
+    handler._send_quick_card_preview = AsyncMock()
     handler._schedule_mode_job = Mock()
     context = SimpleNamespace(bot=SimpleNamespace(send_message=AsyncMock()))
     state = {
@@ -141,9 +141,12 @@ def test_quick_random_ability_panel_reveals_auto_selected_card():
 
     asyncio.run(handler._send_quick_ability_panels(context, "request-random", state))
 
-    handler._send_quick_random_card_preview.assert_any_await(context, 1, alpha)
-    first_message = context.bot.send_message.await_args_list[0].kwargs
-    assert "🎲 کارت تصادفی شما: Alpha" in first_message["text"]
+    handler._send_quick_card_preview.assert_any_await(context, 1, alpha)
+    sent = context.bot.send_message.await_args_list
+    assert [(call.kwargs['chat_id'], call.kwargs['text']) for call in sent] == [
+        (1, '🏛️ زمین: معبد خاموش'), (1, 'از کدوم Ability card استفاده میکنی؟'),
+        (2, '🏛️ زمین: معبد خاموش'), (2, 'از کدوم Ability card استفاده میکنی؟')]
+    assert sent[1].kwargs['reply_markup'].inline_keyboard[-1][0].callback_data == 'gm_qability_request-random_skip'
 
 
 def test_quick_stat_panel_shows_selected_card_and_final_values():
@@ -170,7 +173,8 @@ def test_quick_stat_panel_shows_selected_card_and_final_values():
     asyncio.run(handler._send_quick_stat_panels(context, "request-1", state))
 
     first_message = context.bot.send_message.await_args_list[0].kwargs
-    assert "🎴 کارت شما: Alpha" in first_message["text"]
+    assert first_message['text'] == 'یه ویژگی انتخاب کن، ۶۰ ثانیه ⏳ وقت داری\n(عددهای زیر با اثر زمین، Passive و Ability محاسبه شدن)'
+    assert context.bot.send_message.await_count == 2
     button_texts = [row[0].text for row in first_message["reply_markup"].inline_keyboard]
     assert button_texts == ["💪 قدرت: 93", "⚡ سرعت: 29", "🧠 هوش: 40", "❤️ محبوبیت: 50"]
 
@@ -503,7 +507,7 @@ def test_quick_group_details_are_delivered_privately_to_clicking_player():
     assert context.bot.send_message.await_args.kwargs["chat_id"] == 1
     text = context.bot.send_message.await_args.kwargs['text']
     assert 'عدد پایه: 80 → نهایی: 90' in text  # Older single-stat reports remain readable.
-    assert text.count('🏙️') == 1
+    assert 'زمین:' not in text
 
 
 def test_quick_report_explains_both_components_and_effects():
@@ -519,7 +523,7 @@ def test_quick_report_explains_both_components_and_effects():
         "initial_arena_data": arena_snapshot, "arena_data": arena_snapshot,
         "breakdown": {
             "1": {
-                "card_name": "Alpha", "selected_stat": "power", "opponent_selected_stat": "iq",
+                "card_name": "Alpha", "card_rarity": "epic", "selected_stat": "power", "opponent_selected_stat": "iq",
                 "scored_stats": ["power", "iq"], "base_components": [90, 40],
                 "final_components": [93, 40], "base_value": 130, "final_value": 133,
                 "arena_effects": [{"card_type": "power", "stat": "power", "delta": 2}],
@@ -541,14 +545,15 @@ def test_quick_report_explains_both_components_and_effects():
     raw_text = context.bot.send_message.await_args.kwargs["text"]
     assert '\u2066' in raw_text and '\u2068Ali\u2069' in raw_text
     text = _readable_text(raw_text)
-    assert '🏆 Ali برد!' in text
+    assert text.startswith('📋 جزئیات بازی Quick\n🏆 Ali برنده شد')
+    assert 'Alpha (Epic)' in text
     assert '90 → 93' in text and '40 → 40' in text
     assert "امتیاز نهایی: 93 + 40 = 133" in text
     assert 'ابیلیتی حریف' in text
     assert "Desert strength" in text
     assert '🎁 +10 XP · +1 Score' in text
     assert '🎁 +1 XP · +0 Score' in text
-    assert text.count('🏜️') == 1
+    assert '🏜️' not in text and 'امتیاز = جمع' not in text
     assert 'جمع پایه' not in text and 'Ability: skip' not in text
     assert 'فعال نشد' not in text and 'دو بار' not in text
 
@@ -572,7 +577,7 @@ def test_quick_private_details_include_non_win_results_and_rewards(outcome):
     sent = context.bot.send_message.await_args.kwargs
     assert sent['chat_id'] == 2
     text = _readable_text(sent['text'])
-    expected = 'MH برد!' if outcome == 'forfeit_win' else 'بدون برنده' if forfeit else 'مساوی شد!'
+    expected = 'MH برنده شد' if outcome == 'forfeit_win' else 'بدون برنده' if forfeit else 'مساوی شد!'
     assert expected in text
     if forfeit:
         assert 'انتخاب' in sent['text'] and 'ßoozad' in sent['text']
@@ -595,8 +600,8 @@ def test_quick_details_keep_changed_arena_duplicate_stat_and_friendly_cost_priva
     context = SimpleNamespace(bot=SimpleNamespace(send_message=AsyncMock()))
     asyncio.run(handler.game_report_handler(SimpleNamespace(callback_query=query), context))
     text = _readable_text(context.bot.send_message.await_args.kwargs['text'])
-    assert 'زمین قبلی: 🏜️ بیابان' in text and '🏙️ زمین: شهر' in text
-    assert 'غیرفعال:' in text and 'دو بار' in text
+    assert '🏜️' not in text and '🏙️' not in text
+    assert 'غیرفعال:' not in text and 'دو بار' not in text
     assert '78 + 78 = 156' in text
     assert '👁 مشاهده کارت حریف' in text and 'reveal_opponent' not in text
     assert 'دوستانه · بدون XP، Score و Coin' in text and '-1 ❤️' in text
