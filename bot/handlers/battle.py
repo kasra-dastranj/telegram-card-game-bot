@@ -2570,7 +2570,7 @@ class BattleHandlersMixin:
         await query.answer(results, cache_time=0, is_personal=True)
 
     async def _answer_pvp_deck_inline_query(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Personal inline picker for deck selection inside the group."""
+        """Personal inline picker used only by a shared peer-private invitation."""
         query = update.inline_query
         raw_query = (query.query or "").strip()
         user_id = query.from_user.id
@@ -2587,6 +2587,9 @@ class BattleHandlersMixin:
             return
 
         fight_id = query_parts[1].strip()[:8]
+        if not context.bot_data.get(f"deck_{fight_id}_inline_message_id"):
+            await query.answer([], cache_time=0, is_personal=True)
+            return
         target_user_id = self._parse_inline_user_token(query_parts[2].strip())
         if target_user_id is None or user_id != target_user_id:
             results.append(InlineQueryResultArticle(

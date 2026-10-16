@@ -511,14 +511,13 @@ class PvPHandlersMixin:
         text = (
             f"⚔️ **فایت تایید شد!**\n\n"
             f"🔥 {challenger.first_name} 🆚 {opponent.first_name}\n\n"
-            f"هر دو بازیکن دک خود را همین‌جا در گروه انتخاب کنند.\n"
+            f"هر دو بازیکن دک خود را در پیوی ربات انتخاب کنند.\n"
             f"⏰ مهلت: 15 دقیقه"
         )
         await query.edit_message_text(text, parse_mode='Markdown')
 
-        await self._send_group_deck_selection(
-            context, fight_id, fight.challenger_id, opponent_id,
-            expected_user_id=fight.challenger_id
+        await self._send_deck_selection_panels(
+            context, fight_id, fight.challenger_id, opponent_id
         )
 
 
@@ -1374,14 +1373,13 @@ class PvPHandlersMixin:
         text = (
             f"⚔️ **فایت تایید شد!**\n\n"
             f"🔥 {challenger.first_name} 🆚 {opponent.first_name}\n\n"
-            f"هر دو بازیکن دک خود را همین‌جا در گروه انتخاب کنند.\n"
+            f"هر دو بازیکن دک خود را در پیوی ربات انتخاب کنند.\n"
             f"⏰ مهلت: 15 دقیقه"
         )
         await query.edit_message_text(text, parse_mode='Markdown')
 
-        await self._send_group_deck_selection(
-            context, fight_id, fight.challenger_id, opponent_id,
-            expected_user_id=fight.challenger_id
+        await self._send_deck_selection_panels(
+            context, fight_id, fight.challenger_id, opponent_id
         )
 
 
@@ -1700,11 +1698,24 @@ class PvPHandlersMixin:
 
     # ==================== DECK SELECTION HANDLERS ====================
 
-    async def _send_group_deck_selection(
+    async def _send_deck_selection_panels(self, context, fight_id: str, challenger_id: int, opponent_id: int):
+        """Use the peer invitation or each player's bot DM, never both."""
+        if context.bot_data.get(f"deck_{fight_id}_inline_message_id"):
+            await self._send_inline_deck_selection(
+                context, fight_id, challenger_id, opponent_id, expected_user_id=challenger_id
+            )
+        else:
+            context.bot_data.pop(f"pvp_{fight_id}_deck_expected_user", None)
+            await self._send_deck_selection(context, fight_id, challenger_id)
+            await self._send_deck_selection(context, fight_id, opponent_id)
+
+    async def _send_inline_deck_selection(
         self, context, fight_id: str, challenger_id: int, opponent_id: int,
         expected_user_id: int = None
     ):
-        """ارسال پنل انتخاب دک برای بازیکنی که نوبتش است."""
+        """Update the shared peer-private invitation for the next deck choice."""
+        if not context.bot_data.get(f"deck_{fight_id}_inline_message_id"):
+            return
         fight = self.db.get_fight_by_id(fight_id)
         if not fight or not fight.chat_id:
             return
@@ -1738,19 +1749,19 @@ class PvPHandlersMixin:
         ch_status = "انتخاب شد" if ch_selected else "در انتظار"
         op_status = "انتخاب شد" if op_selected else "در انتظار"
         text = (
-            f"🗂️ انتخاب دک\n\n"
+            f"🗂️ انتخاب دک\n"
+            f"⏳ مهلت انتخاب: ۱ دقیقه\n\n"
             f"نوبت: {color} {expected_name}\n\n"
             f"🔵 {ch_name} — {ch_status}\n"
             f"🔴 {op_name} — {op_status}"
         )
         try:
-            await context.bot.send_message(
-                chat_id=fight.chat_id,
-                text=text,
+            await self._upsert_deck_status_message(
+                context, fight_id, fight.chat_id, text,
                 reply_markup=InlineKeyboardMarkup(keyboard),
             )
         except Exception as e:
-            logger.warning(f"Could not send group deck selection for {fight_id}: {e}")
+            logger.warning(f"Could not update inline deck selection for {fight_id}: {e}")
 
     async def _send_deck_selection(self, context, fight_id: str, user_id: int, prefix_text: str = ""):
         """ارسال UI انتخاب دک قبل از فایت (در پیوی)"""
@@ -1845,8 +1856,12 @@ class PvPHandlersMixin:
         else:
             return False, "این فایت مال تو نیست", False
 
+        deck_state = self.db.get_battle_deck_state(fight_id)
+        if deck_state.get(f'{role}_deck_selected'):
+            return False, "دک تو قبلاً انتخاب شده است", False
+        inline_selection = bool(context.bot_data.get(f"deck_{fight_id}_inline_message_id"))
         expected_user_id = context.bot_data.get(f"pvp_{fight_id}_deck_expected_user")
-        if expected_user_id in (ch_id, op_id) and user_id != expected_user_id:
+        if inline_selection and expected_user_id in (ch_id, op_id) and user_id != expected_user_id:
             return False, "هنوز نوبت انتخاب دک تو نیست", False
 
         # ذخیره deck_id در active_fights
@@ -1911,11 +1926,12 @@ class PvPHandlersMixin:
             await self._init_3round_battle(context, fight_id, fight)
             return True, "هر دو دک انتخاب شدند", True
 
-        next_user_id = op_id if role == 'challenger' else ch_id
-        context.bot_data[f"pvp_{fight_id}_deck_expected_user"] = next_user_id
-        await self._send_group_deck_selection(
-            context, fight_id, ch_id, op_id, expected_user_id=next_user_id
-        )
+        if inline_selection:
+            next_user_id = op_id if role == 'challenger' else ch_id
+            context.bot_data[f"pvp_{fight_id}_deck_expected_user"] = next_user_id
+            await self._send_inline_deck_selection(
+                context, fight_id, ch_id, op_id, expected_user_id=next_user_id
+            )
         return True, "دک انتخاب شد", False
 
     async def pvp_deck_select_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):

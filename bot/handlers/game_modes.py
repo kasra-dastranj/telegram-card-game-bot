@@ -922,20 +922,20 @@ class GameModeHandlersMixin:
                 )
                 self.db.delete_fight(fight_id)
                 return
-            await self._edit_request_panel(
-                context,
-                request,
-                "🃏 هر دو بازیکن دک خود را در گفت‌وگوی خصوصی با ربات انتخاب کنند.\n"
-                "⏳ مهلت انتخاب: ۱ دقیقه",
-            )
+            if not inline_message_id:
+                await self._edit_request_panel(
+                    context,
+                    request,
+                    "🃏 هر دو بازیکن دک خود را در گفت‌وگوی خصوصی با ربات انتخاب کنند.\n"
+                    "⏳ مهلت انتخاب: ۱ دقیقه",
+                )
             self.db.update_fight(
                 fight_id,
                 expires_at=(
                     datetime.now() + timedelta(seconds=DECK_SELECTION_TTL_SECONDS)
                 ).isoformat(),
             )
-            await self._send_deck_selection(context, fight_id, ch_id)
-            await self._send_deck_selection(context, fight_id, op_id)
+            await self._send_deck_selection_panels(context, fight_id, ch_id, op_id)
             self._schedule_mode_job(
                 context,
                 self.deck_selection_timeout_job,
