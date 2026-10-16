@@ -22,6 +22,21 @@ REQUIRED_CHANNEL = '@KhasteNews'
 PANEL_TIMEOUT = 15 * 60
 
 
+SELF_INVITE_MESSAGES = (
+    "نمیتونی با خودت مبارزه کنی!",
+    "به دنبال خود درگیری هستی؟",
+    "صبر کن تا دوستت بیاد",
+    "دعوت خودت رو قبول میکنی!",
+    "نمیشه، منتظر رفیقت بمون",
+    "این دکمه واسه حریفته",
+)
+
+
+def get_self_invite_message() -> str:
+    """Pick a friendly rejection for accepting one's own battle invitation."""
+    return random.choice(SELF_INVITE_MESSAGES)
+
+
 async def check_user_started_bot(context: ContextTypes.DEFAULT_TYPE, user_id: int) -> bool:
     """بررسی اینکه آیا کاربر ربات را استارت کرده یا نه"""
     try:

@@ -31,7 +31,7 @@ from systems.skins_system import SkinsSystem, SKIN_TYPES
 
 logger = logging.getLogger(__name__)
 
-from bot.utils import (check_user_started_bot, handle_user_not_started, ensure_text_content,
+from bot.utils import (check_user_started_bot, handle_user_not_started, ensure_text_content, get_self_invite_message,
     get_card_image_path, get_victory_dialog, send_card_image_safely, ensure_not_expired,
     REQUIRED_CHANNEL, PANEL_TIMEOUT)
 
@@ -353,7 +353,7 @@ class PvPHandlersMixin:
             await query.answer("❌ این چالش معتبر نیست!", show_alert=True)
             return
         if fight.challenger_id == opponent_id:
-            await query.answer("❌ نمی‌توانید چالش خودتان را بپذیرید!", show_alert=True)
+            await query.answer(get_self_invite_message(), show_alert=True)
             return
 
         # بررسی داشتن کارت
@@ -471,7 +471,7 @@ class PvPHandlersMixin:
         
         # بررسی اینکه challenger خودش نپذیرد
         if fight.challenger_id == opponent_id:
-            await query.answer("❌ نمی‌توانید چالش خودتان را بپذیرید!", show_alert=True)
+            await query.answer(get_self_invite_message(), show_alert=True)
             return
         
         # بررسی داشتن کارت
@@ -1215,7 +1215,7 @@ class PvPHandlersMixin:
             await query.answer("❌ این چالش معتبر نیست!", show_alert=True)
             return
         if fight.challenger_id == opponent_id:
-            await query.answer("❌ نمی‌توانید چالش خودتان را بپذیرید!", show_alert=True)
+            await query.answer(get_self_invite_message(), show_alert=True)
             return
 
         # بررسی داشتن کارت
@@ -1333,7 +1333,7 @@ class PvPHandlersMixin:
         
         # بررسی اینکه challenger خودش نپذیرد
         if fight.challenger_id == opponent_id:
-            await query.answer("❌ نمی‌توانید چالش خودتان را بپذیرید!", show_alert=True)
+            await query.answer(get_self_invite_message(), show_alert=True)
             return
         
         # بررسی داشتن کارت

@@ -22,7 +22,7 @@ from telegram import (
 )
 from telegram.ext import ContextTypes
 
-from bot.utils import get_victory_dialog
+from bot.utils import get_victory_dialog, get_self_invite_message
 from core.models import FightStatus
 from systems.deck_system import DeckSystem, DECK_SELECTION_TTL_SECONDS
 from systems.shared_foundation import eligible_cards
@@ -323,7 +323,7 @@ class GameModeHandlersMixin:
             await query.answer("این دعوت معتبر نیست.", show_alert=True)
             return
         if request["creator_id"] == query.from_user.id:
-            await query.answer("نمی‌توانی دعوت خودت را قبول کنی.", show_alert=True)
+            await query.answer(get_self_invite_message(), show_alert=True)
             return
         if not self.db.get_player_cards(query.from_user.id):
             await query.answer("ابتدا ربات را Start کن و حداقل یک کارت بگیر.", show_alert=True)
@@ -431,13 +431,14 @@ class GameModeHandlersMixin:
         ok, reason, request = self.modes.accept_invite(token, update.effective_user.id)
         if not ok:
             messages = {
-                "self_accept": "❌ نمی‌توانی دعوت خودت را قبول کنی.",
                 "expired": "⏳ زمان درخواست تمام شد.\nاین دعوت منقضی شده است.",
                 "accepted": "❌ این دعوت قبلاً توسط بازیکن دیگری پذیرفته شده است.",
                 "completed": "❌ این بازی قبلاً تمام شده است.",
                 "cancelled": "❌ سازنده، این دعوت را لغو کرده است.",
             }
-            await update.message.reply_text(messages.get(reason, reason if reason.startswith("برای ورود") else "❌ این دعوت معتبر نیست."))
+            message = get_self_invite_message() if reason == "self_accept" else messages.get(
+                reason, reason if reason.startswith("برای ورود") else "❌ این دعوت معتبر نیست.")
+            await update.message.reply_text(message)
             return True
         await update.message.reply_text("✅ دعوت را پذیرفتی؛ بازی در حال شروع است…")
         await self._edit_request_panel(context, request, "✅ دعوت پذیرفته شد؛ بازی شروع شد.")
@@ -453,7 +454,7 @@ class GameModeHandlersMixin:
             return
         ok, reason, request = self.modes.accept_request(request_id, query.from_user.id)
         if not ok:
-            message = reason if reason.startswith("برای ورود") else (
+            message = get_self_invite_message() if reason == "self_accept" else reason if reason.startswith("برای ورود") else (
                 "⏳ زمان درخواست تمام شد و درخواست منقضی شد."
                 if reason == "expired"
                 else "❌ این درخواست دیگر قابل پذیرش نیست."
