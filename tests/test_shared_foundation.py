@@ -157,6 +157,11 @@ def test_manual_and_random_quick_reject_custom_even_when_callback_state_is_tampe
     with pytest.raises(ValueError, match='ineligible|not_owned'):
         modes.select_quick_card(request['request_id'], 101, 'future-custom')
     assert not modes.get_state(request['request_id'])['cards']
+    state = modes.get_state(request['request_id'])
+    state['deadline'] = '2000-01-01'
+    with closing(modes._connect()) as conn, conn:
+        modes._save_state(conn, request['request_id'], state)
+    modes.forfeit_quick(request['request_id'], [101, 202], reason='card_selection_timeout')
     request = modes.create_invite(101, 'quick', 'random')
     modes.accept_invite(request['invite_token'], 202)
     state = modes.start_quick_match(request['request_id'])
@@ -172,6 +177,7 @@ def test_bot_database_card_assignment_boundary_and_solo_guard(db):
     fight = db.create_fight(101, 202, -1001)
     assert not db.update_fight(fight, challenger_card_id='future-custom')
     assert db.update_fight(fight, challenger_card_id='official-a')
+    db.update_fight(fight, status='completed')
     solo = db.create_solo_fight(101, 'easy')
     assert not db.update_solo_fight(solo, player_card_id='future-custom')
     assert db.update_solo_fight(solo, player_card_id='official-a')

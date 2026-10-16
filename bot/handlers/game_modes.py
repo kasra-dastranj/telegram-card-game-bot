@@ -22,7 +22,7 @@ from telegram import (
 )
 from telegram.ext import ContextTypes
 
-from bot.utils import get_victory_dialog, get_self_invite_message
+from bot.utils import get_victory_dialog, get_self_invite_message, handle_active_match
 from core.models import FightStatus
 from systems.deck_system import DeckSystem, DECK_SELECTION_TTL_SECONDS
 from systems.shared_foundation import eligible_cards
@@ -132,6 +132,7 @@ class GameModeHandlersMixin:
             reply_markup=InlineKeyboardMarkup(keyboard),
         )
 
+    @handle_active_match
     async def game_variant_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
         await query.answer()
@@ -197,6 +198,7 @@ class GameModeHandlersMixin:
             reply_markup=InlineKeyboardMarkup(keyboard),
         )
 
+    @handle_active_match
     async def game_inline_query_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Offer Quick/Deck invitations inside a Telegram peer private chat."""
         inline_query = update.inline_query
@@ -358,6 +360,7 @@ class GameModeHandlersMixin:
         )
         await self._launch_mode_match(context, accepted)
 
+    @handle_active_match
     async def game_source_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
         await query.answer()
@@ -786,7 +789,10 @@ class GameModeHandlersMixin:
                 if latest.get("phase") != "ability_selection":
                     break
                 if str(user_id) not in latest.get("ability_choices", {}):
-                    latest, advanced = self.modes.select_quick_ability(request_id, user_id, "skip")
+                    try:
+                        latest, advanced = self.modes.select_quick_ability(request_id, user_id, "skip", auto_skip=True)
+                    except ValueError:
+                        return
                     if advanced:
                         await self._send_quick_stat_panels(context, request_id, latest)
             return
@@ -908,7 +914,7 @@ class GameModeHandlersMixin:
     async def _launch_deck_match(self, context, request: dict):
         ch_id, op_id = request["creator_id"], request["opponent_id"]
         chat_id = request.get("origin_chat_id") or ch_id
-        fight_id = self.db.create_fight(ch_id, op_id, chat_id, mode="deck", selection_variant=request["variant"])
+        fight_id = self.db.create_fight(ch_id, op_id, chat_id, mode="deck", selection_variant=request["variant"], request_id=request['request_id'])
         inline_message_id = request.get("origin_inline_message_id")
         if inline_message_id:
             context.bot_data[f"deck_{fight_id}_inline_message_id"] = inline_message_id
@@ -1017,6 +1023,7 @@ class GameModeHandlersMixin:
 
     # -------------------- Easy Mode --------------------
 
+    @handle_active_match
     async def easy_round_count_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
         await query.answer()
@@ -1116,6 +1123,8 @@ class GameModeHandlersMixin:
                 await self._edit_request_panel(
                     context,
                     request,
+                    "یکی از بازیکن‌ها در بازی دیگه‌ایه؛ این لابی بسته شد."
+                    if reason == 'player_busy' else
                     "⏳ زمان لابی تمام شد؛ برای شروع Easy Mode حداقل دو بازیکن لازم است.",
                 )
             return

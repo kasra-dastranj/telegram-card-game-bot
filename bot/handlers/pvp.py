@@ -31,7 +31,7 @@ from systems.skins_system import SkinsSystem, SKIN_TYPES
 
 logger = logging.getLogger(__name__)
 
-from bot.utils import (check_user_started_bot, handle_user_not_started, ensure_text_content, get_self_invite_message,
+from bot.utils import (check_user_started_bot, handle_user_not_started, ensure_text_content, get_self_invite_message, handle_active_match,
     get_card_image_path, get_victory_dialog, send_card_image_safely, ensure_not_expired,
     REQUIRED_CHANNEL, PANEL_TIMEOUT)
 
@@ -95,6 +95,7 @@ class PvPHandlersMixin:
         await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown')
 
 
+    @handle_active_match
     async def fight_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """دستور شروع چالش PvP در گروه"""
         # بررسی مجوز دستور
@@ -233,6 +234,7 @@ class PvPHandlersMixin:
         await self.mycards_navigation_handler(update, context)
 
 
+    @handle_active_match
     async def request_pvp_fight_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """درخواست فایت PvP"""
         query = update.callback_query
@@ -320,6 +322,7 @@ class PvPHandlersMixin:
         )
 
 
+    @handle_active_match
     async def accept_pvp_random_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """قبول چالش PvP به صورت تصادفی (انتخاب خودکار کارت‌ها)"""
         query = update.callback_query
@@ -432,6 +435,7 @@ class PvPHandlersMixin:
             logger.warning(f"Could not send private message to opponent {opponent_id}: {e}")
 
 
+    @handle_active_match
     async def accept_pvp_fight_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """قبول چالش PvP - FIXED"""
         query = update.callback_query
@@ -957,6 +961,7 @@ class PvPHandlersMixin:
         await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown')
 
 
+    @handle_active_match
     async def fight_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """دستور شروع چالش PvP در گروه"""
         # بررسی مجوز دستور
@@ -1095,6 +1100,7 @@ class PvPHandlersMixin:
         await self.mycards_navigation_handler(update, context)
 
 
+    @handle_active_match
     async def request_pvp_fight_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """درخواست فایت PvP"""
         query = update.callback_query
@@ -1182,6 +1188,7 @@ class PvPHandlersMixin:
         )
 
 
+    @handle_active_match
     async def accept_pvp_random_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """قبول چالش PvP به صورت تصادفی (انتخاب خودکار کارت‌ها)"""
         query = update.callback_query
@@ -1294,6 +1301,7 @@ class PvPHandlersMixin:
             logger.warning(f"Could not send private message to opponent {opponent_id}: {e}")
 
 
+    @handle_active_match
     async def accept_pvp_fight_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """قبول چالش PvP - FIXED"""
         query = update.callback_query

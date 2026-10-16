@@ -53,6 +53,8 @@ class MiniThreeRoundSystem:
                 players = [request["creator_id"], request["opponent_id"]]
                 if not all(players) or players[0] == players[1]:
                     raise ValueError("invalid_players")
+                from systems.match_activity import require_free_in
+                require_free_in(conn, *players, exclude_request=request_id)
                 state = {
                     "mode": MODE, "players": players, "phase": "card_selection",
                     "round": 1, "cards": {}, "stat_choices": {},
@@ -73,7 +75,8 @@ class MiniThreeRoundSystem:
     def _check_choice(state: Dict[str, Any], user_id: int, phase: str) -> str:
         if state.get("phase") != phase or user_id not in state.get("players", []):
             raise ValueError("invalid_phase_or_player")
-        if datetime.fromisoformat(state["deadline"]) <= _now():
+        from systems.match_activity import deadline_passed
+        if deadline_passed(state['deadline'], now=_now()):
             raise ValueError("deadline_passed")
         return str(user_id)
 
@@ -251,7 +254,8 @@ class MiniThreeRoundSystem:
                 state = json.loads(row[0]) if row else None
                 if not state or state.get("phase") == "completed" or not state.get("deadline"):
                     return state
-                if datetime.fromisoformat(state["deadline"]) > _now():
+                from systems.match_activity import deadline_passed
+                if not deadline_passed(state['deadline'], now=_now()):
                     return state
                 choices = state["cards"] if state["phase"] == "card_selection" else state["stat_choices"]
                 winners = [uid for uid in state["players"] if str(uid) in choices]

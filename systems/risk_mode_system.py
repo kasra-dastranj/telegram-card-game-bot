@@ -114,6 +114,12 @@ class RiskModeSystem:
         conn = sqlite3.connect(self.db.db_path, timeout=15)
         try:
             conn.execute("BEGIN IMMEDIATE")
+            from systems.match_activity import require_free_in, ActiveMatchError
+            try:
+                require_free_in(conn, challenger_id, opponent_id)
+            except ActiveMatchError as exc:
+                conn.rollback()
+                return {"success": False, "error": str(exc)}
             for uid in (challenger_id, opponent_id):
                 changed = conn.execute(
                     "UPDATE players SET coins=coins-? WHERE user_id=? AND coins>=?",

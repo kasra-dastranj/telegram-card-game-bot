@@ -138,7 +138,7 @@ def test_accepted_deck_request_uses_actual_fight_to_lock_collection(upgrade_db):
     assert accepted
     upgrades = CardUpgradeSystem(database)
     assert not upgrades.is_management_locked(501)
-    fight_id = database.create_fight(501, 502, -100)
+    fight_id = database.create_fight(501, 502, -100, mode='deck', request_id=request['request_id'])
     assert upgrades.is_management_locked(501)
     with sqlite3.connect(database.db_path) as conn:
         conn.execute("UPDATE active_fights SET status='completed' WHERE fight_id=?", (fight_id,))

@@ -233,7 +233,13 @@ def test_concurrent_solo_finish_awards_once(solo_client, game_db):
 
 def test_started_solo_fights_cannot_bypass_daily_limit(solo_client, game_db):
     first = start_solo(solo_client)["fight_id"]
+    blocked = solo_client.post('/api/v1/solo/start', json={'player_card_id': 'card0', 'difficulty': 'easy'}, headers=HEADERS)
+    assert blocked.status_code == 409 and blocked.get_json()['reason'] == 'active_match'
+    # Simulate two legacy pre-started rows from before admission was enforced.
+    # The completion-time daily limit must still protect that historical case.
+    game_db.update_solo_fight(first, status='completed')
     second = start_solo(solo_client)["fight_id"]
+    game_db.update_solo_fight(first, status='in_progress')
     for fight_id in (first, second):
         prepare_final_round(game_db, fight_id)
     for _ in range(miniapp.DAILY_SOLO_LIMIT - 1):

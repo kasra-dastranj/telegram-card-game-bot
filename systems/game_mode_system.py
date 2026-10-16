@@ -364,6 +364,17 @@ class GameModeSystem:
         conn.close()
         return self._request_dict(row)
 
+    def _entry_connection(self, user_id):
+        from systems.match_activity import require_free_in
+        conn = self._connect()
+        try:
+            conn.execute('BEGIN IMMEDIATE')
+            require_free_in(conn, user_id)
+            return conn
+        except Exception:
+            conn.close()
+            raise
+
     def _insert_request(
         self,
         conn: sqlite3.Connection,
@@ -422,7 +433,7 @@ class GameModeSystem:
         allowed, reason = self.mode_access.check(creator_id, mode)
         if not allowed:
             raise ValueError(reason)
-        conn = self._connect()
+        conn = self._entry_connection(creator_id)
         token = secrets.token_urlsafe(12).replace("-", "").replace("_", "")[:16]
         request = self._insert_request(
             conn,
@@ -444,7 +455,7 @@ class GameModeSystem:
         allowed, reason = self.mode_access.check(creator_id, mode)
         if not allowed:
             raise ValueError(reason)
-        conn = self._connect()
+        conn = self._entry_connection(creator_id)
         request = self._insert_request(
             conn,
             creator_id,
@@ -467,7 +478,7 @@ class GameModeSystem:
         allowed, reason = self.mode_access.check(creator_id, mode)
         if not allowed:
             raise ValueError(reason)
-        conn = self._connect()
+        conn = self._entry_connection(creator_id)
         request = self._insert_request(
             conn,
             creator_id,
@@ -490,6 +501,12 @@ class GameModeSystem:
         """Atomically join a compatible queue entry or create a new one."""
         conn = self._connect()
         conn.execute("BEGIN IMMEDIATE")
+        from systems.match_activity import require_free_in
+        try:
+            require_free_in(conn, creator_id)
+        except Exception:
+            conn.close()
+            raise
         allowed, reason = self.mode_access.check_in(conn, creator_id, mode)
         if not allowed:
             conn.rollback()
@@ -521,10 +538,12 @@ class GameModeSystem:
             SELECT * FROM game_requests
             WHERE mode=? AND variant=? AND source='random_queue'
               AND status='waiting' AND creator_id != ? AND expires_at > ?
-            ORDER BY RANDOM() LIMIT 1
+            ORDER BY RANDOM()
             """,
             (mode, variant, creator_id, now),
-        ).fetchone()
+        ).fetchall()
+        from systems.match_activity import active_in
+        row = next((candidate for candidate in row if not active_in(conn, candidate['creator_id'])), None)
         if row:
             request_id = row["request_id"]
             updated = conn.execute(
@@ -587,6 +606,13 @@ class GameModeSystem:
             conn.rollback()
             conn.close()
             return False, reason, dict(row)
+        from systems.match_activity import require_free_in, ActiveMatchError
+        try:
+            require_free_in(conn, row['creator_id'], opponent_id, exclude_request=request_id)
+        except ActiveMatchError as exc:
+            conn.rollback()
+            conn.close()
+            return False, str(exc), dict(row)
         updated = conn.execute(
             """
             UPDATE game_requests
@@ -756,6 +782,9 @@ class GameModeSystem:
                 if state:
                     return state
 
+                from systems.match_activity import require_free_in
+                require_free_in(conn, *players, exclude_request=request_id)
+
                 state = {
                     "mode": "quick",
                     "request_id":request_id,
@@ -811,6 +840,10 @@ class GameModeSystem:
             conn.rollback()
             conn.close()
             raise ValueError("invalid_phase_or_player")
+        from systems.match_activity import deadline_passed
+        if state.get('deadline') and deadline_passed(state['deadline'], now=_now()):
+            conn.close()
+            raise ValueError('deadline_passed')
         key = str(user_id)
         if key in state["cards"]:
             conn.rollback()
@@ -881,7 +914,7 @@ class GameModeSystem:
         conn.close()
         return True
 
-    def select_quick_ability(self, request_id: str, user_id: int, ability_key: str) -> Tuple[Dict[str, Any], bool]:
+    def select_quick_ability(self, request_id: str, user_id: int, ability_key: str, *, auto_skip=False) -> Tuple[Dict[str, Any], bool]:
         conn = self._connect()
         conn.execute("BEGIN IMMEDIATE")
         row = conn.execute(
@@ -896,6 +929,17 @@ class GameModeSystem:
             conn.rollback()
             conn.close()
             raise ValueError("invalid_phase_or_player")
+        from systems.match_activity import deadline_passed
+        if state.get('deadline') and deadline_passed(state['deadline'], now=_now()):
+            if not auto_skip or ability_key != 'skip' or deadline_passed(state['deadline'], now=_now() - timedelta(seconds=120)):
+                conn.close()
+                raise ValueError('deadline_passed')
+            from systems.match_activity import require_free_in
+            try:
+                require_free_in(conn, *state['players'], exclude_request=request_id)
+            except Exception:
+                conn.close()
+                raise
         user_key = str(user_id)
         if user_key in state["ability_choices"]:
             conn.rollback()
@@ -1020,6 +1064,10 @@ class GameModeSystem:
             conn.rollback()
             conn.close()
             raise ValueError("invalid_phase_or_player")
+        from systems.match_activity import deadline_passed
+        if state.get('deadline') and deadline_passed(state['deadline'], now=_now()):
+            conn.close()
+            raise ValueError('deadline_passed')
         key = str(user_id)
         if key in state["stat_choices"]:
             conn.rollback()
@@ -1284,7 +1332,8 @@ class GameModeSystem:
                     raise ValueError("quick_not_active")
                 if reason in ("card_selection_timeout", "stat_selection_timeout"):
                     expected_phase = reason.removesuffix("_timeout")
-                    if state.get("phase") != expected_phase or datetime.fromisoformat(state["deadline"]) > _now():
+                    from systems.match_activity import deadline_passed
+                    if state.get("phase") != expected_phase or not deadline_passed(state['deadline'], now=_now()):
                         raise ValueError("quick_timeout_stale")
                     choice_key = "cards" if expected_phase == "card_selection" else "stat_choices"
                     loser_ids = [uid for uid in state["players"] if str(uid) not in state.get(choice_key, {})]
@@ -1345,7 +1394,7 @@ class GameModeSystem:
         allowed, reason = self.mode_access.check(creator_id, "easy")
         if not allowed:
             raise ValueError(reason)
-        conn = self._connect()
+        conn = self._entry_connection(creator_id)
         request = self._insert_request(
             conn,
             creator_id,
@@ -1397,6 +1446,13 @@ class GameModeSystem:
             conn.rollback()
             conn.close()
             return True, "already_ready", state
+        from systems.match_activity import require_free_in, ActiveMatchError
+        try:
+            require_free_in(conn, user_id, exclude_request=request_id)
+        except ActiveMatchError as exc:
+            conn.rollback()
+            conn.close()
+            return False, str(exc), state
         allowed, reason = self.mode_access.check_in(conn, user_id, "easy")
         if not allowed:
             conn.rollback()
@@ -1423,6 +1479,9 @@ class GameModeSystem:
             conn.close()
             return False, "not_found", {}
         state = _loads(state_row[0], {})
+        if request['status'] in ('cancelled', 'expired', 'completed'):
+            conn.close()
+            return False, 'expired', state
         if state.get("phase") != "lobby":
             conn.rollback()
             conn.close()
@@ -1435,6 +1494,16 @@ class GameModeSystem:
             conn.commit()
             conn.close()
             return False, "not_enough_players", state
+        from systems.match_activity import require_free_in, ActiveMatchError
+        try:
+            require_free_in(conn, *state['players'], exclude_request=request_id)
+        except ActiveMatchError:
+            state['phase'] = 'expired'
+            self._save_state(conn, request_id, state)
+            conn.execute("UPDATE game_requests SET status='expired' WHERE request_id=?", (request_id,))
+            conn.commit()
+            conn.close()
+            return False, 'player_busy', state
         state["current_round"] = 1
         state["phase"] = "selection"
         state["question"] = self._choose_easy_question(state["players"])

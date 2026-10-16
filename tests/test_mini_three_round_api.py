@@ -62,6 +62,8 @@ def test_solo_reveal_uses_shared_stock_once_and_survives_new_api_client(client_a
     restored = miniapp.app.test_client().get(f'/api/v1/solo/fights/{fight_id}', headers=headers(101)).get_json()
     assert restored['ai_card']['card_id'] == 'three-b'
     assert restored['my_ability_used'] is True
+    solo_round(client, fight_id, 'speed')
+    assert solo_round(client, fight_id, 'iq')['fight']['status'] == 'completed'
     pvp = ready_three(client, modes)
     assert use_ability(client, pvp, 101, 'reveal_opponent').status_code == 200
     assert quantity(modes, 101, 'reveal_opponent') == 0
@@ -418,6 +420,8 @@ def test_three_inventory_is_the_same_inventory_consumed_by_quick(client_and_mode
     request_id = ready_three(client, modes)
     assert use_ability(client, request_id, 101, 'weaken_speed').status_code == 200
     assert quantity(modes, 101, 'weaken_speed') == 1
+    for stat in ('power', 'speed', 'iq'):
+        next_tied_round(client, request_id, stat)
     quick = post(client, '/api/v1/quick/matchmaking', 101, {'variant': 'normal'}).get_json()
     post(client, '/api/v1/quick/matchmaking', 202, {'variant': 'normal'})
     quick_id = quick['request_id']
@@ -429,6 +433,34 @@ def test_three_inventory_is_the_same_inventory_consumed_by_quick(client_and_mode
     modes.select_quick_ability(quick_id, 101, 'weaken_speed')
     assert quantity(modes, 101, 'weaken_speed') == 0
     assert not [item for item in modes.list_player_abilities(101) if item['ability_key'] == 'weaken_speed']
+
+
+def test_active_three_blocks_other_modes_and_finish_immediately_allows_practice(client_and_modes, monkeypatch):
+    client, modes = client_and_modes
+    key = ready_three(client, modes)
+    before = modes.db.get_or_create_player(101)
+    for path, data in [('/api/v1/quick/matchmaking', {'variant': 'normal'}),
+                       ('/api/v1/three-round/invites', {}),
+                       ('/api/v1/solo/start', {'difficulty': 'easy', 'player_card_id': 'three-a'})]:
+        blocked = post(client, path, 101, data)
+        assert blocked.status_code == 409, blocked.get_json()
+        assert blocked.get_json()['reason'] == 'active_match'
+    after = modes.db.get_or_create_player(101)
+    assert (after.hearts, after.coins) == (before.hearts, before.coins)
+    for stat in ('power', 'speed', 'iq'):
+        next_tied_round(client, key, stat)
+    assert ready_solo(client, monkeypatch)
+
+
+def test_cancelled_abandoned_solo_does_not_lock_next_match_or_allow_late_round(client_and_modes, monkeypatch):
+    client, modes = client_and_modes
+    key = ready_solo(client, monkeypatch)
+    modes.db.update_solo_fight(key, created_at='2000-01-01')
+    new = post(client, '/api/v1/three-round/matchmaking', 101)
+    assert new.status_code == 201, new.get_json()
+    assert modes.db.get_solo_fight(key)['status'] == 'cancelled'
+    old = post(client, '/api/v1/solo/round', 101, {'fight_id': key, 'player_stat': 'power'})
+    assert old.status_code == 400
 
 
 @pytest.mark.parametrize('ability,stat', [('weaken_power', 'power'), ('weaken_speed', 'speed'),
