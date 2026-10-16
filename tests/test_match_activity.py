@@ -308,3 +308,21 @@ def test_normal_quick_ability_timeout_still_auto_skips_without_releasing_reserva
     state, advanced = modes.select_quick_ability(key, 2, 'skip', auto_skip=True)
     assert advanced and state['phase'] == 'stat_selection'
     assert state['ability_choices'] == {'1': 'skip', '2': 'skip'}
+
+
+def test_expired_risk_entry_is_returned_before_minimum_balance_check(games):
+    db, _ = games
+    risk = RiskModeSystem(db)
+    table = list(RiskTable)[0]
+    from systems.risk_mode_system import MIN_BALANCE_MULTIPLIER
+    balance = table.value * MIN_BALANCE_MULTIPLIER
+    with sqlite3.connect(db.db_path) as conn:
+        conn.execute('UPDATE players SET coins=?', (balance,))
+    result = risk.create_risk_match(1, 2, table)
+    assert result['success']
+    assert db.get_or_create_player(1).coins < balance
+    with sqlite3.connect(db.db_path) as conn:
+        conn.execute("UPDATE risk_matches SET created_at='2000-01-01' WHERE match_id=?", (result['match_id'],))
+    assert risk.can_enter_risk(1, table) == (True, '')
+    assert db.get_or_create_player(1).coins == db.get_or_create_player(2).coins == balance
+    assert risk.create_risk_match(1, 2, table)['success']

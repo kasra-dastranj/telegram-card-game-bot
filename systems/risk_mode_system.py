@@ -11,6 +11,7 @@ import sqlite3
 import logging
 import random
 import uuid
+from contextlib import closing
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime
 from enum import Enum
@@ -81,6 +82,15 @@ class RiskModeSystem:
         allowed, reason = ModeAccessSystem(self.db).check(user_id, "risk")
         if not allowed:
             return False, reason
+
+        # Recover expired escrow before checking the entry balance; the locked
+        # entry itself may be the reason an abandoned player is below minimum.
+        from systems.match_activity import active_in, BUSY_MESSAGE
+        with closing(sqlite3.connect(self.db.db_path, timeout=15)) as conn:
+            with conn:
+                conn.execute('BEGIN IMMEDIATE')
+                if active_in(conn, user_id):
+                    return False, BUSY_MESSAGE
         
         # بررسی موجودی
         player = self.db.get_or_create_player(user_id)
