@@ -512,6 +512,7 @@ class BasicHandlersMixin:
                 card.name,
                 self.config,
                 f"🎉 {card.name}\n\n“{claim_dialog}”",
+                card=card, db=self.db,
             )
 
             text = (

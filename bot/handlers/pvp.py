@@ -185,7 +185,7 @@ class PvPHandlersMixin:
             
             # ارسال تصویر کارت با یک دیالوگ کوتاه
             claim_dialog = get_victory_dialog(card.name, card.dialogs)
-            image_sent = await send_card_image_safely(query.message, card.name, self.config, f"🎉 {card.name}\n\n“{claim_dialog}”")
+            image_sent = await send_card_image_safely(query.message, card.name, self.config, f"🎉 {card.name}\n\n“{claim_dialog}”", card=card, db=self.db)
             
             # متن اطلاعات کارت
             text = (
@@ -1051,7 +1051,7 @@ class PvPHandlersMixin:
             
             # ارسال تصویر کارت با یک دیالوگ کوتاه
             claim_dialog = get_victory_dialog(card.name, card.dialogs)
-            image_sent = await send_card_image_safely(query.message, card.name, self.config, f"🎉 {card.name}\n\n“{claim_dialog}”")
+            image_sent = await send_card_image_safely(query.message, card.name, self.config, f"🎉 {card.name}\n\n“{claim_dialog}”", card=card, db=self.db)
             
             # متن اطلاعات کارت
             text = (

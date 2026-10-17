@@ -787,7 +787,7 @@ def claim_daily_card():
     result = _rewards().claim_daily(g.user_id)
     if not result.get("ok"):
         return jsonify(result), 409
-    card = db.get_card_by_id(result["card_id"]) if result.get("card_id") else None
+    card = db.get_card_by_id_for_rarity(result["card_id"], result["rarity"]) if result.get("card_id") else None
     return jsonify({"ok": True, "message": "پاداش روزانه و یک Ability دریافت شد", "data": {"card": card_to_dict(card) if card else None, "reward_type": result.get("reward_type","card"), "ability": result["ability"], "quantity": result["quantity"]}, "profile": _player_hub().get_overview(g.user_id)})
 
 

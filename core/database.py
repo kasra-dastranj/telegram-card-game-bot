@@ -824,6 +824,20 @@ class DatabaseManager:
             return card
         return None
     
+    def get_card_by_id_for_rarity(self, card_id: str, rarity: str) -> Optional[Card]:
+        """Read a specific reward form without changing the cached base or active form."""
+        base = self.get_card_by_id(card_id)
+        if not base:
+            return None
+        variant = self.get_card_variant(card_id, rarity)
+        if not variant:
+            return Card.from_dict(base.to_dict()) if base.rarity.value == rarity else None
+        data = base.to_dict()
+        data.update(rarity=rarity)
+        for key in ('power', 'speed', 'iq', 'popularity', 'abilities', 'card_effects', 'image_path', 'card_type'):
+            data[key] = variant[key]
+        return Card.from_dict(data)
+
     def get_card_by_id_for_player(self, card_id: str, user_id: int) -> Optional[Card]:
         """دریافت کارت با احتساب فرم ارتقایافتهٔ بازیکن."""
         from systems.custom_cards import access_in,user_card_in

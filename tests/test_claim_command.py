@@ -37,6 +37,7 @@ def test_claim_command_uses_same_daily_claim_flow_as_start_menu_button():
         claim_daily_card_with_ability=Mock(return_value=(True, card, None, {"title": "👁 مشاهده کارت حریف"})),
     )
     update, message = _claim_update()
+    handler.db = SimpleNamespace()
     context = SimpleNamespace(bot=SimpleNamespace())
 
     with (
