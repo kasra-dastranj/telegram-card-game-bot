@@ -25,10 +25,10 @@ async def show_menu(bot,update,context,section='shop',page=0):
     keyboard=[]
     if section=='shop':
         text='🛒 فروشگاه\nقیمت هر خرید قبل از تأیید نمایش داده می‌شود.\n'
-        text+=' · '.join(LABELS.get(key,key)+': '+str(value) for key,value in inventory['items'].items())
+        text+=' · '.join(LABELS.get(key,key)+': '+str(value) for key,value in inventory['items'].items() if key!='free_silver_claim')
         for item in inventory['shop']:
             keyboard.append([Button(LABELS[item],callback_data='v2_quote_'+item)])
-        keyboard.extend([[Button('🎟 Silver Claim',callback_data='v2_silver_claim')],[Button('ارتقا و فروش کارت',callback_data='v2_cards_0')],[Button('مأموریت‌ها',callback_data='v2_missions')]])
+        keyboard.extend([[Button('ارتقا و فروش کارت',callback_data='v2_cards_0')],[Button('مأموریت‌ها',callback_data='v2_missions')]])
     elif section=='cards':
         cards=[card for card in bot.db.get_player_cards(user) if card.origin=='official']
         page=max(0,page);text='کارت را برای ارتقا یا فروش انتخاب کن. فرم‌ها و تعداد نسخه‌ها محفوظ‌اند.'
@@ -62,12 +62,19 @@ async def handle(bot,update,context):
             await query.edit_message_text('قیمت: '+str(quote['price'])+' سکه؛ تأیید می‌کنی؟',reply_markup=InlineKeyboardMarkup(keyboard));return
         result=quote
     elif data.startswith('v2_buy_'):result=economy.purchase(user,data[7:])
-    elif data=='v2_silver_claim':result=economy.claim(user,'silver','tg-silver:'+query.id)
+    elif data=='v2_silver_claim':
+        from bot.handlers import silver_claim
+        if not silver_claim.private_panel(update):return
+        return await silver_claim.show_menu(bot,update,context)
     elif data.startswith('v2_action_'):
         action=context.user_data.get('economy_actions',{}).get(data[10:])
         if not action:
             await query.edit_message_text('پیش‌نمایش منقضی شده؛ دوباره منو را باز کن.');return
         kind=action['kind'];card=action.get('card_id')
+        if kind in ('silver_craft','silver_use'):
+            from bot.handlers import silver_claim
+            if not silver_claim.private_panel(update):return
+            return await silver_claim.handle_action(bot,update,context,action)
         if kind=='card_menu':
             counts=__import__('systems.card_inventory_system',fromlist=['CardInventorySystem']).CardInventorySystem(bot.db).counts(user,card)
             keyboard=[]
