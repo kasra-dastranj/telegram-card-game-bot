@@ -209,7 +209,8 @@ def test_bot_craft_then_use_delivers_art_celebration_actual_epic_media_and_stats
     click(state, use)
     assert state[3][1] == ('text', '🎉')
     assert state[3][2] == ('sticker', 'epic-sticker')
-    reward = state[3][3][1]
+    assert 'بیوگرافی این کارت هنوز نوشته نشده.' in state[3][3][1]
+    reward = state[3][4][1]
     assert 'Tony &lt;Soprano&gt;' in reward and '(Epic)' in reward
     for fragment in ['قدرت: 55', 'سرعت: 65', 'آی‌کیو: 75', 'محبوبیت: 85', 'مجموع: 280', 'epic &lt;ability&gt;']:
         assert fragment in reward

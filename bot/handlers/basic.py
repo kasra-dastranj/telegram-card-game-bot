@@ -506,14 +506,8 @@ class BasicHandlersMixin:
                 CardRarity.RARE: "🔵",
             }
             color = rarity_colors.get(card.rarity, "⚪")
-            claim_dialog = get_victory_dialog(card.name, card.dialogs)
-            image_sent = await send_card_image_safely(
-                message,
-                card.name,
-                self.config,
-                f"🎉 {card.name}\n\n“{claim_dialog}”",
-                card=card, db=self.db,
-            )
+            from bot.card_reward_presentation import send_claim_card
+            image_sent = await send_claim_card(message, card, self.config, self.db)
 
             text = (
                 f"🎉 **کارت روزانه دریافت شد!**\n\n"

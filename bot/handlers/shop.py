@@ -440,6 +440,9 @@ class ShopHandlersMixin:
             )
             return
         new_rarity = result["to_rarity"]
+        if not result.get('replayed'):
+            from bot.card_reward_presentation import send_upgrade_cards
+            await send_upgrade_cards(self, update, context, card_id, result['from_rarity'], new_rarity)
         xp_amount = result["xp_gained"]
         old_lv, new_lv = result["old_level"], result["new_level"]
         level_text = f"\n⬆️ Level Up! → {new_lv}" if new_lv > old_lv else ""

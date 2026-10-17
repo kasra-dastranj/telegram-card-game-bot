@@ -25,6 +25,7 @@ def test_claim_command_uses_same_daily_claim_flow_as_start_menu_button():
         name="Test Hero",
         rarity=CardRarity.NORMAL,
         dialogs=["Ready"],
+        biography="داستان قهرمان آزمایشی",
         power=10,
         speed=20,
         iq=30,
@@ -42,18 +43,21 @@ def test_claim_command_uses_same_daily_claim_flow_as_start_menu_button():
 
     with (
         patch(
-            "bot.handlers.basic.send_card_image_safely",
+            "bot.card_reward_presentation.send_card_image_safely",
             new=AsyncMock(return_value=True),
         ) as send_image,
         patch(
             "bot.handlers.basic.get_victory_dialog",
             return_value="Ready",
-        ),
+        ) as victory_dialog,
     ):
         asyncio.run(handler.claim_command(update, context))
 
     handler.game.claim_daily_card_with_ability.assert_called_once_with(1)
     send_image.assert_awaited_once()
+    assert 'داستان قهرمان آزمایشی' in send_image.await_args.args[3]
+    assert 'Ready' not in send_image.await_args.args[3]
+    victory_dialog.assert_not_called()
     reply = message.reply_text.await_args
     assert "کارت روزانه دریافت شد" in reply.args[0]
     assert "Test Hero" in reply.args[0]
@@ -73,7 +77,7 @@ def test_claim_command_replies_with_cooldown_error_without_callback_query():
     update, message = _claim_update()
 
     with patch(
-        "bot.handlers.basic.send_card_image_safely",
+        "bot.card_reward_presentation.send_card_image_safely",
         new=AsyncMock(),
     ) as send_image:
         asyncio.run(

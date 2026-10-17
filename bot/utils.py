@@ -188,7 +188,7 @@ def get_victory_dialog(card_name: str, card_dialogs=None) -> str:
     return random.choice(generic)
 
 
-async def send_card_image_safely(message, card_name: str, config: Dict, caption: str = None, match_id: str = None, dialog_text: str = None, *, card=None, db=None) -> bool:
+async def send_card_image_safely(message, card_name: str, config: Dict, caption: str = None, match_id: str = None, dialog_text: str = None, *, card=None, db=None, caption_parse_mode='Markdown', sticker_caption=False) -> bool:
     """ارسال امن تصویر کارت"""
     try:
         if not config.get('image_settings', {}).get('enable_images', False):
@@ -201,8 +201,10 @@ async def send_card_image_safely(message, card_name: str, config: Dict, caption:
                 if cached:
                     if kind == 'sticker':
                         await message.reply_sticker(cached)
+                        if sticker_caption and caption:
+                            await message.reply_text(caption, parse_mode=caption_parse_mode)
                     else:
-                        await message.reply_photo(cached, caption=caption, parse_mode='Markdown')
+                        await message.reply_photo(cached, caption=caption, parse_mode=caption_parse_mode)
                     return True
             image_path = card.image_path
             if not image_path:
@@ -216,9 +218,11 @@ async def send_card_image_safely(message, card_name: str, config: Dict, caption:
         if image_path.lower().endswith('.webp'):
             with open(image_path, 'rb') as sticker:
                 await message.reply_sticker(sticker)
+            if sticker_caption and caption:
+                await message.reply_text(caption, parse_mode=caption_parse_mode)
         else:
             with open(image_path, 'rb') as photo:
-                await message.reply_photo(photo, caption=caption, parse_mode='Markdown')
+                await message.reply_photo(photo, caption=caption, parse_mode=caption_parse_mode)
 
         return True
     except Exception as e:

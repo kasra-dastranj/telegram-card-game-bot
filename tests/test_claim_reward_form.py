@@ -51,8 +51,7 @@ def invoke_claim(db, entry, monkeypatch):
         bot = TelegramCardBot.__new__(TelegramCardBot)
         bot.db, bot.game, bot.config = db, GameLogic(db), {}
         bot.is_user_in_channel = AsyncMock(return_value=True)
-        monkeypatch.setattr('bot.handlers.basic.send_card_image_safely', AsyncMock(return_value=True))
-        monkeypatch.setattr('bot.handlers.pvp.send_card_image_safely', AsyncMock(return_value=True))
+        monkeypatch.setattr('bot.card_reward_presentation.send_card_image_safely', AsyncMock(return_value=True))
         monkeypatch.setattr('bot.handlers.pvp.ensure_not_expired', lambda *args: True)
         message = SimpleNamespace(reply_text=AsyncMock())
         query = SimpleNamespace(from_user=SimpleNamespace(id=101),message=message,answer=AsyncMock())

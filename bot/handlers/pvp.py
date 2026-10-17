@@ -183,9 +183,8 @@ class PvPHandlersMixin:
             }
             color = rarity_colors[card.rarity]
             
-            # ارسال تصویر کارت با یک دیالوگ کوتاه
-            claim_dialog = get_victory_dialog(card.name, card.dialogs)
-            image_sent = await send_card_image_safely(query.message, card.name, self.config, f"🎉 {card.name}\n\n“{claim_dialog}”", card=card, db=self.db)
+            from bot.card_reward_presentation import send_claim_card
+            image_sent = await send_claim_card(query.message, card, self.config, self.db)
             
             # متن اطلاعات کارت
             text = (
@@ -1049,9 +1048,8 @@ class PvPHandlersMixin:
             }
             color = rarity_colors[card.rarity]
             
-            # ارسال تصویر کارت با یک دیالوگ کوتاه
-            claim_dialog = get_victory_dialog(card.name, card.dialogs)
-            image_sent = await send_card_image_safely(query.message, card.name, self.config, f"🎉 {card.name}\n\n“{claim_dialog}”", card=card, db=self.db)
+            from bot.card_reward_presentation import send_claim_card
+            image_sent = await send_claim_card(query.message, card, self.config, self.db)
             
             # متن اطلاعات کارت
             text = (

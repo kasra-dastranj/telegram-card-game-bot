@@ -7,7 +7,7 @@ from telegram import InlineKeyboardButton as Button, InlineKeyboardMarkup
 from telegram.error import TelegramError
 
 from bot.silver_claim_art import silver_claim_picture
-from bot.utils import send_card_image_safely
+from bot.card_reward_presentation import send_claim_card
 from systems.progression_economy import ProgressionEconomy
 
 logger = logging.getLogger(__name__)
@@ -100,7 +100,7 @@ async def handle_action(bot, update, context, action):
         await message.reply_text('کارت Epic به موجودیت اضافه شد؛ مشخصاتش فعلاً در دسترس نیست.')
         return
     if not replayed or action.get('view_receipt'):
-        await send_card_image_safely(message, card.name, bot.config, card=card, db=bot.db)
+        await send_claim_card(message, card, bot.config, bot.db)
     try:
         await message.reply_text(card_text(card, replayed), parse_mode='HTML',
             reply_markup=InlineKeyboardMarkup([[Button('🎟 سیلور کلیم', callback_data='v2_silver_claim')],

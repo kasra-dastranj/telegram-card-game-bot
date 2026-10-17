@@ -89,7 +89,23 @@ async def handle(bot,update,context):
                 if preview.get('ok'):keyboard.append([action_button(context,'فروش یک '+rarity+' از '+str(count)+' نسخه: '+str(preview['price'])+' سکه',{'kind':'sell','card_id':card,'rarity':rarity,'config_version':preview['config_version'],'request_key':'tg-sell:'+uuid.uuid4().hex})])
             keyboard.append([Button('🔙 کارت‌ها',callback_data='v2_cards_0')])
             await query.edit_message_text('تأیید ارتقا یا فروش؛ عملیات نسخه‌های انتخاب‌شده را مصرف می‌کند.\n'+'\n'.join(details),reply_markup=InlineKeyboardMarkup(keyboard));return
-        if kind=='upgrade':result=economy.upgrade(user,card,action['target'],action['request_key'],action['config_version'])
+        if kind=='upgrade':
+            result=economy.upgrade(user,card,action['target'],action['request_key'],action['config_version'])
+            if result.get('ok'):
+                from bot.card_reward_presentation import send_upgrade_cards
+                from bot.deck_reports import isolate
+                target=result.get('target', action['target'])
+                source='normal' if target=='epic' else 'epic'
+                if not result.get('replayed'):
+                    await send_upgrade_cards(bot,update,context,card,source,target)
+                definition=bot.db.get_card_by_id_for_rarity(card,target)
+                text=('✨ '+isolate(definition.name if definition else card)+' ارتقا پیدا کرد!\n'
+                      +isolate(source.title()+' → '+target.title())+'\n⭐ '
+                      +isolate('+'+str(result.get('xp',0))+' XP'))
+                if result.get('new_level',1)>result.get('old_level',1):
+                    text+='\n⬆️ '+isolate('Level '+str(result['new_level']))
+                await query.edit_message_text(text,reply_markup=InlineKeyboardMarkup([[Button('🔙 کارت‌ها',callback_data='v2_cards_0')]]))
+                return
         elif kind=='sell':result=economy.sell(user,card,action['rarity'],action['request_key'],action['config_version'])
         elif kind=='mission':result=PlayerRewardsSystem(bot.db).claim_mission(user,action['mission_id'])
         else:result={'ok':False,'error':'عملیات نامعتبر'}
