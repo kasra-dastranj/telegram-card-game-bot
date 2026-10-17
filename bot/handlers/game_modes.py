@@ -678,8 +678,12 @@ class GameModeHandlersMixin:
         except Exception as exc:
             logger.warning("Could not send Quick card information to %s: %s", user_id, exc)
 
-    async def _send_quick_arena_message(self, context, user_id: int, state: dict):
+    async def _send_quick_arena_message(self, context, user_id: int, state: dict, request_id=None):
         try:
+            from bot.battle_visual_delivery import send_arena
+            arena = state.get('arena_snapshot') or self.modes._arena(state['arena'])
+            if await send_arena(context, user_id, request_id, dict(arena, arena_id=state['arena']), 'quick'):
+                return
             await context.bot.send_message(chat_id=user_id, text=self._quick_arena_text(state))
         except Exception as exc:
             logger.warning("Could not send Quick arena to %s: %s", user_id, exc)
@@ -693,7 +697,7 @@ class GameModeHandlersMixin:
                 card = self.db.get_card_by_id_for_player(card_id, user_id) or self.db.get_card_by_id(card_id)
             if state.get("variant") in ("random", "friendly_random"):
                 await self._send_quick_card_preview(context, user_id, card)
-            await self._send_quick_arena_message(context, user_id, state)
+            await self._send_quick_arena_message(context, user_id, state, request_id)
             abilities = self.modes.list_player_abilities(user_id) if arena.get("abilities_enabled", True) else []
             keyboard = [
                 [InlineKeyboardButton(f"{item['title']} ×{item['quantity']}", callback_data=f"gm_qability_{request_id}_{item['ability_key']}")]
@@ -731,7 +735,7 @@ class GameModeHandlersMixin:
     async def _send_quick_stat_panels(self, context, request_id: str, state: dict):
         for user_id in state["players"]:
             if state.get("arena") != state.get("initial_arena"):
-                await self._send_quick_arena_message(context, user_id, state)
+                await self._send_quick_arena_message(context, user_id, state, request_id)
             actor_ability = state["ability_choices"].get(str(user_id))
             if actor_ability == "reveal_opponent":
                 opponent_id = next(pid for pid in state["players"] if pid != user_id)
@@ -842,13 +846,23 @@ class GameModeHandlersMixin:
             if request and request.get("source") == "group_challenge"
             else players
         )
+        from bot.battle_visual_delivery import quick_picture, send_result
+        picture = await quick_picture(self, context, report)
         for chat_id in dict.fromkeys(targets):
             try:
                 if winner_card and getattr(winner_card, "origin", "official")=="official" and hasattr(self, "_send_round_winner_card_media"):
                     await self._send_round_winner_card_media(context, chat_id, winner_card)
-                await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=markup)
+                if chat_id not in players or not await send_result(context, chat_id, picture, text, markup):
+                    await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=markup)
             except Exception as exc:
                 logger.warning("Could not announce Quick result in %s: %s", chat_id, exc)
+        if request and request.get('source') == 'group_challenge':
+            for user_id in players:
+                if not await send_result(context, user_id, picture, None, markup):
+                    try:
+                        await context.bot.send_message(chat_id=user_id, text=text, reply_markup=markup)
+                    except Exception:
+                        logger.warning('Could not deliver private Quick result')
 
     async def game_report_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query

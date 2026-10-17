@@ -39,7 +39,8 @@ def test_deck_group_invite_keeps_accept_button_and_short_copy(tmp_path, variant)
 
 @pytest.mark.parametrize('policy', ['legacy', 'v2', 'v2_two_hearts'])
 @pytest.mark.parametrize('inline', [False, True])
-def test_three_round_deck_final_and_private_history_survive_fight_deletion_and_card_edits(tmp_path, monkeypatch, policy, inline):
+@pytest.mark.parametrize('with_photo', [False, True])
+def test_three_round_deck_final_and_private_history_survive_fight_deletion_and_card_edits(tmp_path, monkeypatch, policy, inline, with_photo):
     db = DatabaseManager(str(tmp_path / 'deck.db'))
     modes = GameModeSystem(db)
     if policy != 'legacy':
@@ -80,6 +81,12 @@ def test_three_round_deck_final_and_private_history_survive_fight_deletion_and_c
         f'deck_{key}_inline_message_id': 'friend-invite'} if inline else {
         f'deck_{key}_status_message': {'chat_id': -100, 'message_id': 77}},
         bot=SimpleNamespace(edit_message_text=AsyncMock(), send_message=AsyncMock()))
+    if with_photo:
+        context.bot.send_photo = AsyncMock()
+        from bot import battle_visuals
+        from unittest.mock import Mock as Capture
+        renderer = Capture(wraps=battle_visuals.render_result)
+        monkeypatch.setattr(battle_visuals, 'render_result', renderer)
     before = db.get_or_create_player(2).hearts
     from systems.legacy_fight_rewards_system import LegacyFightRewardsSystem
     from systems.match_activity import active_in
@@ -117,7 +124,21 @@ def test_three_round_deck_final_and_private_history_survive_fight_deletion_and_c
         assert final['inline_message_id'] == 'friend-invite'
     else:
         assert final['chat_id'] == -100 and final['message_id'] == 77
-    context.bot.send_message.assert_not_awaited()
+    if with_photo:
+        assert [call.kwargs['chat_id'] for call in context.bot.send_photo.await_args_list] == [1, 2]
+        from PIL import Image
+        assert Image.open(context.bot.send_photo.await_args.kwargs['photo']).size == (1200, 1080)
+        model = renderer.call_args.args[0]
+        assert [p['score'] for p in model['players']] == [10, 7]
+        assert [len(p['cards']) for p in model['players']] == [3, 3]
+        assert model['players'][1]['cards'][0]['rarity'] == 'epic'
+        assert model['players'][1]['reward']['hearts_lost'] == expected_hearts
+        assert model['players'][1]['equation'] == '5 + 2 = 7'
+        assert len(model['round_lines']) == 3 and model['winner_name'] == 'MH'
+        context.bot.send_message.assert_not_awaited()
+    else:
+        assert [call.kwargs['chat_id'] for call in context.bot.send_message.await_args_list] == [1, 2]
+    context.bot.send_message.reset_mock()
     # A new handler after restart reads the saved cards, forms and causes.
     with sqlite3.connect(db.db_path) as conn:
         conn.execute("UPDATE cards SET name='Edited later ' || card_id,popularity=1")
@@ -131,6 +152,7 @@ def test_three_round_deck_final_and_private_history_survive_fight_deletion_and_c
     assert 'Mamooti (🟢 Normal)' in details and 'Heshmat Ferdous (🟣 Epic)' in details
     assert 'محبوبیت: ۵۵' in details and 'محبوبیت: ۶۰' in details
     assert 'علت برد: تریت با اولویت بالاتر' in details and 'اولویت تریت: T1' in details
+    assert '5 + 2 = 7' in details and 'دو کارت از چهره‌های ایرانی' in details
     assert 'Edited later' not in details
     for uid in (2, 999):
         context.bot.send_message.reset_mock()

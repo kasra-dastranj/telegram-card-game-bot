@@ -585,6 +585,16 @@ class BattleHandlersMixin:
         ch_remaining = deck_state.get('challenger_remaining_cards', [])
         op_remaining = deck_state.get('opponent_remaining_cards', [])
 
+        from bot.battle_visual_delivery import send_arena
+        from bot.battle_visuals import rule_lines
+        for user_id in ((fight.challenger_id, fight.opponent_id) if arena_mode == 'deck' else ()):
+            try:
+                if not await send_arena(context, user_id, fight_id, arena_snapshot, arena_mode):
+                    await context.bot.send_message(chat_id=user_id,
+                        text=arena_info['name_fa'] + '\n' + '\n'.join(rule_lines(arena_snapshot, arena_mode)))
+            except Exception:
+                logger.warning('Could not deliver private battle arena')
+
         # اعلام شروع؛ Deck از همین پیام به‌عنوان وضعیت ثابت کل مسابقه استفاده می‌کند.
         if fight.chat_id:
             ch_name = self._battle_player_name(fight.challenger_id, "Blue")
@@ -1493,6 +1503,12 @@ class BattleHandlersMixin:
                     + winner_lines(report)
                     + score_text
                 ),
+                deck_totals={
+                    str(ch_id): {'base': ch_rounds_won * 5, 'bonus': ch_synergy['score'],
+                                 'total': ch_points, 'reasons': ch_synergy['reasons']},
+                    str(op_id): {'base': op_rounds_won * 5, 'bonus': op_synergy['score'],
+                                 'total': op_points, 'reasons': op_synergy['reasons']},
+                },
             )
             return
 
@@ -1526,7 +1542,7 @@ class BattleHandlersMixin:
                                        winner_id, loser_id,
                                        result_type: str,
                                        ch_rounds_won: int, op_rounds_won: int,
-                                       deck_summary: Optional[str] = None):
+                                       deck_summary: Optional[str] = None, deck_totals=None):
         """پاداش‌دهی نهایی بازی ۳ راوندی"""
         ch_id = fight.challenger_id
         op_id = fight.opponent_id
@@ -1550,7 +1566,7 @@ class BattleHandlersMixin:
             from bot.deck_reports import finish
             deck_report = finish(self.db.db_path, fight_id, (ch_id, op_id),
                                  {str(ch_id): self._battle_player_name(ch_id, 'Blue'),
-                                  str(op_id): self._battle_player_name(op_id, 'Red')}, settlement['awards'])
+                                  str(op_id): self._battle_player_name(op_id, 'Red')}, settlement['awards'], deck_totals)
         ch_result = "win" if result_type == "challenger_wins" else "loss" if result_type == "opponent_wins" else "tie"
         op_result = "win" if result_type == "opponent_wins" else "loss" if result_type == "challenger_wins" else "tie"
 
@@ -1649,6 +1665,21 @@ class BattleHandlersMixin:
             except Exception as e:
                 logger.error(f"Failed to send final result: {e}")
 
+        from bot.battle_visual_delivery import deck_picture, send_result
+        picture = (await deck_picture(self, context, fight_id, fight, (ch_card, op_card),
+                                     (ch_rounds_won, op_rounds_won), winner_id, deck_report, settlement['awards'])
+                   if deck_report else None)
+        if deck_report and fight and fight.chat_id:
+            private_markup = InlineKeyboardMarkup([
+                [InlineKeyboardButton('📋 مشاهده جزئیات', callback_data=f'deck_report_{fight_id}')],
+                [InlineKeyboardButton('🥊 بازی دوباره', switch_inline_query='game')]])
+            for user_id in (ch_id, op_id):
+                if not await send_result(context, user_id, picture, 'بازی تموم شد، مبارک خیلیا!', private_markup):
+                    try:
+                        await context.bot.send_message(chat_id=user_id, text=final_text,
+                                                       reply_markup=InlineKeyboardMarkup(keyboard))
+                    except Exception:
+                        logger.warning('Could not deliver private battle result')
         self.db.delete_fight(fight_id)
 
     async def deck_report_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):

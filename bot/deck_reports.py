@@ -34,6 +34,7 @@ def round_snapshot_in(conn, fight_id, players, names, arena, round_num, result, 
               'compare_stat': result['compare_stat'], 'cards': {}}
     for uid, role, card in zip(players, ('challenger', 'opponent'), cards):
         record['cards'][str(uid)] = {
+            'card_id': getattr(card, 'card_id', None),
             'name': card.name, 'rarity': str(getattr(card.rarity, 'value', card.rarity)),
             'value': result[f'{role}_value'], 'trait_rank': result[f'{role}_trait_rank'],
         }
@@ -76,13 +77,15 @@ def winner_lines(report):
     return '\n'.join(lines)
 
 
-def finish(db_path, fight_id, players, names, awards):
+def finish(db_path, fight_id, players, names, awards, totals=None):
     with closing(sqlite3.connect(db_path, timeout=15)) as conn, conn:
         conn.execute('BEGIN IMMEDIATE')
         report = load_in(conn, fight_id) or {'mode': 'deck', 'players': list(players), 'names': names,
                                           'rounds': [], 'completed': False}
         backfill_rounds_in(conn, fight_id, report)
         report['awards'] = {str(uid): dict(awards[str(uid)]) for uid in players}
+        if totals:
+            report['totals'] = totals
         # This is the recorded charge, including configurable v2 heart costs.
         for uid, xp, score, hearts in conn.execute(
                 'SELECT user_id,xp,score,hearts_lost FROM match_reward_events WHERE request_id=?', ('fight:' + fight_id,)):
@@ -129,4 +132,14 @@ def detail_text(report):
             else:
                 lines.append(f"علت برد: {STAT_NAMES.get(item['compare_stat'], item['compare_stat'])} بیشتر")
         blocks.append('\n'.join(lines))
+    if report.get('totals'):
+        lines = ['🧩 امتیاز ساخت دک']
+        for uid in report['players']:
+            total = report['totals'][str(uid)]
+            equation = f"{total['base']} + {total['bonus']} = {total['total']}"
+            lines.append(isolate(report['names'][str(uid)]) + ': ' + isolate(equation))
+            lines.append('، '.join(total['reasons']) or 'بدون بونس')
+        blocks.append('\n'.join(lines))
+    if report.get('awards'):
+        blocks.append(reward_lines(report))
     return '\n\n'.join(blocks) or 'این بازی پیش از پایان اولین راوند متوقف شد.'
