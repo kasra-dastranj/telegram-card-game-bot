@@ -52,6 +52,8 @@ class WebAPI:
         self.setup_routes()
         from web.custom_admin_api import register_custom_admin
         register_custom_admin(self)
+        from web.easy_admin_api import register_easy_admin
+        register_easy_admin(self)
 
     def _arena_admin_actor(self, scope='write'):
         """Fail-closed token auth with optional independent high-risk scopes."""
@@ -440,6 +442,9 @@ class WebAPI:
 
         @self.app.route('/api/card-editor/options', methods=['GET'])
         def card_editor_options():
+            from systems.easy_questions import catalog_in
+            with sqlite3.connect(self.db.db_path) as conn:
+                easy_stats = catalog_in(conn)['stats']
             cards = [card for card in self.db.get_all_cards() if card.origin=="official"]
             metadata = [self.modes.get_card_metadata(card.card_id) for card in cards]
             images_dir = PROJECT_ROOT / 'assets' / 'card_images'
@@ -454,7 +459,8 @@ class WebAPI:
                             'traits': sorted(set(self.trait_registry.list_traits()) |
                                              {str(value) for item in metadata for value in item['traits']}),
                             'series': sorted({item['series'] for item in metadata if item['series']}),
-                            'names': sorted({card.name for card in cards}), 'images': images})
+                            'names': sorted({card.name for card in cards}), 'images': images,
+                            'easy_stats': easy_stats})
         
         @self.app.route('/api/card-editor/traits', methods=['POST'])
         def add_card_trait():

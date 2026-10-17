@@ -483,11 +483,11 @@ def test_easy_traits_follow_active_form_in_questions_and_card_options(mode_syste
     with modes._connect() as conn:
         modes._save_state(conn, request['request_id'], state)
     modes.db.set_player_card_rarity_override(2, 'alpha', 'normal')
-    assert [card.card_id for card in modes.get_easy_options(request['request_id'], 1)] == ['alpha']
-    assert modes.get_easy_options(request['request_id'], 2) == []
+    assert {card.card_id for card in modes.get_easy_options(request['request_id'], 1)} == {'alpha', 'beta', 'gamma', 'delta', 'omega'}
+    assert {card.card_id for card in modes.get_easy_options(request['request_id'], 2)} == {'alpha', 'beta', 'gamma', 'delta', 'omega'}
 
 
-def test_easy_composite_questions_only_offer_eligible_cards(mode_system):
+def test_easy_composite_questions_require_common_traits_but_offer_the_whole_collection(mode_system):
     mode_system.set_card_metadata("alpha", traits=["Hero"], series="Telverse")
     mode_system.set_card_metadata("beta", traits=["Villain"], series="Other")
     pool = mode_system._easy_question_pool([1, 2])
@@ -520,4 +520,4 @@ def test_easy_composite_questions_only_offer_eligible_cards(mode_system):
     conn.commit()
     conn.close()
 
-    assert [card.card_id for card in mode_system.get_easy_options(request["request_id"], 1)] == ["alpha"]
+    assert {card.card_id for card in mode_system.get_easy_options(request["request_id"], 1)} == {'alpha', 'beta', 'gamma', 'delta', 'omega'}

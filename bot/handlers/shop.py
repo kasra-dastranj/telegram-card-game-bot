@@ -131,9 +131,8 @@ class ShopHandlersMixin:
             if not quote.get('ok'):
                 await query.edit_message_text(quote.get('error','خطا'))
                 return
-            await query.edit_message_text('قیمت پوسته: ' + str(quote['price']) + ' سکه؛ تأیید می‌کنی؟',
-                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton('تأیید خرید', callback_data='v2_buy_' + quote['quote_id'])]]))
-            return
+            from bot.shop_presentation import show_quote
+            return await show_quote(self,update,context,quote,back_callback='skins_menu_'+card_id)
         result = self.skins.unlock_skin(user_id, skin_id)
 
         if result['success']:
@@ -440,6 +439,9 @@ class ShopHandlersMixin:
             )
             return
         new_rarity = result["to_rarity"]
+        if not result.get('replayed'):
+            from bot.card_reward_presentation import send_upgrade_cards
+            await send_upgrade_cards(self, update, context, card_id, result['from_rarity'], new_rarity)
         xp_amount = result["xp_gained"]
         old_lv, new_lv = result["old_level"], result["new_level"]
         level_text = f"\n⬆️ Level Up! → {new_lv}" if new_lv > old_lv else ""

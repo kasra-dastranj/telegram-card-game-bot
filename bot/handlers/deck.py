@@ -5,9 +5,9 @@
 منوی ساخت، مشاهده و حذف دک‌های بازیکن
 """
 
-import json
 import logging
 from typing import Optional
+from telegram.helpers import escape_markdown
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
@@ -30,11 +30,35 @@ class DeckHandlersMixin:
 
     # ==================== MENU ====================
 
+    async def _deck_panel(self, query, text, **kwargs):
+        if getattr(getattr(query, 'message', None), 'photo', None):
+            await query.edit_message_caption(caption=text, **kwargs)
+        else:
+            await query.edit_message_text(text, **kwargs)
+
+    def _deck_buttons(self, deck_id):
+        return InlineKeyboardMarkup([
+            [InlineKeyboardButton('🎴 تغییر کارت‌ها', callback_data=f'deck_edit_{deck_id}')],
+            [InlineKeyboardButton('✏️ اسم دک', callback_data=f'deck_rename_{deck_id}'),
+             InlineKeyboardButton('💬 شعار برد', callback_data=f'deck_slogan_{deck_id}')],
+            [InlineKeyboardButton('🗑 حذف', callback_data=f'deck_delete_{deck_id}'),
+             InlineKeyboardButton('🔙 دک‌های من', callback_data='deck_menu')]])
+
+    async def _show_deck(self, context, user_id, deck_id):
+        from bot.deck_visual_delivery import send_deck
+        await send_deck(self, context, user_id, deck_id, self._deck_buttons(deck_id))
+
+    def _deck_edit_locked(self, user_id):
+        from systems.card_upgrade_system import CardUpgradeSystem
+        return CardUpgradeSystem(self.db).is_management_locked(user_id)
+
     async def deck_menu_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """نمایش لیست دک‌های بازیکن"""
         query = update.callback_query
         await query.answer()
         user_id = query.from_user.id
+
+        context.user_data.pop('deck_build', None)
 
         deck_system = DeckSystem(self.db)
         decks = deck_system.get_player_decks(user_id)
@@ -50,13 +74,9 @@ class DeckHandlersMixin:
                 synergy = self.modes.calculate_deck_synergy(
                     deck['cards']
                 )
-                card_line = "  ".join(
-                    f"{RARITY_EMOJI.get(_rarity_val(c), '⚪')}{c.name[:10]}"
-                    for c in deck['cards']
-                )
                 text += (
-                    f"{status} **{deck['deck_name']}** — "
-                    f"+{synergy['score']} هم‌افزایی\n└ {card_line}\n\n"
+                    f"{status} **{escape_markdown(deck['deck_name'])}** — "
+                    f"+{synergy['score']} بونس\n"
                 )
                 keyboard.append([
                     InlineKeyboardButton(f"👁 {deck['deck_name']}", callback_data=f"deck_view_{deck['deck_id']}"),
@@ -67,7 +87,11 @@ class DeckHandlersMixin:
             keyboard.append([InlineKeyboardButton("➕ ساخت دک جدید", callback_data="deck_create")])
         keyboard.append([InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main")])
 
-        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
+        # A 50-deck list can exceed Telegram's caption limit on a photo callback.
+        if getattr(getattr(query, 'message', None), 'photo', None):
+            await context.bot.send_message(chat_id=user_id, text=text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
+        else:
+            await self._deck_panel(query, text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
 
     async def deck_view_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """نمایش جزئیات یک دک"""
@@ -76,28 +100,44 @@ class DeckHandlersMixin:
         user_id = query.from_user.id
 
         deck_id = query.data.split("deck_view_")[1]
-        deck_system = DeckSystem(self.db)
-        cards = deck_system.get_deck_cards(deck_id, user_id)
         deck_data = self.db.get_deck_by_id(deck_id)
 
         if not deck_data or deck_data['player_id'] != user_id:
             await query.answer("❌ دک یافت نشد!", show_alert=True)
             return
 
-        text = f"🃏 **{deck_data['deck_name']}**\n\n"
-        for card in cards:
-            rv = _rarity_val(card)
-            emoji = RARITY_EMOJI.get(rv, '⚪')
-            text += (
-                f"{emoji} **{card.name}** ({RARITY_FA.get(rv, rv)})\n"
-                f"   💪{card.power}  ⚡{card.speed}  🧠{card.iq}  ❤️{card.popularity}\n\n"
-            )
+        await self._show_deck(context, user_id, deck_id)
 
-        keyboard = [
-            [InlineKeyboardButton("🗑 حذف این دک", callback_data=f"deck_delete_{deck_id}")],
-            [InlineKeyboardButton("🔙 دک‌های من", callback_data="deck_menu")]
-        ]
-        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
+    async def deck_edit_handler(self, update, context):
+        query = update.callback_query
+        action, deck_id = query.data.split('_', 2)[1:]
+        deck = self.db.get_deck_by_id(deck_id)
+        if not deck or deck['player_id'] != query.from_user.id:
+            await query.answer('این دک مال تو نیست یا حذف شده.', show_alert=True)
+            return
+        if self._deck_edit_locked(query.from_user.id):
+            await query.answer('اول بازیت رو تموم کن، بعد دکت رو تغییر بده.', show_alert=True)
+            return
+        await query.answer()
+        build = {'cards': [deck[f'card_id_{i}'] for i in range(1, 4)], 'edit_id': deck_id,
+                 'name': deck['deck_name'], 'slogan': deck.get('victory_slogan', '')}
+        context.user_data['deck_build'] = build
+        if action == 'edit':
+            build.update(cards=[], step=1)
+            await self._send_deck_build_category_keyboard(query, query.from_user.id, 1)
+        elif action == 'rename':
+            build['waiting_name'] = True
+            await self._deck_panel(query, '📝 اسم جدید دکت رو بنویس؛ تا ۲۰ کاراکتر.', reply_markup=self._deck_cancel_buttons())
+        else:
+            await self._ask_deck_slogan(context, self._deck_reply(query))
+
+    def _deck_reply(self, query):
+        async def reply(text, **kwargs):
+            await self._deck_panel(query, text, **kwargs)
+        return reply
+
+    def _deck_cancel_buttons(self):
+        return InlineKeyboardMarkup([[InlineKeyboardButton('❌ لغو', callback_data='deck_menu')]])
 
     # ==================== CREATE DECK ====================
 
@@ -133,7 +173,10 @@ class DeckHandlersMixin:
         rarity = parts[3]
         page = int(parts[4])
 
-        build = context.user_data.get('deck_build', {'cards': [], 'step': 1})
+        build = context.user_data.get('deck_build')
+        if not build or build.get('waiting_name') or build.get('waiting_slogan') or len(build.get('cards', [])) >= 3:
+            await query.answer('این مرحله دیگه فعال نیست؛ از منوی دک‌ها ادامه بده.', show_alert=True)
+            return
         step = build.get('step', 1)
         already_picked = build.get('cards', [])
 
@@ -167,7 +210,24 @@ class DeckHandlersMixin:
         keyboard.append([InlineKeyboardButton("🔙 دسته‌بندی‌ها", callback_data=f"deck_build_back_step{step}")])
 
         text = f"🃏 **ساخت دک — کارت {step} از ۳**\n\nکارتی از {RARITY_FA.get(rarity, rarity)} انتخاب کن:"
-        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
+        await self._deck_panel(query, text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
+
+    async def deck_build_back_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Return to rarity categories without restarting or rewinding the draft."""
+        query = update.callback_query
+        build = context.user_data.get('deck_build')
+        if not build or build.get('waiting_name') or len(build.get('cards', [])) >= 3:
+            await query.answer('این مرحله دیگه فعال نیست؛ از منوی دک‌ها ادامه بده.', show_alert=True)
+            return
+        await query.answer()
+        picked = build.get('cards', [])
+        names = []
+        for card_id in picked:
+            card = self.db.get_card_by_id_for_player(card_id, query.from_user.id)
+            names.append(card.name if card else card_id)
+        await self._send_deck_build_category_keyboard(
+            query, query.from_user.id, step=len(picked) + 1, selected_names=names,
+        )
 
     async def deck_build_pick_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """یک کارت در فرآیند ساخت انتخاب شد
@@ -178,7 +238,10 @@ class DeckHandlersMixin:
         user_id = query.from_user.id
 
         card_id = query.data.split("deck_build_pick_")[1]
-        build = context.user_data.get('deck_build', {'cards': [], 'step': 1})
+        build = context.user_data.get('deck_build')
+        if not build or build.get('waiting_name') or build.get('waiting_slogan') or len(build.get('cards', [])) >= 3:
+            await query.answer('این مرحله دیگه فعال نیست؛ از منوی دک‌ها ادامه بده.', show_alert=True)
+            return
         picked = build.get('cards', [])
 
         if card_id in picked:
@@ -194,7 +257,9 @@ class DeckHandlersMixin:
         card = self.db.get_card_by_id_for_player(card_id, user_id) or self.db.get_card_by_id(card_id)
         card_name = card.name if card else card_id
 
-        if len(picked) < 3:
+        if len(picked) == 3 and build.get('edit_id'):
+            await self._finalize_deck_creation(user_id, context, build['name'], self._deck_reply(query))
+        elif len(picked) < 3:
             # انتخاب کارت بعدی
             await self._send_deck_build_category_keyboard(query, user_id, step=len(picked) + 1,
                                                           selected_names=[
@@ -216,25 +281,62 @@ class DeckHandlersMixin:
             )
             keyboard = [[InlineKeyboardButton("✅ بدون نام", callback_data="deck_build_skip_name")]]
             context.user_data['deck_build']['waiting_name'] = True
-            await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
+            await self._deck_panel(query, text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
 
     async def deck_build_skip_name_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """ساخت دک بدون نام سفارشی"""
         query = update.callback_query
         await query.answer()
-        await self._finalize_deck_creation(query.from_user.id, context, name=None,
-                                            reply_fn=query.edit_message_text)
+        build = context.user_data.get('deck_build', {})
+        if not build.get('waiting_name'):
+            return
+        build['name'] = None
+        await self._ask_deck_slogan(context, self._deck_reply(query))
+
+    async def _ask_deck_slogan(self, context, reply_fn):
+        build = context.user_data['deck_build']
+        build.pop('waiting_name', None)
+        build['waiting_slogan'] = True
+        await reply_fn('💬 وقتی دکت می‌بره چی بگه؟\nیه شعار تا ۱۲۰ کاراکتر بنویس؛ زیر عکس برد میاد.',
+                       reply_markup=InlineKeyboardMarkup([
+                           [InlineKeyboardButton('همون شعار پیش‌فرض', callback_data='deck_build_skip_slogan')],
+                           [InlineKeyboardButton('❌ لغو', callback_data='deck_menu')]]))
+
+    async def deck_build_skip_slogan_handler(self, update, context):
+        from systems.deck_presentation import DEFAULT_SLOGAN
+        query = update.callback_query
+        await query.answer()
+        build = context.user_data.get('deck_build', {})
+        if not build.get('waiting_slogan'):
+            return
+        build['slogan'] = DEFAULT_SLOGAN
+        await self._finalize_deck_creation(query.from_user.id, context, build.get('name'), self._deck_reply(query))
 
     async def deck_name_message_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """دریافت نام دک از پیام متنی کاربر"""
         user_id = update.effective_user.id
         build = context.user_data.get('deck_build', {})
-        if not build.get('waiting_name'):
+        if not build.get('waiting_name') and not build.get('waiting_slogan'):
             return  # این handler فقط در حالت ساخت دک فعال است
 
+        if build.get('waiting_slogan'):
+            from systems.deck_presentation import normalize_slogan
+            try:
+                build['slogan'] = normalize_slogan(update.message.text)
+            except ValueError as error:
+                await update.message.reply_text(str(error))
+                return
+            await self._finalize_deck_creation(user_id, context, build.get('name'), update.message.reply_text)
+            return
         name = update.message.text.strip()
-        await self._finalize_deck_creation(user_id, context, name=name,
-                                            reply_fn=update.message.reply_text)
+        if not name or len(name) > DeckSystem.MAX_NAME_LENGTH:
+            await update.message.reply_text('یه اسم بین ۱ تا ۲۰ کاراکتر بنویس.')
+            return
+        build['name'] = name
+        if build.get('edit_id'):
+            await self._finalize_deck_creation(user_id, context, name, update.message.reply_text)
+        else:
+            await self._ask_deck_slogan(context, update.message.reply_text)
 
     async def _finalize_deck_creation(self, user_id: int, context, name: Optional[str], reply_fn):
         """ذخیره نهایی دک"""
@@ -246,18 +348,27 @@ class DeckHandlersMixin:
             return
 
         deck_system = DeckSystem(self.db)
-        ok, result = deck_system.create_deck(user_id, card_ids, name)
+        if self._deck_edit_locked(user_id):
+            await reply_fn('اول بازیت رو تموم کن، بعد دکت رو ذخیره کن.', reply_markup=self._deck_cancel_buttons())
+            return
+        if build.get('edit_id'):
+            ok, result = deck_system.update_deck(user_id, build['edit_id'], card_ids, name, build.get('slogan') or None)
+            deck_id = build['edit_id']
+        else:
+            ok, result = deck_system.create_deck(user_id, card_ids, name, build.get('slogan'))
+            deck_id = result
 
         # پاک کردن state
-        context.user_data.pop('deck_build', None)
-
         if ok:
+            context.user_data.pop('deck_build', None)
             keyboard = [[InlineKeyboardButton("🗂️ دک‌های من", callback_data="deck_menu")]]
             await reply_fn(
-                f"✅ **دک با موفقیت ساخته شد!**\n\nبرای مدیریت دک‌هایت به منو برو.",
+                '✅ دکت ذخیره شد!',
                 reply_markup=InlineKeyboardMarkup(keyboard),
                 parse_mode='Markdown'
             )
+            if hasattr(context, 'bot'):
+                await self._show_deck(context, user_id, deck_id)
         else:
             keyboard = [[InlineKeyboardButton("🔙 دک‌های من", callback_data="deck_menu")]]
             await reply_fn(
@@ -287,7 +398,7 @@ class DeckHandlersMixin:
             [InlineKeyboardButton(f"🟢 معمولی ({rarity_counts.get('normal', 0)})",    callback_data=f"deck_build_cat_normal_1")],
             [InlineKeyboardButton("❌ لغو",                                            callback_data="deck_menu")],
         ]
-        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
+        await self._deck_panel(query, text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
 
     # ==================== DELETE DECK ====================
 
@@ -304,12 +415,12 @@ class DeckHandlersMixin:
             return
         deck_name = deck['deck_name'] if deck else "دک"
 
-        text = f"⚠️ **حذف دک «{deck_name}»**\n\nمطمئنی؟ این عمل برگشت‌پذیر نیست."
+        text = f"⚠️ حذف دک «{deck_name}»\n\nمطمئنی؟ نمی‌تونی برش گردونی."
         keyboard = [
             [InlineKeyboardButton("🗑 بله، حذف شود", callback_data=f"deck_delete_confirm_{deck_id}")],
             [InlineKeyboardButton("❌ لغو", callback_data="deck_menu")]
         ]
-        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
+        await self._deck_panel(query, text, reply_markup=InlineKeyboardMarkup(keyboard))
 
     async def deck_delete_confirm_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """تأیید حذف دک"""

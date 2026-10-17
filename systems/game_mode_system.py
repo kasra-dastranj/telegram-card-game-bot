@@ -27,6 +27,8 @@ from systems.arena_registry import ArenaRegistry
 from systems.match_rewards_system import MatchRewardsSystem
 from systems.mode_access_system import ModeAccessSystem
 from systems.card_trait_registry import ensure_trait_registry_schema, remember_card_traits
+from systems.easy_questions import (catalog_in as easy_catalog_in, question_pool, evaluate_card,
+                                    DEFAULT_QUESTIONS as EASY_QUESTIONS, default_catalog)
 
 logger = logging.getLogger(__name__)
 
@@ -187,20 +189,6 @@ ABILITY_DEFINITIONS: Dict[str, Dict[str, Any]] = {
         "effect": {"type": "weaken_stat", "stat": "popularity", "delta": -2},
     },
 }
-
-
-EASY_QUESTIONS: List[Dict[str, Any]] = [
-    {"id": "smart", "text": "باهوش‌ترین شخصیت کیست؟", "attribute": "iq"},
-    {"id": "strong", "text": "قوی‌ترین شخصیت کیست؟", "attribute": "power"},
-    {"id": "fast", "text": "سریع‌ترین شخصیت کیست؟", "attribute": "speed"},
-    {"id": "popular", "text": "محبوب‌ترین شخصیت کیست؟", "attribute": "popularity"},
-    {"id": "funny", "text": "بامزه‌ترین شخصیت کیست؟", "attribute": "funny"},
-    {"id": "scary", "text": "ترسناک‌ترین شخصیت کیست؟", "attribute": "scary"},
-    {"id": "charismatic", "text": "کاریزماتیک‌ترین شخصیت کیست؟", "attribute": "charisma"},
-    {"id": "cute", "text": "کیوت‌ترین شخصیت کیست؟", "attribute": "cute"},
-    {"id": "evil", "text": "شرورترین شخصیت کیست؟", "attribute": "evil"},
-    {"id": "leader", "text": "بهترین رهبر کیست؟", "attribute": "leadership"},
-]
 
 
 def _now() -> datetime:
@@ -1506,7 +1494,8 @@ class GameModeSystem:
             return False, 'player_busy', state
         state["current_round"] = 1
         state["phase"] = "selection"
-        state["question"] = self._choose_easy_question(state["players"])
+        state['question_catalog'] = easy_catalog_in(conn)
+        state["question"] = self._choose_easy_question(state["players"], catalog=state['question_catalog'], match_key=request_id)
         state["deadline"] = _iso(_now() + timedelta(seconds=EASY_CHOICE_TTL_SECONDS))
         self._save_state(conn, request_id, state)
         conn.execute(
@@ -1517,7 +1506,7 @@ class GameModeSystem:
         conn.close()
         return True, "started", state
 
-    def _easy_question_pool(self, players: Iterable[int]) -> List[Dict[str, Any]]:
+    def _easy_question_pool(self, players: Iterable[int], *, catalog=None, match_key=None) -> List[Dict[str, Any]]:
         """Build safe simple/composite questions for the current collections."""
         per_player_traits = []
         per_player_series = []
@@ -1526,7 +1515,7 @@ class GameModeSystem:
         for user_id in players:
             traits = set()
             series_values = set()
-            for card in eligible_cards(self.db, self.db.get_player_cards(user_id), "easy"):
+            for card in eligible_cards(self.db, self.db.get_player_cards(user_id), "easy", match_key):
                 metadata = self.metadata_for_card(card)
                 for trait in metadata.get("traits", []):
                     key = str(trait).strip().casefold()
@@ -1543,33 +1532,16 @@ class GameModeSystem:
 
         common_traits = set.intersection(*per_player_traits) if per_player_traits else set()
         common_series = set.intersection(*per_player_series) if per_player_series else set()
-        composite = []
-        for key in sorted(common_traits):
-            label = display_traits[key]
-            composite.append(
-                {
-                    "id": f"trait:{key}:iq",
-                    "text": f"باهوش‌ترین شخصیت با ویژگی {bidi_isolate(label)} کیست؟",
-                    "attribute": "iq",
-                    "trait": label,
-                }
-            )
-        for key in sorted(common_series):
-            label = display_series[key]
-            composite.append(
-                {
-                    "id": f"series:{key}:popularity",
-                    "text": f"محبوب‌ترین شخصیت از مجموعه {bidi_isolate(label)} کیست؟",
-                    "attribute": "popularity",
-                    "series": label,
-                }
-            )
-        return [*EASY_QUESTIONS, *composite]
+        if catalog is None:
+            with closing(self._connect()) as conn:
+                catalog = easy_catalog_in(conn)
+        return question_pool(catalog, {key: display_traits[key] for key in common_traits},
+                             {key: display_series[key] for key in common_series})
 
     def _choose_easy_question(
-        self, players: Iterable[int], previous_id: Optional[str] = None
+        self, players: Iterable[int], previous_id: Optional[str] = None, *, catalog=None, match_key=None
     ) -> Dict[str, Any]:
-        pool = self._easy_question_pool(players)
+        pool = self._easy_question_pool(players, catalog=catalog, match_key=match_key)
         choices = [question for question in pool if question["id"] != previous_id]
         return random.choice(choices or pool)
 
@@ -1580,6 +1552,8 @@ class GameModeSystem:
             return max(1, min(100, int(authored[attribute])))
         if attribute in CORE_STATS:
             return int(getattr(card, attribute))
+        if attribute not in {'funny', 'scary', 'charisma', 'cute', 'evil', 'leadership'}:
+            return 0  # Newly authored dimensions have no invented random value.
         digest = hashlib.sha256(f"{card.card_id}:{attribute}".encode("utf-8")).digest()
         return 25 + (int.from_bytes(digest[:2], "big") % 76)
 
@@ -1611,16 +1585,7 @@ class GameModeSystem:
         question = state["question"]
         trait = question.get("trait")
         series = question.get("series")
-        if trait or series:
-            eligible = []
-            for card in cards:
-                metadata = self.metadata_for_card(card)
-                trait_ok = not trait or trait.casefold() in {t.casefold() for t in metadata.get("traits", [])}
-                series_ok = not series or (metadata.get("series") or "").casefold() == series.casefold()
-                if trait_ok and series_ok:
-                    eligible.append(card)
-            cards = eligible
-        else:
+        if not (trait or series):
             cards = random.sample(cards, min(5, len(cards))) if cards else []
         state["options"][key] = [card.card_id for card in cards]
         self._save_state(conn, request_id, state)
@@ -1646,6 +1611,10 @@ class GameModeSystem:
             conn.rollback()
             conn.close()
             return False, "invalid_phase", state
+        if state.get('deadline') and state['deadline'] <= _iso(_now()):
+            conn.rollback()
+            conn.close()
+            return False, 'expired', state
         if key in state["choices"]:
             conn.rollback()
             conn.close()
@@ -1663,6 +1632,12 @@ class GameModeSystem:
             conn.close()
             return False, "card_not_allowed", state
         state["choices"][key] = card_id
+        from systems.custom_cards import match_card
+        card = match_card(self.db, request_id, user_id, card_id)
+        # The custom snapshot is still uncommitted on this connection; use the
+        # current owned definition here, then persist the evaluated choice.
+        if card:
+            state.setdefault('choice_scores', {})[key] = evaluate_card(self, card, state['question'])
         all_selected = len(state["choices"]) == len(state["players"])
         self._save_state(conn, request_id, state)
         conn.commit()
@@ -1673,31 +1648,30 @@ class GameModeSystem:
         state = self.get_state(request_id)
         if not state or state.get("phase") != "selection":
             raise ValueError("easy_round_not_ready")
-        attribute = state["question"]["attribute"]
         entries = []
         for user_id in state["players"]:
             card_id = state["choices"].get(str(user_id))
             if not card_id:
                 continue
+            saved = state.get('choice_scores', {}).get(str(user_id))
+            if saved:
+                entries.append({'user_id': user_id, **saved})
+                continue
             from systems.custom_cards import match_card
             card = match_card(self.db,request_id,user_id,card_id)
             if card:
-                entries.append(
-                    {
-                        "user_id": user_id,
-                        "card_id": card_id,
-                        "card_name": card.name,
-                        "hidden_value": self._hidden_stat_value(card, attribute),
-                    }
-                )
-        entries.sort(key=lambda item: item["hidden_value"], reverse=True)
+                entries.append({'user_id': user_id, **evaluate_card(self, card, state['question'])})
+        # Matching the requested trait/series outranks every non-match, even
+        # with a lower formula score. Non-matches still compete with each other.
+        ranking_key = lambda item: (item.get('eligible', True), item['hidden_value'])
+        entries.sort(key=ranking_key, reverse=True)
         distinct_values = []
         for item in entries:
-            if item["hidden_value"] not in distinct_values:
-                distinct_values.append(item["hidden_value"])
+            if ranking_key(item) not in distinct_values:
+                distinct_values.append(ranking_key(item))
         awards = (3, 2, 1)
         for item in entries:
-            rank_index = distinct_values.index(item["hidden_value"])
+            rank_index = distinct_values.index(ranking_key(item))
             item["points"] = awards[rank_index] if rank_index < len(awards) else 0
             state["scores"][str(item["user_id"])] += item["points"]
         round_result = {
@@ -1732,8 +1706,10 @@ class GameModeSystem:
         else:
             state["current_round"] += 1
             previous_id = state["question"]["id"]
-            state["question"] = self._choose_easy_question(state["players"], previous_id)
+            state["question"] = self._choose_easy_question(state["players"], previous_id,
+                catalog=state.setdefault('question_catalog', default_catalog()), match_key=request_id)
             state["choices"] = {}
+            state['choice_scores'] = {}
             state["options"] = {}
             state["deadline"] = _iso(_now() + timedelta(seconds=EASY_CHOICE_TTL_SECONDS))
             report = None

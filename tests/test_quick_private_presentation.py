@@ -71,9 +71,11 @@ def test_inline_invitation_stays_started_and_both_players_receive_winner_sticker
     handler.modes.select_quick_stat(key, 1, 'power')
     context.bot.send_message.reset_mock()
     context.bot.send_sticker.reset_mock()
+    context.bot.send_photo.reset_mock()
     delivery = Mock()
     delivery.attach_mock(context.bot.send_sticker, 'sticker')
     delivery.attach_mock(context.bot.send_message, 'message')
+    delivery.attach_mock(context.bot.send_photo, 'photo')
 
     asyncio.run(handler.quick_stat_handler(
         SimpleNamespace(callback_query=_query(f'gm_qstat_{key}_iq', 2)), context))
@@ -81,9 +83,9 @@ def test_inline_invitation_stays_started_and_both_players_receive_winner_sticker
     report = handler.modes.get_report(key)
     assert report['winner_id'] == 1  # Alpha's Epic form beats Beta's Normal form.
     assert [(call[0], call.kwargs['chat_id']) for call in delivery.mock_calls] == [
-        ('sticker', 1), ('message', 1), ('sticker', 2), ('message', 2)]
-    for call in context.bot.send_message.await_args_list:
-        assert call.kwargs['text'].startswith('💬 «')
+        ('sticker', 1), ('photo', 1), ('sticker', 2), ('photo', 2)]
+    for call in context.bot.send_photo.await_args_list:
+        assert call.kwargs['caption'].startswith('💬 «')
         button = call.kwargs['reply_markup'].inline_keyboard[0][0]
         assert button.text == '📋 مشاهده جزئیات'
         assert button.callback_data == f'gm_report_{key}'
@@ -109,10 +111,10 @@ def test_manual_choice_sends_actual_form_immediately_and_duplicate_click_does_no
     assert context.bot.send_sticker.await_args.kwargs == {'chat_id': 2, 'sticker': 'beta-normal-sticker'}
     assert handler.modes.get_state(key)['phase'] == 'ability_selection'
     sent = context.bot.send_message.await_args_list
-    assert [c.kwargs['chat_id'] for c in sent] == [1, 1, 2, 2]
-    assert all('🏜️ زمین: بیابان' in sent[i].kwargs['text'] for i in (0, 2))
-    assert all(sent[i].kwargs['text'] == 'از کدوم Ability card استفاده میکنی؟' for i in (1, 3))
-    assert all(sent[i].kwargs['reply_markup'].inline_keyboard[-1][0].callback_data == f'gm_qability_{key}_skip' for i in (1, 3))
+    assert [c.kwargs['chat_id'] for c in context.bot.send_photo.await_args_list] == [1, 2]
+    assert [c.kwargs['chat_id'] for c in sent] == [1, 2]
+    assert all(c.kwargs['text'] == 'از کدوم Ability card استفاده میکنی؟' for c in sent)
+    assert all(c.kwargs['reply_markup'].inline_keyboard[-1][0].callback_data == f'gm_qability_{key}_skip' for c in sent)
 
 
 def test_random_start_sends_each_players_auto_selected_form_and_arena_before_ability(quick_ui):
@@ -126,7 +128,8 @@ def test_random_start_sends_each_players_auto_selected_form_and_arena_before_abi
         card = handler.db.get_card_by_id_for_player(state['cards'][str(uid)], uid)
         assert call.kwargs['sticker'] == f'{card.card_id}-{card.rarity.value}-sticker'
     assert context.bot.send_sticker.await_count == 2
-    assert [c.kwargs['chat_id'] for c in context.bot.send_message.await_args_list] == [1, 1, 2, 2]
+    assert [c.kwargs['chat_id'] for c in context.bot.send_message.await_args_list] == [1, 2]
+    assert [c.kwargs['chat_id'] for c in context.bot.send_photo.await_args_list] == [1, 2]
 
 
 def test_reroll_sends_new_arena_separately_and_reveal_is_only_sent_to_its_owner(quick_ui):
@@ -138,7 +141,7 @@ def test_reroll_sends_new_arena_separately_and_reveal_is_only_sent_to_its_owner(
     # Published edits cannot change a match's displayed snapshot or available abilities.
     with patch.object(handler.modes, '_arena', side_effect=AssertionError('use match snapshot')):
         asyncio.run(handler._send_quick_ability_panels(context, key, state))
-    assert 'بیابان' in context.bot.send_message.await_args_list[0].kwargs['text']
+    assert context.bot.send_photo.await_count == 2
     context.bot.send_message.reset_mock()
     handler.modes.grant_ability(1, 'reveal_opponent')
     handler.modes.grant_ability(2, 'reroll_arena')
@@ -147,13 +150,13 @@ def test_reroll_sends_new_arena_separately_and_reveal_is_only_sent_to_its_owner(
     assert advanced and state['arena'] == 'city'
     asyncio.run(handler._send_quick_stat_panels(context, key, state))
     calls = context.bot.send_message.await_args_list
-    assert [c.kwargs['chat_id'] for c in calls] == [1, 1, 1, 2, 2]
-    assert all('🏙️ زمین: شهر' in calls[i].kwargs['text'] for i in (0, 3))
-    assert _readable(calls[1].kwargs['text']) == '👁 کارت حریف: Beta'
+    assert [c.kwargs['chat_id'] for c in calls] == [1, 1, 2]
+    assert [c.kwargs['chat_id'] for c in context.bot.send_photo.await_args_list] == [1, 2, 1, 2]
+    assert _readable(calls[0].kwargs['text']) == '👁 کارت حریف: Beta'
     expected = 'یه ویژگی انتخاب کن، ۶۰ ثانیه ⏳ وقت داری\n(عددهای زیر با اثر زمین، Passive و Ability محاسبه شدن)'
-    assert calls[2].kwargs['text'] == calls[4].kwargs['text'] == expected
+    assert calls[1].kwargs['text'] == calls[2].kwargs['text'] == expected
     power = handler.db.get_card_by_id_for_player('alpha', 1).power
-    buttons = calls[2].kwargs['reply_markup'].inline_keyboard
+    buttons = calls[1].kwargs['reply_markup'].inline_keyboard
     assert buttons[0][0].text == f'💪 قدرت: {power + 1}'
     assert buttons[0][0].callback_data == f'gm_qstat_{key}_power'
     assert handler._schedule_mode_job.call_args.args[2] == 60

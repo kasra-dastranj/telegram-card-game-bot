@@ -1,0 +1,17 @@
+{
+  "arena/default": "assets/battle_visuals/fallback-v1.png",
+  "deck/template": "assets/battle_visuals/fallback-v1.png",
+  "shop/template": "assets/battle_visuals/shop-template-v1.png",
+  "arena/city": "frontend/game/public/arena-backgrounds/city.webp",
+  "arena/desert": "frontend/game/public/arena-backgrounds/desert.webp",
+  "arena/ice": "frontend/game/public/arena-backgrounds/ice.webp",
+  "arena/forest": "frontend/game/public/arena-backgrounds/forest.webp",
+  "arena/silent_temple": "frontend/game/public/arena-backgrounds/silent_temple.webp",
+  "arena/null_zone": "frontend/game/public/arena-backgrounds/null_zone.webp",
+  "arena/power_arena": "frontend/game/public/arena-backgrounds/power_arena.webp",
+  "arena/speed_track": "frontend/game/public/arena-backgrounds/speed_track.webp",
+  "arena/thinking_room": "frontend/game/public/arena-backgrounds/thinking_room.webp",
+  "arena/stage": "frontend/game/public/arena-backgrounds/stage.webp",
+  "font.ttf": "frontend/game/public/fonts/Vazirmatn-Variable.ttf",
+  "font-license.txt": "frontend/game/public/fonts/Vazirmatn-OFL.txt"
+}

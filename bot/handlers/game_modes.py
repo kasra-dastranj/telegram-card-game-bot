@@ -153,6 +153,11 @@ class GameModeHandlersMixin:
                     f"⚔️ کی حاضره نبرد {bidi_isolate(f'Quick-{variant_title}')} با {bidi_isolate(query.from_user.first_name)} رو بپذیره\n"
                     f"⏳ مهلت پذیرش: {QUICK_GROUP_TTL_SECONDS} ثانیه"
                 )
+            elif mode == 'deck':
+                text = (
+                    f"⚔️ کی حاضره نبرد Deck-{variant_title} با {bidi_isolate(query.from_user.first_name)} رو بپذیره؟\n"
+                    f"⏳ مهلت پذیرش: {QUICK_GROUP_TTL_SECONDS} ثانیه"
+                )
             else:
                 text = (
                     f"⚔️ {query.from_user.first_name} یک چالش {mode_title} / {variant_title} ساخته!\n\n"
@@ -273,6 +278,8 @@ class GameModeHandlersMixin:
             )
             if mode == "quick":
                 text = f"🎮 بیا یه دست بازی کنیم\nQuick mode ({variant_title})"
+            elif mode == 'deck':
+                text = f"🃏 بیا یه دست بازی کنیم\nDeck mode ({variant_title})"
             results.append(
                 InlineQueryResultArticle(
                     id=f"gmi|{request['request_id']}",
@@ -671,8 +678,12 @@ class GameModeHandlersMixin:
         except Exception as exc:
             logger.warning("Could not send Quick card information to %s: %s", user_id, exc)
 
-    async def _send_quick_arena_message(self, context, user_id: int, state: dict):
+    async def _send_quick_arena_message(self, context, user_id: int, state: dict, request_id=None):
         try:
+            from bot.battle_visual_delivery import send_arena
+            arena = state.get('arena_snapshot') or self.modes._arena(state['arena'])
+            if await send_arena(context, user_id, request_id, dict(arena, arena_id=state['arena']), 'quick'):
+                return
             await context.bot.send_message(chat_id=user_id, text=self._quick_arena_text(state))
         except Exception as exc:
             logger.warning("Could not send Quick arena to %s: %s", user_id, exc)
@@ -686,7 +697,7 @@ class GameModeHandlersMixin:
                 card = self.db.get_card_by_id_for_player(card_id, user_id) or self.db.get_card_by_id(card_id)
             if state.get("variant") in ("random", "friendly_random"):
                 await self._send_quick_card_preview(context, user_id, card)
-            await self._send_quick_arena_message(context, user_id, state)
+            await self._send_quick_arena_message(context, user_id, state, request_id)
             abilities = self.modes.list_player_abilities(user_id) if arena.get("abilities_enabled", True) else []
             keyboard = [
                 [InlineKeyboardButton(f"{item['title']} ×{item['quantity']}", callback_data=f"gm_qability_{request_id}_{item['ability_key']}")]
@@ -724,7 +735,7 @@ class GameModeHandlersMixin:
     async def _send_quick_stat_panels(self, context, request_id: str, state: dict):
         for user_id in state["players"]:
             if state.get("arena") != state.get("initial_arena"):
-                await self._send_quick_arena_message(context, user_id, state)
+                await self._send_quick_arena_message(context, user_id, state, request_id)
             actor_ability = state["ability_choices"].get(str(user_id))
             if actor_ability == "reveal_opponent":
                 opponent_id = next(pid for pid in state["players"] if pid != user_id)
@@ -835,13 +846,23 @@ class GameModeHandlersMixin:
             if request and request.get("source") == "group_challenge"
             else players
         )
+        from bot.battle_visual_delivery import quick_picture, send_result
+        picture = await quick_picture(self, context, report)
         for chat_id in dict.fromkeys(targets):
             try:
                 if winner_card and getattr(winner_card, "origin", "official")=="official" and hasattr(self, "_send_round_winner_card_media"):
                     await self._send_round_winner_card_media(context, chat_id, winner_card)
-                await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=markup)
+                if chat_id not in players or not await send_result(context, chat_id, picture, text, markup):
+                    await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=markup)
             except Exception as exc:
                 logger.warning("Could not announce Quick result in %s: %s", chat_id, exc)
+        if request and request.get('source') == 'group_challenge':
+            for user_id in players:
+                if not await send_result(context, user_id, picture, None, markup):
+                    try:
+                        await context.bot.send_message(chat_id=user_id, text=text, reply_markup=markup)
+                    except Exception:
+                        logger.warning('Could not deliver private Quick result')
 
     async def game_report_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
@@ -1039,10 +1060,15 @@ class GameModeHandlersMixin:
         from systems.shared_foundation import settings_in
         import sqlite3
         with sqlite3.connect(self.db.db_path) as flags_conn:flags=settings_in(flags_conn)
-        if len(parts)==1 and flags["easy_custom_cards_enabled"] and flags["custom_cards_enabled"]:
-            await query.edit_message_text("کارت سفارشی در این Easy مجاز باشد؟ پاداش عادی برقرار است.",reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("خیر",callback_data=f"gm_erounds_{rounds}_no"),InlineKeyboardButton("بله",callback_data=f"gm_erounds_{rounds}_yes")]]))
+        if len(parts)==1:
+            await query.edit_message_text("کارت‌های شخصی‌سازی‌شده هم بتونن وارد این بازی بشن؟",reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("خیر",callback_data=f"gm_erounds_{rounds}_no"),InlineKeyboardButton("بله",callback_data=f"gm_erounds_{rounds}_yes")]]))
             return
         allow_custom=len(parts)==2 and parts[1]=="yes"
+        if len(parts) != 2 or parts[1] not in ('yes', 'no'):
+            return
+        if allow_custom and not (flags['custom_cards_enabled'] and flags['easy_custom_cards_enabled'] and flags['progression_v2_enabled']):
+            await query.answer('ورود کارت سفارشی هنوز از تنظیمات مدیریت فعال نشده؛ فعلاً «خیر» رو بزن.', show_alert=True)
+            return
         try:
             request = self.modes.create_easy_lobby(query.from_user.id, query.message.chat_id, rounds,allow_custom_cards=allow_custom)
         except ValueError:
@@ -1237,8 +1263,13 @@ class GameModeHandlersMixin:
         request_id = parts[1]
         user_id = inline_query.from_user.id
         options = self.modes.get_easy_options(request_id, user_id)
+        try:
+            offset = max(0, int(getattr(inline_query, 'offset', '') or 0))
+        except (ValueError, TypeError):
+            offset = 0
+        page_options = options[offset:offset + 50]
         results = []
-        for card in options:
+        for card in page_options:
             result_id = f"ez|{request_id}|{user_id}|{card.card_id}"
             confirm_markup = InlineKeyboardMarkup(
                 [[InlineKeyboardButton("✅ ثبت انتخاب", callback_data=result_id)]]
@@ -1282,7 +1313,8 @@ class GameModeHandlersMixin:
                     input_message_content=InputTextMessageContent("⚠️ کارت قابل انتخابی نیست."),
                 )
             )
-        await inline_query.answer(results, cache_time=0, is_personal=True)
+        await inline_query.answer(results, cache_time=0, is_personal=True,
+                                  next_offset=str(offset + 50) if offset + 50 < len(options) else '')
 
     async def easy_chosen_inline_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         chosen = update.chosen_inline_result

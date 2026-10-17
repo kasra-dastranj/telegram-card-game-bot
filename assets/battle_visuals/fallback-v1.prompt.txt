@@ -1,0 +1,7 @@
+Tool: built-in imagegen
+Transparent background: false
+Input images: none
+
+Use case: stylized-concept. Asset type: reusable landscape background for a Telegram card battle invitation in TelBattle. Create a polished game invitation background, 1536x1024 landscape. Dark midnight arena, subtle smoky atmosphere, stylized painted trading-card-game aesthetic, warm amber light along one side and cool blue teal light along the other, a clean dramatic diagonal clash of light at the edges. Keep the entire middle 65 percent spacious and dark for programmatically composited title and player name. Suggest card-shaped silhouettes near the lower outside corners without any identifiable characters. Crisp enough at small Telegram phone size, strong contrast, restrained detail. No typography at all, no letters, no numbers, no logos, no watermark, no UI buttons, no characters. This is a background plate, not a finished screenshot. It should feel playful and competitive, not military or gory.
+
+The initial request was later clarified to mean arena introductions and private result images. This neutral arena plate is retained as the fallback for grounds with no dedicated background; the ten existing ground backgrounds are used for known grounds.

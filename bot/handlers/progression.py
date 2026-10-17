@@ -17,19 +17,16 @@ def action_button(context,title,action):
 
 
 async def show_menu(bot,update,context,section='shop',page=0):
+    if section=='shop':
+        from bot.shop_presentation import show_catalog
+        return await show_catalog(bot,update,context)
     user=update.effective_user.id
     economy=ProgressionEconomy(bot.db)
     inventory=economy.inventory(user)
     if not inventory.get('ok'):
         await update.effective_message.reply_text(inventory.get('error','خطا'));return
     keyboard=[]
-    if section=='shop':
-        text='🛒 فروشگاه\nقیمت هر خرید قبل از تأیید نمایش داده می‌شود.\n'
-        text+=' · '.join(LABELS.get(key,key)+': '+str(value) for key,value in inventory['items'].items())
-        for item in inventory['shop']:
-            keyboard.append([Button(LABELS[item],callback_data='v2_quote_'+item)])
-        keyboard.extend([[Button('🎟 Silver Claim',callback_data='v2_silver_claim')],[Button('ارتقا و فروش کارت',callback_data='v2_cards_0')],[Button('مأموریت‌ها',callback_data='v2_missions')]])
-    elif section=='cards':
+    if section=='cards':
         cards=[card for card in bot.db.get_player_cards(user) if card.origin=='official']
         page=max(0,page);text='کارت را برای ارتقا یا فروش انتخاب کن. فرم‌ها و تعداد نسخه‌ها محفوظ‌اند.'
         for card in cards[page*15:(page+1)*15]:keyboard.append([action_button(context,card.name,{'kind':'card_menu','card_id':card.card_id})])
@@ -58,16 +55,26 @@ async def handle(bot,update,context):
     if data.startswith('v2_quote_'):
         quote=economy.quote(user,data[9:])
         if quote.get('ok'):
-            keyboard=[[Button('تأیید خرید',callback_data='v2_buy_'+quote['quote_id'])],[Button('انصراف',callback_data='v2_shop')]]
-            await query.edit_message_text('قیمت: '+str(quote['price'])+' سکه؛ تأیید می‌کنی؟',reply_markup=InlineKeyboardMarkup(keyboard));return
-        result=quote
-    elif data.startswith('v2_buy_'):result=economy.purchase(user,data[7:])
-    elif data=='v2_silver_claim':result=economy.claim(user,'silver','tg-silver:'+query.id)
+            from bot.shop_presentation import show_quote
+            return await show_quote(bot,update,context,quote)
+        from bot.shop_presentation import show_purchase
+        return await show_purchase(bot,update,context,quote)
+    elif data.startswith('v2_buy_'):
+        from bot.shop_presentation import show_purchase
+        return await show_purchase(bot,update,context,economy.purchase(user,data[7:]))
+    elif data=='v2_silver_claim':
+        from bot.handlers import silver_claim
+        if not silver_claim.private_panel(update):return
+        return await silver_claim.show_menu(bot,update,context)
     elif data.startswith('v2_action_'):
         action=context.user_data.get('economy_actions',{}).get(data[10:])
         if not action:
             await query.edit_message_text('پیش‌نمایش منقضی شده؛ دوباره منو را باز کن.');return
         kind=action['kind'];card=action.get('card_id')
+        if kind in ('silver_craft','silver_use'):
+            from bot.handlers import silver_claim
+            if not silver_claim.private_panel(update):return
+            return await silver_claim.handle_action(bot,update,context,action)
         if kind=='card_menu':
             counts=__import__('systems.card_inventory_system',fromlist=['CardInventorySystem']).CardInventorySystem(bot.db).counts(user,card)
             keyboard=[]
@@ -82,7 +89,23 @@ async def handle(bot,update,context):
                 if preview.get('ok'):keyboard.append([action_button(context,'فروش یک '+rarity+' از '+str(count)+' نسخه: '+str(preview['price'])+' سکه',{'kind':'sell','card_id':card,'rarity':rarity,'config_version':preview['config_version'],'request_key':'tg-sell:'+uuid.uuid4().hex})])
             keyboard.append([Button('🔙 کارت‌ها',callback_data='v2_cards_0')])
             await query.edit_message_text('تأیید ارتقا یا فروش؛ عملیات نسخه‌های انتخاب‌شده را مصرف می‌کند.\n'+'\n'.join(details),reply_markup=InlineKeyboardMarkup(keyboard));return
-        if kind=='upgrade':result=economy.upgrade(user,card,action['target'],action['request_key'],action['config_version'])
+        if kind=='upgrade':
+            result=economy.upgrade(user,card,action['target'],action['request_key'],action['config_version'])
+            if result.get('ok'):
+                from bot.card_reward_presentation import send_upgrade_cards
+                from bot.deck_reports import isolate
+                target=result.get('target', action['target'])
+                source='normal' if target=='epic' else 'epic'
+                if not result.get('replayed'):
+                    await send_upgrade_cards(bot,update,context,card,source,target)
+                definition=bot.db.get_card_by_id_for_rarity(card,target)
+                text=('✨ '+isolate(definition.name if definition else card)+' ارتقا پیدا کرد!\n'
+                      +isolate(source.title()+' → '+target.title())+'\n⭐ '
+                      +isolate('+'+str(result.get('xp',0))+' XP'))
+                if result.get('new_level',1)>result.get('old_level',1):
+                    text+='\n⬆️ '+isolate('Level '+str(result['new_level']))
+                await query.edit_message_text(text,reply_markup=InlineKeyboardMarkup([[Button('🔙 کارت‌ها',callback_data='v2_cards_0')]]))
+                return
         elif kind=='sell':result=economy.sell(user,card,action['rarity'],action['request_key'],action['config_version'])
         elif kind=='mission':result=PlayerRewardsSystem(bot.db).claim_mission(user,action['mission_id'])
         else:result={'ok':False,'error':'عملیات نامعتبر'}

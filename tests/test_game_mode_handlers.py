@@ -255,7 +255,8 @@ def test_inline_private_blank_or_whitespace_query_shows_all_game_modes(tmp_path)
     ]
     assert results[0].input_message_content.message_text == '🎮 بیا یه دست بازی کنیم\nQuick mode (Normal)'
     assert results[1].input_message_content.message_text == '🎮 بیا یه دست بازی کنیم\nQuick mode (Random)'
-    assert results[2].input_message_content.message_text.startswith('🃏 دعوت Deck / Normal\n\n')
+    assert results[2].input_message_content.message_text == '🃏 بیا یه دست بازی کنیم\nDeck mode (Normal)'
+    assert results[3].input_message_content.message_text == '🃏 بیا یه دست بازی کنیم\nDeck mode (Random)'
     assert re.match(GAME_INLINE_QUERY_PATTERN, "")
     assert re.match(GAME_INLINE_QUERY_PATTERN, "   ")
 
@@ -458,12 +459,14 @@ def test_quick_result_shows_only_card_slogan_with_details_button(source, variant
     expected = '💬 «میز مذاکره هم گاهی میدان نبرد است.»'
     targets = [-100123] if source == 'group_challenge' else [1, 2]
     handler._edit_request_panel.assert_not_awaited()
-    assert [call.kwargs['chat_id'] for call in context.bot.send_message.await_args_list] == targets
+    message_targets = targets + ([1, 2] if source == 'group_challenge' else [])
+    assert [call.kwargs['chat_id'] for call in context.bot.send_message.await_args_list] == message_targets
     assert [call.args[1] for call in handler._send_round_winner_card_media.await_args_list] == targets
     assert all(call.kwargs['text'] == expected for call in context.bot.send_message.await_args_list)
     assert [(call[0], call.args[1] if call[0] == 'media' else call.kwargs['chat_id'])
             for call in delivery.mock_calls] == [
-        item for uid in targets for item in [('media', uid), ('message', uid)]]
+        item for uid in targets for item in [('media', uid), ('message', uid)]] + (
+            [('message', 1), ('message', 2)] if source == 'group_challenge' else [])
     markup = context.bot.send_message.await_args.kwargs['reply_markup']
     assert markup.inline_keyboard[0][0].text == '📋 مشاهده جزئیات'
     assert markup.inline_keyboard[0][0].callback_data == 'gm_report_request-1'

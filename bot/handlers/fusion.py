@@ -254,6 +254,10 @@ class FusionHandlersMixin:
 
         if result.success:
             upgraded = result.upgraded_card
+            if not result.replayed:
+                from bot.card_reward_presentation import send_upgrade_cards
+                source = 'normal' if fusion_type == 'epic' else 'epic'
+                await send_upgrade_cards(self, update, context, upgrade_card_id, source, fusion_type)
             consumed_names = [c.name for c in result.consumed_cards if c.card_id != upgrade_card_id]
             target_emoji = "🟣" if fusion_type == "epic" else "🟡"
             target_label = "Epic" if fusion_type == "epic" else "Legend"
