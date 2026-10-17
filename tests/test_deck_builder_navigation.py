@@ -64,6 +64,8 @@ def test_back_from_card_list_returns_to_current_categories_and_preserves_picks(b
         assert not any('deck_build_pick_' + chosen in offered for chosen in before['deck_build']['cards'])
         click('deck_build_pick_' + cid)
     click('deck_build_skip_name')
+    assert context.user_data['deck_build']['waiting_slogan']
+    click('deck_build_skip_slogan')
     assert 'deck_build' not in context.user_data
     assert db.count_player_decks(1) == 1
     deck = db.get_player_decks(1)[0]

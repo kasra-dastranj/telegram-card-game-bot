@@ -1874,6 +1874,8 @@ class PvPHandlersMixin:
 
         # ذخیره deck_id در active_fights
         self.db.set_fight_deck(fight_id, role, deck_id)
+        from bot.deck_reports import snapshot_deck_selection
+        snapshot_deck_selection(self.db.db_path, fight_id, user_id, self.db.get_deck_by_id(deck_id))
 
         # بررسی وجود battle_states — اگر نبود، درج کنیم
         conn2 = _sq.connect(self.db.db_path)

@@ -209,3 +209,15 @@ def render_result(model, raw):
             label(image, line, (100, 750 + index * 48, 1000, 45), 29)
     label(image, 'حساب‌وکتاب کامل توی «مشاهده جزئیات»', (90, height - 64, 1020, 38), 25, '#b5c6dd')
     return encode(image)
+
+
+def render_deck(cards, raw):
+    """A reusable three-slot frame; the deck name/bonuses stay in its caption."""
+    image = canvas(raw, (1200, 760))
+    label(image, 'TELBATTLE / DECK', (100, 26, 1000, 55), 34, '#e2cc99')
+    for index in range(3):
+        card = cards[index] if index < len(cards) else {'name': 'جای کارت', 'rarity': ''}
+        x = 65 + index * 370
+        card_tile(image, card, card.get('image'), (x, 100, 330, 560))
+    label(image, 'سه مبارز، یه تیم', (100, 682, 1000, 47), 30, '#c3d0e4')
+    return encode(image)

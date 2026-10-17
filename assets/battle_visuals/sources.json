@@ -1,5 +1,6 @@
 {
   "arena/default": "assets/battle_visuals/fallback-v1.png",
+  "deck/template": "assets/battle_visuals/fallback-v1.png",
   "arena/city": "frontend/game/public/arena-backgrounds/city.webp",
   "arena/desert": "frontend/game/public/arena-backgrounds/desert.webp",
   "arena/ice": "frontend/game/public/arena-backgrounds/ice.webp",

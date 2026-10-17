@@ -29,6 +29,8 @@ def save_in(conn, fight_id, report):
 def round_snapshot_in(conn, fight_id, players, names, arena, round_num, result, cards):
     report = load_in(conn, fight_id) or {'mode': 'deck', 'players': list(players), 'names': names,
                                       'arena': arena, 'rounds': [], 'completed': False}
+    if not report['rounds']:
+        report.update(names=names, arena=arena)
     winner = players[0] if result['winner'] == 'challenger' else players[1] if result['winner'] == 'opponent' else None
     record = {'round': round_num, 'winner_id': winner, 'reason': result['reason'],
               'compare_stat': result['compare_stat'], 'cards': {}}
@@ -41,6 +43,30 @@ def round_snapshot_in(conn, fight_id, players, names, arena, round_num, result, 
     report['rounds'] = sorted([item for item in report['rounds'] if item['round'] != round_num] + [record], key=lambda item: item['round'])
     save_in(conn, fight_id, report)
     return report
+
+
+def snapshot_deck_selection(db_path, fight_id, user_id, deck):
+    """Freeze display metadata at selection; later edits/deletion cannot change a win."""
+    with closing(sqlite3.connect(db_path, timeout=15)) as conn, conn:
+        conn.execute('BEGIN IMMEDIATE')
+        fight = conn.execute('SELECT challenger_id,opponent_id FROM active_fights WHERE fight_id=?', (fight_id,)).fetchone()
+        if not fight or user_id not in fight or deck['player_id'] != user_id:
+            raise ValueError('invalid_deck_snapshot')
+        report = load_in(conn, fight_id) or {'mode': 'deck', 'players': list(fight),
+                                          'names': {}, 'rounds': [], 'completed': False}
+        report.setdefault('decks', {}).setdefault(str(user_id), {
+            'deck_id': deck['deck_id'], 'deck_name': deck['deck_name'],
+            'victory_slogan': deck.get('victory_slogan', '')})
+        save_in(conn, fight_id, report)
+
+
+def victory_caption(report, winner_id):
+    if winner_id is None:
+        return 'این دست مساوی شد!'
+    from systems.deck_presentation import DEFAULT_SLOGAN
+    deck = (report or {}).get('decks', {}).get(str(winner_id), {})
+    slogan = deck.get('victory_slogan') or DEFAULT_SLOGAN
+    return '💬 ' + isolate(slogan)
 
 
 def backfill_rounds_in(conn, fight_id, report):
@@ -82,6 +108,7 @@ def finish(db_path, fight_id, players, names, awards, totals=None):
         conn.execute('BEGIN IMMEDIATE')
         report = load_in(conn, fight_id) or {'mode': 'deck', 'players': list(players), 'names': names,
                                           'rounds': [], 'completed': False}
+        report['names'] = names
         backfill_rounds_in(conn, fight_id, report)
         report['awards'] = {str(uid): dict(awards[str(uid)]) for uid in players}
         if totals:

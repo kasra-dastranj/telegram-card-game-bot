@@ -92,6 +92,12 @@ def test_group_deck_has_only_independent_bot_dm_pickers_and_starts_once(deck_ui,
     handler._init_3round_battle.assert_awaited_once()
     assert handler.db.get_battle_deck_state(key)['challenger_deck_selected']
     assert handler.db.get_battle_deck_state(key)['opponent_deck_selected']
+    import sqlite3
+    from bot.deck_reports import load_in
+    with sqlite3.connect(handler.db.db_path) as conn:
+        report = load_in(conn, key)
+    assert report['decks']['1']['deck_id'] == decks[1]
+    assert report['decks']['2']['deck_id'] == decks[2]
     assert context.bot.send_message.await_count == 2
     handler._cancel_mode_job.assert_called_once_with(context, f'gm-deck-selection-{key}')
 

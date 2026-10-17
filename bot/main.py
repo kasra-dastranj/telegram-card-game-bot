@@ -548,6 +548,8 @@ class TelegramCardBot(
         app.add_handler(CallbackQueryHandler(self.deck_build_back_handler, pattern="^deck_build_back_step[1-3]$"))
         app.add_handler(CallbackQueryHandler(self.deck_build_pick_handler, pattern="^deck_build_pick_"))
         app.add_handler(CallbackQueryHandler(self.deck_build_skip_name_handler, pattern="^deck_build_skip_name$"))
+        app.add_handler(CallbackQueryHandler(self.deck_build_skip_slogan_handler, pattern="^deck_build_skip_slogan$"))
+        app.add_handler(CallbackQueryHandler(self.deck_edit_handler, pattern="^deck_(edit|rename|slogan)_"))
         app.add_handler(CallbackQueryHandler(self.deck_delete_confirm_handler, pattern="^deck_delete_confirm_"))
         app.add_handler(CallbackQueryHandler(self.deck_delete_handler, pattern="^deck_delete_(?!confirm_)"))
         app.add_handler(CallbackQueryHandler(self.deck_view_handler, pattern="^deck_view_"))
@@ -617,7 +619,7 @@ class TelegramCardBot(
     async def _deck_name_message_router(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Router برای پیام‌های متنی — فقط اگر کاربر در حال نام‌گذاری دک است."""
         build = context.user_data.get('deck_build', {})
-        if build.get('waiting_name'):
+        if build.get('waiting_name') or build.get('waiting_slogan'):
             await self.deck_name_message_handler(update, context)
 
     async def cleanup_task(self, context: ContextTypes.DEFAULT_TYPE):

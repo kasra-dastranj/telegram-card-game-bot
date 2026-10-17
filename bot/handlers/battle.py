@@ -1670,13 +1670,15 @@ class BattleHandlersMixin:
                                      (ch_rounds_won, op_rounds_won), winner_id, deck_report, settlement['awards'])
                    if deck_report else None)
         if deck_report and fight and fight.chat_id:
+            from bot.deck_reports import victory_caption
+            caption = victory_caption(deck_report, winner_id)
             private_markup = InlineKeyboardMarkup([
                 [InlineKeyboardButton('📋 مشاهده جزئیات', callback_data=f'deck_report_{fight_id}')],
                 [InlineKeyboardButton('🥊 بازی دوباره', switch_inline_query='game')]])
             for user_id in (ch_id, op_id):
-                if not await send_result(context, user_id, picture, 'بازی تموم شد، مبارک خیلیا!', private_markup):
+                if not await send_result(context, user_id, picture, caption, private_markup):
                     try:
-                        await context.bot.send_message(chat_id=user_id, text=final_text,
+                        await context.bot.send_message(chat_id=user_id, text=caption + '\n\n' + final_text,
                                                        reply_markup=private_markup)
                     except Exception:
                         logger.warning('Could not deliver private battle result')

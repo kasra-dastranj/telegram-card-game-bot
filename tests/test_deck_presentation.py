@@ -63,6 +63,9 @@ def test_three_round_deck_final_and_private_history_survive_fight_deletion_and_c
         db.add_card_to_player(1 if cid in 'abc' else 2, cid)
         modes.set_card_metadata(cid, traits=traits, series='چهره‌های ایرانی' if cid in 'de' else None)
     key = db.create_fight(1, 2, -100, mode='deck')
+    from bot.deck_reports import snapshot_deck_selection
+    deck_id = db.create_deck(1, 'Blue team', 'a', 'b', 'c', victory_slogan='دک آبی همیشه آماده‌ست!')
+    snapshot_deck_selection(db.db_path, key, 1, db.get_deck_by_id(deck_id))
     arena = {'name_fa': 'صحنه', 'emoji': '⭐', 'compare_stat': 'popularity',
              'trait_ranks': [['hero', 'funny'], ['leader', 'villain'], ['monster']],
              'stat_tiebreak_enabled': True}
@@ -139,6 +142,7 @@ def test_three_round_deck_final_and_private_history_survive_fight_deletion_and_c
     else:
         assert [call.kwargs['chat_id'] for call in context.bot.send_message.await_args_list] == [1, 2]
     private_control = (context.bot.send_photo if with_photo else context.bot.send_message).await_args.kwargs
+    assert 'دک آبی همیشه آماده‌ست!' in private_control['caption' if with_photo else 'text']
     assert private_control['reply_markup'].inline_keyboard[-1][0].switch_inline_query == 'game'
     context.bot.send_message.reset_mock()
     # A new handler after restart reads the saved cards, forms and causes.
