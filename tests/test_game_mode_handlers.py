@@ -890,7 +890,7 @@ def test_normal_deck_match_schedules_real_one_minute_timeout():
         update_fight=Mock(return_value=True),
     )
     handler._edit_request_panel = AsyncMock()
-    handler._send_deck_selection = AsyncMock()
+    handler._send_deck_selection_panels = AsyncMock()
     handler._schedule_mode_job = Mock()
     context = SimpleNamespace(bot_data={})
     request = {

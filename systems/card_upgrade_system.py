@@ -40,7 +40,7 @@ class CardUpgradeSystem:
             return True
         try:
             row = conn.execute(
-                "SELECT 1 FROM solo_fights WHERE player_id=? AND status!='completed' LIMIT 1",
+                "SELECT 1 FROM solo_fights WHERE player_id=? AND status NOT IN ('completed','cancelled','expired','finished') LIMIT 1",
                 (user_id,),
             ).fetchone()
             if row:

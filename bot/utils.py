@@ -8,6 +8,7 @@ import json
 import os
 import logging
 import random
+from functools import wraps
 from typing import Optional, List, Dict
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
@@ -20,6 +21,42 @@ REQUIRED_CHANNEL = '@KhasteNews'
 
 # Panel expiration timeout (15 minutes)
 PANEL_TIMEOUT = 15 * 60
+
+
+SELF_INVITE_MESSAGES = (
+    "نمیتونی با خودت مبارزه کنی!",
+    "به دنبال خود درگیری هستی؟",
+    "صبر کن تا دوستت بیاد",
+    "دعوت خودت رو قبول میکنی!",
+    "نمیشه، منتظر رفیقت بمون",
+    "این دکمه واسه حریفته",
+)
+
+
+def get_self_invite_message() -> str:
+    """Pick a friendly rejection for accepting one's own battle invitation."""
+    return random.choice(SELF_INVITE_MESSAGES)
+
+
+def handle_active_match(handler):
+    """Present admission failures without changing the existing match or panel."""
+    @wraps(handler)
+    async def wrapped(self, update, context, *args, **kwargs):
+        from systems.match_activity import ActiveMatchError
+        try:
+            return await handler(self, update, context, *args, **kwargs)
+        except ActiveMatchError as exc:
+            if getattr(update, 'callback_query', None):
+                await update.callback_query.answer(str(exc), show_alert=True)
+            elif getattr(update, 'inline_query', None):
+                from telegram import InlineQueryResultArticle, InputTextMessageContent
+                await update.inline_query.answer([InlineQueryResultArticle(
+                    id='active-match', title=str(exc),
+                    input_message_content=InputTextMessageContent(str(exc)))], cache_time=0, is_personal=True)
+            else:
+                await update.message.reply_text(str(exc))
+            return True
+    return wrapped
 
 
 async def check_user_started_bot(context: ContextTypes.DEFAULT_TYPE, user_id: int) -> bool:

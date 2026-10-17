@@ -22,7 +22,7 @@ from telegram import (
 )
 from telegram.ext import ContextTypes
 
-from bot.utils import get_victory_dialog
+from bot.utils import get_victory_dialog, get_self_invite_message, handle_active_match
 from core.models import FightStatus
 from systems.deck_system import DeckSystem, DECK_SELECTION_TTL_SECONDS
 from systems.shared_foundation import eligible_cards
@@ -132,6 +132,7 @@ class GameModeHandlersMixin:
             reply_markup=InlineKeyboardMarkup(keyboard),
         )
 
+    @handle_active_match
     async def game_variant_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
         await query.answer()
@@ -197,6 +198,7 @@ class GameModeHandlersMixin:
             reply_markup=InlineKeyboardMarkup(keyboard),
         )
 
+    @handle_active_match
     async def game_inline_query_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Offer Quick/Deck invitations inside a Telegram peer private chat."""
         inline_query = update.inline_query
@@ -323,7 +325,7 @@ class GameModeHandlersMixin:
             await query.answer("این دعوت معتبر نیست.", show_alert=True)
             return
         if request["creator_id"] == query.from_user.id:
-            await query.answer("نمی‌توانی دعوت خودت را قبول کنی.", show_alert=True)
+            await query.answer(get_self_invite_message(), show_alert=True)
             return
         if not self.db.get_player_cards(query.from_user.id):
             await query.answer("ابتدا ربات را Start کن و حداقل یک کارت بگیر.", show_alert=True)
@@ -358,6 +360,7 @@ class GameModeHandlersMixin:
         )
         await self._launch_mode_match(context, accepted)
 
+    @handle_active_match
     async def game_source_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
         await query.answer()
@@ -431,13 +434,14 @@ class GameModeHandlersMixin:
         ok, reason, request = self.modes.accept_invite(token, update.effective_user.id)
         if not ok:
             messages = {
-                "self_accept": "❌ نمی‌توانی دعوت خودت را قبول کنی.",
                 "expired": "⏳ زمان درخواست تمام شد.\nاین دعوت منقضی شده است.",
                 "accepted": "❌ این دعوت قبلاً توسط بازیکن دیگری پذیرفته شده است.",
                 "completed": "❌ این بازی قبلاً تمام شده است.",
                 "cancelled": "❌ سازنده، این دعوت را لغو کرده است.",
             }
-            await update.message.reply_text(messages.get(reason, reason if reason.startswith("برای ورود") else "❌ این دعوت معتبر نیست."))
+            message = get_self_invite_message() if reason == "self_accept" else messages.get(
+                reason, reason if reason.startswith("برای ورود") else "❌ این دعوت معتبر نیست.")
+            await update.message.reply_text(message)
             return True
         await update.message.reply_text("✅ دعوت را پذیرفتی؛ بازی در حال شروع است…")
         await self._edit_request_panel(context, request, "✅ دعوت پذیرفته شد؛ بازی شروع شد.")
@@ -453,7 +457,7 @@ class GameModeHandlersMixin:
             return
         ok, reason, request = self.modes.accept_request(request_id, query.from_user.id)
         if not ok:
-            message = reason if reason.startswith("برای ورود") else (
+            message = get_self_invite_message() if reason == "self_accept" else reason if reason.startswith("برای ورود") else (
                 "⏳ زمان درخواست تمام شد و درخواست منقضی شد."
                 if reason == "expired"
                 else "❌ این درخواست دیگر قابل پذیرش نیست."
@@ -785,7 +789,10 @@ class GameModeHandlersMixin:
                 if latest.get("phase") != "ability_selection":
                     break
                 if str(user_id) not in latest.get("ability_choices", {}):
-                    latest, advanced = self.modes.select_quick_ability(request_id, user_id, "skip")
+                    try:
+                        latest, advanced = self.modes.select_quick_ability(request_id, user_id, "skip", auto_skip=True)
+                    except ValueError:
+                        return
                     if advanced:
                         await self._send_quick_stat_panels(context, request_id, latest)
             return
@@ -907,7 +914,7 @@ class GameModeHandlersMixin:
     async def _launch_deck_match(self, context, request: dict):
         ch_id, op_id = request["creator_id"], request["opponent_id"]
         chat_id = request.get("origin_chat_id") or ch_id
-        fight_id = self.db.create_fight(ch_id, op_id, chat_id, mode="deck", selection_variant=request["variant"])
+        fight_id = self.db.create_fight(ch_id, op_id, chat_id, mode="deck", selection_variant=request["variant"], request_id=request['request_id'])
         inline_message_id = request.get("origin_inline_message_id")
         if inline_message_id:
             context.bot_data[f"deck_{fight_id}_inline_message_id"] = inline_message_id
@@ -922,20 +929,20 @@ class GameModeHandlersMixin:
                 )
                 self.db.delete_fight(fight_id)
                 return
-            await self._edit_request_panel(
-                context,
-                request,
-                "🃏 هر دو بازیکن دک خود را در گفت‌وگوی خصوصی با ربات انتخاب کنند.\n"
-                "⏳ مهلت انتخاب: ۱ دقیقه",
-            )
+            if not inline_message_id:
+                await self._edit_request_panel(
+                    context,
+                    request,
+                    "🃏 هر دو بازیکن دک خود را در گفت‌وگوی خصوصی با ربات انتخاب کنند.\n"
+                    "⏳ مهلت انتخاب: ۱ دقیقه",
+                )
             self.db.update_fight(
                 fight_id,
                 expires_at=(
                     datetime.now() + timedelta(seconds=DECK_SELECTION_TTL_SECONDS)
                 ).isoformat(),
             )
-            await self._send_deck_selection(context, fight_id, ch_id)
-            await self._send_deck_selection(context, fight_id, op_id)
+            await self._send_deck_selection_panels(context, fight_id, ch_id, op_id)
             self._schedule_mode_job(
                 context,
                 self.deck_selection_timeout_job,
@@ -1016,6 +1023,7 @@ class GameModeHandlersMixin:
 
     # -------------------- Easy Mode --------------------
 
+    @handle_active_match
     async def easy_round_count_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
         await query.answer()
@@ -1115,6 +1123,8 @@ class GameModeHandlersMixin:
                 await self._edit_request_panel(
                     context,
                     request,
+                    "یکی از بازیکن‌ها در بازی دیگه‌ایه؛ این لابی بسته شد."
+                    if reason == 'player_busy' else
                     "⏳ زمان لابی تمام شد؛ برای شروع Easy Mode حداقل دو بازیکن لازم است.",
                 )
             return

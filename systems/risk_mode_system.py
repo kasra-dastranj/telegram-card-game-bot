@@ -11,6 +11,7 @@ import sqlite3
 import logging
 import random
 import uuid
+from contextlib import closing
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime
 from enum import Enum
@@ -81,6 +82,15 @@ class RiskModeSystem:
         allowed, reason = ModeAccessSystem(self.db).check(user_id, "risk")
         if not allowed:
             return False, reason
+
+        # Recover expired escrow before checking the entry balance; the locked
+        # entry itself may be the reason an abandoned player is below minimum.
+        from systems.match_activity import active_in, BUSY_MESSAGE
+        with closing(sqlite3.connect(self.db.db_path, timeout=15)) as conn:
+            with conn:
+                conn.execute('BEGIN IMMEDIATE')
+                if active_in(conn, user_id):
+                    return False, BUSY_MESSAGE
         
         # بررسی موجودی
         player = self.db.get_or_create_player(user_id)
@@ -114,6 +124,12 @@ class RiskModeSystem:
         conn = sqlite3.connect(self.db.db_path, timeout=15)
         try:
             conn.execute("BEGIN IMMEDIATE")
+            from systems.match_activity import require_free_in, ActiveMatchError
+            try:
+                require_free_in(conn, challenger_id, opponent_id)
+            except ActiveMatchError as exc:
+                conn.rollback()
+                return {"success": False, "error": str(exc)}
             for uid in (challenger_id, opponent_id):
                 changed = conn.execute(
                     "UPDATE players SET coins=coins-? WHERE user_id=? AND coins>=?",

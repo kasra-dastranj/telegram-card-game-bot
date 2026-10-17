@@ -1444,7 +1444,7 @@ class DatabaseManager:
         return [row[0] for row in results]
     
     def create_fight(self, challenger_id: int, opponent_id: int, chat_id: int, *,
-                     mode: str = "legacy_pvp", selection_variant: str = "normal") -> str:
+                     mode: str = "legacy_pvp", selection_variant: str = "normal", request_id=None) -> str:
         """ایجاد فایت جدید"""
         fight_id = str(uuid.uuid4())[:8]
         conn = sqlite3.connect(self.db_path)
@@ -1453,19 +1453,31 @@ class DatabaseManager:
         now = datetime.now()
         expires_at = now + timedelta(minutes=15)
         
-        cursor.execute('''
-            INSERT INTO active_fights 
-            (fight_id, challenger_id, opponent_id, status, chat_id, created_at, expires_at)
-            VALUES (?, ?, ?, 'waiting_opponent', ?, ?, ?)
-        ''', (fight_id, challenger_id, opponent_id, chat_id, now.isoformat(), expires_at.isoformat()))
-        
-        from systems.shared_foundation import bind_context, legacy_context, settings_in
-        from systems.shared_foundation import bind_new_context
-        bind_new_context(conn, "fight:" + fight_id, mode, selection_variant)
-        conn.commit()
-        conn.close()
-        
-        return fight_id
+        try:
+            conn.execute('BEGIN IMMEDIATE')
+            if request_id:
+                request = conn.execute("SELECT creator_id,opponent_id,mode,status FROM game_requests WHERE request_id=?", (request_id,)).fetchone()
+                if not request or tuple(request) != (challenger_id, opponent_id, 'deck', 'accepted'):
+                    raise ValueError('invalid_deck_handoff')
+                linked = conn.execute("SELECT state_json FROM game_match_states WHERE request_id=?", (request_id,)).fetchone()
+                if linked and json.loads(linked[0]).get('fight_id'):
+                    return json.loads(linked[0])['fight_id']
+            from systems.match_activity import require_free_in
+            require_free_in(conn, challenger_id, opponent_id, exclude_request=request_id)
+            cursor.execute('''
+                INSERT INTO active_fights
+                (fight_id, challenger_id, opponent_id, status, chat_id, created_at, expires_at)
+                VALUES (?, ?, ?, 'waiting_opponent', ?, ?, ?)
+            ''', (fight_id, challenger_id, opponent_id, chat_id, now.isoformat(), expires_at.isoformat()))
+            from systems.shared_foundation import bind_new_context
+            bind_new_context(conn, "fight:" + fight_id, mode, selection_variant)
+            if request_id:
+                conn.execute("INSERT OR REPLACE INTO game_match_states VALUES (?,?,?)",
+                             (request_id, json.dumps({'mode': 'deck', 'fight_id': fight_id, 'phase': 'delegated'}), now.isoformat()))
+            conn.commit()
+            return fight_id
+        finally:
+            conn.close()
     
     def get_active_fight_for_group(self, chat_id: int) -> Optional[str]:
         """دریافت فایت فعال برای گروه"""
@@ -1635,6 +1647,12 @@ class DatabaseManager:
         cursor = conn.cursor()
         
         try:
+            conn.execute('BEGIN IMMEDIATE')
+            row = conn.execute("SELECT challenger_id FROM active_fights WHERE fight_id=? AND opponent_id=0 AND status='waiting_opponent' AND (expires_at IS NULL OR expires_at>?)", (fight_id, datetime.now().isoformat())).fetchone()
+            if not row:
+                return False
+            from systems.match_activity import require_free_in
+            require_free_in(conn, row[0], opponent_id, exclude_fight=fight_id)
             cursor.execute('''
                 UPDATE active_fights 
                 SET opponent_id = ?
@@ -1646,10 +1664,14 @@ class DatabaseManager:
             conn.close()
             
             return success
+        except ValueError:
+            raise
         except Exception as e:
             logger.error(f"Error claiming opponent: {e}")
             conn.close()
             return False
+        finally:
+            conn.close()
     
     def is_unclaimed(self, fight_or_id) -> bool:
         """بررسی اینکه آیا فایت هنوز claim نشده"""
@@ -2086,13 +2108,16 @@ class DatabaseManager:
         fight_id = str(uuid.uuid4())[:8]
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        cursor.execute('''
-            INSERT INTO solo_fights (fight_id, player_id, difficulty, created_at)
-            VALUES (?, ?, ?, ?)
-        ''', (fight_id, player_id, difficulty, datetime.now().isoformat()))
         from systems.shared_foundation import bind_context, legacy_context, settings_in
         from systems.shared_foundation import bind_new_context
         try:
+            conn.execute('BEGIN IMMEDIATE')
+            from systems.match_activity import require_free_in
+            require_free_in(conn, player_id)
+            cursor.execute('''
+                INSERT INTO solo_fights (fight_id, player_id, difficulty, created_at)
+                VALUES (?, ?, ?, ?)
+            ''', (fight_id, player_id, difficulty, datetime.now().isoformat()))
             context = bind_new_context(conn, "solo:" + fight_id, "practice")
             if player_card_id:
                 from systems.shared_foundation import require_card_in

@@ -29,6 +29,7 @@ from systems.ai_opponent import AsoAI, DAILY_SOLO_LIMIT
 from systems.battle_system_3rounds import BattleSystem3Rounds, ARENAS
 from systems.arena_registry import ArenaRegistry
 from systems.game_mode_system import GameModeSystem
+from systems.match_activity import ActiveMatchError, BUSY_MESSAGE
 from systems.mini_three_round_system import MiniThreeRoundSystem, MODE as MINI_THREE_ROUND_MODE
 from systems.three_round_abilities import (
     SOLO_ABILITY_FIELD, ability_definition, available_abilities, consume_ability, select_arena,
@@ -85,6 +86,11 @@ if not BOT_TOKEN:
         pass
 
 app = Flask(__name__, static_folder=None)
+
+
+@app.errorhandler(ActiveMatchError)
+def active_match_error(exc):
+    return jsonify({'error': str(exc), 'reason': 'active_match', 'error_code': 'active_match'}), 409
 # Production traffic reaches Flask through one trusted local Nginx proxy.
 # Respect its forwarded host/scheme so generated invite links stay HTTPS.
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
@@ -396,6 +402,8 @@ QUICK_ERROR_MESSAGES = {
 
 
 def _quick_error(reason: str, status: int = 400):
+    if reason == BUSY_MESSAGE:
+        return active_match_error(ActiveMatchError())
     return jsonify({"error": QUICK_ERROR_MESSAGES.get(reason, reason), "reason": reason}), status
 
 
@@ -432,7 +440,8 @@ def _settle_quick_deadline(request_id: str, state: dict) -> dict:
         return state
     try:
         now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
-        deadline_passed = datetime.fromisoformat(state["deadline"]) <= now_utc
+        from systems.match_activity import deadline_passed as deadline_expired
+        deadline_passed = deadline_expired(state['deadline'], now=now_utc)
     except (TypeError, ValueError):
         deadline_passed = False
     if not deadline_passed:
@@ -445,7 +454,7 @@ def _settle_quick_deadline(request_id: str, state: dict) -> dict:
                 break
             if str(player_id) not in latest.get("ability_choices", {}):
                 try:
-                    quick_modes.select_quick_ability(request_id, player_id, "skip")
+                    quick_modes.select_quick_ability(request_id, player_id, "skip", auto_skip=True)
                 except ValueError:
                     pass
         return quick_modes.get_state(request_id) or state
@@ -1400,6 +1409,8 @@ def solo_start():
 
     try:
         fight_id = db.create_solo_fight(user_id, difficulty, player_card_id=player_card_id)
+    except ActiveMatchError as exc:
+        return active_match_error(exc)
     except ValueError:
         return jsonify({"error": "این کارت دیگر قابل استفاده نیست", "code": "card_ineligible"}), 409
     from systems.custom_cards import match_card
