@@ -109,7 +109,7 @@
         </div>
         <div><h1>مدیریت کارت‌های TelBattle</h1><p>ویرایش داده‌های پایه و مودهای Quick، Deck و Easy</p></div>
       </div>
-      <div class="actions"><a class="btn" href="arenas">مدیریت زمین‌ها</a><button id="refreshBtn" class="btn" type="button" aria-label="بارگذاری دوباره کارت‌ها">
+      <div class="actions"><a class="btn" href="easy-questions">سؤال‌های ایزی‌مود</a><a class="btn" href="arenas">مدیریت زمین‌ها</a><button id="refreshBtn" class="btn" type="button" aria-label="بارگذاری دوباره کارت‌ها">
         <svg class="icon" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg> بروزرسانی
       </button></div>
     </header>
@@ -172,14 +172,8 @@
               <div class="field"><label for="traits">Traitها</label><select id="traits" class="input" multiple></select><div class="inline-add"><input id="newTrait" class="input" type="text" maxlength="100" placeholder="Trait جدید را بنویسید" aria-label="Trait جدید"><button id="addTraitBtn" class="btn" type="button">افزودن Trait</button></div><span class="hint">با افزودن، Trait در فهرست دائمی ذخیره و خودکار انتخاب می‌شود؛ حتی اگر از همهٔ کارت‌ها برداشته شود، در فهرست می‌ماند. برای ثبت انتخاب‌ها روی کارت، کارت را ذخیره کنید.</span></div>
               <div class="field"><label for="series">Series / مجموعه</label><input id="series" class="input" list="seriesOptions" placeholder="Game of Thrones"><datalist id="seriesOptions"></datalist><span class="hint">از مجموعه‌های قبلی انتخاب کنید یا نام تازه بنویسید.</span></div>
               <div class="group-title">Hidden Stats برای Easy (اختیاری)</div>
-              <div class="grid grid-4 field full">
-                <div><label for="funny">بامزگی</label><input id="funny" class="input hidden-stat" type="number" min="1" max="100"></div>
-                <div><label for="scary">ترسناکی</label><input id="scary" class="input hidden-stat" type="number" min="1" max="100"></div>
-                <div><label for="charisma">کاریزما</label><input id="charisma" class="input hidden-stat" type="number" min="1" max="100"></div>
-                <div><label for="cute">کیوتی</label><input id="cute" class="input hidden-stat" type="number" min="1" max="100"></div>
-                <div><label for="evil">شرارت</label><input id="evil" class="input hidden-stat" type="number" min="1" max="100"></div>
-                <div><label for="leadership">رهبری</label><input id="leadership" class="input hidden-stat" type="number" min="1" max="100"></div>
-              </div>
+              <div id="easyStats" class="grid grid-4 field full"></div>
+              <span class="hint field full">ویژگی تازه را در «سؤال‌های ایزی‌مود» تعریف کن؛ عدد هر کارت را اینجا بده. مقدار خالی ویژگی تازه، صفر است. این عددها بین فرم‌های همین شخصیت مشترک‌اند.</span>
               <div class="group-title">Passive خودکار Quick</div>
               <div class="field full switch-line"><input id="passiveEnabled" type="checkbox"><label for="passiveEnabled" style="margin:0">این کارت Passive دارد</label></div>
               <fieldset id="passiveFields" class="field full" disabled>
@@ -266,6 +260,7 @@
     async function loadOptions() {
       try {
         state.options = await api('/api/card-editor/options');
+        renderEasyStats(readEasyStats());
         setChoices('seriesOptions', state.options.series);
         setChoices('imageOptions', state.options.images);
         setChoices('traits', state.options.traits, selectedValues('traits'));
@@ -354,11 +349,24 @@
       $('variantHint').textContent = `در حال ویرایش فرم ${rarityLabel[state.currentRarity]}: Trait، آمار، Ability، Passive و مدیا مستقل است.`;
       updatePreview();
     }
+    function readEasyStats() {
+      return Object.fromEntries([...document.querySelectorAll('#easyStats input')].map(input => [input.dataset.stat, input.value]));
+    }
+    function renderEasyStats(values) {
+      const labels = state.options.easy_stats || {funny:'بامزگی',scary:'ترسناکی',charisma:'کاریزما',cute:'کیوتی',evil:'شرارت',leadership:'رهبری'};
+      const keys = [...new Set([...Object.keys(labels).filter(key => !['power','speed','iq','popularity'].includes(key)), ...Object.keys(values)])];
+      $('easyStats').replaceChildren(...keys.map(key => {
+        const field = document.createElement('div'), label = document.createElement('label'), input = document.createElement('input');
+        label.textContent = labels[key] || key; label.htmlFor = `easy_${key}`;
+        Object.assign(input, {id:`easy_${key}`, className:'input hidden-stat', type:'number', min:'1', max:'100', value:values[key] ?? ''});
+        input.dataset.stat = key; field.append(label, input); return field;
+      }));
+    }
     function fillForm(card) {
       $('emptyState').hidden = true; $('cardForm').hidden = false; $('editorTitle').textContent = state.creating ? 'کارت جدید' : card.name; $('cardId').textContent = state.creating ? 'new' : card.id;
       $('name').value = card.name || ''; state.currentRarity = 'normal'; $('rarity').value = 'normal'; $('biography').value = card.biography || ''; $('dialogs').value = (card.dialogs || []).join('\n');
       $('newTrait').value = ''; $('series').value = card.series || '';
-      ['funny','scary','charisma','cute','evil','leadership'].forEach(key => $(key).value = card.hidden_stats?.[key] ?? '');
+      renderEasyStats(card.hidden_stats || {});
       state.drafts = Object.fromEntries(rarities.map(rarity => {
         const source = (card.variants || []).find(item => item.rarity === rarity) || (card.rarity === rarity ? card : blankVariant());
         const form = Object.fromEntries(['power','speed','iq','popularity','card_type','abilities','card_effects','passive','image_path','photo_file_id','sticker_file_id'].map(key => [key, source[key] ?? blankVariant()[key]]));
@@ -371,9 +379,9 @@
     function collectPayload() {
       const name = $('name').value.trim();
       if (!name || name.length > 100) throw new Error('نام کارت باید بین ۱ تا ۱۰۰ کاراکتر باشد');
-      const hidden = {}; ['funny','scary','charisma','cute','evil','leadership'].forEach(key => {
-        if ($(key).value !== '') {
-          const value = Number($(key).value);
+      const hidden = {}; Object.entries(readEasyStats()).forEach(([key, raw]) => {
+        if (raw !== '') {
+          const value = Number(raw);
           if (!Number.isInteger(value) || value < 1 || value > 100) throw new Error(`Hidden Stat ${key} باید بین ۱ تا ۱۰۰ باشد`);
           hidden[key] = value;
         }

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>TelBattle · سؤال‌های ایزی‌مود</title>
+<style>
+:root{color-scheme:dark;font-family:Tahoma,Arial,sans-serif;background:#080f1d;color:#edf2fa}*{box-sizing:border-box}body{margin:0}main{max-width:1250px;margin:auto;padding:20px}h1{font-size:1.5rem}h2{font-size:1.1rem}p,small{line-height:1.9;color:#bcc9df}a{color:#95c8ff}button,input,textarea,select{font:inherit;border:1px solid #41506a;border-radius:9px;min-height:44px;padding:10px;background:#101d32;color:inherit}button{cursor:pointer}button:hover{border-color:#60a5fa}button:disabled{opacity:.5;cursor:wait}button.primary{background:#176449}button.danger{color:#ffb5b5}input,textarea,select{width:100%}input[type=checkbox]{width:22px;min-height:22px;vertical-align:middle}label{display:block;margin:12px 0 5px}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.row>*{flex:1;min-width:130px}.layout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:18px;margin-top:18px}.panel{background:#0e192c;border:1px solid #2f405c;border-radius:14px;padding:18px}.list{max-height:560px;overflow:auto}.question{display:block;width:100%;margin:8px 0;text-align:right}.question.active{border-color:#34d399}textarea{min-height:100px}.ltr{direction:ltr;text-align:left}.hint{font-size:.8rem}#status{white-space:pre-wrap;padding:10px}#status.error{color:#ffb5b5}[hidden]{display:none!important}button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid #7dd3fc;outline-offset:2px}@media(max-width:760px){.layout{grid-template-columns:1fr}main{padding:12px}.list{max-height:260px}}
+</style></head>
+<body><main>
+<div class="row"><h1>سؤال‌های ایزی‌مود</h1><a href="./">برگشت به مدیریت کارت‌ها</a></div>
+<p>متن و فرمول سؤال‌ها را بساز، ویرایش یا غیرفعال کن. تغییرات با «ذخیرهٔ فهرست» برای بازی‌های بعدی ثبت می‌شوند؛ بازی شروع‌شده با سؤال‌ها و فرمول‌های خودش ادامه می‌یابد.</p>
+<section class="panel"><div class="row"><div><label for="token">دسترسی مدیریت، مانند پنل زمین‌ها</label><input id="token" type="password" autocomplete="off" placeholder="توکن مدیریت"></div><button id="load" type="button">بارگذاری فهرست</button><button id="save" class="primary" disabled type="button">ذخیرهٔ فهرست</button></div><small>دسترسی فقط در حافظهٔ همین صفحه استفاده می‌شود و در مرورگر ذخیره نمی‌شود.</small></section>
+<div id="status" role="status" aria-live="polite"></div>
+<div id="workspace" hidden>
+<div class="layout">
+<aside class="panel"><div class="row"><button id="new" type="button">سؤال جدید</button><button id="example" type="button">مثال زامبی</button></div><label for="search">جست‌وجوی سؤال</label><input id="search" type="search"><p id="count"></p><div id="questions" class="list"></div></aside>
+<section class="panel"><h2>ویرایش سؤال</h2><form id="editor">
+<label for="text">متن سؤال</label><textarea id="text" maxlength="350" required></textarea>
+<label><input id="enabled" type="checkbox"> سؤال فعال باشد</label>
+<label for="formula">فرمول امتیاز کارت</label><input id="formula" class="ltr" maxlength="700" required placeholder="survival + management">
+<p id="formulaPreview" class="hint"></p>
+<div class="row"><select id="stat" aria-label="ویژگی برای فرمول"></select><button id="first" type="button">شروع با این ویژگی</button><button id="plus" type="button">+ اضافه کن</button><button id="minus" type="button">− کم کن</button></div>
+<p class="hint">یک یا چند ویژگی را با + یا - ترکیب کن؛ مثل بقا + مدیریت یا ترسناکی - بامزگی. عدد بزرگ‌تر بهتر است و نتیجهٔ منفی هم معتبر است.</p>
+<label for="filter">شرط سؤال</label><select id="filter"><option value="none">بدون شرط — پنج کارت تصادفی</option><option value="trait">تریت — انتخاب از همهٔ کارت‌ها</option><option value="series">مجموعه — انتخاب از همهٔ کارت‌ها</option></select>
+<div id="condition" hidden><label for="filterValue">تریت / مجموعهٔ مشخص (اختیاری)</label><input id="filterValue" list="conditions" maxlength="100"><datalist id="conditions"></datalist><p class="hint">خالی بگذار تا سیستم از موارد مشترک بین همهٔ بازیکنان انتخاب کند. در متن از {trait} یا {series} استفاده کن تا نام انتخاب‌شده جایگزین شود. کارت مطابق، اولویت اول دارد؛ سپس فرمول مقایسه می‌شود. کارت‌های نامطابق نیز بین خودشان رتبه می‌گیرند.</p></div>
+<div class="row"><button type="submit">ثبت ویرایش در فهرست این صفحه</button><button id="delete" class="danger" type="button">حذف سؤال از فهرست</button></div>
+</form></section></div>
+<section class="panel" style="margin-top:18px"><h2>تعریف ویژگی تازه</h2><p>مثلاً «بقا» با شناسهٔ survival یا «مدیریت» با management. بعد از ذخیرهٔ فهرست، در تب Easy پنل کارت عدد هر شخصیت را وارد کن. ویژگی تازهٔ بدون عدد، صفر حساب می‌شود؛ عددهای شش ویژگی مخفی قدیمی با رفتار قبلی ادامه دارند.</p><div class="row"><div><label for="statKey">شناسهٔ انگلیسی</label><input id="statKey" class="ltr" maxlength="40" placeholder="survival"></div><div><label for="statLabel">نام نمایشی</label><input id="statLabel" maxlength="70" placeholder="بقا"></div><button id="addStat" type="button">افزودن / ویرایش نام ویژگی</button></div><p id="statList" class="hint"></p></section>
+</div></main>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const prefix = location.pathname.replace(/\/easy-questions\/?$/, '');
+let catalog = null, selected = null, busy = false, conditions = {traits:[],series:[]};
+function message(text, error=false) { $('status').textContent=text; $('status').className=error?'error':''; }
+function setBusy(value) { busy=value; $('save').disabled=value || !catalog; $('load').disabled=value; }
+async function api(path, options={}) {
+  const response=await fetch(prefix+path,{...options,headers:{'Content-Type':'application/json','X-Admin-Token':$('token').value,...options.headers}});
+  const data=await response.json(); if(!response.ok) throw new Error(data.error || 'درخواست ناموفق بود.'); return data;
+}
+function readEditor() {
+  if(!selected || !catalog) return;
+  const question=catalog.questions.find(q=>q.id===selected); if(!question) return;
+  Object.assign(question,{text:$('text').value.trim(),formula:$('formula').value.trim(),enabled:$('enabled').checked,filter:$('filter').value,filter_value:$('filterValue').value.trim()});
+}
+function renderList() {
+  const search=$('search').value.trim().toLocaleLowerCase();
+  $('count').textContent=`${catalog.questions.length} سؤال · ${catalog.questions.filter(q=>q.enabled).length} فعال · نسخه ${catalog.revision}`;
+  $('questions').replaceChildren(...catalog.questions.filter(q=>q.text.toLocaleLowerCase().includes(search)).map(q=>{
+    const button=document.createElement('button');button.type='button';button.className='question'+(selected===q.id?' active':'');
+    button.textContent=(q.enabled?'● ':'○ ')+(q.text || 'سؤال بدون متن');button.onclick=()=>{readEditor();openQuestion(q.id);};return button;
+  }));
+}
+function updateCondition() {
+  const mode=$('filter').value; $('condition').hidden=mode==='none';
+  $('conditions').replaceChildren(...(mode==='trait'?conditions.traits:conditions.series).map(value=>new Option(value,value)));
+}
+function preview() {
+  $('formulaPreview').textContent=$('formula').value.replace(/[a-z][a-z0-9_]*/g,key=>catalog?.stats[key] || `ویژگی تعریف‌نشده (${key})`);
+}
+function renderStats() {
+  const previous=$('stat').value;
+  $('stat').replaceChildren(...Object.entries(catalog.stats).map(([key,label])=>new Option(label,key)));
+  if(catalog.stats[previous]) $('stat').value=previous;
+  $('statList').textContent=Object.entries(catalog.stats).map(([key,label])=>`${label}: ${key}`).join(' · ');preview();
+}
+function openQuestion(id) {
+  selected=id; const q=catalog.questions.find(item=>item.id===id); $('editor').hidden=!q;
+  if(q){$('text').value=q.text;$('formula').value=q.formula;$('enabled').checked=q.enabled;$('filter').value=q.filter;$('filterValue').value=q.filter_value;updateCondition();preview();}
+  renderList();
+}
+function addQuestion(example=false) {
+  readEditor();const id='q_'+(globalThis.crypto?.randomUUID?.() || (Date.now().toString(16)+Math.random().toString(16).slice(2))).replace(/-/g,'').slice(0,32);
+  catalog.questions.push({id,text:example?'کدوم کرکتر تو دنیای زامبی‌ها می‌تونه به قدرت برسه؟':'',formula:example?'survival + management':'scary',enabled:true,filter:'none',filter_value:''});openQuestion(id);$('text').focus();
+}
+$('load').onclick=async()=>{if(busy || (catalog && !confirm('ویرایش‌های ذخیره‌نشده کنار گذاشته و فهرست دوباره بارگذاری شود؟')))return;try{setBusy(true);const data=await api('/api/easy/catalog');catalog=data.catalog;try{conditions=await api('/api/card-editor/options');}catch{}$('workspace').hidden=false;renderStats();openQuestion(catalog.questions[0]?.id);message('فهرست بارگذاری شد.');}catch(error){message(error.message,true);}finally{setBusy(false);}};
+$('save').onclick=async()=>{if(busy)return;readEditor();try{setBusy(true);const data=await api('/api/easy/catalog',{method:'PUT',body:JSON.stringify(catalog)});catalog=data.catalog;renderStats();renderList();message('ذخیره شد؛ بازی‌های جدید از این فهرست استفاده می‌کنند.');}catch(error){message(error.message,true);}finally{setBusy(false);}};
+$('editor').onsubmit=event=>{event.preventDefault();readEditor();renderList();message('ویرایش در فهرست این صفحه ثبت شد؛ برای نگهداری دائمی «ذخیرهٔ فهرست» را بزن.');};
+$('new').onclick=()=>addQuestion();$('example').onclick=()=>addQuestion(true);
+$('delete').onclick=()=>{if(selected && confirm('این سؤال حذف شود؟ بازی شروع‌شده تغییر نمی‌کند.')){catalog.questions=catalog.questions.filter(q=>q.id!==selected);openQuestion(catalog.questions[0]?.id);message('برای ثبت حذف، فهرست را ذخیره کن.');}};
+$('search').oninput=renderList;$('filter').onchange=updateCondition;$('formula').oninput=preview;
+$('first').onclick=()=>{$('formula').value=$('stat').value;preview();};
+for(const [id,operator] of [['plus','+'],['minus','-']])$(id).onclick=()=>{$('formula').value=$('formula').value.trim()?`${$('formula').value.trim()} ${operator} ${$('stat').value}`:$('stat').value;preview();};
+$('addStat').onclick=()=>{const key=$('statKey').value.trim(),label=$('statLabel').value.trim();if(!/^[a-z][a-z0-9_]{0,39}$/.test(key)||!label){message('شناسهٔ انگلیسی ساده و نام نمایشی را وارد کن.',true);return;}catalog.stats[key]=label;renderStats();$('statKey').value='';$('statLabel').value='';message('ویژگی در فهرست اضافه شد؛ فهرست را ذخیره کن و عدد کارت‌ها را در پنل کارت بده.');};
+</script></body></html>

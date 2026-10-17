@@ -1046,10 +1046,15 @@ class GameModeHandlersMixin:
         from systems.shared_foundation import settings_in
         import sqlite3
         with sqlite3.connect(self.db.db_path) as flags_conn:flags=settings_in(flags_conn)
-        if len(parts)==1 and flags["easy_custom_cards_enabled"] and flags["custom_cards_enabled"]:
-            await query.edit_message_text("کارت سفارشی در این Easy مجاز باشد؟ پاداش عادی برقرار است.",reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("خیر",callback_data=f"gm_erounds_{rounds}_no"),InlineKeyboardButton("بله",callback_data=f"gm_erounds_{rounds}_yes")]]))
+        if len(parts)==1:
+            await query.edit_message_text("کارت‌های شخصی‌سازی‌شده هم بتونن وارد این بازی بشن؟",reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("خیر",callback_data=f"gm_erounds_{rounds}_no"),InlineKeyboardButton("بله",callback_data=f"gm_erounds_{rounds}_yes")]]))
             return
         allow_custom=len(parts)==2 and parts[1]=="yes"
+        if len(parts) != 2 or parts[1] not in ('yes', 'no'):
+            return
+        if allow_custom and not (flags['custom_cards_enabled'] and flags['easy_custom_cards_enabled'] and flags['progression_v2_enabled']):
+            await query.answer('ورود کارت سفارشی هنوز از تنظیمات مدیریت فعال نشده؛ فعلاً «خیر» رو بزن.', show_alert=True)
+            return
         try:
             request = self.modes.create_easy_lobby(query.from_user.id, query.message.chat_id, rounds,allow_custom_cards=allow_custom)
         except ValueError:
@@ -1244,8 +1249,13 @@ class GameModeHandlersMixin:
         request_id = parts[1]
         user_id = inline_query.from_user.id
         options = self.modes.get_easy_options(request_id, user_id)
+        try:
+            offset = max(0, int(getattr(inline_query, 'offset', '') or 0))
+        except (ValueError, TypeError):
+            offset = 0
+        page_options = options[offset:offset + 50]
         results = []
-        for card in options:
+        for card in page_options:
             result_id = f"ez|{request_id}|{user_id}|{card.card_id}"
             confirm_markup = InlineKeyboardMarkup(
                 [[InlineKeyboardButton("✅ ثبت انتخاب", callback_data=result_id)]]
@@ -1289,7 +1299,8 @@ class GameModeHandlersMixin:
                     input_message_content=InputTextMessageContent("⚠️ کارت قابل انتخابی نیست."),
                 )
             )
-        await inline_query.answer(results, cache_time=0, is_personal=True)
+        await inline_query.answer(results, cache_time=0, is_personal=True,
+                                  next_offset=str(offset + 50) if offset + 50 < len(options) else '')
 
     async def easy_chosen_inline_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         chosen = update.chosen_inline_result
