@@ -26,7 +26,7 @@ def build(check=False):
                 raise ValueError('asset must be inside repository')
             raw = path.read_bytes()
             hashes[relative] = hashlib.sha256(raw).hexdigest()
-            if key.startswith(('arena/', 'deck/')):
+            if key.startswith(('arena/', 'deck/', 'shop/')):
                 with Image.open(io.BytesIO(raw)) as original:
                     image = ImageOps.exif_transpose(original).convert('RGB')
                     image.thumbnail((1200, 900), Image.Resampling.LANCZOS)

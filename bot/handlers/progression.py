@@ -17,19 +17,16 @@ def action_button(context,title,action):
 
 
 async def show_menu(bot,update,context,section='shop',page=0):
+    if section=='shop':
+        from bot.shop_presentation import show_catalog
+        return await show_catalog(bot,update,context)
     user=update.effective_user.id
     economy=ProgressionEconomy(bot.db)
     inventory=economy.inventory(user)
     if not inventory.get('ok'):
         await update.effective_message.reply_text(inventory.get('error','خطا'));return
     keyboard=[]
-    if section=='shop':
-        text='🛒 فروشگاه\nقیمت هر خرید قبل از تأیید نمایش داده می‌شود.\n'
-        text+=' · '.join(LABELS.get(key,key)+': '+str(value) for key,value in inventory['items'].items() if key!='free_silver_claim')
-        for item in inventory['shop']:
-            keyboard.append([Button(LABELS[item],callback_data='v2_quote_'+item)])
-        keyboard.extend([[Button('ارتقا و فروش کارت',callback_data='v2_cards_0')],[Button('مأموریت‌ها',callback_data='v2_missions')]])
-    elif section=='cards':
+    if section=='cards':
         cards=[card for card in bot.db.get_player_cards(user) if card.origin=='official']
         page=max(0,page);text='کارت را برای ارتقا یا فروش انتخاب کن. فرم‌ها و تعداد نسخه‌ها محفوظ‌اند.'
         for card in cards[page*15:(page+1)*15]:keyboard.append([action_button(context,card.name,{'kind':'card_menu','card_id':card.card_id})])
@@ -58,10 +55,13 @@ async def handle(bot,update,context):
     if data.startswith('v2_quote_'):
         quote=economy.quote(user,data[9:])
         if quote.get('ok'):
-            keyboard=[[Button('تأیید خرید',callback_data='v2_buy_'+quote['quote_id'])],[Button('انصراف',callback_data='v2_shop')]]
-            await query.edit_message_text('قیمت: '+str(quote['price'])+' سکه؛ تأیید می‌کنی؟',reply_markup=InlineKeyboardMarkup(keyboard));return
-        result=quote
-    elif data.startswith('v2_buy_'):result=economy.purchase(user,data[7:])
+            from bot.shop_presentation import show_quote
+            return await show_quote(bot,update,context,quote)
+        from bot.shop_presentation import show_purchase
+        return await show_purchase(bot,update,context,quote)
+    elif data.startswith('v2_buy_'):
+        from bot.shop_presentation import show_purchase
+        return await show_purchase(bot,update,context,economy.purchase(user,data[7:]))
     elif data=='v2_silver_claim':
         from bot.handlers import silver_claim
         if not silver_claim.private_panel(update):return

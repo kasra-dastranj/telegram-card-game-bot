@@ -131,9 +131,8 @@ class ShopHandlersMixin:
             if not quote.get('ok'):
                 await query.edit_message_text(quote.get('error','خطا'))
                 return
-            await query.edit_message_text('قیمت پوسته: ' + str(quote['price']) + ' سکه؛ تأیید می‌کنی؟',
-                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton('تأیید خرید', callback_data='v2_buy_' + quote['quote_id'])]]))
-            return
+            from bot.shop_presentation import show_quote
+            return await show_quote(self,update,context,quote,back_callback='skins_menu_'+card_id)
         result = self.skins.unlock_skin(user_id, skin_id)
 
         if result['success']:

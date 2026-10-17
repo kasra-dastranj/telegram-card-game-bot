@@ -81,6 +81,38 @@ class ProgressionEconomy:
                     'daily_ticket_percent':config['claim']['daily_ticket_percent'], 'silver_claim_tickets':config['claim']['silver_tickets']}
         return self.run(action)
 
+    def shop_catalog(self, user):
+        """Presentation snapshot using the actual pricing/eligibility functions.
+
+        Browsing creates no quotes, purchases or heart refreshes. The existing
+        quote/purchase path remains authoritative when the player confirms.
+        """
+        def action(conn, version, config):
+            player = conn.execute('SELECT coins,hearts FROM players WHERE user_id=?', (user,)).fetchone()
+            if not player:
+                raise ValueError('player_not_found')
+            capacity = capacities_in(conn, user, config)
+            products = []
+            for item, rule in config['shop'].items():
+                if not rule['enabled']:
+                    continue
+                entry = {'item': item, 'price': None, 'available': True, 'error_code': None,
+                         'window': rule['window'], 'factor': rule['factor'], 'stock_remaining': None}
+                try:
+                    entry['price'] = self.price_in(conn, user, item, config)[0]
+                    self.shop_eligible(conn, user, item, config)
+                except ValueError as error:
+                    entry.update(available=False, error_code=str(error))
+                if rule['stock'] is not None:
+                    sold = conn.execute("SELECT COUNT(*) FROM reward_ledger WHERE source='shop' AND json_extract(payload_json,'$.item')=?", (item,)).fetchone()[0]
+                    entry['stock_remaining'] = max(0, rule['stock'] - sold)
+                products.append(entry)
+            return {'ok': True, 'config_version': version, 'coins': int(player[0] or 0),
+                    'hearts': int(player[1] or 0), 'capacity': capacity,
+                    'items': dict(conn.execute('SELECT item,quantity FROM player_economy_items WHERE user_id=?', (user,))),
+                    'products': products}
+        return self.run(action)
+
     @staticmethod
     def claim_status_in(conn,user,config,now=None):
         start,end,key=period_bounds(config,'daily',now)
