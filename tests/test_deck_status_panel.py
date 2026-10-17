@@ -147,11 +147,9 @@ def test_deck_round_panel_shows_score_arena_rule_and_uses_sixty_seconds():
     )
 
     status_text = handler._upsert_deck_status_message.await_args.args[3]
-    assert "📊 🔵 Blue 0 — 0 Red 🔴" in status_text
-    assert "🎴 راند 1 از ۳" in status_text
-    assert "اول Tierِ Trait زمین" in status_text
+    assert "⚔️ Deck Battle (Round 1)\nBlue: 0\nRed: 0" in status_text
     assert "💪 قدرت بیشتر" in status_text
-    assert "T1 خدا/هیولا" in status_text
+    assert "T1: خدا/هیولا" in status_text
     assert DECK_TURN_TIMEOUT_SECONDS == 60
     assert job_queue.run_once.call_args.args[1] == 60
 
@@ -197,8 +195,8 @@ def test_deck_final_card_is_not_auto_selected_and_requires_manual_confirmation()
     assert context.bot_data["r3_fight-1_expected_role"] == "challenger"
     status_text = handler._upsert_deck_status_message.await_args.args[3]
     markup = handler._upsert_deck_status_message.await_args.args[4]
-    assert "کارت آخر را انتخاب کنید" in status_text
-    assert "پس از انتخاب همان بازیکن" in status_text
+    assert "کارت آخر را انتخاب کنید" not in status_text
+    assert "پس از انتخاب همان بازیکن" not in status_text
     assert markup.inline_keyboard[0][0].switch_inline_query_current_chat.startswith(
         "r3pick fight-1 "
     )
@@ -210,11 +208,14 @@ def test_deck_final_card_is_not_auto_selected_and_requires_manual_confirmation()
             "power_arena", 3,
         )
     )
-    assert "🔵 Blue — Blue Last (🟢 Normal)" in handler._upsert_deck_status_message.await_args.args[3]
+    assert "Blue Last" not in handler._upsert_deck_status_message.await_args.args[3]
+    assert context.bot_data['r3_fight-1_expected_role'] == 'opponent'
 
 
 def test_deck_result_explains_different_forms_of_the_same_character(tmp_path):
     db = DatabaseManager(str(tmp_path / "deck-result.sqlite"))
+    from systems.game_mode_system import GameModeSystem
+    GameModeSystem(db)
     with sqlite3.connect(db.db_path) as conn:
         conn.execute(
             """INSERT INTO battle_states
@@ -257,12 +258,14 @@ def test_deck_result_explains_different_forms_of_the_same_character(tmp_path):
     ))
 
     summary = handler._finalize_3round_battle.await_args.kwargs["deck_summary"]
-    assert "🔵 John Wick (🟢 Normal)" in summary
-    assert "🔴 John Wick (🟡 Legend)" in summary
-    assert "❤️ محبوبیت: 🔵 85 | 🔴 100" in summary
-    assert "فرم کارت‌ها متفاوت است" in summary
-    assert "🏆 Ka برنده‌ی راند شد" in summary
+    assert "John Wick" not in summary
+    assert "برنده راوند ۳: \u2068Ka\u2069" in summary
+    from bot.deck_reports import load_in, detail_text
     with sqlite3.connect(db.db_path) as conn:
+        private_text = detail_text(load_in(conn, 'fight-1'))
+        assert 'John Wick (🟢 Normal)' in private_text
+        assert 'John Wick (🟡 Legend)' in private_text
+        assert 'محبوبیت: ۸۵' in private_text and 'محبوبیت: ۱۰۰' in private_text
         assert conn.execute(
             "SELECT challenger_value, opponent_value, winner FROM round_history WHERE fight_id=?",
             ("fight-1",),

@@ -502,6 +502,7 @@ class TelegramCardBot(
         app.add_handler(CallbackQueryHandler(self.quick_ability_handler, pattern="^gm_qability_"))
         app.add_handler(CallbackQueryHandler(self.quick_stat_handler, pattern="^gm_qstat_"))
         app.add_handler(CallbackQueryHandler(self.game_report_handler, pattern="^gm_report_"))
+        app.add_handler(CallbackQueryHandler(self.deck_report_handler, pattern="^deck_report_"))
         app.add_handler(CallbackQueryHandler(self.easy_round_count_handler, pattern="^gm_erounds_"))
         app.add_handler(CallbackQueryHandler(self.easy_ready_handler, pattern="^gm_eready_"))
         app.add_handler(CallbackQueryHandler(self.easy_start_handler, pattern="^gm_estart_"))

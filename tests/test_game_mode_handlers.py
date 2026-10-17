@@ -255,7 +255,8 @@ def test_inline_private_blank_or_whitespace_query_shows_all_game_modes(tmp_path)
     ]
     assert results[0].input_message_content.message_text == '🎮 بیا یه دست بازی کنیم\nQuick mode (Normal)'
     assert results[1].input_message_content.message_text == '🎮 بیا یه دست بازی کنیم\nQuick mode (Random)'
-    assert results[2].input_message_content.message_text.startswith('🃏 دعوت Deck / Normal\n\n')
+    assert results[2].input_message_content.message_text == '🃏 بیا یه دست بازی کنیم\nDeck mode (Normal)'
+    assert results[3].input_message_content.message_text == '🃏 بیا یه دست بازی کنیم\nDeck mode (Random)'
     assert re.match(GAME_INLINE_QUERY_PATTERN, "")
     assert re.match(GAME_INLINE_QUERY_PATTERN, "   ")
 

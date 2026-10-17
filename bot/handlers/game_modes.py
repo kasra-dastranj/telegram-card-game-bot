@@ -153,6 +153,11 @@ class GameModeHandlersMixin:
                     f"⚔️ کی حاضره نبرد {bidi_isolate(f'Quick-{variant_title}')} با {bidi_isolate(query.from_user.first_name)} رو بپذیره\n"
                     f"⏳ مهلت پذیرش: {QUICK_GROUP_TTL_SECONDS} ثانیه"
                 )
+            elif mode == 'deck':
+                text = (
+                    f"⚔️ کی حاضره نبرد Deck-{variant_title} با {bidi_isolate(query.from_user.first_name)} رو بپذیره؟\n"
+                    f"⏳ مهلت پذیرش: {QUICK_GROUP_TTL_SECONDS} ثانیه"
+                )
             else:
                 text = (
                     f"⚔️ {query.from_user.first_name} یک چالش {mode_title} / {variant_title} ساخته!\n\n"
@@ -273,6 +278,8 @@ class GameModeHandlersMixin:
             )
             if mode == "quick":
                 text = f"🎮 بیا یه دست بازی کنیم\nQuick mode ({variant_title})"
+            elif mode == 'deck':
+                text = f"🃏 بیا یه دست بازی کنیم\nDeck mode ({variant_title})"
             results.append(
                 InlineQueryResultArticle(
                     id=f"gmi|{request['request_id']}",

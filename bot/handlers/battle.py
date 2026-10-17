@@ -161,12 +161,12 @@ class BattleHandlersMixin:
         tiers = []
         for index, tier in enumerate(arena.get("trait_ranks", []), start=1):
             labels = "/".join(DECK_TRAIT_LABELS.get(str(value), str(value)) for value in tier)
-            tiers.append(f"T{index} {labels}")
-        tier_line = "، ".join(tiers) or "بدون اولویت Trait"
+            tiers.append(f"T{index}: {labels}")
+        tier_line = "\n".join(tiers) or "بدون اولویت تریت"
         return (
-            f"🏟️ زمین: {arena['emoji']} {arena['name_fa']} — برای هر ۳ راند ثابت\n"
-            f"📐 معیار برد: اول Tierِ Trait زمین؛ سپس {self._battle_attr_label(compare_stat)} بیشتر\n"
-            f"🧬 اولویت Trait: {tier_line}"
+            f"🏟️ زمین: {arena['emoji']} {arena['name_fa']}\n"
+            f"🧬 اولویت تریت ها:\n{tier_line}\n"
+            f"معیار برد دوم: {self._battle_attr_label(compare_stat)} بیشتر"
         )
 
     def _deck_status_header(
@@ -181,9 +181,9 @@ class BattleHandlersMixin:
         ch_name = self._battle_player_name(fight.challenger_id, "Blue") if fight else "Blue"
         op_name = self._battle_player_name(fight.opponent_id, "Red") if fight else "Red"
         return (
-            "⚔️ Deck Battle\n"
-            f"📊 🔵 {ch_name} {challenger_wins} — {opponent_wins} {op_name} 🔴\n"
-            f"🎴 راند {round_num} از ۳\n\n"
+            f"⚔️ Deck Battle (Round {round_num})\n"
+            f"{ch_name}: {challenger_wins}\n"
+            f"{op_name}: {opponent_wins}\n"
             f"{self._deck_arena_rule_text(arena_id, fight_id)}"
         )
 
@@ -593,7 +593,6 @@ class BattleHandlersMixin:
                 if ch_remaining and op_remaining:
                     arena_text = (
                         self._deck_status_header(fight_id, arena_id, 1, 0, 0)
-                        + "\n\n⏳ آماده‌سازی انتخاب کارت راند اول..."
                     )
                     await self._upsert_deck_status_message(
                         context, fight_id, fight.chat_id, arena_text
@@ -1421,45 +1420,6 @@ class BattleHandlersMixin:
         ch_name = self._battle_player_name(ch_id, "Blue")
         op_name = self._battle_player_name(op_id, "Red")
         arena_info = self._arena_runtime_for_fight(fight_id, arena_id, "deck")
-        stat_label = self._battle_attr_label(compare_stat)
-        ch_rank = result["challenger_trait_rank"]
-        op_rank = result["opponent_trait_rank"]
-
-        if result["reason"] == "trait":
-            comparison_line = (
-                f"🧬 Trait tier: 🔵 {('T' + str(ch_rank)) if ch_rank else '—'} | "
-                f"🔴 {('T' + str(op_rank)) if op_rank else '—'}"
-            )
-        else:
-            comparison_line = (
-                f"{stat_label}: 🔵 {result['challenger_value']} | "
-                f"🔴 {result['opponent_value']}"
-            )
-
-        same_character_different_form = (
-            ch_card.card_id == op_card.card_id
-            and ch_card.rarity != op_card.rarity
-        )
-        form_note = (
-            "\nℹ️ شخصیت یکسان است، اما فرم کارت‌ها متفاوت است؛ عدد هر فرم جدا حساب می‌شود."
-            if same_character_different_form and result["reason"] == "stat" else ""
-        )
-
-        if round_winner == "challenger":
-            result_line = f"🏆 {ch_name} برنده‌ی راند شد"
-        elif round_winner == "opponent":
-            result_line = f"🏆 {op_name} برنده‌ی راند شد"
-        else:
-            result_line = "🤝 این راند مساوی شد"
-        round_text = (
-            f"⚔️ راند {current_round} — {arena_info['name_fa']} {arena_info['emoji']}\n\n"
-            f"🔵 {self._deck_card_label(ch_card)}\n"
-            f"🔴 {self._deck_card_label(op_card)}\n\n"
-            f"{comparison_line}{form_note}\n"
-            f"{result_line}\n"
-            f"برد راندها: {ch_rounds_won} — {op_rounds_won}"
-        )
-
         conn = _sq.connect(self.db.db_path)
         cursor = conn.cursor()
         cursor.execute(
@@ -1476,6 +1436,12 @@ class BattleHandlersMixin:
             ),
         )
 
+        from bot.deck_reports import round_snapshot_in, backfill_rounds_in, winner_lines
+        report = round_snapshot_in(conn, fight_id, (ch_id, op_id),
+                                  {str(ch_id): ch_name, str(op_id): op_name},
+                                  arena_info, current_round, result, (ch_card, op_card))
+        backfill_rounds_in(conn, fight_id, report)
+
         game_over = current_round >= 3
         if game_over:
             deck_state = self.db.get_battle_deck_state(fight_id)
@@ -1488,7 +1454,7 @@ class BattleHandlersMixin:
             ch_points = ch_rounds_won * 5 + ch_synergy["score"]
             op_points = op_rounds_won * 5 + op_synergy["score"]
             cursor.execute(
-                """UPDATE battle_states SET status='completed',
+                """UPDATE battle_states SET status='settling',
                           challenger_rounds_won=?, opponent_rounds_won=?,
                           challenger_used_stats=?, opponent_used_stats=?
                      WHERE fight_id=?""",
@@ -1504,9 +1470,9 @@ class BattleHandlersMixin:
             op_bonus = "، ".join(op_synergy["reasons"]) or "بدون بونس"
             score_text = (
                 f"\n\n🧩 امتیاز ساخت دک\n"
-                f"🔵 {ch_name}: {ch_rounds_won * 5} + {ch_synergy['score']} = {ch_points}\n"
+                f"{ch_name}: {ch_rounds_won * 5} + {ch_synergy['score']} = {ch_points}\n"
                 f"   {ch_bonus}\n"
-                f"🔴 {op_name}: {op_rounds_won * 5} + {op_synergy['score']} = {op_points}\n"
+                f"{op_name}: {op_rounds_won * 5} + {op_synergy['score']} = {op_points}\n"
                 f"   {op_bonus}"
             )
             fight = self.db.get_fight_by_id(fight_id)
@@ -1524,7 +1490,7 @@ class BattleHandlersMixin:
                 deck_summary=(
                     self._deck_arena_rule_text(arena_id, fight_id)
                     + "\n\n"
-                    + round_text
+                    + winner_lines(report)
                     + score_text
                 ),
             )
@@ -1547,7 +1513,6 @@ class BattleHandlersMixin:
         conn.commit()
         conn.close()
 
-        context.bot_data[f"deck_{fight_id}_last_round_summary"] = round_text
         context.bot_data[f"r3_{fight_id}_next_first_role"] = (
             "opponent" if next_round == 2 else "challenger"
         )
@@ -1580,6 +1545,12 @@ class BattleHandlersMixin:
         ch_xp, op_xp = ch_award["xp"], op_award["xp"]
         ch_old_lv, ch_new_lv = ch_award["old_level"], ch_award["new_level"]
         op_old_lv, op_new_lv = op_award["old_level"], op_award["new_level"]
+        deck_report = None
+        if deck_summary:
+            from bot.deck_reports import finish
+            deck_report = finish(self.db.db_path, fight_id, (ch_id, op_id),
+                                 {str(ch_id): self._battle_player_name(ch_id, 'Blue'),
+                                  str(op_id): self._battle_player_name(op_id, 'Red')}, settlement['awards'])
         ch_result = "win" if result_type == "challenger_wins" else "loss" if result_type == "opponent_wins" else "tie"
         op_result = "win" if result_type == "opponent_wins" else "loss" if result_type == "challenger_wins" else "tie"
 
@@ -1632,11 +1603,14 @@ class BattleHandlersMixin:
                 xp_line = f"⭐ +{winner_xp} / +{loser_xp} XP{level_up_text}"
 
             if deck_summary:
+                from bot.deck_reports import reward_lines
+                if result_type == 'opponent_wins':
+                    final_line = f"🏆 {op_name}  |  {op_rounds_won} — {ch_rounds_won}"
                 final_text = (
-                    f"🏁 نتیجه نهایی Deck\n\n"
+                    f"بازی تمام شد، مبارک خیلیا\n\n"
                     f"{deck_summary}\n\n"
                     f"{final_line}\n"
-                    f"{xp_line}"
+                    f"{reward_lines(deck_report)}"
                 )
             else:
                 final_text = (
@@ -1651,6 +1625,8 @@ class BattleHandlersMixin:
                 keyboard = [[InlineKeyboardButton("🥊 بازی دوباره", switch_inline_query_current_chat="game")]]
             else:
                 keyboard = [[InlineKeyboardButton("🥊 چالش جدید", callback_data="request_pvp_fight")]]
+            if deck_report:
+                keyboard.insert(0, [InlineKeyboardButton('📋 مشاهده جزئیات', callback_data=f'deck_report_{fight_id}')])
             try:
                 if deck_summary:
                     await self._upsert_deck_status_message(
@@ -1674,6 +1650,23 @@ class BattleHandlersMixin:
                 logger.error(f"Failed to send final result: {e}")
 
         self.db.delete_fight(fight_id)
+
+    async def deck_report_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        from contextlib import closing
+        from bot.deck_reports import load_in, detail_text
+        import sqlite3
+        query = update.callback_query
+        fight_id = query.data.removeprefix('deck_report_')
+        with closing(sqlite3.connect(self.db.db_path)) as conn:
+            report = load_in(conn, fight_id)
+        if not report or not report.get('completed') or query.from_user.id not in report['players']:
+            await query.answer('گزارش برای شما در دسترس نیست.', show_alert=True)
+            return
+        await query.answer()
+        try:
+            await context.bot.send_message(chat_id=query.from_user.id, text=detail_text(report))
+        except Exception as exc:
+            logger.warning('Could not send private Deck report for %s: %s', fight_id, exc)
 
     # ==================== SKINS HANDLERS ====================
 
@@ -1794,6 +1787,8 @@ class BattleHandlersMixin:
             ])
         else:
             lines.extend(["", "انتخاب بازیکن شروع‌کننده در گروه دیده می‌شود؛ انتخاب نهایی است."])
+        if self._fight_arena_mode(fight_id) == 'deck':
+            lines = [self._deck_status_header(fight_id, arena_id, round_num, ch_wins, op_wins)]
 
         try:
             fight = self.db.get_fight_by_id(fight_id)
