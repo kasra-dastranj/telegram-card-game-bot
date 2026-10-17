@@ -1677,7 +1677,7 @@ class BattleHandlersMixin:
                 if not await send_result(context, user_id, picture, 'بازی تموم شد، مبارک خیلیا!', private_markup):
                     try:
                         await context.bot.send_message(chat_id=user_id, text=final_text,
-                                                       reply_markup=InlineKeyboardMarkup(keyboard))
+                                                       reply_markup=private_markup)
                     except Exception:
                         logger.warning('Could not deliver private battle result')
         self.db.delete_fight(fight_id)

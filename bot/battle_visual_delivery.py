@@ -118,10 +118,8 @@ async def card_art(handler, context, card):
             pass
     rarity = str(getattr(getattr(card, 'rarity', None), 'value', getattr(card, 'rarity', 'normal')))
     getter = getattr(handler.db, 'get_card_variant_media_file_id', None)
-    if not callable(getter) or not callable(getattr(context.bot, 'get_file', None)):
-        return None
     cache = limited_cache(context, '_battle_visual_card_media', 48)
-    for kind in ('photo', 'sticker'):
+    for kind in (('photo', 'sticker') if callable(getter) and callable(getattr(context.bot, 'get_file', None)) else ()):
         try:
             file_id = getter(card.card_id, rarity, kind)
             if not file_id:
@@ -140,6 +138,19 @@ async def card_art(handler, context, card):
             return cache[file_id]
         except Exception:
             continue
+    # Older official Normal cards may only have the configured name-based image.
+    # This lookup is safe solely for the base form; variants require their own media.
+    base = handler.db.get_card_by_id(card.card_id)
+    if base and base.rarity == card.rarity:
+        for name in ('_resolve_card_photo_path', '_resolve_card_media_path'):
+            resolver = getattr(handler, name, None)
+            if callable(resolver):
+                try:
+                    path = resolver(card)
+                    if path:
+                        return await work(context, read_bitmap, path)
+                except (OSError, ValueError, AttributeError):
+                    continue
     return None
 
 

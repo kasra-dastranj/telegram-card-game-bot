@@ -138,6 +138,8 @@ def test_three_round_deck_final_and_private_history_survive_fight_deletion_and_c
         context.bot.send_message.assert_not_awaited()
     else:
         assert [call.kwargs['chat_id'] for call in context.bot.send_message.await_args_list] == [1, 2]
+    private_control = (context.bot.send_photo if with_photo else context.bot.send_message).await_args.kwargs
+    assert private_control['reply_markup'].inline_keyboard[-1][0].switch_inline_query == 'game'
     context.bot.send_message.reset_mock()
     # A new handler after restart reads the saved cards, forms and causes.
     with sqlite3.connect(db.db_path) as conn:

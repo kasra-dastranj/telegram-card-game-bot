@@ -213,6 +213,25 @@ def test_missing_epic_art_is_not_replaced_with_normal_or_legend(ui):
     context.bot.get_file.assert_not_awaited()
 
 
+@pytest.mark.parametrize('rarity', ['normal', 'epic'])
+def test_legacy_configured_art_is_used_only_for_the_actual_base_form(ui, rarity):
+    handler, context, _ = ui
+    card = handler.db.get_card_by_id_for_rarity('alpha', rarity)
+    normal_path = handler.db.get_card_by_id_for_rarity('alpha', 'normal').image_path
+    card.image_path = ''
+    handler._resolve_card_photo_path = Mock(return_value=normal_path)
+    handler._resolve_card_media_path = Mock(return_value=normal_path)
+    result = asyncio.run(card_art(handler, context, card))
+    if rarity == 'normal':
+        assert result
+        assert Image.open(BytesIO(result)).getpixel((50, 50))[0] > 150
+        handler._resolve_card_photo_path.assert_called_once_with(card)
+    else:
+        assert result is None
+        handler._resolve_card_photo_path.assert_not_called()
+        handler._resolve_card_media_path.assert_not_called()
+
+
 def test_telegram_photo_cache_downloads_once_and_bounds_invalid_files(ui):
     handler, context, _ = ui
     card = handler.db.get_card_by_id_for_rarity('alpha', 'epic')
