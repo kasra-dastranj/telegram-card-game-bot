@@ -545,6 +545,7 @@ class TelegramCardBot(
         app.add_handler(CallbackQueryHandler(self.deck_menu_handler, pattern="^deck_menu$"))
         app.add_handler(CallbackQueryHandler(self.deck_create_start_handler, pattern="^deck_create$"))
         app.add_handler(CallbackQueryHandler(self.deck_build_category_handler, pattern="^deck_build_cat_"))
+        app.add_handler(CallbackQueryHandler(self.deck_build_back_handler, pattern="^deck_build_back_step[1-3]$"))
         app.add_handler(CallbackQueryHandler(self.deck_build_pick_handler, pattern="^deck_build_pick_"))
         app.add_handler(CallbackQueryHandler(self.deck_build_skip_name_handler, pattern="^deck_build_skip_name$"))
         app.add_handler(CallbackQueryHandler(self.deck_delete_confirm_handler, pattern="^deck_delete_confirm_"))

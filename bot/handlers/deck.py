@@ -169,6 +169,23 @@ class DeckHandlersMixin:
         text = f"🃏 **ساخت دک — کارت {step} از ۳**\n\nکارتی از {RARITY_FA.get(rarity, rarity)} انتخاب کن:"
         await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
 
+    async def deck_build_back_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Return to rarity categories without restarting or rewinding the draft."""
+        query = update.callback_query
+        build = context.user_data.get('deck_build')
+        if not build or build.get('waiting_name') or len(build.get('cards', [])) >= 3:
+            await query.answer('این مرحله دیگه فعال نیست؛ از منوی دک‌ها ادامه بده.', show_alert=True)
+            return
+        await query.answer()
+        picked = build.get('cards', [])
+        names = []
+        for card_id in picked:
+            card = self.db.get_card_by_id_for_player(card_id, query.from_user.id)
+            names.append(card.name if card else card_id)
+        await self._send_deck_build_category_keyboard(
+            query, query.from_user.id, step=len(picked) + 1, selected_names=names,
+        )
+
     async def deck_build_pick_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """یک کارت در فرآیند ساخت انتخاب شد
         callback: deck_build_pick_{card_id}
