@@ -253,7 +253,7 @@ def test_custom_practice_v2_off_is_rejected_without_fight(custom,monkeypatch):
 @pytest.mark.parametrize('allow',[False,True])
 def test_easy_picker_origin_context_lock_and_frozen_metrics(custom,monkeypatch,allow):
     db,api,_=custom;order,card=activate(custom);enable_v2(custom,easy=True)
-    monkeypatch.setattr(api.modes,'_choose_easy_question',lambda players,previous_id=None:{'id':'fixture','title':'test','attribute':'funny'})
+    monkeypatch.setattr(api.modes,'_choose_easy_question',lambda players,previous_id=None,**kwargs:{'id':'fixture','title':'test','attribute':'funny'})
     request=api.modes.create_easy_lobby(1,-123,3,allow_custom_cards=allow);key=request['request_id']
     api.modes.join_easy_lobby(key,2);assert api.modes.start_easy_match(key)[0]
     choices=api.modes.get_easy_options(key,1)
@@ -268,6 +268,56 @@ def test_easy_picker_origin_context_lock_and_frozen_metrics(custom,monkeypatch,a
     if allow:
         assert post(custom,'status',{'card_id':card,'status':'suspended'}).status_code==200
         assert api.modes._hidden_stat_value(match_card(db,key,1,card),'funny')==20
+
+
+@pytest.mark.parametrize('allow', [False, True])
+def test_easy_common_traits_and_full_session_rewards_respect_custom_lobby_choice(custom, allow):
+    db, api, _ = custom
+    _, card = activate(custom)
+    enable_v2(custom, easy=True)
+    request = api.modes.create_easy_lobby(1, -123, 3, allow_custom_cards=allow)
+    key = request['request_id']
+    for uid in range(2, 6):
+        assert api.modes.join_easy_lobby(key, uid)[0]
+    assert api.modes.start_easy_match(key)[0]
+    pool = api.modes._easy_question_pool(range(1, 6), match_key=key)
+    assert any(q.get('trait') == 'hero' for q in pool) == allow
+    for number in range(1, 4):
+        state = api.modes.get_state(key)
+        state['question'] = {'id':'fixture','text':'کدوم ترسناک‌تره؟','formula':'funny','trait':'hero'} if allow else {
+            'id':'fixture','text':'کدوم بامزه‌تره؟','formula':'funny'}
+        with api.modes._connect() as conn:
+            api.modes._save_state(conn, key, state)
+        for uid in range(1, 6):
+            options = api.modes.get_easy_options(key, uid)
+            assert {c.card_id for c in options} == ({card, 'official'} if allow else {'official'})
+            assert api.modes.select_easy_card(key, uid, card if allow else 'official')[0]
+        result = api.modes.resolve_easy_round(key)
+    assert result['completed'] and result['report']['winner_ids'] == list(range(1, 6))
+    assert all(reward['xp'] == 10 and reward['score'] == 1 for reward in result['report']['rewards'].values())
+    with sqlite3.connect(db.db_path) as conn:
+        assert conn.execute('SELECT COUNT(*) FROM match_reward_events WHERE request_id=?', (key,)).fetchone()[0] == 5
+
+
+def test_easy_yes_button_creates_lobby_with_immutable_custom_permission(custom):
+    import asyncio
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock, Mock
+    from bot.handlers.game_modes import GameModeHandlersMixin
+    db, api, _ = custom
+    activate(custom)
+    enable_v2(custom, easy=True)
+    handler = GameModeHandlersMixin()
+    handler.db, handler.modes = db, api.modes
+    handler._schedule_mode_job = Mock()
+    query = SimpleNamespace(data='gm_erounds_3_yes', from_user=SimpleNamespace(id=1),
+        message=SimpleNamespace(chat=SimpleNamespace(type='group'),chat_id=-123,message_id=4),
+        answer=AsyncMock(),edit_message_text=AsyncMock())
+    asyncio.run(handler.easy_round_count_handler(SimpleNamespace(callback_query=query),SimpleNamespace()))
+    key = handler._schedule_mode_job.call_args.args[3]['request_id']
+    with sqlite3.connect(db.db_path) as conn:
+        assert context_in(conn, key, 'easy').allow_custom_cards is True
+    assert api.modes.get_state(key)['allow_custom_cards'] is True
 
 
 def test_direct_ungranted_player_and_callback_cannot_select(custom,monkeypatch):

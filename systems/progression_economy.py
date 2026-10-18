@@ -38,6 +38,7 @@ class ProgressionEconomy:
                     'insufficient_copies':'تعداد نسخه‌های کارت کافی نیست.',
                     'insufficient_upgrade_card':'کارت ارتقا کافی نیست؛ آن را از فروشگاه بگیر.',
                     'insufficient_silver_ticket':'Silver Ticket کافی نیست.',
+                    'insufficient_free_silver_claim':'سیلور کلیم نداری؛ اول یکی بساز!',
                     'insufficient_coins_or_player_missing':'سکه کافی نیست یا حساب پیدا نشد.',
                     'price_changed':'قیمت یا شرایط تغییر کرده؛ دوباره پیش‌نمایش بگیر.',
                     'quote_expired':'پیش‌نمایش منقضی شده؛ دوباره قیمت را بگیر.',
@@ -80,6 +81,38 @@ class ProgressionEconomy:
                     'daily_ticket_percent':config['claim']['daily_ticket_percent'], 'silver_claim_tickets':config['claim']['silver_tickets']}
         return self.run(action)
 
+    def shop_catalog(self, user):
+        """Presentation snapshot using the actual pricing/eligibility functions.
+
+        Browsing creates no quotes, purchases or heart refreshes. The existing
+        quote/purchase path remains authoritative when the player confirms.
+        """
+        def action(conn, version, config):
+            player = conn.execute('SELECT coins,hearts FROM players WHERE user_id=?', (user,)).fetchone()
+            if not player:
+                raise ValueError('player_not_found')
+            capacity = capacities_in(conn, user, config)
+            products = []
+            for item, rule in config['shop'].items():
+                if not rule['enabled']:
+                    continue
+                entry = {'item': item, 'price': None, 'available': True, 'error_code': None,
+                         'window': rule['window'], 'factor': rule['factor'], 'stock_remaining': None}
+                try:
+                    entry['price'] = self.price_in(conn, user, item, config)[0]
+                    self.shop_eligible(conn, user, item, config)
+                except ValueError as error:
+                    entry.update(available=False, error_code=str(error))
+                if rule['stock'] is not None:
+                    sold = conn.execute("SELECT COUNT(*) FROM reward_ledger WHERE source='shop' AND json_extract(payload_json,'$.item')=?", (item,)).fetchone()[0]
+                    entry['stock_remaining'] = max(0, rule['stock'] - sold)
+                products.append(entry)
+            return {'ok': True, 'config_version': version, 'coins': int(player[0] or 0),
+                    'hearts': int(player[1] or 0), 'capacity': capacity,
+                    'items': dict(conn.execute('SELECT item,quantity FROM player_economy_items WHERE user_id=?', (user,))),
+                    'products': products}
+        return self.run(action)
+
     @staticmethod
     def claim_status_in(conn,user,config,now=None):
         start,end,key=period_bounds(config,'daily',now)
@@ -110,14 +143,40 @@ class ProgressionEconomy:
         weights=[rule['weights'].get(card,rule['base_weight'])*(rule['duplicate_factor'] if counts.get(card,0)>=rule['duplicate_threshold'] else 1) for card in pool]
         return random.choices(pool,weights=weights,k=1)[0]
 
-    def claim(self,user,kind='daily',request_key=None):
+    def craft_silver_claim(self,user,request_key,expected_version=None):
+        """Convert tickets into a stored claim; retrying the same receipt never pays twice."""
+        try: operation=self.operation_key('silver-craft',request_key)
+        except ValueError:
+            return {'ok':False,'error_code':'invalid_request_key','error':'شناسهٔ درخواست نامعتبر است.'}
+        def action(conn,version,config):
+            payload={'kind':'silver_craft'}
+            prior=receipt_in(conn,operation,user,payload)
+            if prior: return prior
+            if expected_version is not None and expected_version!=version: raise ValueError('price_changed')
+            cost=config['claim']['silver_tickets']
+            tickets=items_in(conn,user,'silver_ticket',-cost)
+            claims=items_in(conn,user,'free_silver_claim',1)
+            return apply_in(conn,operation,user,'claim','silver_craft',version,payload=payload,
+                            inventory={'silver_ticket':-cost,'free_silver_claim':1},
+                            extra={'tickets_spent':cost,'silver_tickets':tickets,'silver_claims':claims})
+        return self.run(action)
+
+    def use_silver_claim(self,user,request_key):
+        """Bot's explicit Use action only opens a previously stored Silver Claim."""
+        try: self.operation_key('silver-use',request_key)
+        except ValueError:
+            return {'ok':False,'error_code':'invalid_request_key','error':'شناسهٔ درخواست نامعتبر است.'}
+        return self.claim(user,'silver',request_key,stored_only=True)
+
+    def claim(self,user,kind='daily',request_key=None,*,stored_only=False):
         if kind not in ('daily','silver'): return {'ok':False,'error_code':'invalid_claim','error':'invalid_claim'}
         try:
-            operation=self.operation_key('claim:'+kind,request_key or uuid.uuid4().hex)
+            operation=self.operation_key('claim:'+kind+(':stored' if stored_only else ''),request_key or uuid.uuid4().hex)
         except ValueError:
             return {'ok':False,'error_code':'invalid_request_key','error':'شناسهٔ درخواست نامعتبر است.'}
         def action(conn,version,config):
             payload={'kind':kind}
+            if stored_only: payload['stored_only']=True
             prior=receipt_in(conn,operation,user,payload)
             if prior: return prior
             now=datetime.now(timezone.utc)
@@ -132,7 +191,7 @@ class ProgressionEconomy:
                 ticket=random.random()*100<config['claim']['daily_ticket_percent']
             else:
                 operation_id=operation; ticket=False
-                if items_in(conn,user,'free_silver_claim')>0:
+                if stored_only or items_in(conn,user,'free_silver_claim')>0:
                     items_in(conn,user,'free_silver_claim',-1);spent_items['free_silver_claim']=-1
                 else:
                     items_in(conn,user,'silver_ticket',-config['claim']['silver_tickets']);spent_items['silver_ticket']=-config['claim']['silver_tickets']

@@ -824,6 +824,20 @@ class DatabaseManager:
             return card
         return None
     
+    def get_card_by_id_for_rarity(self, card_id: str, rarity: str) -> Optional[Card]:
+        """Read a specific reward form without changing the cached base or active form."""
+        base = self.get_card_by_id(card_id)
+        if not base:
+            return None
+        variant = self.get_card_variant(card_id, rarity)
+        if not variant:
+            return Card.from_dict(base.to_dict()) if base.rarity.value == rarity else None
+        data = base.to_dict()
+        data.update(rarity=rarity)
+        for key in ('power', 'speed', 'iq', 'popularity', 'abilities', 'card_effects', 'image_path', 'card_type'):
+            data[key] = variant[key]
+        return Card.from_dict(data)
+
     def get_card_by_id_for_player(self, card_id: str, user_id: int) -> Optional[Card]:
         """دریافت کارت با احتساب فرم ارتقایافتهٔ بازیکن."""
         from systems.custom_cards import access_in,user_card_in
@@ -2243,7 +2257,8 @@ class DatabaseManager:
     # ==================== DECK OPERATIONS ====================
 
     def create_deck(self, player_id: int, deck_name: str,
-                    card_id_1: str, card_id_2: str, card_id_3: str) -> str:
+                    card_id_1: str, card_id_2: str, card_id_3: str,
+                    victory_slogan: str = None) -> str:
         """ایجاد دک جدید — deck_id جدید برمی‌گرداند"""
         deck_id = str(uuid.uuid4())[:8]
         now = datetime.now().isoformat()
@@ -2264,6 +2279,9 @@ class DatabaseManager:
                      is_valid, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
             ''', (deck_id, player_id, deck_name, card_id_1, card_id_2, card_id_3, now, now))
+            if victory_slogan is not None:
+                from systems.deck_presentation import save_in
+                save_in(conn, deck_id, victory_slogan)
             conn.commit()
             return deck_id
         finally:
@@ -2284,7 +2302,8 @@ class DatabaseManager:
             rows = cursor.fetchall()
             cols = ['deck_id', 'player_id', 'deck_name', 'card_id_1', 'card_id_2',
                     'card_id_3', 'is_valid', 'created_at', 'updated_at']
-            return [dict(zip(cols, r)) for r in rows]
+            from systems.deck_presentation import read_in
+            return [dict(zip(cols, r), **read_in(conn, r[0])) for r in rows]
         finally:
             conn.close()
 
@@ -2302,14 +2321,16 @@ class DatabaseManager:
             if row:
                 cols = ['deck_id', 'player_id', 'deck_name', 'card_id_1', 'card_id_2',
                         'card_id_3', 'is_valid', 'created_at', 'updated_at']
-                return dict(zip(cols, row))
+                from systems.deck_presentation import read_in
+                return dict(zip(cols, row), **read_in(conn, deck_id))
             return None
         finally:
             conn.close()
 
     def update_deck(self, deck_id: str, deck_name: str = None,
                     card_id_1: str = None, card_id_2: str = None,
-                    card_id_3: str = None, is_valid: int = None) -> bool:
+                    card_id_3: str = None, is_valid: int = None,
+                    victory_slogan: str = None) -> bool:
         """آپدیت فیلدهای غیر-None یک دک"""
         updates = []
         values = []
@@ -2328,7 +2349,7 @@ class DatabaseManager:
         if is_valid is not None:
             updates.append('is_valid = ?')
             values.append(is_valid)
-        if not updates:
+        if not updates and victory_slogan is None:
             return False
         updates.append('updated_at = ?')
         values.append(datetime.now().isoformat())
@@ -2340,6 +2361,9 @@ class DatabaseManager:
                 f"UPDATE player_decks SET {', '.join(updates)} WHERE deck_id = ?",
                 values
             )
+            if cursor.rowcount and victory_slogan is not None:
+                from systems.deck_presentation import save_in
+                save_in(conn, deck_id, victory_slogan)
             conn.commit()
             return cursor.rowcount > 0
         finally:
@@ -2351,8 +2375,11 @@ class DatabaseManager:
         cursor = conn.cursor()
         try:
             cursor.execute('DELETE FROM player_decks WHERE deck_id = ?', (deck_id,))
+            deleted = cursor.rowcount > 0
+            from systems.deck_presentation import delete_in
+            delete_in(conn, deck_id)
             conn.commit()
-            return cursor.rowcount > 0
+            return deleted
         finally:
             conn.close()
 

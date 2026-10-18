@@ -188,19 +188,41 @@ def get_victory_dialog(card_name: str, card_dialogs=None) -> str:
     return random.choice(generic)
 
 
-async def send_card_image_safely(message, card_name: str, config: Dict, caption: str = None, match_id: str = None, dialog_text: str = None) -> bool:
+async def send_card_image_safely(message, card_name: str, config: Dict, caption: str = None, match_id: str = None, dialog_text: str = None, *, card=None, db=None, caption_parse_mode='Markdown', sticker_caption=False) -> bool:
     """ارسال امن تصویر کارت"""
     try:
-        image_path = get_card_image_path(card_name, config)
+        if not config.get('image_settings', {}).get('enable_images', False):
+            return False
+        image_path = None
+        if card is not None and db is not None:
+            rarity = card.rarity.value
+            for kind in ('sticker', 'photo'):
+                cached = db.get_card_variant_media_file_id(card.card_id, rarity, kind)
+                if cached:
+                    if kind == 'sticker':
+                        await message.reply_sticker(cached)
+                        if sticker_caption and caption:
+                            await message.reply_text(caption, parse_mode=caption_parse_mode)
+                    else:
+                        await message.reply_photo(cached, caption=caption, parse_mode=caption_parse_mode)
+                    return True
+            image_path = card.image_path
+            if not image_path:
+                base = db.get_card_by_id(card.card_id)
+                if base and base.rarity != card.rarity:
+                    return False  # Do not illustrate a Normal reward with the base Legend image.
+        image_path = image_path or get_card_image_path(card_name, config)
         if not image_path or not os.path.exists(image_path):
             return False
 
         if image_path.lower().endswith('.webp'):
             with open(image_path, 'rb') as sticker:
                 await message.reply_sticker(sticker)
+            if sticker_caption and caption:
+                await message.reply_text(caption, parse_mode=caption_parse_mode)
         else:
             with open(image_path, 'rb') as photo:
-                await message.reply_photo(photo, caption=caption, parse_mode='Markdown')
+                await message.reply_photo(photo, caption=caption, parse_mode=caption_parse_mode)
 
         return True
     except Exception as e:

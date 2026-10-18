@@ -296,6 +296,7 @@ def _deck_payload(deck: dict) -> dict:
     return {
         "deck_id": deck["deck_id"],
         "deck_name": deck["deck_name"],
+        "victory_slogan": deck.get("victory_slogan", ""),
         "is_valid": bool(deck["is_valid"]),
         "invalid_reason": deck.get('invalid_reason',''),
         "total_points": deck["total_points"],
@@ -732,7 +733,8 @@ def create_deck():
         return locked
     data = request.get_json(silent=True) or {}
     card_ids = data.get("card_ids") if isinstance(data.get("card_ids"), list) else []
-    ok, value = _decks().create_deck(g.user_id, [str(item) for item in card_ids], str(data.get("name", "")).strip() or None)
+    ok, value = _decks().create_deck(g.user_id, [str(item) for item in card_ids], str(data.get("name", "")).strip() or None,
+                                   data.get('victory_slogan'))
     if not ok:
         return jsonify({"error": value, "error_code": "invalid_deck"}), 400
     deck = next(item for item in _decks().get_player_decks(g.user_id) if item["deck_id"] == value)
@@ -749,7 +751,7 @@ def update_deck(deck_id):
     card_ids = data.get("card_ids")
     normalized = [str(item) for item in card_ids] if isinstance(card_ids, list) else None
     name = str(data["name"]).strip() if "name" in data else None
-    ok, error = _decks().update_deck(g.user_id, deck_id, normalized, name)
+    ok, error = _decks().update_deck(g.user_id, deck_id, normalized, name, data.get('victory_slogan'))
     if not ok:
         status = 404 if error == "دک یافت نشد." else 403 if error == "این دک متعلق به شما نیست." else 400
         return jsonify({"error": error, "error_code": "invalid_deck"}), status
@@ -787,7 +789,7 @@ def claim_daily_card():
     result = _rewards().claim_daily(g.user_id)
     if not result.get("ok"):
         return jsonify(result), 409
-    card = db.get_card_by_id(result["card_id"]) if result.get("card_id") else None
+    card = db.get_card_by_id_for_rarity(result["card_id"], result["rarity"]) if result.get("card_id") else None
     return jsonify({"ok": True, "message": "پاداش روزانه و یک Ability دریافت شد", "data": {"card": card_to_dict(card) if card else None, "reward_type": result.get("reward_type","card"), "ability": result["ability"], "quantity": result["quantity"]}, "profile": _player_hub().get_overview(g.user_id)})
 
 

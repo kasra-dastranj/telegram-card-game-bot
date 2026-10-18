@@ -111,7 +111,8 @@ class DeckSystem:
         self,
         player_id: int,
         card_ids: List[str],
-        name: Optional[str] = None
+        name: Optional[str] = None,
+        victory_slogan: Optional[str] = None
     ) -> Tuple[bool, str]:
         """ساخت دک جدید.
         Returns: (True, deck_id) در صورت موفقیت
@@ -121,13 +122,20 @@ class DeckSystem:
         if not ok:
             return False, err
 
+        if victory_slogan is not None:
+            from systems.deck_presentation import normalize_slogan
+            try:
+                victory_slogan = normalize_slogan(victory_slogan)
+            except ValueError as error:
+                return False, str(error)
+
         if not name:
             name = self._generate_default_name(player_id)
 
         try:
             deck_id = self.db.create_deck(
                 player_id, name,
-                card_ids[0], card_ids[1], card_ids[2]
+                card_ids[0], card_ids[1], card_ids[2], victory_slogan=victory_slogan
             )
         except ValueError as error:
             return False, str(error)
@@ -139,7 +147,8 @@ class DeckSystem:
         player_id: int,
         deck_id: str,
         card_ids: Optional[List[str]] = None,
-        name: Optional[str] = None
+        name: Optional[str] = None,
+        victory_slogan: Optional[str] = None
     ) -> Tuple[bool, str]:
         """ویرایش دک موجود.
         Returns: (True, "") یا (False, error_message)
@@ -149,6 +158,13 @@ class DeckSystem:
             return False, ERR_DECK_NOT_FOUND
         if deck['player_id'] != player_id:
             return False, ERR_NOT_OWNER
+
+        if victory_slogan is not None:
+            from systems.deck_presentation import normalize_slogan
+            try:
+                victory_slogan = normalize_slogan(victory_slogan)
+            except ValueError as error:
+                return False, str(error)
 
         # اگر card_ids جدید داده شده، اعتبارسنجی کن
         if card_ids is not None:
@@ -161,13 +177,14 @@ class DeckSystem:
                 card_id_1=card_ids[0],
                 card_id_2=card_ids[1],
                 card_id_3=card_ids[2],
-                is_valid=1
+                is_valid=1,
+                victory_slogan=victory_slogan
             )
         else:
             # فقط نام عوض می‌شود
             if name and len(name) > self.MAX_NAME_LENGTH:
                 return False, ERR_NAME_TOO_LONG
-            self.db.update_deck(deck_id, deck_name=name)
+            self.db.update_deck(deck_id, deck_name=name, victory_slogan=victory_slogan)
 
         logger.info(f"Deck updated: {deck_id}")
         return True, ""
@@ -201,6 +218,7 @@ class DeckSystem:
             result.append({
                 'deck_id':     d['deck_id'],
                 'deck_name':   d['deck_name'],
+                'victory_slogan': d.get('victory_slogan', ''),
                 'is_valid':    bool(d['is_valid']),
                 'total_points': total_pts,
                 'cards':       cards,

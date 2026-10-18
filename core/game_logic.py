@@ -197,7 +197,7 @@ class GameLogic:
             return False, None, result["error"], None
         if result.get("reward_type") == "silver_ticket":
             return True, None, None, {**result["ability"], "silver_ticket": True}
-        card = self.db.get_card_by_id(result["card_id"])
+        card = self.db.get_card_by_id_for_rarity(result["card_id"], result["rarity"])
         return True, card, None, result["ability"]
     
     def get_heart_reset_time_remaining(self, player: Player) -> Optional[timedelta]:

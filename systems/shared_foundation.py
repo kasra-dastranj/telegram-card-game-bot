@@ -78,8 +78,11 @@ def ensure_foundation_schema(conn):
 
 def settings_in(conn):
     values = dict(DEFAULT_SETTINGS)
+    # Deck display records share this JSON store; fetch only the known flags and
+    # policy keys, so reading match settings never scans all player deck metadata.
+    placeholders = ','.join('?' for _ in values)
     values.update({row[0]: json.loads(row[1]) for row in conn.execute(
-        "SELECT key,value_json FROM foundation_settings") if row[0] in values})
+        f"SELECT key,value_json FROM foundation_settings WHERE key IN ({placeholders})", tuple(values))})
     if any(type(values[key]) is not bool for key in FLAGS):
         raise ValueError("invalid_feature_flag")
     # Reuse strict numeric validation, including excluding bool-as-int.
