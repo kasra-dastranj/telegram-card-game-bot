@@ -19,6 +19,8 @@ def issue(db,user,card,source,request_key):
         if source=='wheel' and not config['wheel']['enabled']:raise ValueError('wheel_disabled')
         info=conn.execute('SELECT limited_quantity,total_issued FROM rare_cards_info WHERE card_id=?',(card,)).fetchone()
         if not info or info[1]>=info[0]:raise ValueError('rare_supply_empty')
+        from systems.attack_rewards import rare_available_in
+        if rare_available_in(conn,card)<1:raise ValueError('rare_supply_empty')
         serial=info[1]+1
         if conn.execute('UPDATE rare_cards_info SET total_issued=total_issued+1 WHERE card_id=? AND total_issued<?',(card,info[0])).rowcount!=1:raise ValueError('rare_supply_empty')
         conn.execute('INSERT INTO rare_card_instances VALUES(?,?,?,?,?,?)',(card,serial,user,request_key,source,datetime.now(timezone.utc).isoformat()))

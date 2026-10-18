@@ -50,6 +50,8 @@ class BasicHandlersMixin:
             args = getattr(context, 'args', None) or []
             if args and args[0].startswith('gm_') and len(args[0]) > 3:
                 context.user_data['onboarding_invite'] = args[0]
+            elif args and args[0].startswith('attack_'):
+                context.user_data['onboarding_invite'] = args[0]
         logger.info(f"start_command invoked by user_id={getattr(user,'id',None)} chat_type={chat_type}")
 
         try:

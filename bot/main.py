@@ -482,6 +482,10 @@ class TelegramCardBot(
             from bot.handlers.progression import handle
             return await handle(self, update, context)
         app.add_handler(CallbackQueryHandler(progression_callback, pattern='^v2_'))
+        async def attack_callback(update,context):
+            from bot.group_attacks import handle
+            return await handle(self,update,context)
+        app.add_handler(CallbackQueryHandler(attack_callback,pattern='^ga_'))
         app.add_handler(CallbackQueryHandler(self.daily_claim_handler, pattern="^daily_claim$"))
         app.add_handler(CallbackQueryHandler(self.my_cards_handler, pattern="^my_cards$"))
         app.add_handler(CallbackQueryHandler(self.my_cards_navigation_handler, pattern="^my_cards_nav_"))
@@ -706,6 +710,10 @@ class TelegramCardBot(
         from bot.level_notifications import deliver
         await deliver(self,context)
 
+    async def group_attacks_task(self, context: ContextTypes.DEFAULT_TYPE):
+        from bot.group_attacks import maintenance
+        await maintenance(self,context)
+
     async def progression_settlement_task(self, context: ContextTypes.DEFAULT_TYPE):
         from systems.progression_config import enabled, config_in
         if not enabled(self.db):
@@ -759,6 +767,8 @@ def schedule_maintenance_jobs(job_queue, bot):
         job_queue.run_repeating(bot.progression_settlement_task, interval=300, first=30, name='progression-settlement')
     if hasattr(bot,'level_notifications_task'):
         job_queue.run_repeating(bot.level_notifications_task,interval=15,first=15,name='level-notifications')
+    if hasattr(bot,'group_attacks_task'):
+        job_queue.run_repeating(bot.group_attacks_task,interval=30,first=45,name='group-attacks')
     job_queue.run_daily(
         bot.reset_lives_task,
         time=dt_time(hour=0, minute=5, tzinfo=MAINTENANCE_TIMEZONE),

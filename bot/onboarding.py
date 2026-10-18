@@ -69,6 +69,9 @@ async def resume_invite(bot, update, context):
     old_args = getattr(context, 'args', None)
     try:
         context.args = [payload]
+        if payload.startswith('attack_'):
+            from bot.group_attacks import start
+            return await start(bot,update,context)
         return await bot.handle_game_invite_start(update, context)
     finally:
         context.args = old_args

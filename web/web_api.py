@@ -54,6 +54,8 @@ class WebAPI:
         register_custom_admin(self)
         from web.easy_admin_api import register_easy_admin
         register_easy_admin(self)
+        from web.attack_admin_api import register_attack_admin
+        register_attack_admin(self)
 
     def _arena_admin_actor(self, scope='write'):
         """Fail-closed token auth with optional independent high-risk scopes."""
@@ -659,6 +661,10 @@ class WebAPI:
                         'message': 'کارت با موفقیت حذف شد'
                     })
                 else:
+                    from systems.group_attacks import referenced_card_in
+                    with sqlite3.connect(self.db.db_path) as conn:
+                        if referenced_card_in(conn,card_id):
+                            return jsonify(success=False,error='این کارت در تعریف یا حملهٔ جاری استفاده شده؛ اول ارجاع‌ها را از پنل حمله‌ها بردارید.'),409
                     return jsonify({
                         'success': False,
                         'error': 'خطا در حذف کارت'

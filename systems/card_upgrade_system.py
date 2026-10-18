@@ -27,6 +27,8 @@ class CardUpgradeSystem:
 
     @staticmethod
     def _active_match(conn: sqlite3.Connection, user_id: int) -> bool:
+        from systems.group_attacks import active_player_in
+        if active_player_in(conn,user_id):return True
         row = conn.execute(
             """
             SELECT 1 FROM active_fights

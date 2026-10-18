@@ -932,6 +932,11 @@ class DatabaseManager:
         """حذف کارت"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
+        conn.execute('BEGIN IMMEDIATE')
+        from systems.group_attacks import referenced_card_in
+        if referenced_card_in(conn,card_id):
+            conn.close()
+            return False
         
         cursor.execute('DELETE FROM cards WHERE card_id = ?', (card_id,))
         deleted = cursor.rowcount > 0
