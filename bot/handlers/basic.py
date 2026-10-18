@@ -46,11 +46,13 @@ class BasicHandlersMixin:
         chat_type = update.effective_chat.type
         if chat_type == 'private':
             getattr(context, 'user_data', {}).pop('easy_victory_draft', None)
+            args = getattr(context, 'args', None) or []
+            if args and args[0].startswith('gm_') and len(args[0]) > 3:
+                context.user_data['onboarding_invite'] = args[0]
         logger.info(f"start_command invoked by user_id={getattr(user,'id',None)} chat_type={chat_type}")
 
         try:
             # Ensure player exists in private chats
-            card_count = 0
             if chat_type == 'private':
                 player = self.db.get_or_create_player(
                     user_id=user.id,
@@ -58,36 +60,19 @@ class BasicHandlersMixin:
                     first_name=user.first_name
                 )
                 player = self.game.check_and_reset_hearts(player)
-                card_count = len(self.db.get_player_cards(user.id))
-
-                # Grant starter cards once if player has none
-                try:
-                    if card_count == 0:
-                        from systems.starter_cards_system import grant_starter_cards
-                        granted = grant_starter_cards(self.db, user.id)
-                        if granted:
-                            try:
-                                if hasattr(update, 'message') and update.message:
-                                    await update.message.reply_text(
-                                        f"🎴 کارت‌های شروعی بهت داده شد: {', '.join(granted)}"
-                                    )
-                                elif hasattr(update, 'callback_query') and update.callback_query:
-                                    await update.callback_query.message.reply_text(
-                                        f"🎴 کارت‌های شروعی بهت داده شد: {', '.join(granted)}"
-                                    )
-                            except Exception:
-                                pass
-                        # refresh card count after granting
-                        card_count = len(self.db.get_player_cards(user.id))
-                except Exception as e:
-                    logger.warning(f"Failed to grant starter cards to {user.id}: {e}")
-            else:
-                player = None
 
             # Channel membership check
             if not await self.is_user_in_channel(user.id, context):
                 await self.send_channel_join_message(update)
                 return
+
+            if chat_type == 'private':
+                from bot.onboarding import needed, show, resume_invite
+                if needed(self, user.id):
+                    await show(self, update)
+                    return
+                if await resume_invite(self, update, context):
+                    return
 
             # Telegram deep-link invitations for the new game modes must be
             # handled before rendering the normal private start menu.
@@ -218,17 +203,7 @@ class BasicHandlersMixin:
         user = query.from_user
         
         if await self.is_user_in_channel(user.id, context):
-            # کاربر عضو شده - شروع بازی
-            text = (
-                f"✅ **عالی! شما باموفقیت در کانال عضو شدید.**\n\n"
-                f"🎉 خوش آمدید {user.first_name}!\n"
-                f"🎮 حالا می‌توانید از ربات استفاده کنید.\n\n"
-                f"برای شروع دوباره /start بزنید."
-            )
-            keyboard = [[InlineKeyboardButton("🎮 شروع بازی", callback_data="start_game")]]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            
-            await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+            await self.start_command(update, context)
         else:
             # هنوز عضو نشده
             await query.answer("❌ هنوز در کانال عضو نشده‌اید. لطفاً ابتدا عضو شوید.", show_alert=True)
@@ -311,49 +286,11 @@ class BasicHandlersMixin:
         """Handle inline 'شروع بازی' button by invoking the start command flow."""
         query = update.callback_query
         await query.answer()
+        await self.start_command(update, context)
 
-        # Perform the start flow directly for callback queries to avoid potential update/message differences
-        try:
-            user = query.from_user
-            chat = query.message.chat
-
-            # Ensure player exists and reset hearts
-            player = self.db.get_or_create_player(user.id, user.username, user.first_name)
-            player = self.game.check_and_reset_hearts(player)
-
-            # Grant starter cards if none
-            try:
-                card_count = len(self.db.get_player_cards(user.id))
-                if card_count == 0:
-                    from systems.starter_cards_system import grant_starter_cards
-                    granted = grant_starter_cards(self.db, user.id)
-                    if granted:
-                        await context.bot.send_message(chat_id=chat.id, text=f"🎴 کارت‌های شروعی بهت داده شد: {', '.join(granted)}")
-            except Exception as e:
-                logger.warning(f"Failed to grant starter cards in callback start_game for {user.id}: {e}")
-
-            # Send the welcome/menu (same as private start)
-            welcome_text = (
-                '🎮 به نبرد افسانه‌ها خوش اومدی!\n'
-                'دنیایی که قهرمان‌هاش از تمام دنیاهای خیالی جمع شدن...\n'
-                '📜 برای دیدن داستان بازی بنویسید: /story'
-            )
-
-            keyboard = [
-                [InlineKeyboardButton("🎴 کارت‌های من", callback_data="my_cards")],
-                [InlineKeyboardButton("⚔️ چالش PvP", callback_data="request_pvp_fight")],
-                [InlineKeyboardButton("🎁 کلیم روزانه", callback_data="daily_claim")],
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-
-            await context.bot.send_message(chat_id=chat.id, text=welcome_text, reply_markup=reply_markup, parse_mode='Markdown')
-
-        except Exception as e:
-            logger.error(f"Error in start_game_handler: {e}", exc_info=True)
-            try:
-                await query.message.reply_text("❌ خطا در اجرای شروع بازی. لطفاً دوباره /start را تایپ کنید.")
-            except Exception:
-                pass
+    async def starter_receive_handler(self, update, context):
+        from bot.onboarding import receive
+        await receive(self, update, context)
 
     async def cards_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """نمایش کارت‌های کاربر از طریق دستور با pagination"""

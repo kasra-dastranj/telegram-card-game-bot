@@ -435,8 +435,9 @@ class GameModeHandlersMixin:
         token = context.args[0][3:]
         if not token:
             return False
+        message = update.effective_message
         if not self.db.get_player_cards(update.effective_user.id):
-            await update.message.reply_text("🎴 برای قبول دعوت ابتدا باید حداقل یک کارت داشته باشی.")
+            await message.reply_text("🎴 برای قبول دعوت ابتدا باید حداقل یک کارت داشته باشی.")
             return True
         ok, reason, request = self.modes.accept_invite(token, update.effective_user.id)
         if not ok:
@@ -448,9 +449,9 @@ class GameModeHandlersMixin:
             }
             message = get_self_invite_message() if reason == "self_accept" else messages.get(
                 reason, reason if reason.startswith("برای ورود") else "❌ این دعوت معتبر نیست.")
-            await update.message.reply_text(message)
+            await update.effective_message.reply_text(message)
             return True
-        await update.message.reply_text("✅ دعوت را پذیرفتی؛ بازی در حال شروع است…")
+        await message.reply_text("✅ دعوت را پذیرفتی؛ بازی در حال شروع است…")
         await self._edit_request_panel(context, request, "✅ دعوت پذیرفته شد؛ بازی شروع شد.")
         await self._launch_mode_match(context, request)
         return True

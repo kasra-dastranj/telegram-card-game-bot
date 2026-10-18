@@ -486,6 +486,7 @@ class TelegramCardBot(
         app.add_handler(CallbackQueryHandler(self.my_cards_handler, pattern="^my_cards$"))
         app.add_handler(CallbackQueryHandler(self.my_cards_navigation_handler, pattern="^my_cards_nav_"))
         app.add_handler(CallbackQueryHandler(self.start_game_handler, pattern="^start_game$"))
+        app.add_handler(CallbackQueryHandler(self.starter_receive_handler, pattern="^starter_receive$"))
         
         # AI fight handlers removed - AI fights are no longer supported
         
