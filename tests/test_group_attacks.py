@@ -517,3 +517,28 @@ def test_standalone_npc_failed_media_does_not_borrow_a_catalog_sticker():
     snapshot=example()['enemies'][0];snapshot['sticker_file_id']='failed-sticker'
     assert not asyncio.run(send_snapshot(bot,context,1,snapshot))
     lookup.assert_not_called()
+
+
+@pytest.mark.parametrize('v2',[False,True])
+def test_rare_reservation_checks_close_connections_even_on_early_return(scene,monkeypatch,v2):
+    from types import SimpleNamespace as NS
+    from systems import rare_cards_system as rare
+    db,engine=scene
+    rare.create_rare_cards_tables(db.db_path)
+    db.add_card(Card('limited','Limited',CardRarity.RARE,90,90,90,90,[]))
+    with sqlite3.connect(db.db_path) as conn:conn.execute("INSERT INTO rare_cards_info VALUES('limited',1000,1,0)")
+    setup(scene,mutate=lambda c,a:a['win']['cards'].append({'card_id':'limited','rarity':'rare','quantity':1}))
+    with sqlite3.connect(db.db_path) as conn:
+        conn.execute("UPDATE foundation_settings SET value_json=? WHERE key='progression_v2_enabled'",(json.dumps(v2),))
+    connections=[]
+    def connect(*args,**kwargs):
+        conn=sqlite3.connect(*args,**kwargs);connections.append(conn);return conn
+    # Retain references to prevent garbage collection from masking leaked handles.
+    monkeypatch.setattr(rare,'sqlite3',NS(connect=connect))
+    service=rare.RareCardsSystem(db)
+    assert service.create_rare_card('fresh','Fresh',10,10,10,10,[])
+    assert not service.create_rare_card('limited','Reset',10,10,10,10,[])
+    assert not service.issue_rare_card(2,'limited')['success']
+    assert connections
+    for conn in connections:
+        with pytest.raises(sqlite3.ProgrammingError,match='closed'):conn.execute('SELECT 1')
