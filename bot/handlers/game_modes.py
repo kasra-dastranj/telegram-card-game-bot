@@ -354,16 +354,16 @@ class GameModeHandlersMixin:
             self.modes.update_inline_message_reference(request_id, inline_message_id)
         ok, reason, accepted = self.modes.accept_request(request_id, query.from_user.id)
         if not ok:
-            message = "زمان دعوت تمام شده است." if reason == "expired" else reason if reason.startswith("برای ورود") else "این دعوت قبلاً پذیرفته شده است."
+            message = "وقت این دعوت تموم شد؛ یه دعوت تازه بگیر." if reason == "expired" else reason if reason.startswith("برای ورود") else "این دعوت قبلاً پذیرفته شده؛ یه دعوت تازه بگیر."
             await query.answer(message, show_alert=True)
             if reason == "expired":
-                await query.edit_message_text("⏳ این دعوت منقضی شده است.")
+                await query.edit_message_text("⏳ وقت این دعوت تموم شد؛ یه دعوت تازه بساز.")
             return
         await query.answer("بازی شروع شد!")
         await query.edit_message_text(
             f"✅ نبرد شروع شد، بیا اینجا @{context.bot.username} بازی کنیم"
             if request["mode"] == "quick" else
-            "✅ دعوت پذیرفته شد؛ انتخاب‌های بازی برای هر بازیکن باز می‌شود."
+            "✅ نبرد شروع شد؛ از منوی انتخاب ادامه بدید."
         )
         await self._launch_mode_match(context, accepted)
 
@@ -442,16 +442,16 @@ class GameModeHandlersMixin:
         ok, reason, request = self.modes.accept_invite(token, update.effective_user.id)
         if not ok:
             messages = {
-                "expired": "⏳ زمان درخواست تمام شد.\nاین دعوت منقضی شده است.",
-                "accepted": "❌ این دعوت قبلاً توسط بازیکن دیگری پذیرفته شده است.",
-                "completed": "❌ این بازی قبلاً تمام شده است.",
-                "cancelled": "❌ سازنده، این دعوت را لغو کرده است.",
+                "expired": "⏳ وقت این دعوت تموم شد؛ یه دعوت تازه بگیر.",
+                "accepted": "این دعوت رو یه بازیکن دیگه قبول کرده؛ یه دعوت تازه بگیر.",
+                "completed": "این بازی تموم شده؛ برای بازی بعدی /fight بزن.",
+                "cancelled": "سازنده این دعوت رو لغو کرده؛ یه دعوت تازه بگیر.",
             }
             message = get_self_invite_message() if reason == "self_accept" else messages.get(
                 reason, reason if reason.startswith("برای ورود") else "❌ این دعوت معتبر نیست.")
             await update.effective_message.reply_text(message)
             return True
-        await message.reply_text("✅ دعوت را پذیرفتی؛ بازی در حال شروع است…")
+        await message.reply_text("✅ دعوت رو قبول کردی؛ بریم بازی!")
         await self._edit_request_panel(context, request, "✅ دعوت پذیرفته شد؛ بازی شروع شد.")
         await self._launch_mode_match(context, request)
         return True
@@ -466,13 +466,13 @@ class GameModeHandlersMixin:
         ok, reason, request = self.modes.accept_request(request_id, query.from_user.id)
         if not ok:
             message = get_self_invite_message() if reason == "self_accept" else reason if reason.startswith("برای ورود") else (
-                "⏳ زمان درخواست تمام شد و درخواست منقضی شد."
+                "⏳ وقت این درخواست تموم شد؛ دوباره /fight بزن."
                 if reason == "expired"
                 else "❌ این درخواست دیگر قابل پذیرش نیست."
             )
             await query.answer(message, show_alert=True)
             if reason == "expired":
-                await query.edit_message_text("⏳ زمان درخواست تمام شد.\nاین درخواست منقضی شد.")
+                await query.edit_message_text("⏳ وقت این درخواست تموم شد؛ دوباره /fight بزن.")
             return
         if request["mode"] == "quick":
             creator = self.db.get_or_create_player(request["creator_id"])
@@ -515,7 +515,7 @@ class GameModeHandlersMixin:
         await self._edit_request_panel(
             context,
             request,
-            "⏳ زمان درخواست تمام شد.\nاین درخواست منقضی شد.",
+            "⏳ وقت این درخواست تموم شد؛ دوباره /fight بزن.",
         )
 
     async def _edit_request_panel(self, context, request, text: str, reply_markup=None):
@@ -728,7 +728,7 @@ class GameModeHandlersMixin:
             await query.answer(message, show_alert=True)
             return
         title = "بدون Ability" if ability_key == "skip" else ABILITY_DEFINITIONS[ability_key]["title"]
-        await query.answer("انتخاب ثبت شد.")
+        await query.answer("انتخابت ثبت شد!")
         await query.edit_message_text(f"✅ {title}\nمنتظر حریف…")
         if advanced:
             await self._send_quick_stat_panels(context, request_id, state)
@@ -870,7 +870,7 @@ class GameModeHandlersMixin:
         request_id = query.data.removeprefix("gm_report_")
         report = self.modes.get_report(request_id)
         if not report or query.from_user.id not in report.get("players", report.get("winner_ids", [])):
-            await query.answer("گزارش برای شما در دسترس نیست.", show_alert=True)
+            await query.answer("این گزارش برای تو در دسترس نیست.", show_alert=True)
             return
         await query.answer()
         if report["mode"] == "quick":
@@ -1023,7 +1023,7 @@ class GameModeHandlersMixin:
         self.db.update_fight(fight_id, status=FightStatus.CANCELLED)
         context.bot_data.pop(f"pvp_{fight_id}_deck_expected_user", None)
 
-        expired_text = "⏳ مهلت یک‌دقیقه‌ای انتخاب دک تمام شد؛ بازی لغو شد."
+        expired_text = "⏳ وقت انتخاب دک تموم شد و بازی لغو شد؛ برای بازی تازه /fight بزن."
         request = self.modes.get_request(context.job.data["request_id"])
         if request:
             await self._edit_request_panel(context, request, expired_text)
@@ -1119,7 +1119,7 @@ class GameModeHandlersMixin:
             return
         ok, reason, _ = self.modes.join_easy_lobby(request_id, query.from_user.id)
         if not ok:
-            await query.answer(reason if reason not in ("not_found", "expired") else "لابی بسته یا منقضی شده است.", show_alert=True)
+            await query.answer(reason if reason not in ("not_found", "expired") else "این لابی دیگه باز نیست؛ وارد یه لابی تازه شو.", show_alert=True)
             return
         await query.answer("از قبل آماده بودی." if reason == "already_ready" else "آماده شدی!")
         try:
@@ -1359,7 +1359,7 @@ class GameModeHandlersMixin:
         )
         if not ok:
             if reason == "choice_locked" and self._easy_selection_complete(state):
-                await query.answer("همه انتخاب کردند؛ راند تمام شد.")
+                await query.answer("همه انتخاب کردن؛ بریم نتیجهٔ راند رو ببینیم!")
                 try:
                     await query.edit_message_reply_markup(reply_markup=None)
                 except Exception:
@@ -1367,9 +1367,9 @@ class GameModeHandlersMixin:
                 await self._resolve_and_announce_easy(context, request_id)
                 return
             message = (
-                "انتخابت قبلاً ثبت شده است."
+                "انتخابت قبلاً ثبت شده؛ منتظر نتیجه بمون."
                 if reason == "choice_locked"
-                else "این انتخاب دیگر معتبر نیست."
+                else "وقت این انتخاب گذشته؛ از پیام راند فعلی ادامه بده."
             )
             await query.answer(message, show_alert=True)
             try:
@@ -1378,7 +1378,7 @@ class GameModeHandlersMixin:
                 pass
             return
 
-        await query.answer("انتخاب ثبت شد.")
+        await query.answer("انتخابت ثبت شد!")
         try:
             await query.edit_message_reply_markup(reply_markup=None)
         except Exception as exc:

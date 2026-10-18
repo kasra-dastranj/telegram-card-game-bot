@@ -67,7 +67,7 @@ class DeckHandlersMixin:
         text = f"🗂️ **دک‌های من** ({len(decks)}/{DeckSystem.MAX_DECKS})\n\n"
 
         if not decks:
-            text += "هنوز هیچ دکی نساختید!\n\nبرای فایت PvP باید حداقل یک دک ۳ کارته داشته باشید."
+            text += "هنوز دکی نداری؛ با سه تا کارت، اولین دکت رو بساز!"
         else:
             for deck in decks:
                 status = "✅" if deck['is_valid'] else "⚠️"
@@ -103,7 +103,7 @@ class DeckHandlersMixin:
         deck_data = self.db.get_deck_by_id(deck_id)
 
         if not deck_data or deck_data['player_id'] != user_id:
-            await query.answer("❌ دک یافت نشد!", show_alert=True)
+            await query.answer("این دک پیدا نشد؛ فهرست دک‌هات رو دوباره باز کن.", show_alert=True)
             return
 
         await self._show_deck(context, user_id, deck_id)
@@ -150,7 +150,7 @@ class DeckHandlersMixin:
         # بررسی ظرفیت
         if self.db.count_player_decks(user_id) >= DeckSystem.MAX_DECKS:
             await query.answer(
-                f"❌ حداکثر {DeckSystem.MAX_DECKS} دک مجاز است. یک دک را حذف کنید.",
+                f"ظرفیت فعلی دک‌هات {DeckSystem.MAX_DECKS} تاست؛ برای ساخت یکی تازه، یه دک رو حذف کن.",
                 show_alert=True,
             )
             return
@@ -390,7 +390,7 @@ class DeckHandlersMixin:
         text = (
             f"🃏 **ساخت دک — کارت {step} از ۳**\n\n"
             f"{selected_text}"
-            f"دسته کارت را انتخاب کن:"
+            f"دستهٔ کارتت رو انتخاب کن:"
         )
         keyboard = [
             [InlineKeyboardButton(f"🟡 افسانه‌ای ({rarity_counts.get('legend', 0)})", callback_data=f"deck_build_cat_legend_1")],
@@ -411,7 +411,7 @@ class DeckHandlersMixin:
         deck_id = query.data.split("deck_delete_")[1]
         deck = self.db.get_deck_by_id(deck_id)
         if not deck or deck['player_id'] != user_id:
-            await query.answer("❌ دک یافت نشد!", show_alert=True)
+            await query.answer("این دک پیدا نشد؛ فهرست دک‌هات رو دوباره باز کن.", show_alert=True)
             return
         deck_name = deck['deck_name'] if deck else "دک"
 

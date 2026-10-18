@@ -520,7 +520,7 @@ class ShopHandlersMixin:
             text = (
                 f"🎨 **اسکین‌های شاپ**\n\n"
                 f"💰 موجودی: {coins:,} سکه\n\n"
-                f"هنوز هیچ اسکینی برای کارت‌های شما موجود نیست."
+                f"فعلاً اسکینی برای کارت‌هات آماده نیست؛ بعداً دوباره سر بزن."
             )
             keyboard = [[InlineKeyboardButton("🔙 شاپ", callback_data="shop_menu")]]
         else:

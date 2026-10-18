@@ -7,6 +7,7 @@ Battle 3 Rounds Handlers
 import json
 import os
 import logging
+from core.display_text import isolate, ltr
 import random
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
@@ -766,7 +767,7 @@ class BattleHandlersMixin:
          ch_stats_raw, op_stats_raw, status) = row
 
         if status == 'completed':
-            await query.answer("❌ این بازی تمام شده!", show_alert=True)
+            await query.answer("این بازی تموم شده؛ برای بازی تازه /fight بزن.", show_alert=True)
             return
 
         # تعیین نقش
@@ -1340,7 +1341,7 @@ class BattleHandlersMixin:
 
         pending = context.bot_data.get(f"arena_shift_{fight_id}")
         if not pending:
-            await query.answer("❌ انتخاب زمین منقضی شده.", show_alert=True)
+            await query.answer("وقت انتخاب زمین تموم شده؛ از پیام فعلی بازی ادامه بده.", show_alert=True)
             return
         if pending.get("selector_id") != user_id:
             await query.answer("❌ این انتخاب مال تو نیست.", show_alert=True)
@@ -1605,7 +1606,7 @@ class BattleHandlersMixin:
             op_name = self._battle_player_name(op_id, "Red")
             if result_type == "tie":
                 final_line = f"🤝 مساوی  |  {ch_rounds_won} — {op_rounds_won}"
-                xp_line = f"⭐ +{ch_xp} / +{op_xp} XP"
+                xp_line = "⭐ " + ltr(f"+{ch_xp} / +{op_xp} XP")
             else:
                 winner_name = ch_name if result_type == "challenger_wins" else op_name
                 winner_xp = ch_xp if result_type == "challenger_wins" else op_xp
@@ -1616,7 +1617,7 @@ class BattleHandlersMixin:
                 elif result_type == "opponent_wins" and op_new_lv > op_old_lv:
                     level_up_text = f"\n⬆️ Level Up! → {op_new_lv}"
                 final_line = f"🏆 {winner_name}  |  {ch_rounds_won} — {op_rounds_won}"
-                xp_line = f"⭐ +{winner_xp} / +{loser_xp} XP{level_up_text}"
+                xp_line = "⭐ " + ltr(f"+{winner_xp} / +{loser_xp} XP") + level_up_text
 
             if deck_summary:
                 from bot.deck_reports import reward_lines
@@ -1693,7 +1694,7 @@ class BattleHandlersMixin:
         with closing(sqlite3.connect(self.db.db_path)) as conn:
             report = load_in(conn, fight_id)
         if not report or not report.get('completed') or query.from_user.id not in report['players']:
-            await query.answer('گزارش برای شما در دسترس نیست.', show_alert=True)
+            await query.answer('این گزارش برای تو در دسترس نیست.', show_alert=True)
             return
         await query.answer()
         try:
@@ -1816,7 +1817,7 @@ class BattleHandlersMixin:
         if final_deck_round:
             lines.extend([
                 "",
-                "کارت آخر را انتخاب کنید؛ نام و تصویر هر کارت پس از انتخاب همان بازیکن نمایش داده می‌شود.",
+                "کارت آخرت رو انتخاب کن؛ بعدش اسم و تصویرش نمایش داده میشه.",
             ])
         else:
             lines.extend(["", "انتخاب بازیکن شروع‌کننده در گروه دیده می‌شود؛ انتخاب نهایی است."])
@@ -1907,8 +1908,8 @@ class BattleHandlersMixin:
             ch_points, op_points,
             deck_summary=(
                 f"{self._deck_arena_rule_text(arena_id, fight_id)}\n\n"
-                f"⏱ زمان ۶۰ ثانیه‌ای انتخاب {loser_name} تمام شد؛ کل بازی را باخت.\n"
-                f"📊 امتیاز نهایی: 🔵 {ch_points} — {op_points} 🔴"
+                f"⏱ وقت انتخاب {isolate(loser_name)} تموم شد؛ این بازی با باختش تموم شد.\n"
+                f"📊 امتیاز نهایی: 🔵 {ltr(str(ch_points) + ' — ' + str(op_points))} 🔴"
             ),
         )
 
@@ -2061,7 +2062,7 @@ class BattleHandlersMixin:
 
         ch_id, op_id, ch_rem_raw, op_rem_raw, status = row
         if status == 'completed':
-            return False, None, "این بازی تمام شده"
+            return False, None, "این بازی تموم شده"
 
         if user_id == ch_id:
             role = 'challenger'
@@ -2435,7 +2436,7 @@ class BattleHandlersMixin:
 
         pending_key = f"r3_{fight_id}_{role}_effect_pending"
         if not context.bot_data.get(pending_key):
-            return False, None, "این انتخاب منقضی شده"
+            return False, None, "وقت این انتخاب گذشته"
 
         card_id = context.bot_data.get(f"r3_{fight_id}_{role}_card")
         card = (
@@ -2762,8 +2763,8 @@ class BattleHandlersMixin:
         if status == 'completed':
             results.append(InlineQueryResultArticle(
                 id="completed",
-                title="این بازی تمام شده",
-                input_message_content=InputTextMessageContent("❌ این بازی تمام شده.")
+                title="این بازی تموم شده",
+                input_message_content=InputTextMessageContent("❌ این بازی تموم شده.")
             ))
             await query.answer(results, cache_time=0, is_personal=True)
             return

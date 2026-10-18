@@ -149,14 +149,8 @@ async def show_quote(bot,update,context,quote,back_callback='v2_shop'):
 async def show_purchase(bot,update,context,result):
     from systems.progression_economy import ProgressionEconomy
     if not result.get('ok'):
-        messages = {'price_changed':'قیمت عوض شده؛ دوباره کالا رو انتخاب کن.',
-                    'quote_expired':'این قیمت دیگه معتبر نیست؛ دوباره کالا رو انتخاب کن.',
-                    'quote_not_found':'این خرید برای حسابت پیدا نشد؛ از فروشگاه ادامه بده.',
-                    'stock_empty':'این یکی تموم شد؛ یه چیز دیگه بردار.',
-                    'insufficient_coins_or_player_missing':'سکه‌هات برای این خرید کافی نیست.',
-                    'hearts_full':'قلب‌هات پره؛ لازم نیست الان پرشون کنی.',
-                    'heart_cap':'ظرفیت قلب‌هات به سقف رسیده.'}
-        return await text_panel(update,'🙂 '+messages.get(result.get('error_code'),result.get('error','خرید انجام نشد؛ دوباره امتحان کن.')),back_buttons())
+        from bot.player_messages import error_text
+        return await text_panel(update,'⚠️ '+error_text(result),back_buttons())
     player = bot.db.get_or_create_player(update.effective_user.id)
     item = result['item']
     name = display_name(bot,item)

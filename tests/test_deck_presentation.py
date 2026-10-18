@@ -167,7 +167,7 @@ def test_three_round_deck_final_and_private_history_survive_fight_deletion_and_c
         if uid == 2:
             assert context.bot.send_message.await_args.kwargs['chat_id'] == 2
         else:
-            query.answer.assert_awaited_with('گزارش برای شما در دسترس نیست.', show_alert=True)
+            query.answer.assert_awaited_with('این گزارش برای تو در دسترس نیست.', show_alert=True)
             context.bot.send_message.assert_not_awaited()
 
 

@@ -3,13 +3,10 @@ import json
 import sqlite3
 from contextlib import closing
 from datetime import datetime, timezone
+from core.display_text import isolate
 
 STAT_NAMES = {'power': 'قدرت', 'speed': 'سرعت', 'iq': 'هوش', 'popularity': 'محبوبیت'}
 FORMS = {'normal': '🟢 Normal', 'epic': '🟣 Epic', 'legend': '🟡 Legend', 'rare': '🔵 Rare'}
-
-
-def isolate(value):
-    return f'\u2068{value}\u2069'
 
 
 def fa(value):
