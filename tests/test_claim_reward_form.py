@@ -57,7 +57,9 @@ def invoke_claim(db, entry, monkeypatch):
         query = SimpleNamespace(from_user=SimpleNamespace(id=101),message=message,answer=AsyncMock())
         update = SimpleNamespace(effective_user=query.from_user,effective_message=message,callback_query=query)
         asyncio.run((bot.claim_command if entry=='command' else bot.daily_claim_handler)(update,SimpleNamespace()))
-        text = message.reply_text.await_args.args[0]
+        raw_text = message.reply_text.await_args.args[0]
+        assert '\u2068(Normal)\u2069' in raw_text
+        text = raw_text.translate(str.maketrans('', '', '\u2066\u2068\u2069'))
         assert 'Tony Soprano** (Normal)' in text and '(Legend)' not in text and '(Epic)' not in text
         assert '💪 قدرت: 20' in text and '⚡ سرعت: 30' in text and '🧠 آی‌کیو: 40' in text
         assert '❤️ محبوبیت: 50' in text and 'مجموع: 140' in text and 'normal-ability' in text
