@@ -10,8 +10,24 @@ from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 
+def ability_defaults():
+    return {key: {'price': price, 'enabled': True} for key, price in {
+        'reveal_opponent':20, 'reroll_arena':30,
+        **{'weaken_'+stat:40 for stat in ('power','speed','iq','popularity')},
+        **{'lock_'+stat:50 for stat in ('power','speed','iq','popularity')},
+    }.items()}
+
+
+def effective_config(value):
+    value = copy.deepcopy(value)
+    if isinstance(value, dict):
+        value.setdefault('ability_shop', ability_defaults())
+    return value
+
+
 def seed_config():
     return {
+        "ability_shop": ability_defaults(),
         "timezone": "Asia/Tehran", "week_start": 0, "settlement_hour": 0,
         "settlement_minute": 15,
         "max_level": 30,
@@ -49,6 +65,7 @@ def seed_config():
 
 def validate_config(value):
     """Reject unknown keys, bool numbers, negative amounts and malformed recipes."""
+    value = effective_config(value)
     defaults = seed_config()
     def shape(item, template, path):
         if isinstance(template, dict):
@@ -153,11 +170,11 @@ def config_in(conn,version=None):
         version=int(conn.execute("SELECT value FROM economy_state WHERE key='config_version'").fetchone()[0])
     row=conn.execute("SELECT config_json FROM economy_config_versions WHERE version=?",(version,)).fetchone()
     if not row: raise ValueError("config_version_missing")
-    return int(version),json.loads(row[0])
+    return int(version),effective_config(json.loads(row[0]))
 
 
 def save_config_in(conn,value,actor):
-    validate_config(value)
+    value = validate_config(value)
     if enabled_in(conn):
         _, current = config_in(conn)
         if any(current[key] != value[key] for key in ('timezone', 'week_start')):

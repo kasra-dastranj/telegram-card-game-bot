@@ -4,6 +4,9 @@ from telegram import InlineKeyboardButton as Button, InlineKeyboardMarkup
 from systems.progression_config import enabled
 from systems.progression_economy import ProgressionEconomy
 from systems.player_rewards_system import PlayerRewardsSystem
+from core.display_text import isolate, ltr, ratio, signed
+from bot.player_messages import error_text
+from bot.shop_access import require_private
 
 LABELS={'upgrade_card':'کارت ارتقا','silver_ticket':'Silver Ticket','deck_slot':'ظرفیت دک','refill':'پرکردن قلب‌ها','permanent_heart':'قلب دائمی'}
 
@@ -17,6 +20,7 @@ def action_button(context,title,action):
 
 
 async def show_menu(bot,update,context,section='shop',page=0):
+    if not await require_private(update):return
     if section=='shop':
         from bot.shop_presentation import show_catalog
         return await show_catalog(bot,update,context)
@@ -24,11 +28,11 @@ async def show_menu(bot,update,context,section='shop',page=0):
     economy=ProgressionEconomy(bot.db)
     inventory=economy.inventory(user)
     if not inventory.get('ok'):
-        await update.effective_message.reply_text(inventory.get('error','خطا'));return
+        await update.effective_message.reply_text(error_text(inventory));return
     keyboard=[]
     if section=='cards':
         cards=[card for card in bot.db.get_player_cards(user) if card.origin=='official']
-        page=max(0,page);text='کارت را برای ارتقا یا فروش انتخاب کن. فرم‌ها و تعداد نسخه‌ها محفوظ‌اند.'
+        page=max(0,page);text='کدوم کارتت رو ارتقا می‌دی یا می‌فروشی؟'
         for card in cards[page*15:(page+1)*15]:keyboard.append([action_button(context,card.name,{'kind':'card_menu','card_id':card.card_id})])
         navigation=[]
         if page:navigation.append(Button('قبلی',callback_data='v2_cards_'+str(page-1)))
@@ -36,27 +40,49 @@ async def show_menu(bot,update,context,section='shop',page=0):
         if navigation:keyboard.append(navigation)
     elif section=='missions':
         missions=PlayerRewardsSystem(bot.db).missions(user)
-        text='مأموریت‌ها\n'+('\n'.join(item['name']+': '+str(item['current_progress'])+'/'+str(item['target'])+'؛ '+str(item.get('xp_reward',0))+' XP و '+str(item.get('coin_reward',0))+' سکه' for item in missions[:20]) or 'مأموریتی فعال نیست.')
-        for item in missions[:20]:
+        missions.sort(key=lambda item:(bool(item['reward_claimed']),not bool(item['can_claim'])))
+        page=max(0,min(page,max(0,(len(missions)-1)//5)))
+        selected=missions[page*5:(page+1)*5]
+        blocks=[]
+        for item in selected:
+            status='✅ پاداش رو گرفتی' if item['reward_claimed'] else '🎁 آمادهٔ دریافت' if item['can_claim'] else '⏳ در حال انجام'
+            filled=min(5,int(5*item['current_progress']/max(1,item['target'])))
+            block=isolate(str(item['name'])[:100])+'\n'+status+' · '+ratio(item['current_progress'],item['target'])+'\n'+'▰'*filled+'▱'*(5-filled)
+            if item.get('description'):block+='\n'+isolate(str(item['description'])[:220])
+            if 'xp_reward' in item or 'coin_reward' in item:
+                block+='\n⭐ '+signed(item.get('xp_reward',0),'XP')+' · 💰 '+isolate(item.get('coin_reward',0))+' سکه'
+            blocks.append(block)
+        text='🎯 مأموریت‌هات\nپیش برو و پاداش هر مأموریت رو همین‌جا بگیر.\n\n'+('\n\n'.join(blocks) or 'فعلاً مأموریتی نداری؛ بعداً دوباره سر بزن.')
+        for item in selected:
             if item['can_claim']:keyboard.append([action_button(context,'دریافت '+item['name'],{'kind':'mission','mission_id':item['mission_id']})])
+        navigation=[]
+        if page:navigation.append(Button('قبلی',callback_data='v2_missions_'+str(page-1)))
+        if (page+1)*5<len(missions):navigation.append(Button('بعدی',callback_data='v2_missions_'+str(page+1)))
+        if navigation:keyboard.append(navigation)
+        keyboard.append([Button('👤 پروفایل',callback_data='easy_profile')])
     keyboard.append([Button('🔙 منوی اصلی',callback_data='back_to_main')])
     await update.callback_query.edit_message_text(text,reply_markup=InlineKeyboardMarkup(keyboard))
 
 
 async def handle(bot,update,context):
+    if not await require_private(update):return
     query=update.callback_query
     await query.answer()
     if not enabled(bot.db):
-        await query.edit_message_text('اقتصاد جدید فعال نیست.');return
+        await query.edit_message_text('این بخش هنوز فعال نیست؛ از منوی بازی ادامه بده.');return
     user=query.from_user.id;data=query.data;economy=ProgressionEconomy(bot.db)
     if data=='v2_shop':return await show_menu(bot,update,context)
     if data.startswith('v2_cards_'):return await show_menu(bot,update,context,'cards',int(data[9:]))
     if data=='v2_missions':return await show_menu(bot,update,context,'missions')
+    if data.startswith('v2_missions_'):return await show_menu(bot,update,context,'missions',int(data[12:]))
+    if data=='v2_abilities':
+        from bot.shop_presentation import show_abilities
+        return await show_abilities(bot,update,context)
     if data.startswith('v2_quote_'):
         quote=economy.quote(user,data[9:])
         if quote.get('ok'):
             from bot.shop_presentation import show_quote
-            return await show_quote(bot,update,context,quote)
+            return await show_quote(bot,update,context,quote,back_callback='v2_abilities' if quote['item'].startswith('ability:') else 'v2_shop')
         from bot.shop_presentation import show_purchase
         return await show_purchase(bot,update,context,quote)
     elif data.startswith('v2_buy_'):
@@ -69,7 +95,7 @@ async def handle(bot,update,context):
     elif data.startswith('v2_action_'):
         action=context.user_data.get('economy_actions',{}).get(data[10:])
         if not action:
-            await query.edit_message_text('پیش‌نمایش منقضی شده؛ دوباره منو را باز کن.');return
+            await query.edit_message_text('این انتخاب قدیمیه؛ منو رو دوباره باز کن.');return
         kind=action['kind'];card=action.get('card_id')
         if kind in ('silver_craft','silver_use'):
             from bot.handlers import silver_claim
@@ -81,27 +107,27 @@ async def handle(bot,update,context):
             details=[]
             for target in ('epic','legend'):
                 preview=economy.preview_upgrade(user,card,target)
-                details.append(target+': '+str(preview.get('error') or (str(preview['required'])+' نسخه + '+str(preview['upgrade_cards_required'])+' کارت ارتقا')))
+                details.append(isolate(target.title())+': '+(error_text(preview) if not preview.get('ok') else
+                    isolate(preview['required'])+' نسخه + '+isolate(preview['upgrade_cards_required'])+' کارت ارتقا'))
                 if preview.get('ok'):
-                    keyboard.append([action_button(context,'ارتقا به '+target+': '+str(preview['required'])+' نسخه + '+str(preview['upgrade_cards_required'])+' کارت ارتقا؛ '+str(preview['xp'])+' XP',{'kind':'upgrade','card_id':card,'target':target,'config_version':preview['config_version'],'request_key':'tg-upgrade:'+uuid.uuid4().hex})])
+                    keyboard.append([action_button(context,'ارتقا به '+isolate(target.title())+': '+isolate(preview['required'])+' نسخه + '+isolate(preview['upgrade_cards_required'])+' کارت ارتقا؛ '+signed(preview['xp'],'XP'),{'kind':'upgrade','card_id':card,'target':target,'config_version':preview['config_version'],'request_key':'tg-upgrade:'+uuid.uuid4().hex})])
             for rarity,count in counts.items():
                 preview=economy.sell_preview(user,card,rarity)
-                if preview.get('ok'):keyboard.append([action_button(context,'فروش یک '+rarity+' از '+str(count)+' نسخه: '+str(preview['price'])+' سکه',{'kind':'sell','card_id':card,'rarity':rarity,'config_version':preview['config_version'],'request_key':'tg-sell:'+uuid.uuid4().hex})])
+                if preview.get('ok'):keyboard.append([action_button(context,'فروش یک '+isolate(rarity.title())+' از '+isolate(count)+' نسخه: '+isolate(preview['price'])+' سکه',{'kind':'sell','card_id':card,'rarity':rarity,'config_version':preview['config_version'],'request_key':'tg-sell:'+uuid.uuid4().hex})])
             keyboard.append([Button('🔙 کارت‌ها',callback_data='v2_cards_0')])
-            await query.edit_message_text('تأیید ارتقا یا فروش؛ عملیات نسخه‌های انتخاب‌شده را مصرف می‌کند.\n'+'\n'.join(details),reply_markup=InlineKeyboardMarkup(keyboard));return
+            await query.edit_message_text('ارتقا یا فروش رو انتخاب کن؛ نسخه‌های لازم از موجودیت کم میشن.\n\n'+'\n'.join(details),reply_markup=InlineKeyboardMarkup(keyboard));return
         if kind=='upgrade':
             result=economy.upgrade(user,card,action['target'],action['request_key'],action['config_version'])
             if result.get('ok'):
                 from bot.card_reward_presentation import send_upgrade_cards
-                from bot.deck_reports import isolate
                 target=result.get('target', action['target'])
                 source='normal' if target=='epic' else 'epic'
                 if not result.get('replayed'):
                     await send_upgrade_cards(bot,update,context,card,source,target)
                 definition=bot.db.get_card_by_id_for_rarity(card,target)
                 text=('✨ '+isolate(definition.name if definition else card)+' ارتقا پیدا کرد!\n'
-                      +isolate(source.title()+' → '+target.title())+'\n⭐ '
-                      +isolate('+'+str(result.get('xp',0))+' XP'))
+                      +ltr(source.title()+' → '+target.title())+'\n⭐ '
+                      +signed(result.get('xp',0),'XP'))
                 if result.get('new_level',1)>result.get('old_level',1):
                     text+='\n⬆️ '+isolate('Level '+str(result['new_level']))
                 await query.edit_message_text(text,reply_markup=InlineKeyboardMarkup([[Button('🔙 کارت‌ها',callback_data='v2_cards_0')]]))
@@ -111,9 +137,13 @@ async def handle(bot,update,context):
         else:result={'ok':False,'error':'عملیات نامعتبر'}
     else:return
     if result.get('ok'):
-        text='✅ انجام شد.'
+        if kind=='sell' and not result.get('replayed'):
+            try:await update.effective_message.reply_text('💰')
+            except Exception:pass  # Cosmetic delivery must never retry a committed sale.
+        text='✅ فروخته شد!' if kind=='sell' else '🎁 پاداش مأموریتت رو گرفتی!' if kind=='mission' else '✅ انجام شد.'
         if result.get('card_id'):
-            card=bot.db.get_card_by_id(result['card_id']);text+='\n'+card.name
-        text+='\nXP: '+str(result.get('xp',0))+' · سکه: '+str(result.get('coins',0))
-    else:text='انجام نشد: '+result.get('error','خطا')
-    await query.edit_message_text(text,reply_markup=InlineKeyboardMarkup([[Button('🔙 فروشگاه',callback_data='v2_shop')]]))
+            card=bot.db.get_card_by_id(result['card_id']);text+='\n'+isolate(card.name)
+        text+='\n⭐ '+signed(result.get('xp',0),'XP')+' · 💰 '+isolate(result.get('coins',0))+' سکه'
+    else:text='⚠️ انجام نشد: '+error_text(result)
+    back=('🔙 مأموریت‌ها','v2_missions') if kind=='mission' else ('🔙 کارت‌ها','v2_cards_0')
+    await query.edit_message_text(text,reply_markup=InlineKeyboardMarkup([[Button(back[0],callback_data=back[1])]]))

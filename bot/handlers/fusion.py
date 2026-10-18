@@ -7,6 +7,7 @@ Fusion Handlers
 import json
 import os
 import logging
+from core.display_text import ltr, markdown_name
 import random
 import uuid
 from datetime import datetime, timedelta
@@ -55,12 +56,12 @@ class FusionHandlersMixin:
 
         text = (
             "🔮 **سیستم Fusion**\n\n"
-            "با ترکیب ۳ کارت، یکی از آن‌ها را ارتقا بده!\n\n"
+            "با ترکیب ۳ کارت، یکیشون رو ارتقا بده!\n\n"
             f"🟢 Normal: {len(normal_cards)} کارت "
             f"{'✅ (می‌توانی Fusion کنی)' if can_epic else f'❌ (حداقل ۳ نیاز است)'}\n"
             f"🟣 Epic: {len(epic_cards)} کارت "
             f"{'✅ (می‌توانی Fusion کنی)' if can_legend else f'❌ (حداقل ۳ نیاز است)'}\n\n"
-            "کدام نوع Fusion می‌خواهی؟"
+            "کدوم نوع Fusion رو می‌خوای؟"
         )
 
         keyboard = []
@@ -154,7 +155,7 @@ class FusionHandlersMixin:
         elif len(selected) < 3:
             selected.append(card_id)
         else:
-            await query.answer("❌ فقط ۳ کارت می‌توانی انتخاب کنی!", show_alert=True)
+            await query.answer("فقط ۳ کارت جا داره؛ یکی از انتخاب‌هات رو بردار تا جاش باز بشه.", show_alert=True)
             return
 
         context.user_data['fusion_selected'] = selected
@@ -207,8 +208,8 @@ class FusionHandlersMixin:
 
         text = (
             f"🔮 **کدام کارت {target_label} شود؟**\n\n"
-            "هر ۳ کارت مصرف می‌شوند.\n"
-            "یکی از آن‌ها ارتقا می‌یابد.\n\n"
+            "هر ۳ کارت مصرف میشن.\n"
+            "یکی از اون‌ها ارتقا پیدا می‌کنه.\n\n"
             "انتخاب کن:"
         )
 
@@ -264,13 +265,13 @@ class FusionHandlersMixin:
 
             # XP داخل همان تراکنش Fusion ثبت شده است.
             old_level, new_level = result.old_level, result.new_level
-            xp_text = f"\n⬆️ Level Up! {old_level} → {new_level}" if new_level > old_level else ""
+            xp_text = '\n⬆️ لولت بالا رفت! ' + ltr(f'{old_level} → {new_level}') if new_level > old_level else ''
 
             text = (
                 f"✨ **Fusion موفق!**\n\n"
                 f"کارت‌های مصرف‌شده:\n"
                 + "\n".join(f"  ❌ {n}" for n in consumed_names) +
-                f"\n\n{target_emoji} **{upgraded.name}** حالا {target_label} شد! 🎉"
+                f"\n\n{target_emoji} **{markdown_name(upgraded.name)}** حالا {ltr(target_label)} شد! 🎉"
                 f"{xp_text}"
             )
             keyboard = [

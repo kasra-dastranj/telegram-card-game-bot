@@ -486,6 +486,7 @@ class TelegramCardBot(
         app.add_handler(CallbackQueryHandler(self.my_cards_handler, pattern="^my_cards$"))
         app.add_handler(CallbackQueryHandler(self.my_cards_navigation_handler, pattern="^my_cards_nav_"))
         app.add_handler(CallbackQueryHandler(self.start_game_handler, pattern="^start_game$"))
+        app.add_handler(CallbackQueryHandler(self.starter_receive_handler, pattern="^starter_receive$"))
         
         # AI fight handlers removed - AI fights are no longer supported
         
@@ -507,6 +508,11 @@ class TelegramCardBot(
         app.add_handler(CallbackQueryHandler(self.easy_ready_handler, pattern="^gm_eready_"))
         app.add_handler(CallbackQueryHandler(self.easy_start_handler, pattern="^gm_estart_"))
         app.add_handler(CallbackQueryHandler(self.easy_inline_confirm_handler, pattern=r"^ez\|"))
+        async def easy_victory_callback(update, context):
+            from bot.handlers.easy_victory import handle
+            return await handle(self, update, context)
+        app.add_handler(CallbackQueryHandler(easy_victory_callback, pattern='^easy_victory_'))
+        app.add_handler(CallbackQueryHandler(self.profile_command, pattern='^easy_profile$'))
         app.add_handler(CallbackQueryHandler(self.accept_pvp_random_handler, pattern="^accept_pvp_random_"))
         app.add_handler(CallbackQueryHandler(self.accept_pvp_fight_handler, pattern="^accept_pvp_"))
         app.add_handler(CallbackQueryHandler(self.pvp_cards_navigation_handler, pattern="^pvp_cards_"))
@@ -617,10 +623,14 @@ class TelegramCardBot(
         logger.error(f"Exception while handling an update: {context.error}", exc_info=context.error)
 
     async def _deck_name_message_router(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Router برای پیام‌های متنی — فقط اگر کاربر در حال نام‌گذاری دک است."""
+        """Route only explicit private text drafts; deck input keeps priority."""
         build = context.user_data.get('deck_build', {})
         if build.get('waiting_name') or build.get('waiting_slogan'):
+            context.user_data.pop('easy_victory_draft', None)
             await self.deck_name_message_handler(update, context)
+        elif context.user_data.get('easy_victory_draft'):
+            from bot.handlers.easy_victory import receive_slogan
+            await receive_slogan(self, update, context)
 
     async def cleanup_task(self, context: ContextTypes.DEFAULT_TYPE):
         """تسک تمیزکردن فایت‌های منقضی"""
@@ -692,6 +702,10 @@ class TelegramCardBot(
         except Exception as e:
             logger.error(f"Error in weekly_leaderboard_task: {e}", exc_info=True)
 
+    async def level_notifications_task(self, context: ContextTypes.DEFAULT_TYPE):
+        from bot.level_notifications import deliver
+        await deliver(self,context)
+
     async def progression_settlement_task(self, context: ContextTypes.DEFAULT_TYPE):
         from systems.progression_config import enabled, config_in
         if not enabled(self.db):
@@ -743,6 +757,8 @@ def schedule_maintenance_jobs(job_queue, bot):
     )
     if hasattr(bot, 'progression_settlement_task'):
         job_queue.run_repeating(bot.progression_settlement_task, interval=300, first=30, name='progression-settlement')
+    if hasattr(bot,'level_notifications_task'):
+        job_queue.run_repeating(bot.level_notifications_task,interval=15,first=15,name='level-notifications')
     job_queue.run_daily(
         bot.reset_lives_task,
         time=dt_time(hour=0, minute=5, tzinfo=MAINTENANCE_TIMEZONE),

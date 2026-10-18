@@ -762,7 +762,7 @@ def test_telegram_shop_confirmation_uses_same_atomic_quote(game):
     from unittest.mock import AsyncMock
     with sqlite3.connect(game.db_path) as conn:conn.execute('UPDATE players SET coins=1000 WHERE user_id=1')
     query=SimpleNamespace(data='v2_quote_silver_ticket',from_user=SimpleNamespace(id=1),id='cb1',answer=AsyncMock(),edit_message_text=AsyncMock())
-    update=SimpleNamespace(callback_query=query,effective_user=query.from_user,effective_message=SimpleNamespace(reply_text=AsyncMock()))
+    update=SimpleNamespace(callback_query=query,effective_user=query.from_user,effective_message=SimpleNamespace(reply_text=AsyncMock()),effective_chat=SimpleNamespace(type='private'))
     context=SimpleNamespace(user_data={})
     asyncio.run(handle(SimpleNamespace(db=game),update,context))
     keyboard=query.edit_message_text.call_args.kwargs['reply_markup'].inline_keyboard

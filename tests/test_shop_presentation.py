@@ -46,7 +46,7 @@ def shop(tmp_path, monkeypatch):
     monkeypatch.setattr(shop_visuals,'render',renderer)
 
     def click(data='v2_shop',uid=1):
-        message = SimpleNamespace(chat_id=uid,message_id=current['id'],reply_photo=AsyncMock(side_effect=photo),
+        message = SimpleNamespace(chat_id=uid,chat=SimpleNamespace(type='private'),message_id=current['id'],reply_photo=AsyncMock(side_effect=photo),
                                   reply_text=AsyncMock(side_effect=text))
         query = SimpleNamespace(data=data,from_user=SimpleNamespace(id=uid),message=message,
                                 answer=AsyncMock(),edit_message_text=AsyncMock(),edit_message_reply_markup=AsyncMock())
@@ -83,7 +83,8 @@ def test_store_board_quote_receipt_reuses_photo_and_keeps_text_controls(shop):
     assert Image.open(BytesIO(events[0][1])).size == (1200,1000)
     assert 'چی برای نبرد بعدیت' in events[1][1] and '1,000' in events[1][1]
     callbacks = [b.callback_data for r in events[1][2]['reply_markup'].inline_keyboard for b in r]
-    assert 'back_to_main' in callbacks and 'v2_cards_0' in callbacks and 'v2_missions' in callbacks
+    assert 'back_to_main' in callbacks and 'v2_cards_0' in callbacks and 'v2_abilities' in callbacks
+    assert 'v2_missions' not in callbacks
     assert 'v2_silver_claim' not in callbacks
     initial.callback_query.edit_message_reply_markup.assert_awaited_once_with(reply_markup=None)
     assert row(bot.db,'SELECT COUNT(*) FROM shop_quotes')[0] == 0
@@ -186,7 +187,7 @@ def test_deleted_board_falls_back_to_text_and_purchase_replay_stays_safe(shop):
 def test_without_photo_support_all_prices_and_purchase_buttons_are_available(shop):
     bot,_,_,_,_ = shop
     query = SimpleNamespace(from_user=SimpleNamespace(id=1),edit_message_text=AsyncMock())
-    update = SimpleNamespace(callback_query=query,effective_user=query.from_user)
+    update = SimpleNamespace(callback_query=query,effective_user=query.from_user,effective_chat=SimpleNamespace(type='private'))
     asyncio.run(show_catalog(bot,update,SimpleNamespace()))
     call = query.edit_message_text.await_args
     assert '1,000' in call.args[0]
@@ -222,7 +223,7 @@ def test_skin_quote_names_real_skin_and_cancel_returns_to_its_card(shop):
     bot.db.add_card_to_player(1,'hero')
     bot.skins = SkinsSystem(bot.db)
     bot.skins.create_skin('blue_skin','hero','Blue <ستاره>_*','normal','',price=50)
-    message = SimpleNamespace(reply_text=AsyncMock())
+    message = SimpleNamespace(reply_text=AsyncMock(),chat=SimpleNamespace(type='private'))
     query = SimpleNamespace(data='skin_buy_blue_skin',from_user=SimpleNamespace(id=1),message=message,
                             answer=AsyncMock(),edit_message_text=AsyncMock())
     update = SimpleNamespace(callback_query=query,effective_user=query.from_user,effective_message=message)

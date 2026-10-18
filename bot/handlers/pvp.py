@@ -9,6 +9,7 @@ import os
 import logging
 import random
 from datetime import datetime, timedelta
+from core.display_text import isolate, ltr, markdown_name
 from typing import Optional, List, Dict, Any
 
 import telegram
@@ -49,7 +50,7 @@ class PvPHandlersMixin:
             
             if is_group:
                 # منوی لیدربورد گروه
-                text = "🏆 **Leaderboard گروه**\n\nبازه زمانی را انتخاب کنید:"
+                text = "🏆 **Leaderboard گروه**\n\nکدوم بازه رو ببینیم؟"
                 keyboard = [
                     [InlineKeyboardButton("📊 هفتگی", callback_data="lb_group_weekly_10")],
                     [InlineKeyboardButton("📊 ماهانه", callback_data="lb_group_monthly_10")],
@@ -57,7 +58,7 @@ class PvPHandlersMixin:
                 ]
             else:
                 # منوی لیدربورد جهانی
-                text = "🏆 **Leaderboard جهانی**\n\nبازه زمانی را انتخاب کنید:"
+                text = "🏆 **Leaderboard جهانی**\n\nکدوم بازه رو ببینیم؟"
                 keyboard = [
                     [InlineKeyboardButton("📊 هفتگی", callback_data="lb_global_weekly_10")],
                     [InlineKeyboardButton("📊 ماهانه", callback_data="lb_global_monthly_10")],
@@ -76,7 +77,7 @@ class PvPHandlersMixin:
         
         if is_group:
             # منوی لیدربورد گروه
-            text = "🏆 **Leaderboard گروه**\n\nبازه زمانی را انتخاب کنید:"
+            text = "🏆 **Leaderboard گروه**\n\nکدوم بازه رو ببینیم؟"
             keyboard = [
                 [InlineKeyboardButton("📊 هفتگی", callback_data="lb_group_weekly_10")],
                 [InlineKeyboardButton("📊 ماهانه", callback_data="lb_group_monthly_10")],
@@ -84,7 +85,7 @@ class PvPHandlersMixin:
             ]
         else:
             # منوی لیدربورد جهانی
-            text = "🏆 **Leaderboard جهانی**\n\nبازه زمانی را انتخاب کنید:"
+            text = "🏆 **Leaderboard جهانی**\n\nکدوم بازه رو ببینیم؟"
             keyboard = [
                 [InlineKeyboardButton("📊 هفتگی", callback_data="lb_global_weekly_10")],
                 [InlineKeyboardButton("📊 ماهانه", callback_data="lb_global_monthly_10")],
@@ -117,9 +118,9 @@ class PvPHandlersMixin:
                 time_remaining = self.game.get_heart_reset_time_remaining(challenger_player)
                 if time_remaining:
                     time_str = self.game.format_time_remaining(time_remaining)
-                    message = f"💀 جان شما تمام شده!\n\n⏰ تا {time_str} دیگر نمی‌توانید بازی کنید.\n\n💝 هر ۲۴ ساعت یکبار ۵ جان شارژ می‌شود."
+                    message = f"❤️ قلب‌هات تموم شده!\n⏳ تا شارژ دوباره: {isolate(time_str)}"
                 else:
-                    message = "💀 جان شما تمام شده! لطفاً چند لحظه صبر کنید تا جان‌ها ریست شوند."
+                    message = "❤️ قلب‌هات تموم شده؛ یه کم بعد دوباره امتحان کن تا شارژشون بررسی بشه."
                 await update.message.reply_text(message)
                 return
         except Exception:
@@ -132,7 +133,7 @@ class PvPHandlersMixin:
 
         active_fights = self.db.get_user_active_fights(challenger_id)
         if active_fights:
-            await update.message.reply_text("⚠️ شما قبلاً یک چالش فعال دارید.")
+            await update.message.reply_text("یه چالش فعال داری؛ اول همون رو تموم کن یا لغوش کن.")
             return
 
         fight_id = self.db.create_fight(challenger_id, 0, chat_id, mode="three_round" if enabled(self.db) else "legacy_pvp")
@@ -166,7 +167,7 @@ class PvPHandlersMixin:
         
         # Check panel expiration
         if not ensure_not_expired(query, self.db, context):
-            await query.answer("⏰ این پنل منقضی شده است. لطفاً دوباره /start بزنید.", show_alert=True)
+            await query.answer("⏳ این منو قدیمیه؛ دوباره /start بزن.", show_alert=True)
             return
         
         user_id = query.from_user.id
@@ -189,7 +190,7 @@ class PvPHandlersMixin:
             # متن اطلاعات کارت
             text = (
                 f"🎉 **کارت روزانه دریافت شد!**\n\n"
-                f"{color} **{card.name}** ({card.rarity.value.title()})\n\n"
+                f"{color} **{markdown_name(card.name)}** {isolate('(' + card.rarity.value.title() + ')')}\n\n"
                 f"📊 **آمار کارت:**\n"
                 f"💪 قدرت: {card.power}\n"
                 f"⚡ سرعت: {card.speed}\n"
@@ -200,9 +201,9 @@ class PvPHandlersMixin:
             )
             
             for ability in card.abilities:
-                text += f"• {ability}\n"
+                text += f"• {markdown_name(ability)}\n"
             
-            text += f"\n🎁 Ability مصرفی Quick: {quick_ability['title']} ×۱"
+            text += f"\n🎁 {ltr('Ability / Quick')}: {markdown_name(quick_ability['title'])} ×۱"
             text += "\n🕐 کارت بعدی: پس از نیمه‌شب"
             
             if not image_sent:
@@ -240,7 +241,7 @@ class PvPHandlersMixin:
         await query.answer()
         
         if not ensure_not_expired(query, self.db, context):
-            await query.answer("⏰ این پنل منقضی شده است. لطفاً دوباره /start بزنید.", show_alert=True)
+            await query.answer("⏳ این منو قدیمیه؛ دوباره /start بزن.", show_alert=True)
             return
         
         challenger_id = query.from_user.id
@@ -258,7 +259,7 @@ class PvPHandlersMixin:
         
         # بررسی نوع چت - باید گروه باشد
         if query.message.chat.type == 'private':
-            text = "🚫 فایت PvP فقط در گروه‌ها امکان‌پذیر است!\n\nلطفاً این ربات را به گروه اضافه کنید."
+            text = "این نوع نبرد توی گروهه؛ ربات رو به گروهت اضافه کن و اونجا /fight بزن."
             keyboard = [[InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main")]]
             reply_markup = InlineKeyboardMarkup(keyboard)
             await query.edit_message_text(text, reply_markup=reply_markup)
@@ -267,7 +268,7 @@ class PvPHandlersMixin:
         # بررسی داشتن کارت
         player_cards = self.db.get_player_cards(challenger_id)
         if not player_cards:
-            text = "🎴 **ابتدا باید کارتی داشته باشید!**\n\nلطفاً اول کارت رایگان دریافت کنید."
+            text = "🎴 اول کارت‌هات رو بگیر؛ توی پیوی /start یا /claim بزن."
             keyboard = [
                 [InlineKeyboardButton("🎁 دریافت کارت اول", callback_data="daily_claim")],
                 [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main")]
@@ -280,8 +281,8 @@ class PvPHandlersMixin:
         active_fights = self.db.get_user_active_fights(challenger_id)
         if active_fights:
             text = (
-                "⚠️ **شما قبلاً چالش فعالی دارید!**\n\n"
-                "لطفاً فایت فعلی را کامل کنید یا منتظر انقضای آن باشید."
+                "یه چالش فعال داری!\n\n"
+                "اول همون بازی رو تموم کن یا منتظر پایان مهلتش بمون."
             )
             keyboard = [[InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main")]]
             reply_markup = InlineKeyboardMarkup(keyboard)
@@ -316,7 +317,7 @@ class PvPHandlersMixin:
         
         # تایید برای چلنجر
         await query.edit_message_text(
-            "✅ **چالش شما ارسال شد!**\n\nمنتظر قبول چالش در گروه باشید...",
+            "✅ چالشت فرستاده شد!\nمنتظر حریفت توی گروه بمون…",
             parse_mode='Markdown'
         )
 
@@ -387,7 +388,7 @@ class PvPHandlersMixin:
                                      challenger_card_id=ch_card.card_id, 
                                      opponent_card_id=op_card.card_id)
         if not updated:
-            await query.answer("❌ خطا در ثبت انتخاب تصادفی. لطفاً دوباره تلاش کنید.", show_alert=True)
+            await query.answer("انتخاب تصادفی ثبت نشد؛ دوباره بزن.", show_alert=True)
             return
 
         # دریافت نام بازیکنان
@@ -402,7 +403,7 @@ class PvPHandlersMixin:
             f"🎲 **فایت تصادفی تایید شد!**\n\n"
             f"🔥 {challenger.first_name} 🆚 {opponent.first_name}\n\n"
             f"کارت‌ها به صورت تصادفی انتخاب شدند.\n"
-            f"هر دو بازیکن در پیام خصوصی ویژگی خود را انتخاب کنید.\n"
+            f"هر دو نفر ویژگی‌تون رو توی پیوی ربات انتخاب کنید.\n"
             f"👆 **برای انتخاب ویژگی:** {bot_link}\n"
             f"⏰ مهلت: 15 دقیقه"
         )
@@ -415,7 +416,7 @@ class PvPHandlersMixin:
         try:
             await context.bot.send_message(
                 chat_id=fight.challenger_id,
-                text=f"🎲 **کارت شما به صورت تصادفی انتخاب شد: {ch_card.name}**\n\nلطفاً ویژگی خود را انتخاب کنید:",
+                text=f"🎲 **کارت شما به صورت تصادفی انتخاب شد: {ch_card.name}**\n\nیه ویژگی انتخاب کن:",
                 reply_markup=self._create_stat_selection_keyboard(fight_id, ch_card),
                 parse_mode='Markdown'
             )
@@ -426,7 +427,7 @@ class PvPHandlersMixin:
         try:
             await context.bot.send_message(
                 chat_id=opponent_id,
-                text=f"🎲 **کارت شما به صورت تصادفی انتخاب شد: {op_card.name}**\n\nلطفاً ویژگی خود را انتخاب کنید:",
+                text=f"🎲 **کارت شما به صورت تصادفی انتخاب شد: {op_card.name}**\n\nیه ویژگی انتخاب کن:",
                 reply_markup=self._create_stat_selection_keyboard(fight_id, op_card),
                 parse_mode='Markdown'
             )
@@ -469,7 +470,7 @@ class PvPHandlersMixin:
         # دریافت فایت
         fight = self.db.get_fight_by_id(fight_id)
         if not fight:
-            await query.answer("❌ چالش یافت نشد یا منقضی شده!", show_alert=True)
+            await query.answer("این دعوت دیگه فعال نیست؛ یه دعوت تازه بگیر.", show_alert=True)
             return
         
         # بررسی اینکه challenger خودش نپذیرد
@@ -558,7 +559,7 @@ class PvPHandlersMixin:
 
         xp_line = ""
         if challenger.get('xp_gained') or opponent.get('xp_gained'):
-            xp_line = f"\n⭐ +{challenger.get('xp_gained', 0)} / +{opponent.get('xp_gained', 0)} XP"
+            xp_line = "\n⭐ " + ltr(f"+{challenger.get('xp_gained', 0)} / +{opponent.get('xp_gained', 0)} XP")
 
         level_lines = []
         if challenger.get('level_up'):
@@ -641,7 +642,7 @@ class PvPHandlersMixin:
         
         # متن پیام
         if category == "menu":
-            text = "📋 **کارت‌های من**\n\nلطفاً دسته مورد نظر را انتخاب کنید:"
+            text = "📋 **کارت‌های من**\n\nیه دسته رو انتخاب کن:"
         else:
             category_names = {
                 "favorite": "⭐ مورد علاقه",
@@ -663,7 +664,7 @@ class PvPHandlersMixin:
                 cards, total_count = self.db.get_player_cards_by_rarity(user_id, rarity=rarity, page=page, per_page=6)
             
             total_pages = (total_count + 5) // 6
-            text = f"📋 **{category_name}** (صفحه {page}/{total_pages})\n\nلطفاً کارت خود را انتخاب کنید:"
+            text = f"📋 **{category_name}** (صفحه {page}/{total_pages})\n\nمبارزت رو انتخاب کن:"
         
         try:
             await query.edit_message_text(text=text, reply_markup=keyboard, parse_mode='Markdown')
@@ -710,7 +711,7 @@ class PvPHandlersMixin:
         elif user_id == fight.opponent_id:
             field_name = "opponent_card_id"
         else:
-            await query.answer("❌ شما بخشی از این فایت نیستید!", show_alert=True)
+            await query.answer("این بازی برای تو نیست؛ از /fight یه بازی تازه شروع کن.", show_alert=True)
             return
         
         # بروزرسانی انتخاب کارت
@@ -736,7 +737,7 @@ class PvPHandlersMixin:
         if not updated_ok:
             logger.error(f"Failed to update fight {fight_id} with {update_data}")
             try:
-                await query.answer("❌ خطا در ثبت انتخاب. لطفاً دوباره تلاش کنید.", show_alert=True)
+                await query.answer("انتخابت ثبت نشد؛ دوباره بزن.", show_alert=True)
             except Exception:
                 pass
             return
@@ -813,7 +814,7 @@ class PvPHandlersMixin:
             field_name = "opponent_stat"
             user_role = "opponent"
         else:
-            await query.answer("❌ شما بخشی از این فایت نیستید!", show_alert=True)
+            await query.answer("این بازی برای تو نیست؛ از /fight یه بازی تازه شروع کن.", show_alert=True)
             logger.warning(f"User {user_id} tried to select stat for fight {fight_id} but is not participant")
             return
         
@@ -880,7 +881,7 @@ class PvPHandlersMixin:
                             f"❌ **خطا در فایت!**\n\n"
                             f"متاسفانه فایت به دلیل خطای زیر لغو شد:\n"
                             f"`{error_msg}`\n\n"
-                            f"لطفاً دوباره تلاش کنید."
+                            f"دوباره امتحان کن."
                         )
                         try:
                             await context.bot.send_message(
@@ -902,7 +903,7 @@ class PvPHandlersMixin:
                     system_error_text = (
                         f"💥 **خطای سیستمی!**\n\n"
                         f"متاسفانه فایت به دلیل خطای سیستمی لغو شد.\n"
-                        f"لطفاً چند دقیقه دیگر دوباره تلاش کنید."
+                        f"چند دقیقه دیگه دوباره امتحان کن."
                     )
                     try:
                         await context.bot.send_message(
@@ -941,7 +942,7 @@ class PvPHandlersMixin:
         
         if is_group:
             # منوی لیدربورد گروه
-            text = "🏆 **Leaderboard گروه**\n\nبازه زمانی را انتخاب کنید:"
+            text = "🏆 **Leaderboard گروه**\n\nکدوم بازه رو ببینیم؟"
             keyboard = [
                 [InlineKeyboardButton("📊 هفتگی", callback_data="lb_group_weekly_10")],
                 [InlineKeyboardButton("📊 ماهانه", callback_data="lb_group_monthly_10")],
@@ -949,7 +950,7 @@ class PvPHandlersMixin:
             ]
         else:
             # منوی لیدربورد جهانی
-            text = "🏆 **Leaderboard جهانی**\n\nبازه زمانی را انتخاب کنید:"
+            text = "🏆 **Leaderboard جهانی**\n\nکدوم بازه رو ببینیم؟"
             keyboard = [
                 [InlineKeyboardButton("📊 هفتگی", callback_data="lb_global_weekly_10")],
                 [InlineKeyboardButton("📊 ماهانه", callback_data="lb_global_monthly_10")],
@@ -982,9 +983,9 @@ class PvPHandlersMixin:
                 time_remaining = self.game.get_heart_reset_time_remaining(challenger_player)
                 if time_remaining:
                     time_str = self.game.format_time_remaining(time_remaining)
-                    message = f"💀 جان شما تمام شده!\n\n⏰ تا {time_str} دیگر نمی‌توانید بازی کنید.\n\n💝 هر ۲۴ ساعت یکبار ۵ جان شارژ می‌شود."
+                    message = f"❤️ قلب‌هات تموم شده!\n⏳ تا شارژ دوباره: {isolate(time_str)}"
                 else:
-                    message = "💀 جان شما تمام شده! لطفاً چند لحظه صبر کنید تا جان‌ها ریست شوند."
+                    message = "❤️ قلب‌هات تموم شده؛ یه کم بعد دوباره امتحان کن تا شارژشون بررسی بشه."
                 await update.message.reply_text(message)
                 return
         except Exception:
@@ -997,7 +998,7 @@ class PvPHandlersMixin:
 
         active_fights = self.db.get_user_active_fights(challenger_id)
         if active_fights:
-            await update.message.reply_text("⚠️ شما قبلاً یک چالش فعال دارید.")
+            await update.message.reply_text("یه چالش فعال داری؛ اول همون رو تموم کن یا لغوش کن.")
             return
 
         fight_id = self.db.create_fight(challenger_id, 0, chat_id, mode="three_round" if enabled(self.db) else "legacy_pvp")
@@ -1031,7 +1032,7 @@ class PvPHandlersMixin:
         
         # Check panel expiration
         if not ensure_not_expired(query, self.db, context):
-            await query.answer("⏰ این پنل منقضی شده است. لطفاً دوباره /start بزنید.", show_alert=True)
+            await query.answer("⏳ این منو قدیمیه؛ دوباره /start بزن.", show_alert=True)
             return
         
         user_id = query.from_user.id
@@ -1054,7 +1055,7 @@ class PvPHandlersMixin:
             # متن اطلاعات کارت
             text = (
                 f"🎉 **کارت روزانه دریافت شد!**\n\n"
-                f"{color} **{card.name}** ({card.rarity.value.title()})\n\n"
+                f"{color} **{markdown_name(card.name)}** {isolate('(' + card.rarity.value.title() + ')')}\n\n"
                 f"📊 **آمار کارت:**\n"
                 f"💪 قدرت: {card.power}\n"
                 f"⚡ سرعت: {card.speed}\n"
@@ -1065,9 +1066,9 @@ class PvPHandlersMixin:
             )
             
             for ability in card.abilities:
-                text += f"• {ability}\n"
+                text += f"• {markdown_name(ability)}\n"
             
-            text += f"\n🎁 Ability مصرفی Quick: {quick_ability['title']} ×۱"
+            text += f"\n🎁 {ltr('Ability / Quick')}: {markdown_name(quick_ability['title'])} ×۱"
             text += "\n🕐 کارت بعدی: پس از نیمه‌شب"
             
             if not image_sent:
@@ -1105,7 +1106,7 @@ class PvPHandlersMixin:
         await query.answer()
         
         if not ensure_not_expired(query, self.db, context):
-            await query.answer("⏰ این پنل منقضی شده است. لطفاً دوباره /start بزنید.", show_alert=True)
+            await query.answer("⏳ این منو قدیمیه؛ دوباره /start بزن.", show_alert=True)
             return
         
         challenger_id = query.from_user.id
@@ -1123,7 +1124,7 @@ class PvPHandlersMixin:
         
         # بررسی نوع چت - باید گروه باشد
         if query.message.chat.type == 'private':
-            text = "🚫 فایت PvP فقط در گروه‌ها امکان‌پذیر است!\n\nلطفاً این ربات را به گروه اضافه کنید."
+            text = "این نوع نبرد توی گروهه؛ ربات رو به گروهت اضافه کن و اونجا /fight بزن."
             keyboard = [[InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main")]]
             reply_markup = InlineKeyboardMarkup(keyboard)
             await query.edit_message_text(text, reply_markup=reply_markup)
@@ -1132,7 +1133,7 @@ class PvPHandlersMixin:
         # بررسی داشتن کارت
         player_cards = self.db.get_player_cards(challenger_id)
         if not player_cards:
-            text = "🎴 **ابتدا باید کارتی داشته باشید!**\n\nلطفاً اول کارت رایگان دریافت کنید."
+            text = "🎴 اول کارت‌هات رو بگیر؛ توی پیوی /start یا /claim بزن."
             keyboard = [
                 [InlineKeyboardButton("🎁 دریافت کارت اول", callback_data="daily_claim")],
                 [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main")]
@@ -1145,8 +1146,8 @@ class PvPHandlersMixin:
         active_fights = self.db.get_user_active_fights(challenger_id)
         if active_fights:
             text = (
-                "⚠️ **شما قبلاً چالش فعالی دارید!**\n\n"
-                "لطفاً فایت فعلی را کامل کنید یا منتظر انقضای آن باشید."
+                "یه چالش فعال داری!\n\n"
+                "اول همون بازی رو تموم کن یا منتظر پایان مهلتش بمون."
             )
             keyboard = [[InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main")]]
             reply_markup = InlineKeyboardMarkup(keyboard)
@@ -1181,7 +1182,7 @@ class PvPHandlersMixin:
         
         # تایید برای چلنجر
         await query.edit_message_text(
-            "✅ **چالش شما ارسال شد!**\n\nمنتظر قبول چالش در گروه باشید...",
+            "✅ چالشت فرستاده شد!\nمنتظر حریفت توی گروه بمون…",
             parse_mode='Markdown'
         )
 
@@ -1252,7 +1253,7 @@ class PvPHandlersMixin:
                                      challenger_card_id=ch_card.card_id, 
                                      opponent_card_id=op_card.card_id)
         if not updated:
-            await query.answer("❌ خطا در ثبت انتخاب تصادفی. لطفاً دوباره تلاش کنید.", show_alert=True)
+            await query.answer("انتخاب تصادفی ثبت نشد؛ دوباره بزن.", show_alert=True)
             return
 
         # دریافت نام بازیکنان
@@ -1267,7 +1268,7 @@ class PvPHandlersMixin:
             f"🎲 **فایت تصادفی تایید شد!**\n\n"
             f"🔥 {challenger.first_name} 🆚 {opponent.first_name}\n\n"
             f"کارت‌ها به صورت تصادفی انتخاب شدند.\n"
-            f"هر دو بازیکن در پیام خصوصی ویژگی خود را انتخاب کنید.\n"
+            f"هر دو نفر ویژگی‌تون رو توی پیوی ربات انتخاب کنید.\n"
             f"👆 **برای انتخاب ویژگی:** {bot_link}\n"
             f"⏰ مهلت: 15 دقیقه"
         )
@@ -1280,7 +1281,7 @@ class PvPHandlersMixin:
         try:
             await context.bot.send_message(
                 chat_id=fight.challenger_id,
-                text=f"🎲 **کارت شما به صورت تصادفی انتخاب شد: {ch_card.name}**\n\nلطفاً ویژگی خود را انتخاب کنید:",
+                text=f"🎲 **کارت شما به صورت تصادفی انتخاب شد: {ch_card.name}**\n\nیه ویژگی انتخاب کن:",
                 reply_markup=self._create_stat_selection_keyboard(fight_id, ch_card),
                 parse_mode='Markdown'
             )
@@ -1291,7 +1292,7 @@ class PvPHandlersMixin:
         try:
             await context.bot.send_message(
                 chat_id=opponent_id,
-                text=f"🎲 **کارت شما به صورت تصادفی انتخاب شد: {op_card.name}**\n\nلطفاً ویژگی خود را انتخاب کنید:",
+                text=f"🎲 **کارت شما به صورت تصادفی انتخاب شد: {op_card.name}**\n\nیه ویژگی انتخاب کن:",
                 reply_markup=self._create_stat_selection_keyboard(fight_id, op_card),
                 parse_mode='Markdown'
             )
@@ -1334,7 +1335,7 @@ class PvPHandlersMixin:
         # دریافت فایت
         fight = self.db.get_fight_by_id(fight_id)
         if not fight:
-            await query.answer("❌ چالش یافت نشد یا منقضی شده!", show_alert=True)
+            await query.answer("این دعوت دیگه فعال نیست؛ یه دعوت تازه بگیر.", show_alert=True)
             return
         
         # بررسی اینکه challenger خودش نپذیرد
@@ -1406,7 +1407,7 @@ class PvPHandlersMixin:
         
         # متن پیام
         if category == "menu":
-            text = "📋 **کارت‌های من**\n\nلطفاً دسته مورد نظر را انتخاب کنید:"
+            text = "📋 **کارت‌های من**\n\nیه دسته رو انتخاب کن:"
         else:
             category_names = {
                 "favorite": "⭐ مورد علاقه",
@@ -1428,7 +1429,7 @@ class PvPHandlersMixin:
                 cards, total_count = self.db.get_player_cards_by_rarity(user_id, rarity=rarity, page=page, per_page=6)
             
             total_pages = (total_count + 5) // 6
-            text = f"📋 **{category_name}** (صفحه {page}/{total_pages})\n\nلطفاً کارت خود را انتخاب کنید:"
+            text = f"📋 **{category_name}** (صفحه {page}/{total_pages})\n\nمبارزت رو انتخاب کن:"
         
         try:
             await query.edit_message_text(text=text, reply_markup=keyboard, parse_mode='Markdown')
@@ -1475,7 +1476,7 @@ class PvPHandlersMixin:
         elif user_id == fight.opponent_id:
             field_name = "opponent_card_id"
         else:
-            await query.answer("❌ شما بخشی از این فایت نیستید!", show_alert=True)
+            await query.answer("این بازی برای تو نیست؛ از /fight یه بازی تازه شروع کن.", show_alert=True)
             return
         
         # بروزرسانی انتخاب کارت
@@ -1501,7 +1502,7 @@ class PvPHandlersMixin:
         if not updated_ok:
             logger.error(f"Failed to update fight {fight_id} with {update_data}")
             try:
-                await query.answer("❌ خطا در ثبت انتخاب. لطفاً دوباره تلاش کنید.", show_alert=True)
+                await query.answer("انتخابت ثبت نشد؛ دوباره بزن.", show_alert=True)
             except Exception:
                 pass
             return
@@ -1578,7 +1579,7 @@ class PvPHandlersMixin:
             field_name = "opponent_stat"
             user_role = "opponent"
         else:
-            await query.answer("❌ شما بخشی از این فایت نیستید!", show_alert=True)
+            await query.answer("این بازی برای تو نیست؛ از /fight یه بازی تازه شروع کن.", show_alert=True)
             logger.warning(f"User {user_id} tried to select stat for fight {fight_id} but is not participant")
             return
         
@@ -1645,7 +1646,7 @@ class PvPHandlersMixin:
                             f"❌ **خطا در فایت!**\n\n"
                             f"متاسفانه فایت به دلیل خطای زیر لغو شد:\n"
                             f"`{error_msg}`\n\n"
-                            f"لطفاً دوباره تلاش کنید."
+                            f"دوباره امتحان کن."
                         )
                         try:
                             await context.bot.send_message(
@@ -1667,7 +1668,7 @@ class PvPHandlersMixin:
                     system_error_text = (
                         f"💥 **خطای سیستمی!**\n\n"
                         f"متاسفانه فایت به دلیل خطای سیستمی لغو شد.\n"
-                        f"لطفاً چند دقیقه دیگر دوباره تلاش کنید."
+                        f"چند دقیقه دیگه دوباره امتحان کن."
                     )
                     try:
                         await context.bot.send_message(

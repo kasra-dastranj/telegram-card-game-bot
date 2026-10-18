@@ -36,10 +36,14 @@ class LevelRewardsSystem:
         # Their legacy award path must honor the owner's frozen level prizes.
         from systems.progression_config import enabled_in, config_in
         from systems.reward_ledger import capacities_in
-        if conn.execute("SELECT 1 FROM sqlite_master WHERE name='foundation_settings'").fetchone():
+        from systems.level_notices import queue_in
+        has_outbox=bool(conn.execute("SELECT 1 FROM sqlite_master WHERE name='foundation_settings'").fetchone())
+        if has_outbox:
             if enabled_in(conn) and capacities_in(conn, user_id, config_in(conn)[1])['legacy']:
+                for level in range(old_level+1,new_level+1):queue_in(conn,user_id,level)
                 return 0
         total = 0
+        granted={}
         rules = conn.execute(
             "SELECT level,coins FROM level_coin_rules WHERE level>? AND level<=? AND coins>0 ORDER BY level",
             (old_level, new_level),
@@ -56,6 +60,10 @@ class LevelRewardsSystem:
                 ).rowcount != 1:
                     raise ValueError("level reward player missing")
                 total += coins
+                granted[level]=coins
+        if has_outbox:
+            for level in range(old_level+1,new_level+1):
+                queue_in(conn,user_id,level,{'coins':granted.get(level,0)})
         return total
 
     @staticmethod

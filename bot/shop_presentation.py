@@ -57,7 +57,7 @@ def catalog_buttons(catalog):
             price = shop_visuals.STATUSES.get(entry['error_code'], 'فعلاً بسته‌ست')
         rows.append([Button(title(entry['item'])+' · '+price, callback_data='v2_quote_'+entry['item'])])
     rows.extend([[Button('🎴 ارتقا و فروش کارت',callback_data='v2_cards_0')],
-                 [Button('📋 مأموریت‌ها',callback_data='v2_missions')],
+                 [Button('🎴 Ability cards · خرید و موجودی',callback_data='v2_abilities')],
                  [Button('🔙 منوی اصلی',callback_data='back_to_main')]])
     return InlineKeyboardMarkup(rows)
 
@@ -119,6 +119,8 @@ async def show(update, context, model, text, markup):
 
 
 async def show_catalog(bot,update,context):
+    from bot.shop_access import require_private
+    if not await require_private(update):return
     from systems.progression_economy import ProgressionEconomy
     catalog = ProgressionEconomy(bot.db).shop_catalog(update.effective_user.id)
     if not catalog.get('ok'):
@@ -149,14 +151,8 @@ async def show_quote(bot,update,context,quote,back_callback='v2_shop'):
 async def show_purchase(bot,update,context,result):
     from systems.progression_economy import ProgressionEconomy
     if not result.get('ok'):
-        messages = {'price_changed':'قیمت عوض شده؛ دوباره کالا رو انتخاب کن.',
-                    'quote_expired':'این قیمت دیگه معتبر نیست؛ دوباره کالا رو انتخاب کن.',
-                    'quote_not_found':'این خرید برای حسابت پیدا نشد؛ از فروشگاه ادامه بده.',
-                    'stock_empty':'این یکی تموم شد؛ یه چیز دیگه بردار.',
-                    'insufficient_coins_or_player_missing':'سکه‌هات برای این خرید کافی نیست.',
-                    'hearts_full':'قلب‌هات پره؛ لازم نیست الان پرشون کنی.',
-                    'heart_cap':'ظرفیت قلب‌هات به سقف رسیده.'}
-        return await text_panel(update,'🙂 '+messages.get(result.get('error_code'),result.get('error','خرید انجام نشد؛ دوباره امتحان کن.')),back_buttons())
+        from bot.player_messages import error_text
+        return await text_panel(update,'⚠️ '+error_text(result),back_buttons())
     player = bot.db.get_or_create_player(update.effective_user.id)
     item = result['item']
     name = display_name(bot,item)
@@ -165,6 +161,11 @@ async def show_purchase(bot,update,context,result):
     text += '\n'+shop_visuals.product(item)[0]+' '+isolate(name)+'\n💰 هزینهٔ این خرید: '+number(amount)+' سکه\n🪙 سکه‌های باقی‌مونده: '+number(player.coins)
     inventory = ProgressionEconomy(bot.db).inventory(update.effective_user.id)
     note = ''
+    if item.startswith('ability:'):
+        abilities = ProgressionEconomy(bot.db).ability_catalog(update.effective_user.id)
+        if abilities.get('ok'):
+            entry = next(p for p in abilities['products'] if p['key']==item[8:])
+            note = 'حالا '+str(entry['quantity'])+' تا داری'
     if inventory.get('ok'):
         if item in ('silver_ticket','upgrade_card'):
             note = 'حالا '+str(inventory['items'].get(item,0))+' تا داری'
@@ -175,4 +176,27 @@ async def show_purchase(bot,update,context,result):
     if note:
         text += '\n'+isolate(note)
     model = {'screen':'receipt','item':item,'name':name,'coins':player.coins,'price':amount,'note':note}
-    return await show(update,context,model,text,back_buttons())
+    markup = (InlineKeyboardMarkup([[Button('🎴 ابیلیتی‌ها و موجودی',callback_data='v2_abilities')],
+                                   [Button('🔙 فروشگاه',callback_data='v2_shop')]])
+              if item.startswith('ability:') else back_buttons())
+    return await show(update,context,model,text,markup)
+
+
+async def show_abilities(bot,update,context):
+    from systems.progression_economy import ProgressionEconomy
+    from systems.game_mode_system import ABILITY_DEFINITIONS
+    catalog=ProgressionEconomy(bot.db).ability_catalog(update.effective_user.id)
+    if not catalog.get('ok'):
+        from bot.player_messages import error_text
+        return await text_panel(update,error_text(catalog),back_buttons())
+    text=('🎴 ابیلیتی‌هات\n💰 سکه‌هات: '+number(catalog['coins'])+
+          '\nموجودی Quick و مینی‌اپ مشترکه؛ قفل ویژگی فقط توی Quick کار می‌کنه.\n')
+    rows=[]
+    for entry in catalog['products']:
+        name=ABILITY_DEFINITIONS[entry['key']]['title']
+        text+='\n'+isolate(name)+' · موجودی: '+number(entry['quantity'])
+        if entry['enabled']:
+            rows.append([Button(name+' · '+number(entry['price'])+' سکه',callback_data='v2_quote_ability:'+entry['key'])])
+        else:text+=' · فروش فعلاً بسته‌ست'
+    rows.append([Button('🔙 فروشگاه',callback_data='v2_shop')])
+    return await text_panel(update,text,InlineKeyboardMarkup(rows))

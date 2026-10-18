@@ -11,6 +11,7 @@ import random
 import sqlite3
 from html import escape
 from datetime import datetime, timedelta
+from core.display_text import isolate, ltr, ratio, signed, markdown_name
 from typing import Optional, List, Dict, Any
 
 import telegram
@@ -44,11 +45,15 @@ class BasicHandlersMixin:
         """دستور شروع بازی - یکبار اجرا می‌شود"""
         user = update.effective_user
         chat_type = update.effective_chat.type
+        if chat_type == 'private':
+            getattr(context, 'user_data', {}).pop('easy_victory_draft', None)
+            args = getattr(context, 'args', None) or []
+            if args and args[0].startswith('gm_') and len(args[0]) > 3:
+                context.user_data['onboarding_invite'] = args[0]
         logger.info(f"start_command invoked by user_id={getattr(user,'id',None)} chat_type={chat_type}")
 
         try:
             # Ensure player exists in private chats
-            card_count = 0
             if chat_type == 'private':
                 player = self.db.get_or_create_player(
                     user_id=user.id,
@@ -56,36 +61,19 @@ class BasicHandlersMixin:
                     first_name=user.first_name
                 )
                 player = self.game.check_and_reset_hearts(player)
-                card_count = len(self.db.get_player_cards(user.id))
-
-                # Grant starter cards once if player has none
-                try:
-                    if card_count == 0:
-                        from systems.starter_cards_system import grant_starter_cards
-                        granted = grant_starter_cards(self.db, user.id)
-                        if granted:
-                            try:
-                                if hasattr(update, 'message') and update.message:
-                                    await update.message.reply_text(
-                                        f"🎴 کارت‌های شروعی بهت داده شد: {', '.join(granted)}"
-                                    )
-                                elif hasattr(update, 'callback_query') and update.callback_query:
-                                    await update.callback_query.message.reply_text(
-                                        f"🎴 کارت‌های شروعی بهت داده شد: {', '.join(granted)}"
-                                    )
-                            except Exception:
-                                pass
-                        # refresh card count after granting
-                        card_count = len(self.db.get_player_cards(user.id))
-                except Exception as e:
-                    logger.warning(f"Failed to grant starter cards to {user.id}: {e}")
-            else:
-                player = None
 
             # Channel membership check
             if not await self.is_user_in_channel(user.id, context):
                 await self.send_channel_join_message(update)
                 return
+
+            if chat_type == 'private':
+                from bot.onboarding import needed, show, resume_invite
+                if needed(self, user.id):
+                    await show(self, update)
+                    return
+                if await resume_invite(self, update, context):
+                    return
 
             # Telegram deep-link invitations for the new game modes must be
             # handled before rendering the normal private start menu.
@@ -140,9 +128,9 @@ class BasicHandlersMixin:
             logger.error(f"Unhandled exception in start_command: {e}", exc_info=True)
             try:
                 if hasattr(update, 'message') and update.message:
-                    await update.message.reply_text("❌ خطا در اجرای دستور /start. لطفاً دوباره تلاش کنید یا با پشتیبانی تماس بگیرید.")
+                    await update.message.reply_text("شروع بازی باز نشد؛ دوباره /start بزن.")
                 elif hasattr(update, 'callback_query') and update.callback_query:
-                    await update.callback_query.message.reply_text("❌ خطا در اجرای درخواست. لطفاً دوباره /start را در پیوی بزنید.")
+                    await update.callback_query.message.reply_text("این بخش باز نشد؛ دوباره /start رو توی پیوی بزن.")
             except Exception:
                 pass
 
@@ -216,27 +204,22 @@ class BasicHandlersMixin:
         user = query.from_user
         
         if await self.is_user_in_channel(user.id, context):
-            # کاربر عضو شده - شروع بازی
-            text = (
-                f"✅ **عالی! شما باموفقیت در کانال عضو شدید.**\n\n"
-                f"🎉 خوش آمدید {user.first_name}!\n"
-                f"🎮 حالا می‌توانید از ربات استفاده کنید.\n\n"
-                f"برای شروع دوباره /start بزنید."
-            )
-            keyboard = [[InlineKeyboardButton("🎮 شروع بازی", callback_data="start_game")]]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            
-            await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+            await self.start_command(update, context)
         else:
             # هنوز عضو نشده
-            await query.answer("❌ هنوز در کانال عضو نشده‌اید. لطفاً ابتدا عضو شوید.", show_alert=True)
+            await query.answer("هنوز عضویتت تأیید نشده؛ عضو کانال شو و دوباره بررسی رو بزن.", show_alert=True)
 
     async def profile_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """نمایش پروفایل کاربر"""
+        query = getattr(update, 'callback_query', None)
+        if query:
+            await query.answer()
+        context.user_data.pop('easy_victory_draft', None)
+        context.user_data.pop('easy_victory_choices', None)
         if not self._is_command_allowed_in_chat("profile", update.effective_chat.type):
-            await update.message.reply_text(
-                "🚫 این دستور فقط در چت خصوصی قابل استفاده است.\n"
-                "📱 برای مشاهده پروفایل خود، از پیوی ربات استفاده کنید."
+            await update.effective_message.reply_text(
+                "این دستور رو توی پیوی ربات بزن.\n"
+                "پروفایلت رو همون‌جا می‌بینی."
             )
             return
 
@@ -261,23 +244,23 @@ class BasicHandlersMixin:
         if level < 30:
             cur_lv, xp_in, xp_needed = LevelSystem.get_xp_progress(total_xp)
             xp_bar = format_xp_bar(xp_in, xp_needed)
-            xp_text = f"{xp_bar} ({xp_in}/{xp_needed})"
+            xp_text = f"{xp_bar} ({ratio(xp_in, xp_needed)})"
         else:
             xp_text = "MAX LEVEL ✨"
 
         from systems.progression_config import enabled
         v2 = enabled(self.db)
         tier_badge = format_tier_badge(tier)
-        level_line = f"⭐ Level {level}\n" if v2 else f"⭐ Level {level}  {tier_badge} {tier}  •  {tp} TP\n"
-        rank_text = f"#{rank}" if rank else "N/A"
+        level_line = f"⭐ {ltr('Level ' + str(level))}\n" if v2 else f"⭐ {ltr('Level ' + str(level))}  {tier_badge} {isolate(tier)}  •  {ltr(str(tp) + ' TP')}\n"
+        rank_text = ltr(f"#{rank}") if rank else "هنوز نداری"
         total_stats = stats.get('total', {'games_played': 0, 'wins': 0, 'losses': 0, 'ties': 0, 'win_rate': 0})
 
         text = (
-            f"👤 **{user.first_name}**\n\n"
+            f"👤 **{markdown_name(user.first_name)}**\n\n"
             f"{level_line}"
             f"📈 XP: {xp_text}\n\n"
             f"💰 سکه: {getattr(player, 'coins', 0):,}\n"
-            f"❤️ جان: {player.hearts}/{getattr(player, 'max_hearts', self.game.DAILY_HEARTS)}\n"
+            f"❤️ جان: {ratio(player.hearts, getattr(player, 'max_hearts', self.game.DAILY_HEARTS))}\n"
             f"🏆 امتیاز: {player.total_score}  •  رتبه: {rank_text}\n"
             f"🎴 کارت‌ها: {card_counts.get('total', 0)} "
             f"(🟢{card_counts.get('normal',0)} 🟣{card_counts.get('epic',0)} 🟡{card_counts.get('legend',0)})\n\n"
@@ -291,65 +274,32 @@ class BasicHandlersMixin:
         keyboard = [
             [InlineKeyboardButton("🎴 کارت‌های من", callback_data="my_cards"),
              InlineKeyboardButton("🏆 لیدربرد", callback_data="leaderboard")],
+            [InlineKeyboardButton("🏆 شعار برد ایزی مود", callback_data="easy_victory_menu")],
+            [InlineKeyboardButton("🎯 مأموریت‌ها", callback_data="v2_missions")],
             [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main")]
         ]
-        await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
+        if query:
+            await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
+        else:
+            await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
 
     async def start_game_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle inline 'شروع بازی' button by invoking the start command flow."""
         query = update.callback_query
         await query.answer()
+        await self.start_command(update, context)
 
-        # Perform the start flow directly for callback queries to avoid potential update/message differences
-        try:
-            user = query.from_user
-            chat = query.message.chat
-
-            # Ensure player exists and reset hearts
-            player = self.db.get_or_create_player(user.id, user.username, user.first_name)
-            player = self.game.check_and_reset_hearts(player)
-
-            # Grant starter cards if none
-            try:
-                card_count = len(self.db.get_player_cards(user.id))
-                if card_count == 0:
-                    from systems.starter_cards_system import grant_starter_cards
-                    granted = grant_starter_cards(self.db, user.id)
-                    if granted:
-                        await context.bot.send_message(chat_id=chat.id, text=f"🎴 کارت‌های شروعی بهت داده شد: {', '.join(granted)}")
-            except Exception as e:
-                logger.warning(f"Failed to grant starter cards in callback start_game for {user.id}: {e}")
-
-            # Send the welcome/menu (same as private start)
-            welcome_text = (
-                '🎮 به نبرد افسانه‌ها خوش اومدی!\n'
-                'دنیایی که قهرمان‌هاش از تمام دنیاهای خیالی جمع شدن...\n'
-                '📜 برای دیدن داستان بازی بنویسید: /story'
-            )
-
-            keyboard = [
-                [InlineKeyboardButton("🎴 کارت‌های من", callback_data="my_cards")],
-                [InlineKeyboardButton("⚔️ چالش PvP", callback_data="request_pvp_fight")],
-                [InlineKeyboardButton("🎁 کلیم روزانه", callback_data="daily_claim")],
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-
-            await context.bot.send_message(chat_id=chat.id, text=welcome_text, reply_markup=reply_markup, parse_mode='Markdown')
-
-        except Exception as e:
-            logger.error(f"Error in start_game_handler: {e}", exc_info=True)
-            try:
-                await query.message.reply_text("❌ خطا در اجرای شروع بازی. لطفاً دوباره /start را تایپ کنید.")
-            except Exception:
-                pass
+    async def starter_receive_handler(self, update, context):
+        from bot.onboarding import receive
+        await receive(self, update, context)
 
     async def cards_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """نمایش کارت‌های کاربر از طریق دستور با pagination"""
         # بررسی مجوز دستور
         if not self._is_command_allowed_in_chat("cards", update.effective_chat.type):
             await update.message.reply_text(
-                "🚫 این دستور فقط در چت خصوصی قابل استفاده است.\n"
-                "🃏 برای مشاهده کارت‌های خود، از پیوی ربات استفاده کنید."
+                "این دستور رو توی پیوی ربات بزن.\n"
+                "کارت‌هات رو همون‌جا می‌بینی."
             )
             return
         
@@ -364,25 +314,25 @@ class BasicHandlersMixin:
         cards = self.db.get_player_cards(user_id)
         
         if not cards:
-            text = "🔭 هنوز کارتی ندارید! برای شروع، با دستور /claim اولین کارت خود را رایگان دریافت کنید."
+            text = "🎴 هنوز کارتی نداری؛ برای کارت‌های اولیه /start بزن یا کارت روزانه‌ت رو با /claim بگیر."
             await update.message.reply_text(text)
         else:
             # نمایش منوی دسته‌بندی با pagination
             keyboard = self._create_my_cards_keyboard(user_id, category="menu", page=1)
-            text = f"🎴 **کارت‌های شما ({len(cards)} کارت)**\n\nلطفاً دسته مورد نظر را انتخاب کنید:"
+            text = f"🎴 **کارت‌های من ({len(cards)} کارت)**\n\nیه دسته رو انتخاب کن:"
             reply_markup = keyboard
             await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown')
     
     async def mycards_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """نمایش کارت‌ها با امکان مدیریت"""
         if not self._is_command_allowed_in_chat("mycards", update.effective_chat.type):
-            await update.message.reply_text("🚫 این دستور فقط در چت خصوصی قابل استفاده است.")
+            await update.message.reply_text("این دستور رو توی پیوی ربات بزن.")
             return
         
         user_id = update.effective_user.id
         keyboard = self._create_mycards_keyboard(user_id, category="menu", page=1)
         
-        text = "📋 **مدیریت کارت‌های من**\n\nلطفاً دسته مورد نظر را انتخاب کنید:"
+        text = "📋 **مدیریت کارت‌های من**\n\nیه دسته رو انتخاب کن:"
         await update.message.reply_text(text, reply_markup=keyboard, parse_mode='Markdown')
     
     def _create_mycards_keyboard(self, user_id: int, category: str = "menu", page: int = 1) -> InlineKeyboardMarkup:
@@ -511,7 +461,7 @@ class BasicHandlersMixin:
 
             text = (
                 f"🎉 **کارت روزانه دریافت شد!**\n\n"
-                f"{color} **{card.name}** ({card.rarity.value.title()})\n\n"
+                f"{color} **{markdown_name(card.name)}** {isolate('(' + card.rarity.value.title() + ')')}\n\n"
                 f"📊 **آمار کارت:**\n"
                 f"💪 قدرت: {card.power}\n"
                 f"⚡ سرعت: {card.speed}\n"
@@ -522,8 +472,8 @@ class BasicHandlersMixin:
             )
 
             for ability in card.abilities:
-                text += f"• {ability}\n"
-            text += f"\n🎁 Ability مصرفی Quick: {quick_ability['title']} ×۱"
+                text += f"• {markdown_name(ability)}\n"
+            text += f"\n🎁 {ltr('Ability / Quick')}: {markdown_name(quick_ability['title'])} ×۱"
             text += "\n🕐 کارت بعدی: پس از نیمه‌شب"
 
             if not image_sent:
@@ -572,7 +522,7 @@ class BasicHandlersMixin:
         else:
             # نمایش منوی دسته‌بندی
             keyboard = self._create_my_cards_keyboard(user_id, category="menu", page=1)
-            text = f"🎴 **کارت‌های شما ({len(cards)} کارت)**\n\nلطفاً دسته مورد نظر را انتخاب کنید:"
+            text = f"🎴 **کارت‌های من ({len(cards)} کارت)**\n\nیه دسته رو انتخاب کن:"
             reply_markup = keyboard
             await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
 
@@ -640,13 +590,7 @@ class BasicHandlersMixin:
             f"📈 Win Rate: {int(stats['win_rate'])}%\n\n"
             f"📝 <b>Biography:</b>\n{escape(card.biography or '')}"
         )
-        # ارسال تصویر
-        if card.origin == 'custom':
-            if card.image_path and query.message.chat_id == user_id:
-                with open(card.image_path, 'rb') as picture:
-                    await query.message.reply_photo(photo=picture)
-        else:
-            await send_card_image_safely(query.message, card.name, self.config)
+        await self._send_owned_card_sticker(query, context, card)
         keyboard = [
             [InlineKeyboardButton("🔙 بازگشت", callback_data="my_cards")]
         ]
@@ -671,7 +615,7 @@ class BasicHandlersMixin:
         
         if is_group:
             # منوی لیدربورد گروه
-            text = "🏆 <b>Leaderboard گروه</b>\n\nبازه زمانی را انتخاب کنید:"
+            text = "🏆 <b>Leaderboard گروه</b>\n\nکدوم بازه رو ببینیم؟"
             keyboard = [
                 [InlineKeyboardButton("📊 هفتگی", callback_data="lb_group_weekly_10")],
                 [InlineKeyboardButton("📊 ماهانه", callback_data="lb_group_monthly_10")],
@@ -679,7 +623,7 @@ class BasicHandlersMixin:
             ]
         else:
             # منوی لیدربورد جهانی
-            text = "🏆 <b>Leaderboard جهانی</b>\n\nبازه زمانی را انتخاب کنید:"
+            text = "🏆 <b>Leaderboard جهانی</b>\n\nکدوم بازه رو ببینیم؟"
             keyboard = [
                 [InlineKeyboardButton("📊 هفتگی", callback_data="lb_global_weekly_10")],
                 [InlineKeyboardButton("📊 ماهانه", callback_data="lb_global_monthly_10")],
@@ -874,11 +818,11 @@ class BasicHandlersMixin:
         if not result:
             # Provide a clear inline alert and a fallback message in chat
             try:
-                await query.answer("ℹ️ اطلاعات این مبارزه در دسترس نیست یا منقضی شده است.", show_alert=True)
+                await query.answer("جزئیات این بازی دیگه در دسترس نیست؛ یه بازی تازه رو با /fight شروع کن.", show_alert=True)
             except Exception:
                 pass
             try:
-                await context.bot.send_message(chat_id=query.message.chat_id, text="ℹ️ اطلاعات این مبارزه در دسترس نیست یا منقضی شده است.")
+                await context.bot.send_message(chat_id=query.message.chat_id, text="جزئیات این بازی دیگه در دسترس نیست؛ یه بازی تازه رو با /fight شروع کن.")
             except Exception:
                 logger.info(f"Could not send fallback match info missing message to chat {getattr(query.message, 'chat_id', 'unknown')}")
             return
@@ -994,18 +938,18 @@ class BasicHandlersMixin:
 
         except Exception as e:
             logger.error(f"Error in match_info_handler for fight {fight_id}: {e}", exc_info=True)
-            await context.bot.send_message(chat_id=query.message.chat_id, text="❌ یک خطای پیش‌بینی نشده رخ داد.")
+            await context.bot.send_message(chat_id=query.message.chat_id, text="این بخش باز نشد؛ یه بار دیگه امتحان کن.")
     
     async def send_no_hearts_message(self, query, context, player):
         """ارسال پیام عدم وجود جان به کاربر"""
         time_remaining = self.game.get_heart_reset_time_remaining(player)
         if time_remaining:
             time_str = self.game.format_time_remaining(time_remaining)
-            full_message = f"💀 جان شما تمام شده!\n\n⏰ تا {time_str} دیگر نمی‌توانید بازی کنید.\n\n💝 هر ۲۴ ساعت یکبار ۵ جان شارژ می‌شود."
-            short_message = f"💀 جان تمام شده! تا {time_str} صبر کنید."
+            full_message = f"❤️ قلب‌هات تموم شده!\n⏳ تا شارژ دوباره: {isolate(time_str)}"
+            short_message = f"❤️ قلب‌هات تموم شده؛ تا شارژ دوباره: {isolate(time_str)}"
         else:
-            full_message = "💀 جان شما تمام شده! لطفاً چند لحظه صبر کنید تا جان‌ها ریست شوند."
-            short_message = "💀 جان تمام شده!"
+            full_message = "❤️ قلب‌هات تموم شده؛ یه کم بعد دوباره امتحان کن تا شارژشون بررسی بشه."
+            short_message = "❤️ فعلاً قلبی نداری؛ یه کم بعد دوباره امتحان کن."
         
         # نمایش popup کوتاه
         await query.answer(short_message, show_alert=True)
@@ -1125,9 +1069,9 @@ class BasicHandlersMixin:
             time_remaining = cooldown_until - datetime.now()
             if time_remaining.total_seconds() > 0:
                 time_str = self.game.format_time_remaining(time_remaining)
-                message = f"❄️ این کارت در حالت Cooldown است!\n\n⏰ تا {time_str} دیگر نمی‌توانید از آن استفاده کنید.\n\n💡 کارت‌های Epic و Legend پس از 10 برد وارد Cooldown می‌شوند."
+                message = f"❄️ این کارت فعلاً توی استراحته.\n⏳ زمان باقی‌مونده: {isolate(time_str)}\nتا اون موقع یه کارت دیگه انتخاب کن."
             else:
-                message = "❄️ این کارت در حالت Cooldown بود اما اکنون آزاد شده است. لطفاً دوباره تلاش کنید."
+                message = "❄️ این کارت در حالت Cooldown بود اما اکنون آزاد شده است. دوباره امتحان کن."
         else:
             message = "❄️ این کارت در حالت Cooldown نیست."
         
@@ -1145,6 +1089,7 @@ class BasicHandlersMixin:
         """بازگشت به منوی اصلی"""
         query = update.callback_query
         await query.answer()
+        getattr(context, 'user_data', {}).pop('easy_victory_draft', None)
         
         # No expiration check needed for back_to_main as it should always work
         
@@ -1200,7 +1145,7 @@ class BasicHandlersMixin:
         user_id = query.from_user.id
         
         if category == "menu":
-            text = "📋 **مدیریت کارت‌های من**\n\nلطفاً دسته مورد نظر را انتخاب کنید:"
+            text = "📋 **مدیریت کارت‌های من**\n\nیه دسته رو انتخاب کن:"
         else:
             category_names = {
                 "favorite": "⭐ مورد علاقه",
@@ -1242,9 +1187,16 @@ class BasicHandlersMixin:
         await query.answer()
         
         card_id = query.data.removeprefix("cardinfo_")
-        await self._show_card_info(query, card_id)
+        await self._show_card_info(query, card_id, context)
 
-    async def _show_card_info(self, query, card_id: str):
+    async def _send_owned_card_sticker(self, query, context, card):
+        # Opening personal card information should never leak custom media into groups.
+        sender=getattr(query.message,'reply_sticker',None)
+        if query.message.chat_id==query.from_user.id and callable(sender):
+            from bot.card_reward_presentation import send_card_sticker
+            await send_card_sticker(self,context,card,sender)
+
+    async def _show_card_info(self, query, card_id: str, context=None):
         """Render a card without re-parsing or mutating the triggering callback."""
         user_id = query.from_user.id
         
@@ -1256,7 +1208,9 @@ class BasicHandlersMixin:
         if not card:
             await query.answer("❌ کارت یافت نشد!", show_alert=True)
             return
-        
+        if context is not None:
+            await self._send_owned_card_sticker(query,context,card)
+
         conn = sqlite3.connect(self.db.db_path)
         cursor = conn.cursor()
         cursor.execute('SELECT is_favorite, usage_count FROM player_cards WHERE user_id = ? AND card_id = ?', (user_id, card_id))
@@ -1288,7 +1242,7 @@ class BasicHandlersMixin:
             bio_text = '\n🏷 سفارشی\n' + bio_text
         
         text = (
-            f"{color} <b>{escape(card.name)}</b> ({card.rarity.value.title()})\n"
+            f"{color} <b>{isolate(escape(card.name))}</b> {isolate('(' + card.rarity.value.title() + ')')}\n"
             f"🏷️ تایپ: {type_label}\n"
             f"{bio_text}\n"
             f"💪 قدرت: {card.power}  ⚡ سرعت: {card.speed}\n"
@@ -1312,7 +1266,7 @@ class BasicHandlersMixin:
                 prog = mission_progress['current_progress']
                 tgt = mission_progress['target']
                 pct = mission_progress['progress_percent']
-                mission_line = f"\n\n🎯 <b>ماموریت:</b> {escape(mission_progress['description'])}\n📈 پیشرفت: {prog}/{tgt} ({pct}%)"
+                mission_line = f"\n\n🎯 <b>ماموریت:</b> {escape(mission_progress['description'])}\n📈 پیشرفت: {ratio(prog,tgt)} ({ltr(str(pct)+'%')})"
                 text += mission_line
                 
                 if mission_progress['completed'] and not mission_progress.get('reward_claimed'):

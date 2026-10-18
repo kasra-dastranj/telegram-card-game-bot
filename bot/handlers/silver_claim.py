@@ -9,6 +9,8 @@ from telegram.error import TelegramError
 from bot.silver_claim_art import silver_claim_picture
 from bot.card_reward_presentation import send_claim_card
 from systems.progression_economy import ProgressionEconomy
+from core.display_text import isolate
+from bot.player_messages import error_text
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +35,7 @@ async def show_menu(bot, update, context, notice=None, receipt_action=None):
             f"با {number(inventory['silver_claim_tickets'])} تا سیلور تیکت، یه سیلور کلیم بساز.\n"
             'هر سیلور کلیم یه کارت Epic داره!')
     if notice:
-        text += '\n\n' + notice
+        text += '\n\n' + (error_text(notice, inventory) if isinstance(notice, dict) else notice)
     keyboard = []
     for kind, title in [('silver_craft', 'ساخت سیلور کلیم'), ('silver_use', 'استفاده از سیلور کلیم')]:
         action = {'kind': kind, 'config_version': inventory['config_version'],
@@ -52,7 +54,7 @@ async def show_menu(bot, update, context, notice=None, receipt_action=None):
 
 def card_text(card, replayed=False):
     title = 'این کارت رو قبلاً از همین سیلور کلیم گرفتی:' if replayed else '✨ ببین کی به تیمت اضافه شد!'
-    text = (f'{title}\n\n🟣 <b>{escape(card.name)}</b> (Epic)\n\n'
+    text = (f'{title}\n\n🟣 <b>{isolate(escape(card.name))}</b> {isolate("(Epic)")}\n\n'
             f'📊 آمار کارت:\n💪 قدرت: {card.power}\n⚡️ سرعت: {card.speed}\n'
             f'🧠 آی‌کیو: {card.iq}\n❤️ محبوبیت: {card.popularity}\n'
             f'🎯 مجموع: {card.get_total_stats()}')
@@ -68,7 +70,7 @@ async def handle_action(bot, update, context, action):
     result = (economy.craft_silver_claim(user, action['request_key'], action['config_version'])
               if crafting else economy.use_silver_claim(user, action['request_key']))
     if not result.get('ok'):
-        return await show_menu(bot, update, context, result['error'])
+        return await show_menu(bot, update, context, result)
     replayed = result.get('replayed', False)
     notice = ('این ساخت قبلاً ثبت شده؛ دوباره تیکت کم نکردیم.' if crafting else
               'این سیلور کلیم قبلاً باز شده؛ دوباره از موجودیت کم نکردیم.') if replayed else None

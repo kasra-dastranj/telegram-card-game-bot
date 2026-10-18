@@ -7,6 +7,7 @@ Risk Mode Handlers
 import json
 import os
 import logging
+from core.display_text import isolate, ltr, markdown_name
 import random
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
@@ -81,7 +82,7 @@ class RiskHandlersMixin:
         await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
 
     async def risk_noop_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await update.callback_query.answer("❌ موجودی کافی نداری!", show_alert=True)
+        await update.callback_query.answer("برای این میز سکه کم داری؛ حداقل موجودی روی دکمه نوشته شده.", show_alert=True)
 
     async def risk_challenge_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """شروع چالش Risk در گروه"""
@@ -93,7 +94,7 @@ class RiskHandlersMixin:
         # فقط در گروه
         if query.message.chat.type == 'private':
             await query.edit_message_text(
-                "🎲 Risk Mode فقط در گروه‌ها قابل استفاده است!\n"
+                "🎲 این بخش Risk توی گروه اجرا میشه.\n"
                 "به گروه برو و دوباره امتحان کن.",
                 reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 بازگشت", callback_data="risk_menu")]])
             )
@@ -106,7 +107,7 @@ class RiskHandlersMixin:
 
         text = (
             f"🎲 **چالش Risk — میز {table_value} سکه**\n\n"
-            f"@{query.from_user.username or query.from_user.first_name} یه چالش Risk شروع کرد!\n\n"
+            f"{markdown_name('@'+query.from_user.username if query.from_user.username else query.from_user.first_name)} یه چالش {ltr('Risk')} شروع کرد!\n\n"
             f"💰 ورودیه: {table_value} سکه هر نفر\n"
             f"🏆 پات اولیه: {table_value * 2} سکه\n\n"
             f"کی قبول می‌کنه؟"
@@ -157,7 +158,7 @@ class RiskHandlersMixin:
             cards = [self.db.get_card_by_id(cid) for cid in card_ids]
             cards = [c for c in cards if c]
             card_text = "\n".join(
-                f"  {i+1}. {c.name} (P:{c.power} S:{c.speed} IQ:{c.iq})"
+                f"  {i+1}. {markdown_name(c.name)} {ltr(f'(P:{c.power} S:{c.speed} IQ:{c.iq})')}"
                 for i, c in enumerate(cards)
             )
             keyboard = [[InlineKeyboardButton(
@@ -168,7 +169,7 @@ class RiskHandlersMixin:
             try:
                 await context.bot.send_message(
                     chat_id=pid,
-                    text=f"🎲 **Risk Match شروع شد!**\n\nکارت‌های تو:\n{card_text}\n\nکدام را انتخاب می‌کنی؟",
+                    text=f"🎲 **Risk Match شروع شد!**\n\nکارت‌های تو:\n{card_text}\n\nکدوم رو انتخاب می‌کنی؟",
                     reply_markup=InlineKeyboardMarkup(keyboard),
                     parse_mode='Markdown'
                 )
@@ -176,7 +177,7 @@ class RiskHandlersMixin:
                 pass
 
         await query.edit_message_text(
-            f"✅ **Risk Match شروع شد!**\n\nهر دو بازیکن کارت خود را در PV انتخاب کنند.",
+            f"✅ **Risk Match شروع شد!**\n\nهر دو نفر کارتتون رو توی پیوی ربات انتخاب کنید.",
             parse_mode='Markdown'
         )
 
@@ -275,7 +276,7 @@ class RiskHandlersMixin:
 
         match = self.risk.get_risk_match(match_id)
         if not match or match["status"] == "completed" or match["bluff_phase"] not in ("waiting", "raise_pending"):
-            await query.answer("❌ این مرحله تمام شده است", show_alert=True)
+            await query.answer("این مرحله تموم شده؛ از پیام فعلی بازی ادامه بده.", show_alert=True)
             return
         result = self.risk.make_action(match_id, user_id, risk_action, raise_amount)
         if not result["success"]:
@@ -317,17 +318,19 @@ class RiskHandlersMixin:
         if not match or not result["success"]:
             return
         stat_names = {'power': '💪 قدرت', 'speed': '⚡ سرعت', 'iq': '🧠 هوش', 'popularity': '❤️ محبوبیت'}
-        winner_text = "🏆 Challenger برنده!" if result["winner"] == "challenger" else "🏆 Opponent برنده!" if result["winner"] == "opponent" else "🤝 مساوی!"
+        ch_name = markdown_name(self.db.get_or_create_player(match['challenger_id']).first_name)
+        op_name = markdown_name(self.db.get_or_create_player(match['opponent_id']).first_name)
+        winner_text = '🏆 ' + ch_name + ' برد!' if result['winner']=='challenger' else '🏆 ' + op_name + ' برد!' if result['winner']=='opponent' else '🤝 مساوی!'
         text = (
             f"⚔️ **راوند {result['round']}**\n\n"
             f"ویژگی: {stat_names[result['selected_stat']]}\n"
-            f"Challenger: {result['challenger_value']}\nOpponent: {result['opponent_value']}\n"
+            f"🔵 {ch_name}: {isolate(result['challenger_value'])}\n🔴 {op_name}: {isolate(result['opponent_value'])}\n"
             f"{winner_text}\n\n"
-            f"امتیاز: Challenger {match['challenger_rounds_won']} — Opponent {match['opponent_rounds_won']}\n"
+            f"برد راندها: 🔵 {ltr(str(match['challenger_rounds_won'])+' — '+str(match['opponent_rounds_won']))} 🔴\n"
             f"💰 پات: {match['current_pot']} سکه"
         )
         if result["game_over"]:
-            text += f"\n\n🎉 بازی تمام شد! برنده: {match['current_pot']} سکه" if result["winner_id"] else "\n\n🤝 بازی مساوی شد؛ کل پات تقسیم شد."
+            text += f"\n\n🎉 بازی تموم شد! پات نهایی: {isolate(match['current_pot'])} سکه" if result["winner_id"] else "\n\n🤝 بازی مساوی شد؛ پات تقسیم شد."
         if match.get("chat_id"):
             try:
                 await context.bot.send_message(chat_id=match["chat_id"], text=text, parse_mode="Markdown")

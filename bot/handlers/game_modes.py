@@ -354,16 +354,16 @@ class GameModeHandlersMixin:
             self.modes.update_inline_message_reference(request_id, inline_message_id)
         ok, reason, accepted = self.modes.accept_request(request_id, query.from_user.id)
         if not ok:
-            message = "زمان دعوت تمام شده است." if reason == "expired" else reason if reason.startswith("برای ورود") else "این دعوت قبلاً پذیرفته شده است."
+            message = "وقت این دعوت تموم شد؛ یه دعوت تازه بگیر." if reason == "expired" else reason if reason.startswith("برای ورود") else "این دعوت قبلاً پذیرفته شده؛ یه دعوت تازه بگیر."
             await query.answer(message, show_alert=True)
             if reason == "expired":
-                await query.edit_message_text("⏳ این دعوت منقضی شده است.")
+                await query.edit_message_text("⏳ وقت این دعوت تموم شد؛ یه دعوت تازه بساز.")
             return
         await query.answer("بازی شروع شد!")
         await query.edit_message_text(
             f"✅ نبرد شروع شد، بیا اینجا @{context.bot.username} بازی کنیم"
             if request["mode"] == "quick" else
-            "✅ دعوت پذیرفته شد؛ انتخاب‌های بازی برای هر بازیکن باز می‌شود."
+            "✅ نبرد شروع شد؛ از منوی انتخاب ادامه بدید."
         )
         await self._launch_mode_match(context, accepted)
 
@@ -435,22 +435,23 @@ class GameModeHandlersMixin:
         token = context.args[0][3:]
         if not token:
             return False
+        message = update.effective_message
         if not self.db.get_player_cards(update.effective_user.id):
-            await update.message.reply_text("🎴 برای قبول دعوت ابتدا باید حداقل یک کارت داشته باشی.")
+            await message.reply_text("🎴 برای قبول دعوت ابتدا باید حداقل یک کارت داشته باشی.")
             return True
         ok, reason, request = self.modes.accept_invite(token, update.effective_user.id)
         if not ok:
             messages = {
-                "expired": "⏳ زمان درخواست تمام شد.\nاین دعوت منقضی شده است.",
-                "accepted": "❌ این دعوت قبلاً توسط بازیکن دیگری پذیرفته شده است.",
-                "completed": "❌ این بازی قبلاً تمام شده است.",
-                "cancelled": "❌ سازنده، این دعوت را لغو کرده است.",
+                "expired": "⏳ وقت این دعوت تموم شد؛ یه دعوت تازه بگیر.",
+                "accepted": "این دعوت رو یه بازیکن دیگه قبول کرده؛ یه دعوت تازه بگیر.",
+                "completed": "این بازی تموم شده؛ برای بازی بعدی /fight بزن.",
+                "cancelled": "سازنده این دعوت رو لغو کرده؛ یه دعوت تازه بگیر.",
             }
             message = get_self_invite_message() if reason == "self_accept" else messages.get(
                 reason, reason if reason.startswith("برای ورود") else "❌ این دعوت معتبر نیست.")
-            await update.message.reply_text(message)
+            await update.effective_message.reply_text(message)
             return True
-        await update.message.reply_text("✅ دعوت را پذیرفتی؛ بازی در حال شروع است…")
+        await message.reply_text("✅ دعوت رو قبول کردی؛ بریم بازی!")
         await self._edit_request_panel(context, request, "✅ دعوت پذیرفته شد؛ بازی شروع شد.")
         await self._launch_mode_match(context, request)
         return True
@@ -465,13 +466,13 @@ class GameModeHandlersMixin:
         ok, reason, request = self.modes.accept_request(request_id, query.from_user.id)
         if not ok:
             message = get_self_invite_message() if reason == "self_accept" else reason if reason.startswith("برای ورود") else (
-                "⏳ زمان درخواست تمام شد و درخواست منقضی شد."
+                "⏳ وقت این درخواست تموم شد؛ دوباره /fight بزن."
                 if reason == "expired"
                 else "❌ این درخواست دیگر قابل پذیرش نیست."
             )
             await query.answer(message, show_alert=True)
             if reason == "expired":
-                await query.edit_message_text("⏳ زمان درخواست تمام شد.\nاین درخواست منقضی شد.")
+                await query.edit_message_text("⏳ وقت این درخواست تموم شد؛ دوباره /fight بزن.")
             return
         if request["mode"] == "quick":
             creator = self.db.get_or_create_player(request["creator_id"])
@@ -514,7 +515,7 @@ class GameModeHandlersMixin:
         await self._edit_request_panel(
             context,
             request,
-            "⏳ زمان درخواست تمام شد.\nاین درخواست منقضی شد.",
+            "⏳ وقت این درخواست تموم شد؛ دوباره /fight بزن.",
         )
 
     async def _edit_request_panel(self, context, request, text: str, reply_markup=None):
@@ -727,7 +728,7 @@ class GameModeHandlersMixin:
             await query.answer(message, show_alert=True)
             return
         title = "بدون Ability" if ability_key == "skip" else ABILITY_DEFINITIONS[ability_key]["title"]
-        await query.answer("انتخاب ثبت شد.")
+        await query.answer("انتخابت ثبت شد!")
         await query.edit_message_text(f"✅ {title}\nمنتظر حریف…")
         if advanced:
             await self._send_quick_stat_panels(context, request_id, state)
@@ -869,7 +870,7 @@ class GameModeHandlersMixin:
         request_id = query.data.removeprefix("gm_report_")
         report = self.modes.get_report(request_id)
         if not report or query.from_user.id not in report.get("players", report.get("winner_ids", [])):
-            await query.answer("گزارش برای شما در دسترس نیست.", show_alert=True)
+            await query.answer("این گزارش برای تو در دسترس نیست.", show_alert=True)
             return
         await query.answer()
         if report["mode"] == "quick":
@@ -1022,7 +1023,7 @@ class GameModeHandlersMixin:
         self.db.update_fight(fight_id, status=FightStatus.CANCELLED)
         context.bot_data.pop(f"pvp_{fight_id}_deck_expected_user", None)
 
-        expired_text = "⏳ مهلت یک‌دقیقه‌ای انتخاب دک تمام شد؛ بازی لغو شد."
+        expired_text = "⏳ وقت انتخاب دک تموم شد و بازی لغو شد؛ برای بازی تازه /fight بزن."
         request = self.modes.get_request(context.job.data["request_id"])
         if request:
             await self._edit_request_panel(context, request, expired_text)
@@ -1091,12 +1092,14 @@ class GameModeHandlersMixin:
 
     def _easy_lobby_text(self, request_id: str) -> str:
         state = self.modes.get_state(request_id) or {"players": [], "rounds": 1}
+        names = [bidi_isolate(self.db.get_or_create_player(uid).first_name) for uid in state['players']]
         return (
             f"🎉 Easy Mode — {state['rounds']} راند\n\n"
             f"بازیکنان آماده: {len(state['players'])}\n"
-            + ("کارت سفارشی مجاز است؛ پاداش عادی Easy برقرار است.\n" if state.get('allow_custom_cards') else "")
+            + ("، ".join(names) + "\n\n" if names else "")
+            + ("کارت‌های سفارشی هم می‌تونن بازی کنن.\n" if state.get('allow_custom_cards') else "")
             +
-            "برای ورود Ready را بزنید. بازی پس از ۳ دقیقه خودکار شروع می‌شود."
+            "برای ورود Ready رو بزن؛ بازی بعد از ۳ دقیقه خودکار شروع میشه."
         )
 
     @staticmethod
@@ -1116,7 +1119,7 @@ class GameModeHandlersMixin:
             return
         ok, reason, _ = self.modes.join_easy_lobby(request_id, query.from_user.id)
         if not ok:
-            await query.answer(reason if reason not in ("not_found", "expired") else "لابی بسته یا منقضی شده است.", show_alert=True)
+            await query.answer(reason if reason not in ("not_found", "expired") else "این لابی دیگه باز نیست؛ وارد یه لابی تازه شو.", show_alert=True)
             return
         await query.answer("از قبل آماده بودی." if reason == "already_ready" else "آماده شدی!")
         try:
@@ -1131,7 +1134,7 @@ class GameModeHandlersMixin:
         request_id = query.data.removeprefix("gm_estart_")
         request = self.modes.get_request(request_id)
         if not request or request["creator_id"] != query.from_user.id:
-            await query.answer("فقط سازنده می‌تواند زودتر شروع کند.", show_alert=True)
+            await query.answer("فقط سازنده می‌تونه زودتر شروع کنه.", show_alert=True)
             return
         await query.answer()
         await self._begin_easy_match(context, request_id)
@@ -1151,7 +1154,7 @@ class GameModeHandlersMixin:
                     request,
                     "یکی از بازیکن‌ها در بازی دیگه‌ایه؛ این لابی بسته شد."
                     if reason == 'player_busy' else
-                    "⏳ زمان لابی تمام شد؛ برای شروع Easy Mode حداقل دو بازیکن لازم است.",
+                    "⏳ وقت لابی تموم شد؛ برای ایزی مود حداقل دو نفر لازمه.",
                 )
             return
         self._cancel_mode_job(context, f"gm-easy-lobby-{request_id}")
@@ -1171,7 +1174,7 @@ class GameModeHandlersMixin:
             f"🎉 Easy Mode — راند {state['current_round']} از {state['rounds']}",
             "",
             "📊 امتیازها",
-            *(score_lines or ["هنوز امتیازی ثبت نشده است."]),
+            *(score_lines or ["هنوز امتیازی ثبت نشده."]),
         ]
         if previous_round:
             lines.extend(["", f"🏁 نتیجه راند {previous_round['round']}"])
@@ -1183,16 +1186,7 @@ class GameModeHandlersMixin:
                     f"{bidi_isolate(item['card_name'])}"
                 )
             if not entries:
-                lines.append("هیچ انتخاب معتبری ثبت نشد.")
-        lines.extend(
-            [
-                "",
-                f"🎯 سؤال راند {state['current_round']}",
-                state["question"]["text"],
-                "",
-                "⏳ ۳۰ ثانیه برای انتخاب کارت",
-            ]
-        )
+                lines.append("این راند کسی کارت انتخاب نکرد.")
         return "\n".join(lines)
 
     @staticmethod
@@ -1233,7 +1227,8 @@ class GameModeHandlersMixin:
         )
         send_kwargs = {
             "chat_id": request["origin_chat_id"],
-            "text": f"🎯 راند {state['current_round']} شروع شد؛ سؤال را جواب بدهید.",
+            "text": (f"🎯 راند {state['current_round']}\n{state['question']['text']}"
+                     "\n\n⏳ ۳۰ ثانیه وقت داری؛ کارتت رو انتخاب کن!"),
             "reply_markup": markup,
         }
         if request.get("origin_message_id"):
@@ -1364,7 +1359,7 @@ class GameModeHandlersMixin:
         )
         if not ok:
             if reason == "choice_locked" and self._easy_selection_complete(state):
-                await query.answer("همه انتخاب کردند؛ راند تمام شد.")
+                await query.answer("همه انتخاب کردن؛ بریم نتیجهٔ راند رو ببینیم!")
                 try:
                     await query.edit_message_reply_markup(reply_markup=None)
                 except Exception:
@@ -1372,9 +1367,9 @@ class GameModeHandlersMixin:
                 await self._resolve_and_announce_easy(context, request_id)
                 return
             message = (
-                "انتخابت قبلاً ثبت شده است."
+                "انتخابت قبلاً ثبت شده؛ منتظر نتیجه بمون."
                 if reason == "choice_locked"
-                else "این انتخاب دیگر معتبر نیست."
+                else "وقت این انتخاب گذشته؛ از پیام راند فعلی ادامه بده."
             )
             await query.answer(message, show_alert=True)
             try:
@@ -1383,7 +1378,7 @@ class GameModeHandlersMixin:
                 pass
             return
 
-        await query.answer("انتخاب ثبت شد.")
+        await query.answer("انتخابت ثبت شد!")
         try:
             await query.edit_message_reply_markup(reply_markup=None)
         except Exception as exc:
@@ -1421,27 +1416,27 @@ class GameModeHandlersMixin:
         if result["completed"]:
             await self._delete_easy_round_prompt(context, request_id)
             report = result["report"]
+            from systems.progression_match_rewards import shared_ranks
+            ranks = shared_ranks(report['scores'])
+            medals = {1: '🥇', 2: '🥈', 3: '🥉'}
             score_lines = []
             for uid, score in sorted(report["scores"].items(), key=lambda pair: pair[1], reverse=True):
                 name = self.db.get_or_create_player(int(uid)).first_name
-                score_lines.append(bidi_isolate(f"{name}: {score}"))
-            winner_names = [
-                bidi_isolate(self.db.get_or_create_player(uid).first_name)
-                for uid in report["winner_ids"]
-            ]
+                score_lines.append(medals.get(ranks[uid], '•') + ' ' + bidi_isolate(f"{name}: {score}"))
             await self._edit_request_panel(
                 context,
                 request,
                 "🏆 پایان Easy Mode\n\n"
                 + "📊 نتیجه نهایی\n"
                 + "\n".join(score_lines)
-                + "\n\nبرنده: "
-                + ("، ".join(winner_names) if winner_names else "ندارد")
                 + ("\n\n🎁 پاداش نبرد\n" + "\n".join(
-                    f"{self.db.get_or_create_player(int(uid)).first_name}: +{reward['xp']} XP، +{reward['score']} Score"
+                    bidi_isolate(self.db.get_or_create_player(int(uid)).first_name) + ': '
+                    + bidi_isolate(f"+{reward['xp']} XP") + ' · ' + bidi_isolate(f"+{reward['score']} Score")
                     for uid, reward in report["rewards"].items()
-                ) if report.get("rewards") else "\n\nبرای پاداش، دست‌کم دو بازیکن باید کارت انتخاب کنند."),
+                ) if report.get("rewards") else "\n\nاین بازی پاداشی نداشت."),
             )
+            from bot.handlers.easy_victory import announce
+            await announce(self, context, request, report)
         else:
             await self._send_easy_question(
                 context,

@@ -673,6 +673,7 @@ def test_quick_details_are_not_sent_to_a_nonparticipant():
 
 def test_easy_lobby_waits_three_minutes_before_auto_start():
     handler = GameModeHandlersMixin()
+    handler.db = SimpleNamespace(get_or_create_player=Mock(return_value=SimpleNamespace(first_name='MH')))
     handler.modes = SimpleNamespace(
         get_state=Mock(return_value={"players": [1], "rounds": 5})
     )
@@ -681,6 +682,7 @@ def test_easy_lobby_waits_three_minutes_before_auto_start():
 
     assert EASY_LOBBY_TTL_SECONDS == 180
     assert "۳ دقیقه" in text
+    assert '\u2068MH\u2069' in text
     assert "۳۰ ثانیه" not in text
 
 
@@ -792,12 +794,13 @@ def test_easy_round_reuses_main_panel_and_replaces_reply_prompt():
     panel_text = handler._edit_request_panel.await_args.args[2]
     assert "راند 2 از 5" in panel_text
     assert "نتیجه راند 1" in panel_text
-    assert "بامزه‌ترین شخصیت کیست؟" in panel_text
+    assert "بامزه‌ترین شخصیت کیست؟" not in panel_text
     assert "\u2068Ali: 3\u2069" in panel_text
     assert "\u2068Alpha\u2069" in panel_text
     prompt = context.bot.send_message.await_args.kwargs
     assert prompt["reply_to_message_id"] == 77
-    assert "راند 2 شروع شد" in prompt["text"]
+    assert "🎯 راند 2\nبامزه‌ترین شخصیت کیست؟" in prompt["text"]
+    assert '۳۰ ثانیه' in prompt['text']
     assert prompt["reply_markup"].inline_keyboard[0][0].switch_inline_query_current_chat == (
         "easy request-1"
     )
@@ -848,7 +851,9 @@ def test_easy_final_result_edits_main_panel_and_deletes_prompt():
         bot=SimpleNamespace(delete_message=AsyncMock(), send_message=AsyncMock()),
     )
 
-    asyncio.run(handler._resolve_and_announce_easy(context, "request-1"))
+    with patch('bot.handlers.easy_victory.announce', new_callable=AsyncMock) as announce:
+        asyncio.run(handler._resolve_and_announce_easy(context, "request-1"))
+        announce.assert_awaited_once_with(handler, context, request, handler.modes.resolve_easy_round.return_value['report'])
 
     context.bot.delete_message.assert_awaited_once_with(
         chat_id=-100123, message_id=99
@@ -856,7 +861,9 @@ def test_easy_final_result_edits_main_panel_and_deletes_prompt():
     final_text = handler._edit_request_panel.await_args.args[2]
     assert "پایان Easy Mode" in final_text
     assert "Ali: 7" in final_text
-    assert "برنده: \u2068Ali\u2069" in final_text
+    assert "🥇 \u2068Ali: 7\u2069" in final_text
+    assert "🥈 \u2068Reza: 4\u2069" in final_text
+    assert "برنده:" not in final_text
     context.bot.send_message.assert_not_awaited()
 
 

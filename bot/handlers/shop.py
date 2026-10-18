@@ -9,6 +9,7 @@ import os
 import logging
 import random
 import uuid
+from bot.shop_access import private_shop
 from html import escape
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
@@ -41,6 +42,7 @@ from bot.utils import (check_user_started_bot, handle_user_not_started, ensure_t
 class ShopHandlersMixin:
     """Shop, Skins, Missions, Mining Handlers"""
 
+    @private_shop
     async def skins_menu_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """منوی اسکین‌های یک کارت"""
         query = update.callback_query
@@ -112,6 +114,7 @@ class ShopHandlersMixin:
                     return skin
         return None
 
+    @private_shop
     async def skin_buy_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """خرید اسکین"""
         query = update.callback_query
@@ -149,6 +152,7 @@ class ShopHandlersMixin:
         keyboard = [[InlineKeyboardButton("🔙 بازگشت", callback_data=f"skins_menu_{card_id}")]]
         await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
 
+    @private_shop
     async def skin_activate_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """فعال کردن اسکین"""
         query = update.callback_query
@@ -171,6 +175,7 @@ class ShopHandlersMixin:
         # بازگشت به منوی اسکین
         await self._show_skins_menu(query, card_id)
 
+    @private_shop
     async def skin_deactivate_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """غیرفعال کردن اسکین (بازگشت به پیش‌فرض)"""
         query = update.callback_query
@@ -187,6 +192,7 @@ class ShopHandlersMixin:
 
     # ==================== MISSION HANDLERS ====================
 
+    @private_shop
     async def mission_claim_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """دریافت پاداش ماموریت کارت"""
         query = update.callback_query
@@ -214,6 +220,7 @@ class ShopHandlersMixin:
 
     # ==================== MINING HANDLER ====================
 
+    @private_shop
     async def mining_claim_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """دریافت ماینینگ روزانه"""
         query = update.callback_query
@@ -278,6 +285,7 @@ class ShopHandlersMixin:
 
     # ==================== SHOP HANDLERS ====================
 
+    @private_shop
     async def shop_menu_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """منوی اصلی شاپ"""
         from systems.progression_config import enabled
@@ -324,6 +332,7 @@ class ShopHandlersMixin:
         ]
         await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
 
+    @private_shop
     async def shop_buy_heart_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """خرید +۱ قلب دائمی"""
         query = update.callback_query
@@ -352,6 +361,7 @@ class ShopHandlersMixin:
         ]
         await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
 
+    @private_shop
     async def shop_upgrade_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """خرید ارتقای کارت با سکه — انتخاب کارت"""
         query = update.callback_query
@@ -413,6 +423,7 @@ class ShopHandlersMixin:
 
         await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
 
+    @private_shop
     async def shop_confirm_upgrade_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """تأیید و اجرای ارتقای کارت با سکه"""
         query = update.callback_query
@@ -463,6 +474,7 @@ class ShopHandlersMixin:
         ]
         await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
 
+    @private_shop
     async def shop_convert_score_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """تبدیل امتیاز به سکه"""
         query = update.callback_query
@@ -499,6 +511,7 @@ class ShopHandlersMixin:
         ]
         await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
 
+    @private_shop
     async def shop_skins_list_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """لیست اسکین‌های قابل خرید در شاپ"""
         query = update.callback_query
@@ -520,7 +533,7 @@ class ShopHandlersMixin:
             text = (
                 f"🎨 **اسکین‌های شاپ**\n\n"
                 f"💰 موجودی: {coins:,} سکه\n\n"
-                f"هنوز هیچ اسکینی برای کارت‌های شما موجود نیست."
+                f"فعلاً اسکینی برای کارت‌هات آماده نیست؛ بعداً دوباره سر بزن."
             )
             keyboard = [[InlineKeyboardButton("🔙 شاپ", callback_data="shop_menu")]]
         else:
@@ -540,6 +553,7 @@ class ShopHandlersMixin:
 
         await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
 
+    @private_shop
     async def shop_do_convert_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """اجرای تبدیل امتیاز به سکه"""
         query = update.callback_query
