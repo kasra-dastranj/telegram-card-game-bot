@@ -44,6 +44,8 @@ class BasicHandlersMixin:
         """دستور شروع بازی - یکبار اجرا می‌شود"""
         user = update.effective_user
         chat_type = update.effective_chat.type
+        if chat_type == 'private':
+            getattr(context, 'user_data', {}).pop('easy_victory_draft', None)
         logger.info(f"start_command invoked by user_id={getattr(user,'id',None)} chat_type={chat_type}")
 
         try:
@@ -233,8 +235,13 @@ class BasicHandlersMixin:
 
     async def profile_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """نمایش پروفایل کاربر"""
+        query = getattr(update, 'callback_query', None)
+        if query:
+            await query.answer()
+        context.user_data.pop('easy_victory_draft', None)
+        context.user_data.pop('easy_victory_choices', None)
         if not self._is_command_allowed_in_chat("profile", update.effective_chat.type):
-            await update.message.reply_text(
+            await update.effective_message.reply_text(
                 "🚫 این دستور فقط در چت خصوصی قابل استفاده است.\n"
                 "📱 برای مشاهده پروفایل خود، از پیوی ربات استفاده کنید."
             )
@@ -270,10 +277,11 @@ class BasicHandlersMixin:
         tier_badge = format_tier_badge(tier)
         level_line = f"⭐ Level {level}\n" if v2 else f"⭐ Level {level}  {tier_badge} {tier}  •  {tp} TP\n"
         rank_text = f"#{rank}" if rank else "N/A"
+        from telegram.helpers import escape_markdown
         total_stats = stats.get('total', {'games_played': 0, 'wins': 0, 'losses': 0, 'ties': 0, 'win_rate': 0})
 
         text = (
-            f"👤 **{user.first_name}**\n\n"
+            f"👤 **{escape_markdown(user.first_name)}**\n\n"
             f"{level_line}"
             f"📈 XP: {xp_text}\n\n"
             f"💰 سکه: {getattr(player, 'coins', 0):,}\n"
@@ -291,9 +299,13 @@ class BasicHandlersMixin:
         keyboard = [
             [InlineKeyboardButton("🎴 کارت‌های من", callback_data="my_cards"),
              InlineKeyboardButton("🏆 لیدربرد", callback_data="leaderboard")],
+            [InlineKeyboardButton("🏆 شعار برد ایزی مود", callback_data="easy_victory_menu")],
             [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main")]
         ]
-        await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
+        if query:
+            await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
+        else:
+            await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
 
     async def start_game_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle inline 'شروع بازی' button by invoking the start command flow."""
@@ -1145,6 +1157,7 @@ class BasicHandlersMixin:
         """بازگشت به منوی اصلی"""
         query = update.callback_query
         await query.answer()
+        getattr(context, 'user_data', {}).pop('easy_victory_draft', None)
         
         # No expiration check needed for back_to_main as it should always work
         

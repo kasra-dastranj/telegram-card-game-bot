@@ -51,33 +51,36 @@ def sticker_bytes(raw):
     return stream.getvalue()
 
 
+async def send_card_sticker(bot, context, card, send_sticker):
+    """Deliver one explicit form; never fall back to another form's artwork."""
+    from bot.battle_visual_delivery import card_art, work
+    try:
+        cached = bot.db.get_card_variant_media_file_id(card.card_id, card.rarity.value, 'sticker')
+        if cached:
+            await send_sticker(cached)
+            return True
+    except Exception:
+        logger.warning('Card sticker cache delivery failed')
+    try:
+        raw = await card_art(bot, context, card)
+        if raw:
+            image = await work(context, sticker_bytes, raw)
+            sticker = BytesIO(image)
+            sticker.name = 'card-' + card.rarity.value + '.webp'
+            await send_sticker(sticker)
+            return True
+    except Exception:
+        logger.warning('Card sticker delivery failed')
+    return False
+
+
 async def send_upgrade_cards(bot, update, context, card_id, source, target):
     """Always resolve explicit transaction forms, even if another form is active."""
-    from bot.battle_visual_delivery import card_art, work
     from bot.deck_reports import isolate
     message = update.effective_message
     for rarity in (source, target):
         card = bot.db.get_card_by_id_for_rarity(card_id, rarity)
-        delivered = False
-        if card:
-            cached = bot.db.get_card_variant_media_file_id(card_id, rarity, 'sticker')
-            if cached:
-                try:
-                    await message.reply_sticker(cached)
-                    delivered = True
-                except Exception:
-                    logger.warning('Upgrade sticker cache delivery failed')
-            if not delivered:
-                try:
-                    raw = await card_art(bot, context, card)
-                    if raw:
-                        image = await work(context, sticker_bytes, raw)
-                        sticker = BytesIO(image)
-                        sticker.name = 'card-' + rarity + '.webp'
-                        await message.reply_sticker(sticker)
-                        delivered = True
-                except Exception:
-                    logger.warning('Upgrade sticker delivery failed')
+        delivered = await send_card_sticker(bot, context, card, message.reply_sticker) if card else False
         if not delivered:
             # Preserve sequence/context even when a form has no usable media.
             label = f'{card.name if card else card_id} ({rarity.title()})'

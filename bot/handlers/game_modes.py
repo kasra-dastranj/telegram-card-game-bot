@@ -1091,12 +1091,14 @@ class GameModeHandlersMixin:
 
     def _easy_lobby_text(self, request_id: str) -> str:
         state = self.modes.get_state(request_id) or {"players": [], "rounds": 1}
+        names = [bidi_isolate(self.db.get_or_create_player(uid).first_name) for uid in state['players']]
         return (
             f"🎉 Easy Mode — {state['rounds']} راند\n\n"
             f"بازیکنان آماده: {len(state['players'])}\n"
-            + ("کارت سفارشی مجاز است؛ پاداش عادی Easy برقرار است.\n" if state.get('allow_custom_cards') else "")
+            + ("، ".join(names) + "\n\n" if names else "")
+            + ("کارت‌های سفارشی هم می‌تونن بازی کنن.\n" if state.get('allow_custom_cards') else "")
             +
-            "برای ورود Ready را بزنید. بازی پس از ۳ دقیقه خودکار شروع می‌شود."
+            "برای ورود Ready رو بزن؛ بازی بعد از ۳ دقیقه خودکار شروع میشه."
         )
 
     @staticmethod
@@ -1131,7 +1133,7 @@ class GameModeHandlersMixin:
         request_id = query.data.removeprefix("gm_estart_")
         request = self.modes.get_request(request_id)
         if not request or request["creator_id"] != query.from_user.id:
-            await query.answer("فقط سازنده می‌تواند زودتر شروع کند.", show_alert=True)
+            await query.answer("فقط سازنده می‌تونه زودتر شروع کنه.", show_alert=True)
             return
         await query.answer()
         await self._begin_easy_match(context, request_id)
@@ -1151,7 +1153,7 @@ class GameModeHandlersMixin:
                     request,
                     "یکی از بازیکن‌ها در بازی دیگه‌ایه؛ این لابی بسته شد."
                     if reason == 'player_busy' else
-                    "⏳ زمان لابی تمام شد؛ برای شروع Easy Mode حداقل دو بازیکن لازم است.",
+                    "⏳ وقت لابی تموم شد؛ برای ایزی مود حداقل دو نفر لازمه.",
                 )
             return
         self._cancel_mode_job(context, f"gm-easy-lobby-{request_id}")
@@ -1171,7 +1173,7 @@ class GameModeHandlersMixin:
             f"🎉 Easy Mode — راند {state['current_round']} از {state['rounds']}",
             "",
             "📊 امتیازها",
-            *(score_lines or ["هنوز امتیازی ثبت نشده است."]),
+            *(score_lines or ["هنوز امتیازی ثبت نشده."]),
         ]
         if previous_round:
             lines.extend(["", f"🏁 نتیجه راند {previous_round['round']}"])
@@ -1183,16 +1185,7 @@ class GameModeHandlersMixin:
                     f"{bidi_isolate(item['card_name'])}"
                 )
             if not entries:
-                lines.append("هیچ انتخاب معتبری ثبت نشد.")
-        lines.extend(
-            [
-                "",
-                f"🎯 سؤال راند {state['current_round']}",
-                state["question"]["text"],
-                "",
-                "⏳ ۳۰ ثانیه برای انتخاب کارت",
-            ]
-        )
+                lines.append("این راند کسی کارت انتخاب نکرد.")
         return "\n".join(lines)
 
     @staticmethod
@@ -1233,7 +1226,8 @@ class GameModeHandlersMixin:
         )
         send_kwargs = {
             "chat_id": request["origin_chat_id"],
-            "text": f"🎯 راند {state['current_round']} شروع شد؛ سؤال را جواب بدهید.",
+            "text": (f"🎯 راند {state['current_round']}\n{state['question']['text']}"
+                     "\n\n⏳ ۳۰ ثانیه وقت داری؛ کارتت رو انتخاب کن!"),
             "reply_markup": markup,
         }
         if request.get("origin_message_id"):
@@ -1421,27 +1415,27 @@ class GameModeHandlersMixin:
         if result["completed"]:
             await self._delete_easy_round_prompt(context, request_id)
             report = result["report"]
+            from systems.progression_match_rewards import shared_ranks
+            ranks = shared_ranks(report['scores'])
+            medals = {1: '🥇', 2: '🥈', 3: '🥉'}
             score_lines = []
             for uid, score in sorted(report["scores"].items(), key=lambda pair: pair[1], reverse=True):
                 name = self.db.get_or_create_player(int(uid)).first_name
-                score_lines.append(bidi_isolate(f"{name}: {score}"))
-            winner_names = [
-                bidi_isolate(self.db.get_or_create_player(uid).first_name)
-                for uid in report["winner_ids"]
-            ]
+                score_lines.append(medals.get(ranks[uid], '•') + ' ' + bidi_isolate(f"{name}: {score}"))
             await self._edit_request_panel(
                 context,
                 request,
                 "🏆 پایان Easy Mode\n\n"
                 + "📊 نتیجه نهایی\n"
                 + "\n".join(score_lines)
-                + "\n\nبرنده: "
-                + ("، ".join(winner_names) if winner_names else "ندارد")
                 + ("\n\n🎁 پاداش نبرد\n" + "\n".join(
-                    f"{self.db.get_or_create_player(int(uid)).first_name}: +{reward['xp']} XP، +{reward['score']} Score"
+                    bidi_isolate(self.db.get_or_create_player(int(uid)).first_name) + ': '
+                    + bidi_isolate(f"+{reward['xp']} XP") + ' · ' + bidi_isolate(f"+{reward['score']} Score")
                     for uid, reward in report["rewards"].items()
-                ) if report.get("rewards") else "\n\nبرای پاداش، دست‌کم دو بازیکن باید کارت انتخاب کنند."),
+                ) if report.get("rewards") else "\n\nاین بازی پاداشی نداشت."),
             )
+            from bot.handlers.easy_victory import announce
+            await announce(self, context, request, report)
         else:
             await self._send_easy_question(
                 context,
