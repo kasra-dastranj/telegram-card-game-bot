@@ -71,10 +71,12 @@ def apply_in(conn,operation,user,source,event_type,version,*,payload=None,xp=0,s
     conn.execute("UPDATE player_progression SET total_xp=?,level=?,last_played_at=? WHERE user_id=?",(total_xp,new_level,(now or datetime.now(timezone.utc)).isoformat(),user))
     capacity=capacities_in(conn,user,config)
     level_coins=0
+    notices={}
     if not capacity["legacy"]:
         for level in range(int(old_level)+1,new_level+1):
             rule=config["level_rewards"].get(str(level),{})
             if conn.execute("INSERT OR IGNORE INTO level_component_awards VALUES(?,?,?)",(user,level,json.dumps(rule))).rowcount:
+                before_hearts=capacities_in(conn,user,config)['max_hearts']
                 amount=rule.get("coins",0)
                 if conn.execute("INSERT OR IGNORE INTO player_level_coin_awards(user_id,level,coins,awarded_at) VALUES(?,?,?,?)",(user,level,amount,(now or datetime.now(timezone.utc)).isoformat())).rowcount:
                     conn.execute("UPDATE players SET coins=coins+? WHERE user_id=?",(amount,user)); level_coins+=amount
@@ -82,8 +84,16 @@ def apply_in(conn,operation,user,source,event_type,version,*,payload=None,xp=0,s
                     amount=0
                 conn.execute("UPDATE progression_capacities SET level_slots=level_slots+?,level_hearts=level_hearts+? WHERE user_id=?",(rule.get("slots",0),rule.get("hearts",0),user))
                 items_in(conn,user,"free_silver_claim",rule.get("silver_claims",0))
+                notices[level]={'coins':amount,'slots':rule.get('slots',0),
+                                'silver_claims':rule.get('silver_claims',0),
+                                'hearts':capacities_in(conn,user,config)['max_hearts']-before_hearts}
                 record_in(conn,"level:"+str(level),user,"level","level_up",{},rule,version,coins=amount,inventory={"deck_slots":rule.get("slots",0),"free_silver_claim":rule.get("silver_claims",0),"max_hearts":rule.get("hearts",0)},now=now)
     capacity=capacities_in(conn,user,config)
+    if xp>0:
+        from systems.level_notices import queue_in
+        for level in range(int(old_level)+1,new_level+1):
+            queue_in(conn,user,level,notices.get(level,{}),
+                     [mode for mode,required in config['mode_levels'].items() if required==level])
     conn.execute("UPDATE players SET max_hearts=? WHERE user_id=?",(capacity["max_hearts"],user))
     result={"ok":True,"xp":xp,"score":score,"coins":coins,"hearts_lost":max(0,-hearts),"tp_delta":0,
             "old_level":int(old_level),"new_level":new_level,"level_coins":level_coins,**(extra or {})}

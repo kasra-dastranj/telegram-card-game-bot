@@ -702,6 +702,10 @@ class TelegramCardBot(
         except Exception as e:
             logger.error(f"Error in weekly_leaderboard_task: {e}", exc_info=True)
 
+    async def level_notifications_task(self, context: ContextTypes.DEFAULT_TYPE):
+        from bot.level_notifications import deliver
+        await deliver(self,context)
+
     async def progression_settlement_task(self, context: ContextTypes.DEFAULT_TYPE):
         from systems.progression_config import enabled, config_in
         if not enabled(self.db):
@@ -753,6 +757,8 @@ def schedule_maintenance_jobs(job_queue, bot):
     )
     if hasattr(bot, 'progression_settlement_task'):
         job_queue.run_repeating(bot.progression_settlement_task, interval=300, first=30, name='progression-settlement')
+    if hasattr(bot,'level_notifications_task'):
+        job_queue.run_repeating(bot.level_notifications_task,interval=15,first=15,name='level-notifications')
     job_queue.run_daily(
         bot.reset_lives_task,
         time=dt_time(hour=0, minute=5, tzinfo=MAINTENANCE_TIMEZONE),

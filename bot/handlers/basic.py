@@ -275,6 +275,7 @@ class BasicHandlersMixin:
             [InlineKeyboardButton("🎴 کارت‌های من", callback_data="my_cards"),
              InlineKeyboardButton("🏆 لیدربرد", callback_data="leaderboard")],
             [InlineKeyboardButton("🏆 شعار برد ایزی مود", callback_data="easy_victory_menu")],
+            [InlineKeyboardButton("🎯 مأموریت‌ها", callback_data="v2_missions")],
             [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main")]
         ]
         if query:
@@ -589,13 +590,7 @@ class BasicHandlersMixin:
             f"📈 Win Rate: {int(stats['win_rate'])}%\n\n"
             f"📝 <b>Biography:</b>\n{escape(card.biography or '')}"
         )
-        # ارسال تصویر
-        if card.origin == 'custom':
-            if card.image_path and query.message.chat_id == user_id:
-                with open(card.image_path, 'rb') as picture:
-                    await query.message.reply_photo(photo=picture)
-        else:
-            await send_card_image_safely(query.message, card.name, self.config)
+        await self._send_owned_card_sticker(query, context, card)
         keyboard = [
             [InlineKeyboardButton("🔙 بازگشت", callback_data="my_cards")]
         ]
@@ -1192,9 +1187,16 @@ class BasicHandlersMixin:
         await query.answer()
         
         card_id = query.data.removeprefix("cardinfo_")
-        await self._show_card_info(query, card_id)
+        await self._show_card_info(query, card_id, context)
 
-    async def _show_card_info(self, query, card_id: str):
+    async def _send_owned_card_sticker(self, query, context, card):
+        # Opening personal card information should never leak custom media into groups.
+        sender=getattr(query.message,'reply_sticker',None)
+        if query.message.chat_id==query.from_user.id and callable(sender):
+            from bot.card_reward_presentation import send_card_sticker
+            await send_card_sticker(self,context,card,sender)
+
+    async def _show_card_info(self, query, card_id: str, context=None):
         """Render a card without re-parsing or mutating the triggering callback."""
         user_id = query.from_user.id
         
@@ -1206,7 +1208,9 @@ class BasicHandlersMixin:
         if not card:
             await query.answer("❌ کارت یافت نشد!", show_alert=True)
             return
-        
+        if context is not None:
+            await self._send_owned_card_sticker(query,context,card)
+
         conn = sqlite3.connect(self.db.db_path)
         cursor = conn.cursor()
         cursor.execute('SELECT is_favorite, usage_count FROM player_cards WHERE user_id = ? AND card_id = ?', (user_id, card_id))

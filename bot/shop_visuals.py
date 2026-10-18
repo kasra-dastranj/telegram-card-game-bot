@@ -18,6 +18,11 @@ STATUSES = {'hearts_full': 'قلب‌هات پره', 'heart_cap': 'ظرفیتت 
 
 
 def product(item):
+    if str(item).startswith('ability:'):
+        from systems.game_mode_system import ABILITY_DEFINITIONS
+        definition = ABILITY_DEFINITIONS.get(item[8:])
+        if definition:
+            return ('🎴', definition['title'], 'یک بار مصرف؛ به موجودی ابیلیتی‌هات اضافه می‌شه.', '#ba8dfa')
     return PRODUCTS.get(item, ('🎨', 'اسکین کارت' if str(item).startswith('skin:') else str(item),
                                'ظاهر کارتت رو عوض کن.', '#8ad5c1'))
 

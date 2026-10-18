@@ -6,6 +6,7 @@ from systems.progression_economy import ProgressionEconomy
 from systems.player_rewards_system import PlayerRewardsSystem
 from core.display_text import isolate, ltr, ratio, signed
 from bot.player_messages import error_text
+from bot.shop_access import require_private
 
 LABELS={'upgrade_card':'کارت ارتقا','silver_ticket':'Silver Ticket','deck_slot':'ظرفیت دک','refill':'پرکردن قلب‌ها','permanent_heart':'قلب دائمی'}
 
@@ -19,6 +20,7 @@ def action_button(context,title,action):
 
 
 async def show_menu(bot,update,context,section='shop',page=0):
+    if not await require_private(update):return
     if section=='shop':
         from bot.shop_presentation import show_catalog
         return await show_catalog(bot,update,context)
@@ -38,14 +40,32 @@ async def show_menu(bot,update,context,section='shop',page=0):
         if navigation:keyboard.append(navigation)
     elif section=='missions':
         missions=PlayerRewardsSystem(bot.db).missions(user)
-        text='🎯 مأموریت‌ها\n'+('\n\n'.join(isolate(item['name'])+': '+ratio(item['current_progress'],item['target'])+'\n⭐ '+signed(item.get('xp_reward',0),'XP')+' · 💰 '+isolate(item.get('coin_reward',0))+' سکه' for item in missions[:20]) or 'فعلاً مأموریتی نداری؛ بعداً دوباره سر بزن.')
-        for item in missions[:20]:
+        missions.sort(key=lambda item:(bool(item['reward_claimed']),not bool(item['can_claim'])))
+        page=max(0,min(page,max(0,(len(missions)-1)//5)))
+        selected=missions[page*5:(page+1)*5]
+        blocks=[]
+        for item in selected:
+            status='✅ پاداش رو گرفتی' if item['reward_claimed'] else '🎁 آمادهٔ دریافت' if item['can_claim'] else '⏳ در حال انجام'
+            filled=min(5,int(5*item['current_progress']/max(1,item['target'])))
+            block=isolate(str(item['name'])[:100])+'\n'+status+' · '+ratio(item['current_progress'],item['target'])+'\n'+'▰'*filled+'▱'*(5-filled)
+            if item.get('description'):block+='\n'+isolate(str(item['description'])[:220])
+            if 'xp_reward' in item or 'coin_reward' in item:
+                block+='\n⭐ '+signed(item.get('xp_reward',0),'XP')+' · 💰 '+isolate(item.get('coin_reward',0))+' سکه'
+            blocks.append(block)
+        text='🎯 مأموریت‌هات\nپیش برو و پاداش هر مأموریت رو همین‌جا بگیر.\n\n'+('\n\n'.join(blocks) or 'فعلاً مأموریتی نداری؛ بعداً دوباره سر بزن.')
+        for item in selected:
             if item['can_claim']:keyboard.append([action_button(context,'دریافت '+item['name'],{'kind':'mission','mission_id':item['mission_id']})])
+        navigation=[]
+        if page:navigation.append(Button('قبلی',callback_data='v2_missions_'+str(page-1)))
+        if (page+1)*5<len(missions):navigation.append(Button('بعدی',callback_data='v2_missions_'+str(page+1)))
+        if navigation:keyboard.append(navigation)
+        keyboard.append([Button('👤 پروفایل',callback_data='easy_profile')])
     keyboard.append([Button('🔙 منوی اصلی',callback_data='back_to_main')])
     await update.callback_query.edit_message_text(text,reply_markup=InlineKeyboardMarkup(keyboard))
 
 
 async def handle(bot,update,context):
+    if not await require_private(update):return
     query=update.callback_query
     await query.answer()
     if not enabled(bot.db):
@@ -54,11 +74,15 @@ async def handle(bot,update,context):
     if data=='v2_shop':return await show_menu(bot,update,context)
     if data.startswith('v2_cards_'):return await show_menu(bot,update,context,'cards',int(data[9:]))
     if data=='v2_missions':return await show_menu(bot,update,context,'missions')
+    if data.startswith('v2_missions_'):return await show_menu(bot,update,context,'missions',int(data[12:]))
+    if data=='v2_abilities':
+        from bot.shop_presentation import show_abilities
+        return await show_abilities(bot,update,context)
     if data.startswith('v2_quote_'):
         quote=economy.quote(user,data[9:])
         if quote.get('ok'):
             from bot.shop_presentation import show_quote
-            return await show_quote(bot,update,context,quote)
+            return await show_quote(bot,update,context,quote,back_callback='v2_abilities' if quote['item'].startswith('ability:') else 'v2_shop')
         from bot.shop_presentation import show_purchase
         return await show_purchase(bot,update,context,quote)
     elif data.startswith('v2_buy_'):
@@ -113,9 +137,13 @@ async def handle(bot,update,context):
         else:result={'ok':False,'error':'عملیات نامعتبر'}
     else:return
     if result.get('ok'):
+        if kind=='sell' and not result.get('replayed'):
+            try:await update.effective_message.reply_text('💰')
+            except Exception:pass  # Cosmetic delivery must never retry a committed sale.
         text='✅ فروخته شد!' if kind=='sell' else '🎁 پاداش مأموریتت رو گرفتی!' if kind=='mission' else '✅ انجام شد.'
         if result.get('card_id'):
             card=bot.db.get_card_by_id(result['card_id']);text+='\n'+isolate(card.name)
         text+='\n⭐ '+signed(result.get('xp',0),'XP')+' · 💰 '+isolate(result.get('coins',0))+' سکه'
     else:text='⚠️ انجام نشد: '+error_text(result)
-    await query.edit_message_text(text,reply_markup=InlineKeyboardMarkup([[Button('🔙 فروشگاه',callback_data='v2_shop')]]))
+    back=('🔙 مأموریت‌ها','v2_missions') if kind=='mission' else ('🔙 کارت‌ها','v2_cards_0')
+    await query.edit_message_text(text,reply_markup=InlineKeyboardMarkup([[Button(back[0],callback_data=back[1])]]))

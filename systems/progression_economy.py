@@ -81,6 +81,16 @@ class ProgressionEconomy:
                     'daily_ticket_percent':config['claim']['daily_ticket_percent'], 'silver_claim_tickets':config['claim']['silver_tickets']}
         return self.run(action)
 
+    def ability_catalog(self, user):
+        def action(conn, version, config):
+            row=conn.execute('SELECT coins FROM players WHERE user_id=?',(user,)).fetchone()
+            if not row:raise ValueError('player_not_found')
+            counts=dict(conn.execute('SELECT ability_key,quantity FROM player_ability_inventory WHERE user_id=?',(user,)))
+            return {'ok':True,'coins':row[0],'products':[
+                {'key':key,'quantity':counts.get(key,0),**rule}
+                for key,rule in config['ability_shop'].items()]}
+        return self.run(action)
+
     def shop_catalog(self, user):
         """Presentation snapshot using the actual pricing/eligibility functions.
 
@@ -292,6 +302,11 @@ class ProgressionEconomy:
 
     @staticmethod
     def price_in(conn,user,item,config):
+        if item.startswith('ability:'):
+            rule=config['ability_shop'].get(item[8:])
+            if not rule or not rule['enabled']:raise ValueError('item_unavailable')
+            if rule['price']>2**62:raise ValueError('price_limit')
+            return rule['price'],0,'lifetime'
         if item.startswith('skin:'):
             row=conn.execute('SELECT price FROM skins WHERE skin_id=?',(item[5:],)).fetchone()
             if not row or type(row[0]) is not int or row[0]<0:raise ValueError('invalid_skin_price')
@@ -317,6 +332,9 @@ class ProgressionEconomy:
 
     @staticmethod
     def shop_eligible(conn,user,item,config):
+        if item.startswith('ability:'):
+            ProgressionEconomy.price_in(conn,user,item,config)
+            return
         if item.startswith('skin:'):
             skin_id=item[5:]
             row=conn.execute('SELECT card_id,is_seasonal,season_end FROM skins WHERE skin_id=?',(skin_id,)).fetchone()
@@ -352,7 +370,9 @@ class ProgressionEconomy:
             if quoted_version!=version or (price,count,window)!=self.price_in(conn,user,item,config):raise ValueError('price_changed')
             self.shop_eligible(conn,user,item,config)
             inventory={item:1};heart_delta=0
-            if item in ('upgrade_card','silver_ticket'):items_in(conn,user,item,1)
+            if item.startswith('ability:'):
+                conn.execute('INSERT INTO player_ability_inventory VALUES(?,?,1) ON CONFLICT(user_id,ability_key) DO UPDATE SET quantity=quantity+1',(user,item[8:]))
+            elif item in ('upgrade_card','silver_ticket'):items_in(conn,user,item,1)
             elif item=='deck_slot':conn.execute('UPDATE progression_capacities SET purchased_slots=purchased_slots+1 WHERE user_id=?',(user,))
             elif item=='permanent_heart':
                 conn.execute('UPDATE progression_capacities SET purchased_hearts=purchased_hearts+1 WHERE user_id=?',(user,));heart_delta=1

@@ -16,6 +16,7 @@ def test_maintenance_jobs_do_not_run_daily_or_weekly_tasks_on_startup():
     assert job_queue.run_repeating.call_args_list == [
         call(bot.cleanup_task, interval=3600, first=10, name="hourly-cleanup"),
         call(bot.progression_settlement_task, interval=300, first=30, name="progression-settlement"),
+        call(bot.level_notifications_task, interval=15, first=15, name="level-notifications"),
     ]
 
     daily_calls = job_queue.run_daily.call_args_list
