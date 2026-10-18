@@ -94,6 +94,8 @@ async def send_snapshot(bot,context,chat,snapshot):
             await context.bot.send_sticker(chat_id=chat,sticker=snapshot['sticker_file_id'])
             return True
     except Exception:pass
+    if not snapshot.get('card_id'):
+        return False  # A standalone NPC must never borrow an unrelated catalog image.
     from bot.card_reward_presentation import send_card_sticker
     card=Card(snapshot.get('card_id') or 'attack-npc',snapshot['name'],CardRarity(snapshot['rarity']),
               *(snapshot['stats'][s] for s in STATS),[],image_path=snapshot.get('image_path',''),card_type=snapshot['card_type'])

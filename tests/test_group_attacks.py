@@ -497,3 +497,16 @@ def test_disabling_v2_cannot_spend_or_reset_reserved_rare(scene):
     assert not RareCardsSystem(db).issue_rare_card(2,'limited')['success']
     assert not RareCardsSystem(db).create_rare_card('limited','Changed',1,1,1,1,[])
     assert scalar(db,"SELECT total_issued FROM rare_cards_info WHERE card_id='limited'")==0
+
+
+def test_standalone_npc_failed_media_does_not_borrow_a_catalog_sticker():
+    import asyncio
+    from types import SimpleNamespace as NS
+    from unittest.mock import AsyncMock,Mock
+    from bot.group_attacks import send_snapshot
+    lookup=Mock(side_effect=AssertionError('unrelated catalog lookup'))
+    bot=NS(db=NS(get_card_variant_media_file_id=lookup))
+    context=NS(bot=NS(send_sticker=AsyncMock(side_effect=RuntimeError('unavailable'))))
+    snapshot=example()['enemies'][0];snapshot['sticker_file_id']='failed-sticker'
+    assert not asyncio.run(send_snapshot(bot,context,1,snapshot))
+    lookup.assert_not_called()
