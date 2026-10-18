@@ -33,6 +33,7 @@ def records(conn,prefix):
 def defaults():
     return {'revision':0,'enabled':True,'gap_minutes':180,'start_hour':9,'end_hour':24,
             'user_daily_limit':4,'choice_seconds':60,
+            'test_schedule':{'chat_id':0,'until':''},
             'frequency':[{'min_active':4,'max_events':2},{'min_active':12,'max_events':4}],
             'attacks':[]}
 
@@ -87,6 +88,17 @@ def validate(conn,value):
     if not isinstance(value,dict) or set(value)!=set(defaults()):raise ValueError('ساختار تنظیمات حمله نامعتبره.')
     integer(value['revision'],0,2**31,'نسخه')
     if type(value['enabled']) is not bool:raise ValueError('فعال‌بودن باید بله/خیر باشه.')
+    test=value['test_schedule']
+    if not isinstance(test,dict) or set(test)!={'chat_id','until'}:raise ValueError('تنظیم گروه تست نامعتبره.')
+    integer(test['chat_id'],-(2**52),0,'شناسهٔ گروه تست؛ صفر یعنی خاموش')
+    if test['chat_id']==0:
+        if test['until']!='':raise ValueError('برای خاموش‌کردن تست، زمان پایان را هم خالی کن.')
+    else:
+        try:
+            until=datetime.fromisoformat(test['until'])
+            if until.tzinfo is None or until.utcoffset() is None:raise ValueError()
+            if (until-datetime.now(timezone.utc)).total_seconds()>24*3600:raise ValueError()
+        except (TypeError,ValueError):raise ValueError('پایان تست باید زمان دارای منطقهٔ زمانی و حداکثر ۲۴ ساعت بعد باشد.') from None
     for field,low,high in [('gap_minutes',30,1440),('start_hour',0,23),('end_hour',1,24),('user_daily_limit',1,10),('choice_seconds',30,120)]:
         integer(value[field],low,high,field)
     if value['start_hour']>=value['end_hour']:raise ValueError('بازهٔ ساعت باید در یک روز و رو به جلو باشه.')
@@ -140,7 +152,10 @@ def validate(conn,value):
 
 
 def catalog_in(conn):
-    return read(conn,'catalog',defaults())
+    value=read(conn,'catalog',defaults())
+    # Catalogs written before test scheduling remain valid without a migration.
+    value.setdefault('test_schedule',{'chat_id':0,'until':''})
+    return value
 
 
 class CatalogConflict(ValueError):pass

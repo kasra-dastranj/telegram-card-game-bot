@@ -21,6 +21,11 @@ def now_utc():return datetime.now(timezone.utc)
 def date(value):return datetime.fromisoformat(value).astimezone(timezone.utc)
 
 
+def test_chat(settings,chat,now):
+    schedule=settings.get('test_schedule',{})
+    return bool(schedule.get('chat_id')==chat and schedule.get('until') and now<date(schedule['until']))
+
+
 def active_player_in(conn,user):
     if not conn.execute("SELECT 1 FROM sqlite_master WHERE name='foundation_settings'").fetchone():return False
     lock=read(conn,'player:'+str(user))
@@ -126,7 +131,7 @@ class GroupAttacks:
         write(conn,'event:'+event['id'],event)
         write(conn,'notice:'+event['id'],True)
 
-    def _finish(self,conn,event,outcome):
+    def _finish(self,conn,event,outcome,now=None):
         if event['status']!='open':return
         progress_key='progress:'+str(event['chat_id'])+':'+event['attack']['id']
         progress=read(conn,progress_key,{'wins':0,'dead':False})
@@ -136,7 +141,7 @@ class GroupAttacks:
             killed=bool(event['attack']['death_after'] and progress['wins']>=event['attack']['death_after'])
             progress['dead']=killed
             write(conn,progress_key,progress)
-        event.update(status=outcome,killed=killed,progress=progress,receipts={})
+        event.update(status=outcome,killed=killed,progress=progress,receipts={},finished_at=(now or now_utc()).isoformat())
         for slot in event['slots']:
             if slot['status'] in ('open','playing'):slot.update(status='cancelled',reason='team_'+outcome)
         for user in event['participants']:
@@ -157,30 +162,35 @@ class GroupAttacks:
                 self._save(conn,event)
         wins=sum(s['status']=='win' for s in event['slots']);losses=sum(s['status']=='loss' for s in event['slots']);size=len(event['slots'])
         complete=all(s['status'] in ('win','loss','tie') for s in event['slots'])
-        if losses>size//2:self._finish(conn,event,'loss')
-        elif complete:self._finish(conn,event,'win' if wins>losses else 'loss' if losses>wins else 'tie')
-        elif date(event['deadline'])<=now:self._finish(conn,event,'void')
+        if losses>size//2:self._finish(conn,event,'loss',now)
+        elif complete:self._finish(conn,event,'win' if wins>losses else 'loss' if losses>wins else 'tie',now)
+        elif date(event['deadline'])<=now:self._finish(conn,event,'void',now)
 
     def _spawn(self,conn,chat,users,settings,now):
         if read(conn,'open:'+str(chat)):return None
         _,config=config_in(conn);day=period_bounds(config,'daily',now)[2]
+        testing=test_chat(settings,chat,now)
         local=now.astimezone(ZoneInfo(config['timezone']))
-        if not settings['start_hour']<=local.hour<settings['end_hour']:return None
+        if not testing and not settings['start_hour']<=local.hour<settings['end_hour']:return None
         quota=max((r['max_events'] for r in settings['frequency'] if len(users)>=r['min_active']),default=0)
         previous=read(conn,'group:'+str(chat),{})
-        if previous.get('day')==day:
+        if testing:
+            prior=read(conn,'event:'+previous.get('last',''),{})
+            closed=prior.get('finished_at') or previous.get('at')
+            if closed and date(closed)+timedelta(seconds=60)>now:return None
+        elif previous.get('day')==day:
             if previous.get('count',0)>=quota:return None
             prior=read(conn,'event:'+previous.get('last',''),{})
             if prior and not prior.get('participants'):return None  # No repeated unattended attacks today.
-        if previous.get('at') and date(previous['at'])+timedelta(minutes=settings['gap_minutes'])>now:return None
+        if not testing and previous.get('at') and date(previous['at'])+timedelta(minutes=settings['gap_minutes'])>now:return None
         candidates=[]
         for attack in settings['attacks']:
-            if not attack['enabled'] or len(users)<attack['min_active'] or attack['max_active'] and len(users)>attack['max_active']:continue
+            if not attack['enabled']:continue
+            if not testing and (len(users)<attack['min_active'] or attack['max_active'] and len(users)>attack['max_active']):continue
             if read(conn,'progress:'+str(chat)+':'+attack['id'],{}).get('dead'):continue
+            if attack['id']==previous.get('attack'):continue
             candidates.append(attack)
-        if not quota or not candidates:return None
-        other=[a for a in candidates if a['id']!=previous.get('attack')]
-        candidates=other or candidates
+        if (not testing and not quota) or not candidates:return None
         attack=copy.deepcopy(random.choices(candidates,weights=[a['weight'] for a in candidates],k=1)[0])
         for enemy in attack['enemies']:
             if enemy['card_id']:
@@ -220,7 +230,7 @@ class GroupAttacks:
                 event=read(conn,'event:'+event_id)
                 if event:
                     interrupted=heartbeat and (now-date(heartbeat)).total_seconds()>max(120,event['settings']['choice_seconds']*2)
-                    if interrupted and any(s['status']=='playing' for s in event['slots']):self._finish(conn,event,'void')
+                    if interrupted and any(s['status']=='playing' for s in event['slots']):self._finish(conn,event,'void',now)
                     else:self._advance(conn,event,now)
             write(conn,'heartbeat',now.isoformat())
             settings=catalog_in(conn)
@@ -241,6 +251,10 @@ class GroupAttacks:
                         users=set(read(conn,activity_key,[]));users.add(user);write(conn,activity_key,sorted(users))
                 write(conn,'activity_warmed',day)
             groups=records(conn,'activity:'+day+':')
+            test_group=settings['test_schedule']['chat_id']
+            testing=test_chat(settings,test_group,now)
+            test_key='activity:'+day+':'+str(test_group)
+            if testing and not any(key==test_key for key,_ in groups):groups.append((test_key,[]))
             if read(conn,'cleanup_day')!=day:
                 cutoff=(now-timedelta(days=7)).date().isoformat()
                 for prefix in ('activity:','limit:'):
@@ -248,11 +262,11 @@ class GroupAttacks:
                         if key.split(':')[1]<cutoff:remove(conn,key)
                 write(conn,'cleanup_day',day)
             cursor=read(conn,'scheduler_cursor','')
-            groups=sorted(groups,key=lambda pair:(pair[0]<=cursor,pair[0]))[:64]
+            groups=sorted(groups,key=lambda pair:(not (testing and pair[0]==test_key),pair[0]<=cursor,pair[0]))[:64]
             ready_notices=sum(value is True or date(value['next_attempt'])<=now for _,value in records(conn,'notice:'))
             spawn_budget=max(0,4-ready_notices)
             for key,users in groups:
-                if len(users)>=4 and spawn_budget:
+                if (len(users)>=4 or testing and key==test_key) and spawn_budget:
                     conn.execute('SAVEPOINT attack_spawn')
                     try:
                         event=self._spawn(conn,int(key.rsplit(':',1)[1]),users,settings,now)

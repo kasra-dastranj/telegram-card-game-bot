@@ -8,7 +8,7 @@ import pytest
 
 from core.database import DatabaseManager
 from core.models import Card,CardRarity
-from systems.attack_catalog import defaults,example,read,write,catalog_in,save_in,records,CatalogConflict
+from systems.attack_catalog import defaults,example,read,write,remove,catalog_in,save_in,records,CatalogConflict
 from systems.group_attacks import GroupAttacks,now_utc,active_player_in
 from systems.card_inventory_system import CardInventorySystem
 from systems.game_mode_system import GameModeSystem
@@ -160,17 +160,24 @@ def test_rare_supply_reserved_and_granted_once(scene):
     assert CardInventorySystem(db).counts(1,'limited')=={'rare':1}
 
 
-def test_three_group_wins_retire_only_that_groups_enemy(scene):
-    db,engine=scene;event=setup(scene,mutate=lambda c,a:a.update(death_after=3))
-    for count in range(3):
+def test_three_group_wins_retire_only_that_groups_enemy(scene,monkeypatch):
+    def attacks(config,attack):
+        attack['death_after']=3
+        config['user_daily_limit']=10
+        other=copy.deepcopy(attack);other.update(id='other',death_after=0)
+        config['attacks'].append(other)
+    monkeypatch.setattr('systems.group_attacks.random.choices',lambda candidates,**kwargs:[candidates[0]])
+    db,engine=scene;event=setup(scene,mutate=attacks)
+    for count in range(5):
         result=play(engine,event,0,1)
-        if count<2:
+        if count<4:
             with sqlite3.connect(db.db_path) as conn:
+                for key,_ in records(conn,'notice:'):remove(conn,key)
                 prior=read(conn,'group:-100');prior['at']=(now_utc()-timedelta(hours=4)).isoformat();prior['count']=0;write(conn,'group:-100',prior)
             engine.tick();
             with sqlite3.connect(db.db_path) as conn:event=engine.get(read(conn,'open:-100'))
     assert result['killed'] and result['progress']['wins']==3
-    assert scalar(db,'SELECT coins FROM players WHERE user_id=1')==1110
+    assert scalar(db,'SELECT coins FROM players WHERE user_id=1')==1150
     with sqlite3.connect(db.db_path) as conn:
         assert read(conn,'progress:-100:test')['dead']
         assert not read(conn,'progress:-200:test',{}).get('dead')

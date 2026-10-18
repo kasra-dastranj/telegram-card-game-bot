@@ -467,6 +467,8 @@ class TelegramCardBot(
         """تنظیم هندلرهای ربات"""
         # دستورات اصلی
         app.add_handler(CommandHandler("start", self.start_command))
+        from bot.group_attacks import chat_id_command
+        app.add_handler(CommandHandler("chatid", chat_id_command))
         app.add_handler(CommandHandler("help", self.help_command))
         app.add_handler(CommandHandler("profile", self.profile_command))
         app.add_handler(CommandHandler("cards", self.cards_command))

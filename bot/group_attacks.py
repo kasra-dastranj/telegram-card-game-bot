@@ -32,6 +32,15 @@ ERRORS={'attack_closed':'این حمله تموم شده؛ منتظر حملهٔ
 def engine(bot):return GroupAttacks(bot.db,bot.modes)
 
 
+async def chat_id_command(update,context):
+    chat=update.effective_chat
+    if not chat or not update.effective_message:return
+    if chat.type not in ('group','supergroup'):
+        await update.effective_message.reply_text('دستور /chatid رو داخل همون گروه بفرست.')
+        return
+    await update.effective_message.reply_text('شناسهٔ این گروه:\n'+isolate(chat.id))
+
+
 def reward_text(reward):
     parts=[]
     if reward['coins']:parts.append('💰 '+isolate(reward['coins'])+' سکه')
