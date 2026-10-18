@@ -339,3 +339,25 @@ def test_deck_ground_is_sent_privately_once_before_shared_choice_panel(ui):
     assert [item['chat_id'] for kind, item in events if kind == 'photo'] == [1, 2]
     handler._send_round_card_selection_panel.assert_awaited_once()
     assert handler.db.get_battle_deck_state(key)['arena'] == 'stage'
+
+
+def test_deck_result_uses_recorded_total_instead_of_round_wins(monkeypatch):
+    from bot import battle_visual_delivery as delivery
+    renderer = Mock(return_value=b'rendered')
+    monkeypatch.setattr(visual, 'render_result', renderer)
+    monkeypatch.setattr(delivery, 'match_background', AsyncMock(return_value=b'background'))
+    handler = SimpleNamespace(
+        db=SimpleNamespace(get_battle_deck_state=lambda key: {}),
+        _battle_arena_snapshot=lambda key: {'arena_id': 'stage', 'name_fa': 'صحنه'},
+        _fight_arena_mode=lambda key: 'deck',
+        _battle_player_name=lambda uid, fallback: str(uid))
+    context = SimpleNamespace(bot_data={}, bot=SimpleNamespace(send_photo=AsyncMock()))
+    fight = SimpleNamespace(challenger_id=1, opponent_id=2)
+    report = {'players': [1, 2], 'names': {'1': 'MH', '2': 'Ka'}, 'rounds': [],
+              'totals': {'1': {'base': 5, 'bonus': 0, 'total': 5},
+                         '2': {'base': 10, 'bonus': 2, 'total': 12}}}
+    assert asyncio.run(delivery.deck_picture(handler, context, 'test', fight, (None, None),
+                                            (1, 2), 2, report, {'1': {}, '2': {}})) == b'rendered'
+    players = renderer.call_args.args[0]['players']
+    assert [item['score'] for item in players] == [5, 12]
+    assert [item['equation'] for item in players] == ['5 + 0 = 5', '10 + 2 = 12']

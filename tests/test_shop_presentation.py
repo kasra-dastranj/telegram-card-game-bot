@@ -129,7 +129,7 @@ def test_confirmation_failure_does_not_spend_and_keeps_shop_navigation(shop,prob
     callback = buy_button(update,events)
     if problem=='expired':
         with sqlite3.connect(bot.db.db_path) as conn:
-            conn.execute('UPDATE shop_quotes SET expires_at=?',(datetime.now(timezone.utc)-timedelta(minutes=6),))
+            conn.execute('UPDATE shop_quotes SET expires_at=?',((datetime.now(timezone.utc)-timedelta(minutes=6)).isoformat(),))
     elif problem=='config_changed':
         configure(bot,lambda config:config['shop']['silver_ticket'].update(price=101))
     elif problem=='insufficient':

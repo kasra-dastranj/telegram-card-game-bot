@@ -216,6 +216,7 @@ async def deck_picture(handler, context, fight_id, fight, cards, scores, winner_
                             'cards': items, 'score': score, 'reward': awards[str(uid)]})
             total = (report or {}).get('totals', {}).get(str(uid))
             if total:
+                players[-1]['score'] = total['total']
                 players[-1]['equation'] = f"{total['base']} + {total['bonus']} = {total['total']}"
         from bot.deck_reports import winner_lines
         model = {'mode': 'deck' if mode == 'deck' else 'three_round', 'arena_name': arena.get('name_fa', ''),
