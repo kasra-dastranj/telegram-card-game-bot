@@ -536,7 +536,16 @@ class ArenaRegistry:
     def _background_for(self, arena_id: str, version: int, platform: str) -> Optional[Dict[str, Any]]:
         conn = self._connect()
         try:
-            row = conn.execute("SELECT * FROM arena_media WHERE arena_id=? AND version=? AND platform=? AND media_kind='background' AND readiness_status='ready' ORDER BY created_at DESC, media_id DESC LIMIT 1", (arena_id, version, platform)).fetchone()
+            # The panel uploads one shared bitmap under the miniapp media kind,
+            # including for Telegram-only arenas. Keep explicit Telegram media
+            # preferred, otherwise reuse that exact version's ready upload.
+            platforms = (platform, 'miniapp') if platform == 'telegram' else (platform,)
+            placeholders = ','.join('?' for _ in platforms)
+            row = conn.execute(f"""SELECT * FROM arena_media
+                WHERE arena_id=? AND version=? AND platform IN ({placeholders})
+                  AND media_kind='background' AND readiness_status='ready'
+                ORDER BY (platform=?) DESC, created_at DESC, media_id DESC LIMIT 1""",
+                (arena_id, version, *platforms, platform)).fetchone()
             return dict(row) if row else None
         finally: conn.close()
 

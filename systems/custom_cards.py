@@ -190,9 +190,15 @@ class CustomCards:
             users=self.users_in(conn,data.get('users'))
             order=conn.execute("SELECT recipients_json FROM custom_orders WHERE order_id=? AND card_id=? AND payment_status IN ('verified','admin_managed')",(data.get('order_id'),card)).fetchone()
             if definition[1]!='active' or not order or any(user not in json.loads(order[0]) for user in users):raise ValueError('verified_recipient_order_required')
+            notification_users=[]
+            from systems.custom_card_notices import queue_in
             for user in users:
+                previous=conn.execute('SELECT active FROM custom_grants WHERE card_id=? AND user_id=?',(card,user)).fetchone()
                 conn.execute('INSERT INTO custom_grants VALUES(?,?,1,?,?,?) ON CONFLICT(card_id,user_id) DO UPDATE SET active=1,order_id=excluded.order_id,actor=excluded.actor,updated_at=excluded.updated_at',(card,user,data['order_id'],actor,now()))
-            return {'card_id':card,'users':users}
+                if not previous or not previous[0]:
+                    queue_in(conn,user,card)
+                    notification_users.append(user)
+            return {'card_id':card,'users':users,'notification_users':notification_users}
         if action=='revoke':
             users=self.users_in(conn,data.get('users'))
             for user in users:conn.execute('UPDATE custom_grants SET active=0,actor=?,updated_at=? WHERE card_id=? AND user_id=?',(actor,now(),card,user))
@@ -246,6 +252,7 @@ class CustomCards:
         if action=='fulfill':
             card_id=self._action(conn,actor,'create',{'order_id':order,'card':data['card'],'media_id':data['media_id']},validator)['card_id']
             self._action(conn,actor,'status',{'card_id':card_id,'status':'active','review_confirmed':True},validator)
-        self._action(conn,actor,'grant',{'card_id':card_id,'order_id':order,'users':users},validator)
+        granted=self._action(conn,actor,'grant',{'card_id':card_id,'order_id':order,'users':users},validator)
         return {'card_id':card_id,'status':'active','users':users,'fulfillment':'admin_managed',
+                'notification_users':granted['notification_users'],
                 'updated_at':conn.execute('SELECT updated_at FROM custom_definitions WHERE card_id=?',(card_id,)).fetchone()[0]}
