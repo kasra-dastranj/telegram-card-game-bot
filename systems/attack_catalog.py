@@ -8,6 +8,11 @@ from datetime import datetime, timezone
 
 STATS=('power','speed','iq','popularity')
 PREFIX='group-attacks:'
+NUMBER_LABELS={'gap_minutes':'فاصلهٔ حمله‌ها به دقیقه','start_hour':'ساعت شروع','end_hour':'ساعت پایان',
+               'user_daily_limit':'سقف ورود روزانهٔ هر حساب','choice_seconds':'مهلت انتخاب به ثانیه',
+               'weight':'وزن انتخاب تصادفی','min_active':'حداقل بازیکنان فعال امروز گروه',
+               'max_active':'حداکثر بازیکنان فعال امروز گروه','duration_minutes':'مدت حمله به دقیقه',
+               'death_after':'تعداد برد برای خروج دائمی دشمن'}
 
 
 def read(conn,key,default=None):
@@ -54,7 +59,8 @@ def example():
 
 
 def integer(value,low,high,label):
-    if type(value) is not int or not low<=value<=high:raise ValueError('عدد نامعتبر: '+label)
+    if type(value) is not int or not low<=value<=high:
+        raise ValueError(f'{label} باید عدد صحیح بین {low} و {high} باشد.')
 
 
 def text(value,limit,label,empty=False):
@@ -100,13 +106,13 @@ def validate(conn,value):
             if (until-datetime.now(timezone.utc)).total_seconds()>24*3600:raise ValueError()
         except (TypeError,ValueError):raise ValueError('پایان تست باید زمان دارای منطقهٔ زمانی و حداکثر ۲۴ ساعت بعد باشد.') from None
     for field,low,high in [('gap_minutes',30,1440),('start_hour',0,23),('end_hour',1,24),('user_daily_limit',1,10),('choice_seconds',30,120)]:
-        integer(value[field],low,high,field)
+        integer(value[field],low,high,NUMBER_LABELS[field])
     if value['start_hour']>=value['end_hour']:raise ValueError('بازهٔ ساعت باید در یک روز و رو به جلو باشه.')
     if not isinstance(value['frequency'],list) or not 1<=len(value['frequency'])<=5:raise ValueError('بازه‌های فعالیت نامعتبرند.')
     last=3
     for tier in value['frequency']:
         if not isinstance(tier,dict) or set(tier)!={'min_active','max_events'}:raise ValueError('بازهٔ فعالیت نامعتبره.')
-        integer(tier['min_active'],4,10000,'حداقل فعالان');integer(tier['max_events'],1,8,'تعداد حمله')
+        integer(tier['min_active'],4,10000,'حداقل بازیکنان فعال امروز گروه در بازهٔ فعالیت');integer(tier['max_events'],1,8,'تعداد حمله')
         if tier['min_active']<=last:raise ValueError('بازه‌های فعالیت باید صعودی باشند.')
         last=tier['min_active']
     if not isinstance(value['attacks'],list) or len(value['attacks'])>100:raise ValueError('حداکثر صد نوع حمله مجازه.')
@@ -118,7 +124,7 @@ def validate(conn,value):
         ids.add(attack['id']);text(attack['title'],100,'عنوان')
         if type(attack['enabled']) is not bool:raise ValueError('وضعیت حمله نامعتبره.')
         for field,low,high in [('weight',1,100),('min_active',4,10000),('max_active',0,10000),('duration_minutes',5,480),('death_after',0,100)]:
-            integer(attack[field],low,high,field)
+            integer(attack[field],low,high,f'حملهٔ «{attack["title"]}»: {NUMBER_LABELS[field]}')
         if attack['max_active'] and attack['max_active']<attack['min_active']:raise ValueError('سقف فعالیت از حداقل کمتره.')
         enemies=attack['enemies']
         if not isinstance(enemies,list) or not 1<=len(enemies)<=8:raise ValueError('حمله باید یک تا هشت دشمن داشته باشه.')
