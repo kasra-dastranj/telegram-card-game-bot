@@ -12,6 +12,8 @@ import sqlite3
 from html import escape
 from datetime import datetime, timedelta
 from core.display_text import isolate, ltr, ratio, signed, markdown_name
+from systems.card_collection import (collection_cards, collection_page, custom_collection,
+                                     custom_owned_card, custom_gameplay_notice)
 from typing import Optional, List, Dict, Any
 
 import telegram
@@ -298,7 +300,7 @@ class BasicHandlersMixin:
     async def cards_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """نمایش کارت‌های کاربر از طریق دستور با pagination"""
         # بررسی مجوز دستور
-        if not self._is_command_allowed_in_chat("cards", update.effective_chat.type):
+        if update.effective_chat.type != 'private' or not self._is_command_allowed_in_chat("cards", update.effective_chat.type):
             await update.message.reply_text(
                 "این دستور رو توی پیوی ربات بزن.\n"
                 "کارت‌هات رو همون‌جا می‌بینی."
@@ -313,7 +315,7 @@ class BasicHandlersMixin:
             return
         
         user_id = update.effective_user.id
-        cards = self.db.get_player_cards(user_id)
+        cards = collection_cards(self.db, user_id)
         
         if not cards:
             text = "🎴 هنوز کارتی نداری؛ برای کارت‌های اولیه /start بزن یا کارت روزانه‌ت رو با /claim بگیر."
@@ -327,7 +329,7 @@ class BasicHandlersMixin:
     
     async def mycards_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """نمایش کارت‌ها با امکان مدیریت"""
-        if not self._is_command_allowed_in_chat("mycards", update.effective_chat.type):
+        if update.effective_chat.type != 'private' or not self._is_command_allowed_in_chat("mycards", update.effective_chat.type):
             await update.message.reply_text("این دستور رو توی پیوی ربات بزن.")
             return
         
@@ -372,30 +374,22 @@ class BasicHandlersMixin:
                     callback_data=f"mycards_normal_1"
                 )
             ])
-            if rarity_counts.get(CardRarity.RARE.value, 0):
-                keyboard.append([InlineKeyboardButton(
-                    f"🌟 Rare ({rarity_counts[CardRarity.RARE.value]})", callback_data="mycards_rare_1"
-                )])
+            keyboard.append([InlineKeyboardButton(
+                f"🌟 Rare ({rarity_counts.get(CardRarity.RARE.value, 0)})", callback_data="mycards_rare_1"
+            )])
+            keyboard.append([InlineKeyboardButton(
+                f"🎨 شخصی‌سازی‌شده ({len(custom_collection(self.db, user_id))})", callback_data="mycards_custom_1"
+            )])
             keyboard.append([InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main")])
             
         else:
             # نمایش کارت‌های یک دسته
-            if category == "favorite":
-                cards, total_count = self.db.get_favorite_cards(user_id, page=page, per_page=6)
-            else:
-                rarity_map = {
-                    "legend": CardRarity.LEGEND,
-                    "epic": CardRarity.EPIC,
-                    "normal": CardRarity.NORMAL,
-                    "rare": CardRarity.RARE,
-                }
-                rarity = rarity_map.get(category)
-                cards, total_count = self.db.get_player_cards_by_rarity(user_id, rarity=rarity, page=page, per_page=6)
+            cards, total_count = collection_page(self.db, user_id, category, page)
             
             rarity_colors = {
                 CardRarity.NORMAL: "🟢",
                 CardRarity.EPIC: "🟣",
-                CardRarity.LEGEND: "🟡"
+                CardRarity.LEGEND: "🟡", CardRarity.RARE: "🌟"
             }
             
             for card in cards:
@@ -508,7 +502,10 @@ class BasicHandlersMixin:
         await query.answer()
         
         user_id = query.from_user.id
-        cards = self.db.get_player_cards(user_id)
+        if query.message.chat_id != user_id:
+            await query.message.reply_text('کارت‌هات رو توی پیوی ربات ببین؛ /cards بزن.')
+            return
+        cards = collection_cards(self.db, user_id)
         
         if not cards:
             text = (
@@ -566,9 +563,12 @@ class BasicHandlersMixin:
 
     async def card_view_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
-        await query.answer()
         card_id = query.data.removeprefix("card_view_")
         user_id = query.from_user.id
+        if card_id.startswith('cc-'):
+            await self._show_card_info(query, card_id, context, answer=True)
+            return
+        await query.answer()
         card = self.db.get_card_by_id_for_player(card_id, user_id)
         if card and card.origin=="custom" and query.message.chat_id!=user_id:card.image_path=""
         if not card:
@@ -1139,12 +1139,15 @@ class BasicHandlersMixin:
         try:
             category, raw_page = payload.rsplit("_", 1)
             page = max(1, int(raw_page))
-            if category not in {"menu", "favorite", "normal", "epic", "legend", "rare"}:
+            if category not in {"menu", "favorite", "normal", "epic", "legend", "rare", "custom"}:
                 raise ValueError("invalid_category")
         except ValueError:
             await query.message.reply_text("❌ دسته کارت نامعتبر است؛ دوباره کارت‌های من را باز کن.")
             return
         user_id = query.from_user.id
+        if query.message.chat_id != user_id:
+            await query.message.reply_text('کارت‌هات رو توی پیوی ربات ببین؛ /cards بزن.')
+            return
         
         if category == "menu":
             text = "📋 **مدیریت کارت‌های من**\n\nیه دسته رو انتخاب کن:"
@@ -1155,26 +1158,19 @@ class BasicHandlersMixin:
                 "epic": "🟣 Epic",
                 "normal": "🟢 Normal",
                 "rare": "🌟 Rare",
+                "custom": "🎨 شخصی‌سازی‌شده",
             }
             category_name = category_names.get(category, category)
             
-            if category == "favorite":
-                cards, total_count = self.db.get_favorite_cards(user_id, page=page, per_page=6)
-            else:
-                rarity_map = {
-                    "legend": CardRarity.LEGEND,
-                    "epic": CardRarity.EPIC,
-                    "normal": CardRarity.NORMAL,
-                    "rare": CardRarity.RARE,
-                }
-                rarity = rarity_map.get(category)
-                cards, total_count = self.db.get_player_cards_by_rarity(user_id, rarity=rarity, page=page, per_page=6)
+            cards, total_count = collection_page(self.db, user_id, category, page)
             
             total_pages = max(1, (total_count + 5) // 6)
             page = min(page, total_pages)
             text = f"📋 **{category_name}** (صفحه {page}/{total_pages})\n\nروی کارت کلیک کنید تا جزئیات آن را ببینید:"
             if not total_count:
                 text = f"📋 **{category_name}**\n\nهنوز کارتی در این دسته نداری."
+            if category == 'custom':
+                text += '\n\n' + custom_gameplay_notice(self.db)
         
         keyboard = self._create_mycards_keyboard(user_id, category=category, page=page)
         try:
@@ -1186,30 +1182,48 @@ class BasicHandlersMixin:
     async def cardinfo_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """نمایش اطلاعات کارت با امکان favorite"""
         query = update.callback_query
-        await query.answer()
-        
         card_id = query.data.removeprefix("cardinfo_")
-        await self._show_card_info(query, card_id, context)
+        await self._show_card_info(query, card_id, context, answer=True)
 
     async def _send_owned_card_sticker(self, query, context, card):
         # Opening personal card information should never leak custom media into groups.
         sender=getattr(query.message,'reply_sticker',None)
         if query.message.chat_id==query.from_user.id and callable(sender):
+            if card.origin == 'custom':
+                # Only the current private upload; never use public/name caches.
+                owned = custom_owned_card(self.db, query.from_user.id, card.card_id)
+                if not owned or not owned.image_path:
+                    return
+                from io import BytesIO
+                from bot.battle_visual_delivery import work, read_bitmap
+                from bot.card_reward_presentation import sticker_bytes
+                try:
+                    raw = await work(context, read_bitmap, owned.image_path)
+                    sticker = BytesIO(await work(context, sticker_bytes, raw))
+                    sticker.name = 'custom-card.webp'
+                    await sender(sticker)
+                except Exception:
+                    logger.warning('Private collection artwork unavailable')
+                return
             from bot.card_reward_presentation import send_card_sticker
             await send_card_sticker(self,context,card,sender)
 
-    async def _show_card_info(self, query, card_id: str, context=None):
+    async def _show_card_info(self, query, card_id: str, context=None, answer=False):
         """Render a card without re-parsing or mutating the triggering callback."""
         user_id = query.from_user.id
         
         # با rarity_override بازیکن
         owned_card=self.db.get_card_by_id_for_player(card_id,user_id)
+        if not owned_card and query.message.chat_id == user_id:
+            owned_card = custom_owned_card(self.db, user_id, card_id)
         card=owned_card or self.db.get_card_by_id(card_id)
         if card and card.origin=="custom" and not owned_card:card=None
-        if card and card.origin=="custom" and query.message.chat_id!=user_id:card.image_path=""
+        if card and card.origin=="custom" and query.message.chat_id!=user_id:card=None
         if not card:
             await query.answer("❌ کارت یافت نشد!", show_alert=True)
             return
+        if answer:
+            await query.answer()
         if context is not None:
             await self._send_owned_card_sticker(query,context,card)
 
@@ -1256,12 +1270,26 @@ class BasicHandlersMixin:
         
         fav_text = "💔 حذف از علاقه‌مندی‌ها" if is_favorite else "⭐ افزودن به علاقه‌مندی‌ها"
         
-        keyboard = [
+        keyboard = [] if card.origin == 'custom' else [
             [InlineKeyboardButton(fav_text, callback_data=f"toggle_fav_{card_id}")],
         ]
+        if card.origin == 'custom':
+            from systems.easy_questions import CORE_STATS, HIDDEN_STATS, catalog_in
+            with sqlite3.connect(self.db.db_path) as metadata_conn:
+                row = metadata_conn.execute('SELECT traits,hidden_stats FROM card_mode_metadata WHERE card_id=?', (card_id,)).fetchone()
+                labels = {**CORE_STATS, **HIDDEN_STATS, **catalog_in(metadata_conn)['stats']}
+            if row:
+                traits, hidden = json.loads(row[0]), json.loads(row[1])
+                if traits:
+                    text += '\n\n🧬 تریت‌ها: ' + '، '.join(isolate(escape(str(t))) for t in traits)
+                if hidden:
+                    text += '\n\n📊 ویژگی‌های Easy\n' + '\n'.join(
+                        isolate(escape(str(labels.get(key, key)))) + ': ' + isolate(value)
+                        for key, value in hidden.items())
+            text += '\n\n' + escape(custom_gameplay_notice(self.db))
         
         # اگه کارت Epic هست، ماموریت رو نشون بده
-        if card.rarity == CardRarity.EPIC:
+        if card.rarity == CardRarity.EPIC and card.origin == 'official':
             from systems.progression_config import enabled
             mission_progress = None if enabled(self.db) else self.missions.get_player_mission_progress(user_id, card_id)
             if mission_progress:
@@ -1281,7 +1309,7 @@ class BasicHandlersMixin:
         if all_skins:
             keyboard.append([InlineKeyboardButton("🎨 اسکین‌ها", callback_data=f"skins_menu_{card_id}")])
         
-        keyboard.append([InlineKeyboardButton("🔙 بازگشت", callback_data="mycards_menu_1")])
+        keyboard.append([InlineKeyboardButton("🔙 بازگشت", callback_data="mycards_custom_1" if card.origin == 'custom' else "mycards_menu_1")])
         
         try:
             await query.edit_message_text(text=text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')

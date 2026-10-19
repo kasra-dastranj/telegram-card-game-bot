@@ -21,6 +21,7 @@ from telegram import (
     Update,
 )
 from telegram.ext import ContextTypes
+from telegram.error import BadRequest
 
 from bot.utils import get_victory_dialog, get_self_invite_message, handle_active_match
 from core.models import FightStatus
@@ -1048,7 +1049,6 @@ class GameModeHandlersMixin:
     @handle_active_match
     async def easy_round_count_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
-        await query.answer()
         if query.message.chat.type not in ("group", "supergroup"):
             await query.answer("Easy Mode فقط در گروه است.", show_alert=True)
             return
@@ -1057,24 +1057,43 @@ class GameModeHandlersMixin:
             await query.answer(reason, show_alert=True)
             return
         parts=query.data.removeprefix("gm_erounds_").split("_")
+        if not parts[0].isdigit() or int(parts[0]) not in (1, 3, 5, 10) or len(parts)>2:
+            await query.answer('این انتخاب قدیمیه؛ منوی Easy رو دوباره باز کن.', show_alert=True)
+            return
         rounds=int(parts[0])
         from systems.shared_foundation import settings_in
         import sqlite3
         with sqlite3.connect(self.db.db_path) as flags_conn:flags=settings_in(flags_conn)
+        custom_available = all(flags[key] for key in ('custom_cards_enabled', 'easy_custom_cards_enabled', 'progression_v2_enabled'))
+        choice_markup = InlineKeyboardMarkup([[
+            InlineKeyboardButton("خیر", callback_data=f"gm_erounds_{rounds}_no"),
+            InlineKeyboardButton("بله" if custom_available else "بله · فعلاً غیرفعال", callback_data=f"gm_erounds_{rounds}_yes")]])
+        unavailable_text = ('ورود کارت‌های شخصی‌سازی‌شده به Easy از تنظیمات مدیریت فعال نشده.\n'
+                            'ادمین بازی می‌تونه از پنل کارت‌های سفارشی، بخش «دسترسی کارت‌های سفارشی در بازی» فعالش کنه.\n'
+                            'برای شروع با کارت‌های عادی، «خیر» رو بزن.')
         if len(parts)==1:
-            await query.edit_message_text("کارت‌های شخصی‌سازی‌شده هم بتونن وارد این بازی بشن؟",reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("خیر",callback_data=f"gm_erounds_{rounds}_no"),InlineKeyboardButton("بله",callback_data=f"gm_erounds_{rounds}_yes")]]))
+            await query.answer()
+            await query.edit_message_text("کارت‌های شخصی‌سازی‌شده هم بتونن وارد این بازی بشن؟" +
+                ('\n\n' + unavailable_text if not custom_available else ''), reply_markup=choice_markup)
             return
         allow_custom=len(parts)==2 and parts[1]=="yes"
         if len(parts) != 2 or parts[1] not in ('yes', 'no'):
+            await query.answer('این انتخاب معتبر نیست؛ منوی Easy رو دوباره باز کن.', show_alert=True)
             return
-        if allow_custom and not (flags['custom_cards_enabled'] and flags['easy_custom_cards_enabled'] and flags['progression_v2_enabled']):
+        if allow_custom and not custom_available:
             await query.answer('ورود کارت سفارشی هنوز از تنظیمات مدیریت فعال نشده؛ فعلاً «خیر» رو بزن.', show_alert=True)
+            try:
+                await query.edit_message_text(unavailable_text, reply_markup=choice_markup)
+            except BadRequest as exc:
+                if 'message is not modified' not in str(exc).lower():
+                    raise
             return
         try:
             request = self.modes.create_easy_lobby(query.from_user.id, query.message.chat_id, rounds,allow_custom_cards=allow_custom)
         except ValueError:
             await query.answer('این تنظیم فعلاً مجاز نیست؛ منوی Easy را دوباره باز کن.', show_alert=True)
             return
+        await query.answer()
         await query.edit_message_text(
             self._easy_lobby_text(request["request_id"]),
             reply_markup=self._easy_lobby_markup(request["request_id"]),
