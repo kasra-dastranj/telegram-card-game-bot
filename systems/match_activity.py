@@ -40,6 +40,8 @@ def deadline_passed(value, *, now=None):
 
 
 def active_in(conn: sqlite3.Connection, user_id: int, *, exclude_request=None, exclude_fight=None) -> bool:
+    from systems.group_attacks import active_player_in
+    if active_player_in(conn,user_id):return True
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     local_now = datetime.now()  # Legacy fight/solo/risk timestamps are local-naive.
     for fight in _rows(conn, 'active_fights',

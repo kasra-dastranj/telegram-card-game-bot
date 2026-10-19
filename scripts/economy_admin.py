@@ -66,6 +66,9 @@ def main():
             supply=int(supply)
             old=conn.execute("SELECT r.limited_quantity,r.total_issued FROM rare_cards_info r JOIN cards c USING(card_id) WHERE r.card_id=? AND c.origin='official' AND c.rarity='rare'",(card,)).fetchone()
             if not old or supply<old[1] or supply<0:raise ValueError('invalid_rare_supply')
+            from systems.attack_rewards import rare_available_in
+            reserved=old[0]-old[1]-rare_available_in(conn,card)
+            if supply<old[1]+reserved:raise ValueError('rare_supply_reserved_by_attacks')
             conn.execute('UPDATE rare_cards_info SET limited_quantity=? WHERE card_id=?',(supply,card))
             audit=('rare_supply',{'card_id':card,'before':old[0],'after':supply,'issued':old[1]})
             save_config_in(conn,config_in(conn)[1],args.actor)

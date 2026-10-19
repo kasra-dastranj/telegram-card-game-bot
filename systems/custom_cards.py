@@ -119,6 +119,8 @@ class CustomCards:
 
     def _action(self,conn,actor,action,data,validator):
         if not isinstance(data,dict):raise ValueError('invalid_payload')
+        if action in ('fulfill','revise','deliver_existing','approve'):
+            return self._admin_fulfillment(conn,actor,action,data,validator)
         if action=='settings':
             allowed={'custom_cards_enabled','quick_friendly_enabled','easy_custom_cards_enabled','custom_card_orders_enabled','custom_admin_contact','balance_approved'}
             if set(data)-allowed:raise ValueError('invalid_custom_settings')
@@ -180,12 +182,13 @@ class CustomCards:
             status=data.get('status')
             if status not in ('draft','pending_review','active','suspended'):raise ValueError('invalid_status')
             if status=='active':
-                if data.get('review_confirmed') is not True or not conn.execute("SELECT 1 FROM custom_orders WHERE order_id=? AND payment_status='verified'",(definition[0],)).fetchone():raise ValueError('review_and_payment_required')
-            conn.execute('UPDATE custom_definitions SET status=?,actor=?,updated_at=? WHERE card_id=?',(status,actor,now(),card))
-            return {'card_id':card,'status':status}
+                if data.get('review_confirmed') is not True or not conn.execute("SELECT 1 FROM custom_orders WHERE order_id=? AND payment_status IN ('verified','admin_managed')",(definition[0],)).fetchone():raise ValueError('review_and_payment_required')
+            updated=now()
+            conn.execute('UPDATE custom_definitions SET status=?,actor=?,updated_at=? WHERE card_id=?',(status,actor,updated,card))
+            return {'card_id':card,'status':status,'updated_at':updated}
         if action=='grant':
             users=self.users_in(conn,data.get('users'))
-            order=conn.execute("SELECT recipients_json FROM custom_orders WHERE order_id=? AND card_id=? AND payment_status='verified'",(data.get('order_id'),card)).fetchone()
+            order=conn.execute("SELECT recipients_json FROM custom_orders WHERE order_id=? AND card_id=? AND payment_status IN ('verified','admin_managed')",(data.get('order_id'),card)).fetchone()
             if definition[1]!='active' or not order or any(user not in json.loads(order[0]) for user in users):raise ValueError('verified_recipient_order_required')
             for user in users:
                 conn.execute('INSERT INTO custom_grants VALUES(?,?,1,?,?,?) ON CONFLICT(card_id,user_id) DO UPDATE SET active=1,order_id=excluded.order_id,actor=excluded.actor,updated_at=excluded.updated_at',(card,user,data['order_id'],actor,now()))
@@ -196,7 +199,53 @@ class CustomCards:
             return {'card_id':card,'users':users,'active':False}
         if action=='remove_image':
             # Logical removal is immediate; physical cleanup only after retention review.
-            conn.execute('UPDATE custom_definitions SET media_id=NULL,status=\'suspended\',updated_at=? WHERE card_id=?',(now(),card))
+            updated=now()
+            conn.execute('UPDATE custom_definitions SET media_id=NULL,status=\'suspended\',updated_at=? WHERE card_id=?',(updated,card))
             if definition[2]:conn.execute('UPDATE custom_media SET removed=1 WHERE media_id=?',(definition[2],))
-            return {'card_id':card,'image_removed':True}
+            return {'card_id':card,'image_removed':True,'updated_at':updated}
         raise ValueError('invalid_custom_action')
+
+    def _admin_fulfillment(self,conn,actor,action,data,validator):
+        """One audited transaction for an admin's externally arranged fulfillment.
+
+        No payment is processed or claimed to be verified. Internal order links
+        retain compatibility with existing grants; their amount/currency are empty.
+        """
+        expected={'fulfill':{'card','users','media_id','review_confirmed'},
+                  'revise':{'card_id','card','media_id','expected_updated_at','review_confirmed'},
+                  'approve':{'card_id','expected_updated_at','review_confirmed'},
+                  'deliver_existing':{'card_id','users','review_confirmed'}}[action]
+        if set(data)!=expected:raise ValueError('invalid_fulfillment')
+        if data['review_confirmed'] is not True:raise ValueError('review_required')
+        if action in ('revise','approve'):
+            row=conn.execute('SELECT order_id,updated_at,status FROM custom_definitions WHERE card_id=?',(data['card_id'],)).fetchone()
+            if not row:raise ValueError('custom_card_not_found')
+            if row[1]!=data['expected_updated_at']:raise ValueError('definition_changed_reload')
+            if action=='approve':
+                conn.execute("UPDATE custom_orders SET payment_status='admin_managed' WHERE order_id=? AND payment_status='payment_pending'",(row[0],))
+                result={}
+            else:
+                result=self._action(conn,actor,'edit',{'order_id':row[0],'card_id':data['card_id'],
+                                                      'card':data['card'],'media_id':data['media_id']},validator)
+            if action=='approve' or row[2]=='active':
+                result=self._action(conn,actor,'status',{'card_id':data['card_id'],'status':'active','review_confirmed':True},validator)
+            # Existing suspended/draft cards are never silently activated by editing.
+            return {**result,'updated_at':conn.execute('SELECT updated_at FROM custom_definitions WHERE card_id=?',(data['card_id'],)).fetchone()[0]}
+        users=self.users_in(conn,data['users'])
+        if len(users)>50:raise ValueError('too_many_recipients')
+        if action=='deliver_existing':
+            row=conn.execute("SELECT c.rarity FROM custom_definitions d JOIN cards c USING(card_id) WHERE d.card_id=? AND d.status='active'",(data['card_id'],)).fetchone()
+            if not row:raise ValueError('active_custom_card_required')
+            rarity=row[0];card_id=data['card_id']
+        else:
+            if not isinstance(data['card'],dict) or data['card'].get('rarity') not in ('normal','epic','legend'):raise ValueError('invalid_custom_rarity')
+            rarity=data['card']['rarity'];card_id=None
+        order=uuid.uuid4().hex
+        conn.execute("INSERT INTO custom_orders(order_id,buyer_id,rarity,recipients_json,amount,currency,notes,payment_status,card_id,actor,created_at) VALUES(?,?,?,?,?,?,?,'admin_managed',?,?,?)",
+                     (order,users[0],rarity,json.dumps(users),'','','تحویل دستی ادمین؛ هماهنگی خارج از پنل',card_id,actor,now()))
+        if action=='fulfill':
+            card_id=self._action(conn,actor,'create',{'order_id':order,'card':data['card'],'media_id':data['media_id']},validator)['card_id']
+            self._action(conn,actor,'status',{'card_id':card_id,'status':'active','review_confirmed':True},validator)
+        self._action(conn,actor,'grant',{'card_id':card_id,'order_id':order,'users':users},validator)
+        return {'card_id':card_id,'status':'active','users':users,'fulfillment':'admin_managed',
+                'updated_at':conn.execute('SELECT updated_at FROM custom_definitions WHERE card_id=?',(card_id,)).fetchone()[0]}

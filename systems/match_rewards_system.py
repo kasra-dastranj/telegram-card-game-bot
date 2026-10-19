@@ -72,7 +72,10 @@ class MatchRewardsSystem:
         require_settlement_mode(context, mode)
         if context.policy_version == "future_v2":
             from systems.progression_match_rewards import award_in
-            return award_in(conn, request_id, mode, context, awards)
+            result=award_in(conn, request_id, mode, context, awards)
+            from systems.group_attacks import record_activity_in
+            record_activity_in(conn,request_id,mode,awards)
+            return result
         if context.variant != "competitive" or context.policy_version != "legacy_v1":
             raise ValueError("future_policy_not_live")
         conn.execute("""
@@ -176,4 +179,6 @@ class MatchRewardsSystem:
                             (target, target, target, now, user_id, card_id),
                         )
             result[str(user_id)] = {"xp": xp, "score": score}
+        from systems.group_attacks import record_activity_in
+        record_activity_in(conn,request_id,mode,awards)
         return result

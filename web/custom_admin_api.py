@@ -40,7 +40,7 @@ def register_custom_admin(api):
     @api.app.route('/api/custom/<action>',methods=['POST'])
     @auth
     def custom_action(actor,action):
-        if action not in ('order','payment','create','edit','status','grant','revoke','remove_image','settings'):return jsonify(error='unknown_action'),404
+        if action not in ('order','payment','create','edit','status','grant','revoke','remove_image','settings','fulfill','revise','deliver_existing','approve'):return jsonify(error='unknown_action'),404
         body=request.get_json(silent=True) or {}
         return jsonify(service.mutate(actor,body.get('request_key'),action,body.get('data'),api._validate_card_payload))
 
@@ -51,10 +51,29 @@ def register_custom_admin(api):
             conn.row_factory=sqlite3.Row
             orders=[dict(row) for row in conn.execute('SELECT * FROM custom_orders ORDER BY created_at DESC LIMIT 100')]
             cards=[dict(row) for row in conn.execute('SELECT * FROM custom_definitions ORDER BY created_at DESC LIMIT 100')]
-            grants=[dict(row) for row in conn.execute('SELECT * FROM custom_grants ORDER BY updated_at DESC LIMIT 500')]
+            grants=[dict(row) for row in conn.execute('SELECT g.*,p.username,p.first_name FROM custom_grants g JOIN players p USING(user_id) ORDER BY g.updated_at DESC LIMIT 500')]
+            from systems.shared_foundation import settings_in
+            from systems.easy_questions import catalog_in
+            flags=settings_in(conn)
+            stats=catalog_in(conn)['stats']
         # Comparisons are informational; no invented paid-card balance algorithm.
         references=[{'name':card.name,'rarity':card.rarity.value,'power':card.power,'speed':card.speed,'iq':card.iq,'popularity':card.popularity} for card in api.db.get_all_cards() if card.origin=='official']
-        return jsonify(orders=orders,cards=cards,grants=grants,official_references=references)
+        return jsonify(orders=orders,cards=cards,grants=grants,official_references=references,settings=flags,
+                       options={'stats':stats,'traits':api.trait_registry.list_traits(),
+                                'arenas':[item['arena_id'] for item in api.arena_registry.list_arenas(False)
+                                          if api.arena_registry.arena_exists_for_mode(item['arena_id'],'quick',include_draft=True)]})
+
+    @api.app.route('/api/custom/players')
+    @auth
+    def custom_players(actor):
+        api._arena_rate_limit('custom_players',60)
+        query=request.args.get('q','').strip().lstrip('@')
+        if not query or len(query)>100 or len(query)<2 and not query.isdecimal():return jsonify(players=[])
+        if query.isdecimal():query=str(int(query))
+        escaped=query.replace('\\','\\\\').replace('%','\\%').replace('_','\\_')
+        with closing(sqlite3.connect(api.db.db_path)) as conn:
+            rows=conn.execute("SELECT user_id,username,first_name FROM players WHERE CAST(user_id AS TEXT)=? OR username LIKE ? ESCAPE '\\' OR first_name LIKE ? ESCAPE '\\' ORDER BY user_id LIMIT 20",(query,'%'+escaped+'%','%'+escaped+'%')).fetchall()
+        return jsonify(players=[{'user_id':r[0],'username':r[1],'first_name':r[2]} for r in rows])
 
     @api.app.route('/api/custom/media',methods=['POST'])
     @auth

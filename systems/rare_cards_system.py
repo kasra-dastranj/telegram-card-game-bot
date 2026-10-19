@@ -6,6 +6,7 @@
 """
 
 import sqlite3
+from contextlib import closing
 import logging
 from typing import List, Dict, Optional
 from datetime import datetime
@@ -65,9 +66,13 @@ class RareCardsSystem:
         Returns:
             موفقیت
         """
+        with closing(sqlite3.connect(self.db.db_path)) as reservation_conn:
+            if reservation_conn.execute("SELECT 1 FROM sqlite_master WHERE name='foundation_settings'").fetchone():
+                from systems.attack_catalog import records
+                if any(value.get(card_id,0) for _,value in records(reservation_conn,'reserve:')):return False
         from systems.progression_config import enabled
         if enabled(self.db):
-            with sqlite3.connect(self.db.db_path) as conn:
+            with closing(sqlite3.connect(self.db.db_path)) as conn:
                 if conn.execute('SELECT 1 FROM rare_cards_info WHERE card_id=?',(card_id,)).fetchone():
                     return False  # Existing supply/serials must never be reset by re-creation.
         card = Card(
@@ -170,6 +175,12 @@ class RareCardsSystem:
         if enabled(self.db):
             from systems.progression_rare import issue
             return issue(self.db, user_id, card_id, source, request_key)
+        # Disabling v2 must not spend an already promised encounter reward.
+        with closing(sqlite3.connect(self.db.db_path)) as reservation_conn:
+            if reservation_conn.execute("SELECT 1 FROM sqlite_master WHERE name='foundation_settings'").fetchone():
+                from systems.attack_catalog import records
+                if any(value.get(card_id,0) for _,value in records(reservation_conn,'reserve:')):
+                    return {'success':False,'error':'این کارت برای پاداش حملهٔ جاری رزرو شده.'}
         # بررسی موجودی
         if not self.can_issue_rare_card(card_id):
             return {
