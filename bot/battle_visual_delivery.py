@@ -5,7 +5,7 @@ from functools import lru_cache
 from io import BytesIO
 import logging
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 
 from PIL import Image
@@ -59,9 +59,20 @@ def choose_background(arena):
     prefix = '/miniapp-assets/arena-backgrounds/'
     if url.startswith(prefix):
         filename = url[len(prefix):]
+        relative = PurePosixPath(filename)
         root = Path(os.environ.get('MINIAPP_ARENA_MEDIA_DIR', ROOT / 'media/arena-backgrounds')).resolve()
-        candidate = (root / filename).resolve()
-        if (filename == Path(filename).name and root in candidate.parents
+        # Uploads are <arena_id>/v<version>-<digest>.webp; seeded assets
+        # use a flat filename. Accept only these local layouts, never URLs,
+        # traversal, other arenas' folders or symlinks outside the media root.
+        if (not relative.is_absolute() and str(relative) == filename
+                and len(relative.parts) in (1, 2)
+                and all(part not in ('.', '..') and re.fullmatch(r'[a-zA-Z0-9_-][a-zA-Z0-9_.-]*', part)
+                        for part in relative.parts)
+                and (len(relative.parts) == 1 or relative.parts[0] == arena_id)):
+            candidate = root.joinpath(*relative.parts).resolve()
+        else:
+            candidate = None
+        if (candidate is not None and root in candidate.parents
                 and candidate.suffix.lower() in ('.webp', '.png', '.jpg', '.jpeg')):
             try:
                 return read_bitmap(candidate)
