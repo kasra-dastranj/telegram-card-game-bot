@@ -712,6 +712,10 @@ class TelegramCardBot(
         from bot.level_notifications import deliver
         await deliver(self,context)
 
+    async def custom_card_notifications_task(self, context: ContextTypes.DEFAULT_TYPE):
+        from bot.custom_card_notifications import deliver
+        await deliver(self,context)
+
     async def group_attacks_task(self, context: ContextTypes.DEFAULT_TYPE):
         from bot.group_attacks import maintenance
         await maintenance(self,context)
@@ -769,6 +773,8 @@ def schedule_maintenance_jobs(job_queue, bot):
         job_queue.run_repeating(bot.progression_settlement_task, interval=300, first=30, name='progression-settlement')
     if hasattr(bot,'level_notifications_task'):
         job_queue.run_repeating(bot.level_notifications_task,interval=15,first=15,name='level-notifications')
+    if hasattr(bot,'custom_card_notifications_task'):
+        job_queue.run_repeating(bot.custom_card_notifications_task,interval=15,first=15,name='custom-card-notifications')
     if hasattr(bot,'group_attacks_task'):
         job_queue.run_repeating(bot.group_attacks_task,interval=30,first=45,name='group-attacks')
     job_queue.run_daily(

@@ -56,7 +56,7 @@ def test_fulfill_creates_one_active_definition_without_wallet_or_setting_changes
     with sqlite3.connect(custom[0].db_path) as conn:
         assert conn.execute('SELECT * FROM players').fetchall()==wallet
         assert conn.execute('SELECT * FROM player_progression').fetchall()==progression
-        assert conn.execute('SELECT * FROM foundation_settings ORDER BY key').fetchall()==flags
+        assert conn.execute("SELECT * FROM foundation_settings WHERE key NOT LIKE 'custom-card-notice:%' ORDER BY key").fetchall()==flags
         assert conn.execute('SELECT user_id,active FROM custom_grants ORDER BY user_id').fetchall()==[(1,1),(2,1)]
         assert conn.execute('SELECT amount,currency,payment_status FROM custom_orders').fetchone()==('','','admin_managed')
         assert conn.execute('SELECT COUNT(*) FROM player_card_stacks WHERE card_id=?',(card,)).fetchone()[0]==0

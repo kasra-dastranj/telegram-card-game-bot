@@ -65,6 +65,8 @@ class BasicHandlersMixin:
                     first_name=user.first_name
                 )
                 player = self.game.check_and_reset_hearts(player)
+                from systems.custom_card_notices import wake_user
+                wake_user(self.db, user.id)
 
             # Channel membership check
             if not await self.is_user_in_channel(user.id, context):
