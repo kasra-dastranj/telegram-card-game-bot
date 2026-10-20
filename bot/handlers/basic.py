@@ -49,6 +49,7 @@ class BasicHandlersMixin:
         chat_type = update.effective_chat.type
         if chat_type == 'private':
             getattr(context, 'user_data', {}).pop('easy_victory_draft', None)
+            getattr(context, 'user_data', {}).pop('deck_victory_draft', None)
             args = getattr(context, 'args', None) or []
             if args and args[0].startswith('gm_') and len(args[0]) > 3:
                 context.user_data['onboarding_invite'] = args[0]
@@ -221,6 +222,7 @@ class BasicHandlersMixin:
         if query:
             await query.answer()
         context.user_data.pop('easy_victory_draft', None)
+        context.user_data.pop('deck_victory_draft', None)
         context.user_data.pop('easy_victory_choices', None)
         if not self._is_command_allowed_in_chat("profile", update.effective_chat.type):
             await update.effective_message.reply_text(
@@ -281,6 +283,7 @@ class BasicHandlersMixin:
             [InlineKeyboardButton("🎴 کارت‌های من", callback_data="my_cards"),
              InlineKeyboardButton("🏆 لیدربرد", callback_data="leaderboard")],
             [InlineKeyboardButton("🏆 شعار برد ایزی مود", callback_data="easy_victory_menu")],
+            [InlineKeyboardButton("🃏 شعار برد دک مود", callback_data="deck_victory_menu")],
             [InlineKeyboardButton("🎯 مأموریت‌ها", callback_data="v2_missions")],
             [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main")]
         ]
@@ -1094,6 +1097,7 @@ class BasicHandlersMixin:
         query = update.callback_query
         await query.answer()
         getattr(context, 'user_data', {}).pop('easy_victory_draft', None)
+        getattr(context, 'user_data', {}).pop('deck_victory_draft', None)
         
         # No expiration check needed for back_to_main as it should always work
         

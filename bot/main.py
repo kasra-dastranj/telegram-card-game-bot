@@ -518,6 +518,10 @@ class TelegramCardBot(
             from bot.handlers.easy_victory import handle
             return await handle(self, update, context)
         app.add_handler(CallbackQueryHandler(easy_victory_callback, pattern='^easy_victory_'))
+        async def deck_victory_callback(update, context):
+            from bot.handlers.deck_victory import handle
+            return await handle(self, update, context)
+        app.add_handler(CallbackQueryHandler(deck_victory_callback, pattern='^deck_victory_'))
         app.add_handler(CallbackQueryHandler(self.profile_command, pattern='^easy_profile$'))
         app.add_handler(CallbackQueryHandler(self.accept_pvp_random_handler, pattern="^accept_pvp_random_"))
         app.add_handler(CallbackQueryHandler(self.accept_pvp_fight_handler, pattern="^accept_pvp_"))
@@ -633,7 +637,11 @@ class TelegramCardBot(
         build = context.user_data.get('deck_build', {})
         if build.get('waiting_name') or build.get('waiting_slogan'):
             context.user_data.pop('easy_victory_draft', None)
+            context.user_data.pop('deck_victory_draft', None)
             await self.deck_name_message_handler(update, context)
+        elif context.user_data.get('deck_victory_draft'):
+            from bot.handlers.deck_victory import receive_slogan
+            await receive_slogan(self, update, context)
         elif context.user_data.get('easy_victory_draft'):
             from bot.handlers.easy_victory import receive_slogan
             await receive_slogan(self, update, context)

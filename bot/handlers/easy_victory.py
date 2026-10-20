@@ -42,6 +42,7 @@ async def handle(bot, update, context):
     data = query.data
     # Navigating away invalidates text drafts; old card panels have scoped tokens.
     context.user_data.pop('easy_victory_draft', None)
+    context.user_data.pop('deck_victory_draft', None)
     if data == 'easy_victory_slogan':
         build = context.user_data.get('deck_build', {})
         if build.get('waiting_name') or build.get('waiting_slogan'):

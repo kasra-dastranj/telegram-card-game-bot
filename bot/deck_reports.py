@@ -51,9 +51,14 @@ def snapshot_deck_selection(db_path, fight_id, user_id, deck):
             raise ValueError('invalid_deck_snapshot')
         report = load_in(conn, fight_id) or {'mode': 'deck', 'players': list(fight),
                                           'names': {}, 'rounds': [], 'completed': False}
+        from systems.deck_victory import read_in
+        from systems.deck_presentation import DEFAULT_SLOGAN
+        slogan = read_in(conn, user_id) or deck.get('victory_slogan', '')
+        if slogan == DEFAULT_SLOGAN:
+            slogan = ''
         report.setdefault('decks', {}).setdefault(str(user_id), {
             'deck_id': deck['deck_id'], 'deck_name': deck['deck_name'],
-            'victory_slogan': deck.get('victory_slogan', '')})
+            'victory_slogan': slogan})
         save_in(conn, fight_id, report)
 
 
@@ -62,8 +67,8 @@ def victory_caption(report, winner_id):
         return 'این دست مساوی شد!'
     from systems.deck_presentation import DEFAULT_SLOGAN
     deck = (report or {}).get('decks', {}).get(str(winner_id), {})
-    slogan = deck.get('victory_slogan') or DEFAULT_SLOGAN
-    return '💬 ' + isolate(slogan)
+    slogan = deck.get('victory_slogan')
+    return '💬 ' + isolate(slogan) if slogan and slogan != DEFAULT_SLOGAN else '🏆 برد مبارکت!'
 
 
 def backfill_rounds_in(conn, fight_id, report):
