@@ -1,7 +1,7 @@
 """Scoped scheduling tests: real SQLite, fake time, no Telegram or production data."""
 import asyncio
 import sqlite3
-from datetime import timedelta
+from datetime import datetime,timedelta
 from types import SimpleNamespace as NS
 from unittest.mock import AsyncMock
 from zoneinfo import ZoneInfo
@@ -155,7 +155,7 @@ def test_old_catalog_gets_disabled_test_defaults_without_database_write(scene):
 @pytest.mark.parametrize('value',[
     {'chat_id':True,'until':''},{'chat_id':123,'until':''},
     {'chat_id':-100,'until':'tomorrow'}, {'chat_id':-100,'until':'2026-01-01T10:00:00'},
-    {'chat_id':-100,'until':None},{'chat_id':0,'until':'2026-01-01T10:00:00+00:00'},
+    {'chat_id':-100,'until':None},
 ])
 def test_invalid_test_settings_rejected(scene,value):
     db,_=scene
@@ -170,6 +170,103 @@ def test_test_window_cannot_exceed_one_day(scene):
     with sqlite3.connect(db.db_path) as conn:
         config=defaults();config['test_schedule']={'chat_id':-100,'until':(now_utc()+timedelta(days=2)).isoformat()}
         with pytest.raises(ValueError):save_in(conn,config,'admin')
+
+
+@pytest.mark.parametrize('ending',['Z','+00:00','+03:30'])
+def test_browser_deadline_formats_normalized_for_server_python(scene,ending):
+    from datetime import timezone
+    from systems.attack_catalog import normalize_test_schedule
+    now=now_utc();until=now+timedelta(hours=1)
+    if ending=='+03:30':until=until.astimezone(timezone(timedelta(hours=3,minutes=30)))
+    text=until.isoformat()
+    if ending=='Z':text=text.removesuffix('+00:00')+'Z'
+    db,_=scene
+    with sqlite3.connect(db.db_path) as conn:
+        config=defaults();config['test_schedule']={'chat_id':-100,'until':'  '+text+'  '}
+        saved=save_in(conn,config,'admin')
+        normalized=saved['test_schedule']['until']
+        assert normalized.endswith('+00:00')
+        assert normalize_test_schedule(saved['test_schedule'])==saved['test_schedule']
+        assert current(db) is None
+
+
+def test_relative_one_hour_uses_server_clock_and_stores_only_existing_keys(scene):
+    from systems.attack_catalog import normalize_test_schedule
+    now=now_utc()
+    request={'chat_id':-100,'until':'1990-01-01T00:00:00Z','for_minutes':60}
+    expected={'chat_id':-100,'until':(now+timedelta(hours=1)).isoformat()}
+    assert normalize_test_schedule(request,now)==expected
+    db,_=scene
+    with sqlite3.connect(db.db_path) as conn:
+        config=defaults();config['test_schedule']=request
+        saved=save_in(conn,config,'admin')['test_schedule']
+        assert set(saved)=={'chat_id','until'}
+        assert 3590<(datetime.fromisoformat(saved['until'])-now).total_seconds()<3610
+
+
+@pytest.mark.parametrize('until',['','2026-01-01T10:00:00Z','invalid',None])
+def test_disabled_test_never_blocks_attack_save_due_to_leftover_deadline(scene,until):
+    db,_=scene
+    with sqlite3.connect(db.db_path) as conn:
+        config=defaults();config['attacks']=[example()]
+        config['test_schedule']={'chat_id':0,'until':until}
+        saved=save_in(conn,config,'admin')
+        assert saved['test_schedule']=={'chat_id':0,'until':''}
+        assert len(catalog_in(conn)['attacks'])==1
+
+
+@pytest.mark.parametrize('minutes',[True,0,-1,1441,1.5,'60',None])
+def test_relative_duration_still_has_valid_scoped_limits(scene,minutes):
+    from systems.attack_catalog import normalize_test_schedule
+    with pytest.raises(ValueError):
+        normalize_test_schedule({'chat_id':-100,'until':'','for_minutes':minutes})
+
+
+@pytest.mark.parametrize('active',[0,1,3])
+def test_test_group_ignores_all_activity_bounds_even_with_no_activity_record(scene,active):
+    now=now_utc();db,engine=prepare(scene,now)
+    with sqlite3.connect(db.db_path) as conn:
+        config=catalog_in(conn)
+        for attack in config['attacks']:attack.update(min_active=10000,max_active=10000)
+        save_in(conn,config,'admin')
+        if active:
+            day=period_bounds(config_in(conn)[1],'daily',now)[2]
+            write(conn,'activity:'+day+':-100',list(range(1,active+1)))
+            write(conn,'activity:'+day+':-200',list(range(1,active+1)))
+    engine.tick(now)
+    assert current(db) and current(db)['chat_id']==-100
+    assert current(db,-200) is None
+
+
+def test_old_z_schedule_reads_compatibly_without_database_write(scene):
+    db,engine=scene;now=now_utc()
+    with sqlite3.connect(db.db_path) as conn:
+        config=defaults();config['test_schedule']={'chat_id':-100,'until':(now+timedelta(hours=1)).isoformat().removesuffix('+00:00')+'Z'}
+        write(conn,'catalog',config)
+        assert catalog_in(conn)['test_schedule']['until'].endswith('+00:00')
+        assert read(conn,'catalog')['test_schedule']['until'].endswith('Z')
+
+
+def test_admin_api_preserves_catalog_after_invalid_time_then_saves_relative_shortcut(scene,monkeypatch):
+    from web.web_api import WebAPI
+    db,engine=scene
+    monkeypatch.setenv('ARENA_ADMIN_TOKEN','offline-schedule-admin')
+    client=WebAPI(db).app.test_client();headers={'X-Admin-Token':'offline-schedule-admin'}
+    config=defaults();attack=example();attack.update(title='حملهٔ فرم من',enabled=True)
+    config['attacks']=[attack]
+    config['test_schedule']={'chat_id':-100,'until':'invalid'}
+    assert client.put('/api/attacks/catalog',headers=headers,json=config).status_code==400
+    assert client.get('/api/attacks/catalog',headers=headers).get_json()['catalog']['attacks']==[]
+    config['test_schedule']['for_minutes']=60
+    before=now_utc()
+    result=client.put('/api/attacks/catalog',headers=headers,json=config)
+    assert result.status_code==200,result.get_json()
+    saved=result.get_json()['catalog']
+    assert saved['attacks'][0]['title']=='حملهٔ فرم من'
+    assert set(saved['test_schedule'])=={'chat_id','until'}
+    assert 3590<(datetime.fromisoformat(saved['test_schedule']['until'])-before).total_seconds()<3610
+    engine.tick()
+    assert current(db) and current(db)['participants']=={}
 
 
 @pytest.mark.parametrize('chat_type',['supergroup','group','private'])
