@@ -1,5 +1,4 @@
 """Attack escrow and card issuance, inside the encounter's write transaction."""
-from datetime import datetime,timezone
 from systems.attack_catalog import records,read,write,remove
 from systems.card_inventory_system import CardInventorySystem
 from systems.reward_ledger import apply_in,record_in,receipt_in
@@ -41,12 +40,11 @@ def grant_cards_in(conn,event,user,cards,operation):
         if item['rarity']=='rare':
             if rare_available_in(conn,item['card_id'],event['id'])<item['quantity']:raise ValueError('rare_supply_empty')
             for unit in range(item['quantity']):
-                serial=conn.execute('SELECT total_issued+1 FROM rare_cards_info WHERE card_id=?',(item['card_id'],)).fetchone()[0]
-                conn.execute('UPDATE rare_cards_info SET total_issued=total_issued+1 WHERE card_id=?',(item['card_id'],))
-                conn.execute('INSERT INTO rare_card_instances VALUES(?,?,?,?,?,?)',
-                             (item['card_id'],serial,user,operation+':'+str(index)+':'+str(unit),'event',datetime.now(timezone.utc).isoformat()))
+                from systems.rare_delivery import issue_in
+                serial=issue_in(conn,user,item['card_id'],operation+':'+str(index)+':'+str(unit),'event',encounter=event['id'])
                 serials.append(serial)
-        CardInventorySystem.grant_in(conn,user,item['card_id'],item['rarity'],item['quantity'])
+        else:
+            CardInventorySystem.grant_in(conn,user,item['card_id'],item['rarity'],item['quantity'])
         name=conn.execute('SELECT name FROM cards WHERE card_id=?',(item['card_id'],)).fetchone()[0]
         granted.append({**item,'name':name,'serials':serials})
     return granted

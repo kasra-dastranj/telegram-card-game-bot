@@ -58,6 +58,8 @@ class WebAPI:
         register_attack_admin(self)
         from web.voice_admin_api import register_voice_admin
         register_voice_admin(self)
+        from web.rare_admin_api import register_rare_admin
+        register_rare_admin(self)
 
     def _arena_admin_actor(self, scope='write'):
         """Fail-closed token auth with optional independent high-risk scopes."""
@@ -514,23 +516,24 @@ class WebAPI:
                 
                 if self.db.add_card(card):
                     self._save_card_extras(card.card_id, payload)
-                    self.db.save_card_variant(
-                        card.card_id,
-                        card.rarity.value,
-                        {
-                            'power': card.power,
-                            'speed': card.speed,
-                            'iq': card.iq,
-                            'popularity': card.popularity,
-                            'abilities': card.abilities,
-                            'card_effects': card.card_effects,
-                            'image_path': card.image_path,
-                            'card_type': card.card_type,
-                            'passive': payload['metadata']['passive'],
-                            'photo_file_id': payload['media'].get('photo', ''),
-                            'sticker_file_id': payload['media'].get('sticker', ''),
-                        },
-                    )
+                    if card.rarity != CardRarity.RARE:
+                        self.db.save_card_variant(
+                            card.card_id,
+                            card.rarity.value,
+                            {
+                                'power': card.power,
+                                'speed': card.speed,
+                                'iq': card.iq,
+                                'popularity': card.popularity,
+                                'abilities': card.abilities,
+                                'card_effects': card.card_effects,
+                                'image_path': card.image_path,
+                                'card_type': card.card_type,
+                                'passive': payload['metadata']['passive'],
+                                'photo_file_id': payload['media'].get('photo', ''),
+                                'sticker_file_id': payload['media'].get('sticker', ''),
+                            },
+                        )
                     return jsonify({
                         'success': True,
                         'message': f'کارت {card.name} با موفقیت اضافه شد',
@@ -563,7 +566,7 @@ class WebAPI:
                     return jsonify({'success': False, 'error': 'کارت دیگری با این نام وجود دارد'}), 409
                 if not self.db.update_card(payload['card']):
                     return jsonify({'success': False, 'error': 'خطا در ویرایش کارت'}), 500
-                self._save_card_extras(card_id, payload, form_only=True)
+                self._save_card_extras(card_id, payload, form_only=payload['card'].rarity != CardRarity.RARE)
                 return jsonify({
                     'success': True,
                     'message': f"کارت {payload['card'].name} به‌روزرسانی شد",

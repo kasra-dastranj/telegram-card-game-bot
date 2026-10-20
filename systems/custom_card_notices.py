@@ -6,6 +6,7 @@ import uuid
 from contextlib import closing
 
 PREFIX = 'custom-card-notice:'
+RARE_PREFIX = 'rare-card-notice:'
 LEASE_SECONDS = 180
 
 
@@ -29,10 +30,10 @@ def claim(db):
     with closing(sqlite3.connect(db.db_path, timeout=15)) as conn, conn:
         conn.execute('BEGIN IMMEDIATE')
         row = conn.execute("""SELECT key,value_json FROM foundation_settings
-            WHERE key LIKE ? AND json_extract(value_json,'$.state') IN ('pending','retry','sending')
+            WHERE (key LIKE ? OR key LIKE ?) AND json_extract(value_json,'$.state') IN ('pending','retry','sending')
               AND json_extract(value_json,'$.next_attempt')<=?
               AND json_extract(value_json,'$.lease_until')<=?
-            ORDER BY rowid LIMIT 1""", (PREFIX+'%', time.time(), time.time())).fetchone()
+            ORDER BY rowid LIMIT 1""", (PREFIX+'%', RARE_PREFIX+'%', time.time(), time.time())).fetchone()
         if not row:
             return None
         value = json.loads(row[1])
@@ -65,9 +66,37 @@ def wake_user(db, user_id):
     with closing(sqlite3.connect(db.db_path, timeout=15)) as conn, conn:
         conn.execute('BEGIN IMMEDIATE')
         rows = conn.execute("""SELECT key,value_json FROM foundation_settings
-            WHERE key LIKE ? AND json_extract(value_json,'$.state') IN ('blocked','failed')""",
-            (PREFIX+str(user_id)+':%',)).fetchall()
+            WHERE (key LIKE ? OR key LIKE ?) AND json_extract(value_json,'$.state') IN ('blocked','failed')""",
+            (PREFIX+str(user_id)+':%', RARE_PREFIX+str(user_id)+':%')).fetchall()
         for key, raw in rows:
             value = json.loads(raw)
             value.update(state='retry', attempts=0, next_attempt=0, lease_until=0, lease=None)
             conn.execute('UPDATE foundation_settings SET value_json=? WHERE key=?', (json.dumps(value), key))
+
+
+def queue_rare_in(conn, user_id, card_id, serial):
+    """One immutable receipt per issued serial, committed with its ownership."""
+    row = conn.execute("""SELECT name,power,speed,iq,popularity,biography,abilities FROM cards
+        WHERE card_id=? AND origin='official' AND rarity='rare'""", (card_id,)).fetchone()
+    if not row:
+        raise ValueError('rare_required')
+    payload = dict(zip(('name','power','speed','iq','popularity','biography'),row[:6]))
+    payload.update(rarity='rare', delivery_kind='rare', serial=serial,
+                   abilities=json.loads(row[6] or '[]'))
+    from systems.card_trait_registry import variant_traits
+    payload['traits'] = variant_traits(conn, card_id, 'rare')
+    notice = {'user_id':user_id, 'card_id':card_id, 'serial':serial, 'kind':'rare',
+              'generation':uuid.uuid4().hex, 'payload':payload, 'state':'pending',
+              'photo_done':False, 'text_next':0, 'attempts':0, 'next_attempt':0,
+              'lease_until':0, 'lease':None}
+    conn.execute('INSERT INTO foundation_settings VALUES(?,?)',
+                 (RARE_PREFIX+str(user_id)+':'+card_id+':'+str(serial), json.dumps(notice)))
+
+
+def rare_owned_card(db, notice):
+    with closing(sqlite3.connect(db.db_path)) as conn:
+        owned = conn.execute('''SELECT 1 FROM rare_card_instances i JOIN player_card_stacks s
+            ON i.card_id=s.card_id AND i.user_id=s.user_id AND s.rarity='rare' AND s.quantity>0
+            WHERE i.card_id=? AND i.serial=? AND i.user_id=?''',
+            (notice['card_id'], notice['serial'], notice['user_id'])).fetchone()
+    return db.get_card_by_id_for_rarity(notice['card_id'], 'rare') if owned else None

@@ -109,7 +109,7 @@
         </div>
         <div><h1>مدیریت کارت‌های TelBattle</h1><p>ویرایش داده‌های پایه و مودهای Quick، Deck و Easy</p></div>
       </div>
-      <div class="actions"><a class="btn" href="victory-voices">🎙 ویس کارت‌های Legend</a><a class="btn" href="custom-cards">کارت‌های سفارشی</a><a class="btn" href="group-attacks">حمله‌های گروهی</a><a class="btn" href="easy-questions">سؤال‌های ایزی‌مود</a><a class="btn" href="arenas">مدیریت زمین‌ها</a><button id="refreshBtn" class="btn" type="button" aria-label="بارگذاری دوباره کارت‌ها">
+      <div class="actions"><a class="btn" href="rare-cards">🌟 تحویل Rare</a><a class="btn" href="victory-voices">🎙 ویس کارت‌های Legend</a><a class="btn" href="custom-cards">کارت‌های سفارشی</a><a class="btn" href="group-attacks">حمله‌های گروهی</a><a class="btn" href="easy-questions">سؤال‌های ایزی‌مود</a><a class="btn" href="arenas">مدیریت زمین‌ها</a><button id="refreshBtn" class="btn" type="button" aria-label="بارگذاری دوباره کارت‌ها">
         <svg class="icon" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg> بروزرسانی
       </button></div>
     </header>
@@ -127,6 +127,7 @@
           <button id="newBtn" class="btn btn-primary" type="button">
             <svg class="icon" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg> کارت جدید
           </button>
+          <button id="newRareBtn" class="btn" type="button">🌟 کارت Rare جدید</button>
           <div class="search-row">
             <input id="search" class="input" type="search" placeholder="جستجوی نام، Trait یا Series" aria-label="جستجوی کارت">
             <select id="rarityFilter" class="input" aria-label="فیلتر کمیابی">
@@ -222,6 +223,7 @@
     const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
     const rarityLabel = { normal: 'Normal', epic: 'Epic', legend: 'Legend', rare: 'Rare' };
     const rarities = ['normal', 'epic', 'legend'];
+    function editableRarities() { return state.currentRarity === 'rare' ? ['rare'] : rarities; }
     const selectedValues = id => [...$(id).selectedOptions].map(option => option.value);
     function setChoices(id, values, selected = []) {
       const choices = [...new Set([...values, ...selected].filter(Boolean))];
@@ -317,7 +319,7 @@
       const card = state.cards.find(item => item.id === id); if (!card) return;
       state.selectedId = id; state.selectedCard = card; state.creating = false; fillForm(card); renderList(); revealEditor();
     }
-    function startNew() { state.selectedId = null; state.selectedCard = null; state.creating = true; fillForm(blankCard()); renderList(); revealEditor(); }
+    function startNew(rare = false) { state.selectedId = null; state.selectedCard = null; state.creating = true; fillForm({...blankCard(),rarity:rare === true ? 'rare' : 'normal'}); renderList(); revealEditor(); }
     function collectVariant() {
       let passive = {};
       if ($('passiveEnabled').checked) {
@@ -331,11 +333,11 @@
     }
     function stashVariant() { state.drafts[state.currentRarity] = collectVariant(); updateVariantProgress(); }
     function updateVariantProgress() {
-      $('variantProgress').textContent = rarities.map(rarity => {
+      $('variantProgress').textContent = editableRarities().map(rarity => {
         const variant = state.drafts[rarity] || {};
         const ready = ['power','speed','iq','popularity'].every(stat => variant[stat] !== '' && variant[stat] != null);
         return `${rarityLabel[rarity]} ${ready ? '✓' : '○'}`;
-      }).join('  ·  ') + ' — هر سه فرم با هم ذخیره می‌شوند.';
+      }).join('  ·  ') + (state.currentRarity === 'rare' ? ' — کارت Rare مستقل؛ تیراژ و گیرنده در «تحویل Rare» تنظیم می‌شوند.' : ' — هر سه فرم با هم ذخیره می‌شوند.');
     }
     function fillVariant(variant) {
       setChoices('traits', state.options.traits, variant.traits || []);
@@ -364,17 +366,19 @@
     }
     function fillForm(card) {
       $('emptyState').hidden = true; $('cardForm').hidden = false; $('editorTitle').textContent = state.creating ? 'کارت جدید' : card.name; $('cardId').textContent = state.creating ? 'new' : card.id;
-      $('name').value = card.name || ''; state.currentRarity = 'normal'; $('rarity').value = 'normal'; $('biography').value = card.biography || ''; $('dialogs').value = (card.dialogs || []).join('\n');
+      $('name').value = card.name || ''; state.currentRarity = card.rarity === 'rare' ? 'rare' : 'normal';
+      $('rarity').replaceChildren(...editableRarities().map(rarity => new Option(rarityLabel[rarity],rarity)));
+      $('rarity').value = state.currentRarity; $('biography').value = card.biography || ''; $('dialogs').value = (card.dialogs || []).join('\n');
       $('newTrait').value = ''; $('series').value = card.series || '';
       renderEasyStats(card.hidden_stats || {});
-      state.drafts = Object.fromEntries(rarities.map(rarity => {
+      state.drafts = Object.fromEntries(editableRarities().map(rarity => {
         const source = (card.variants || []).find(item => item.rarity === rarity) || (card.rarity === rarity ? card : blankVariant());
         const form = Object.fromEntries(['power','speed','iq','popularity','card_type','abilities','card_effects','passive','image_path','photo_file_id','sticker_file_id'].map(key => [key, source[key] ?? blankVariant()[key]]));
         form.traits = source.traits ?? card.traits ?? [];
         if (!Object.keys(form.passive || {}).length && card.legacy_passive && Object.keys(card.legacy_passive).length) form.passive = card.legacy_passive;
         return [rarity, form];
       }));
-      fillVariant(state.drafts.normal); updateVariantProgress(); $('deleteBtn').hidden = state.creating; $('saveState').textContent = 'آماده ویرایش'; activateTab('base');
+      fillVariant(state.drafts[state.currentRarity]); updateVariantProgress(); $('deleteBtn').hidden = state.creating; $('saveState').textContent = 'آماده ویرایش'; activateTab('base');
     }
     function collectPayload() {
       const name = $('name').value.trim();
@@ -387,20 +391,22 @@
         }
       });
       stashVariant();
-      for (const rarity of rarities) for (const stat of ['power','speed','iq','popularity']) {
+      for (const rarity of editableRarities()) for (const stat of ['power','speed','iq','popularity']) {
         const value = state.drafts[rarity][stat];
         if (value === '' || value == null || !Number.isInteger(Number(value)) || Number(value) < 1 || Number(value) > 100)
           throw new Error(`فرم ${rarityLabel[rarity]}: مقدار ${stat} باید عدد صحیح بین ۱ تا ۱۰۰ باشد`);
       }
-      for (const rarity of rarities) if (state.drafts[rarity].passive?.condition && !Object.values(state.drafts[rarity].passive.condition)[0])
+      for (const rarity of editableRarities()) if (state.drafts[rarity].passive?.condition && !Object.values(state.drafts[rarity].passive.condition)[0])
         throw new Error(`فرم ${rarityLabel[rarity]}: مقدار شرط Passive را انتخاب کنید`);
-      return { name, biography:$('biography').value.trim(), dialogs:splitList($('dialogs').value),
+      const shared = { name, biography:$('biography').value.trim(), dialogs:splitList($('dialogs').value),
         series:$('series').value.trim(), hidden_stats:hidden,
-        variants:Object.fromEntries(rarities.map(rarity => [rarity, state.drafts[rarity]])) };
+      };
+      return state.currentRarity === 'rare' ? {...shared,...state.drafts.rare,rarity:'rare'} :
+        {...shared,variants:Object.fromEntries(rarities.map(rarity => [rarity, state.drafts[rarity]]))};
     }
     async function saveCard(event) {
       event.preventDefault(); if (state.busy) return;
-      try { const payload = collectPayload(); setBusy(true); const url = state.creating ? '/api/cards/family' : `/api/cards/${encodeURIComponent(state.selectedId)}/family`; const method = state.creating ? 'POST' : 'PUT'; const data = await api(url, {method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)}); state.selectedId = data.card.id; state.creating = false; toast(data.message); await loadCards(state.selectedId); await loadOptions(); }
+      try { const payload = collectPayload(); setBusy(true); const suffix = state.currentRarity === 'rare' ? '' : '/family'; const url = state.creating ? '/api/cards'+suffix : `/api/cards/${encodeURIComponent(state.selectedId)}`+suffix; const method = state.creating ? 'POST' : 'PUT'; const data = await api(url, {method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)}); state.selectedId = data.card.id; state.creating = false; toast(data.message); await loadCards(state.selectedId); await loadOptions(); }
       catch (error) { toast(error.message, true); } finally { setBusy(false); }
     }
     async function deleteCard() {
@@ -418,7 +424,8 @@
     }
     $('cardList').addEventListener('click', event => { const button = event.target.closest('[data-card-id]'); if (button) selectCard(button.dataset.cardId); });
     $('newBtn').addEventListener('click', startNew); $('refreshBtn').addEventListener('click', async () => { await loadCards(); await loadOptions(); }); $('search').addEventListener('input', renderList); $('rarityFilter').addEventListener('change', renderList); $('rarity').addEventListener('change', () => { stashVariant(); state.currentRarity = $('rarity').value; fillVariant(state.drafts[state.currentRarity]); });
-    $('cardForm').addEventListener('submit', saveCard); $('deleteBtn').addEventListener('click', deleteCard); $('cancelBtn').addEventListener('click', () => state.selectedId ? selectCard(state.selectedId) : startNew());
+    $('newRareBtn').addEventListener('click', () => startNew(true));
+    $('cardForm').addEventListener('submit', saveCard); $('deleteBtn').addEventListener('click', deleteCard); $('cancelBtn').addEventListener('click', () => state.selectedId ? selectCard(state.selectedId) : startNew(state.currentRarity === 'rare'));
     $('addTraitBtn').addEventListener('click', addTrait); $('newTrait').addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); addTrait(); } });
     $('passiveEnabled').addEventListener('change', () => $('passiveFields').disabled = !$('passiveEnabled').checked); $('conditionType').addEventListener('change', () => refreshConditionChoices()); $('imagePath').addEventListener('input', () => { $('photoFileId').value = ''; updatePreview(); }); $('name').addEventListener('input', () => { if (!state.creating) $('editorTitle').textContent = $('name').value || 'بدون نام'; });
     $('uploadImageBtn').addEventListener('click', () => upload('image')); $('uploadStickerBtn').addEventListener('click', () => upload('sticker')); document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => activateTab(tab.dataset.tab)));

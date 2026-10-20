@@ -527,7 +527,7 @@ class DatabaseManager:
         """Backfill three editable forms while preserving the legacy form exactly."""
         cursor = conn.cursor()
         cards = cursor.execute(
-            "SELECT card_id, rarity, power, speed, iq, popularity, abilities, card_effects, image_path, card_type, created_at FROM cards"
+            "SELECT card_id, rarity, power, speed, iq, popularity, abilities, card_effects, image_path, card_type, created_at FROM cards WHERE rarity!='rare'"
         ).fetchall()
         for row in cards:
             (card_id, source_rarity, power, speed, iq, popularity, abilities,

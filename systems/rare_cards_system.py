@@ -70,11 +70,9 @@ class RareCardsSystem:
             if reservation_conn.execute("SELECT 1 FROM sqlite_master WHERE name='foundation_settings'").fetchone():
                 from systems.attack_catalog import records
                 if any(value.get(card_id,0) for _,value in records(reservation_conn,'reserve:')):return False
-        from systems.progression_config import enabled
-        if enabled(self.db):
-            with closing(sqlite3.connect(self.db.db_path)) as conn:
-                if conn.execute('SELECT 1 FROM rare_cards_info WHERE card_id=?',(card_id,)).fetchone():
-                    return False  # Existing supply/serials must never be reset by re-creation.
+        with closing(sqlite3.connect(self.db.db_path)) as conn:
+            if conn.execute('SELECT 1 FROM rare_cards_info WHERE card_id=?',(card_id,)).fetchone():
+                return False  # Existing supply/serials must never be reset by re-creation.
         card = Card(
             card_id=card_id,
             name=name,
@@ -175,62 +173,29 @@ class RareCardsSystem:
         if enabled(self.db):
             from systems.progression_rare import issue
             return issue(self.db, user_id, card_id, source, request_key)
-        # Disabling v2 must not spend an already promised encounter reward.
-        with closing(sqlite3.connect(self.db.db_path)) as reservation_conn:
-            if reservation_conn.execute("SELECT 1 FROM sqlite_master WHERE name='foundation_settings'").fetchone():
-                from systems.attack_catalog import records
-                if any(value.get(card_id,0) for _,value in records(reservation_conn,'reserve:')):
-                    return {'success':False,'error':'این کارت برای پاداش حملهٔ جاری رزرو شده.'}
-        # بررسی موجودی
-        if not self.can_issue_rare_card(card_id):
-            return {
-                "success": False,
-                "error": "این کارت Rare تمام شده است!"
-            }
-        
-        # بررسی اینکه بازیکن قبلاً این کارت را ندارد
-        player_cards = self.db.get_player_cards(user_id)
-        if any(c.card_id == card_id for c in player_cards):
-            return {
-                "success": False,
-                "error": "شما قبلاً این کارت Rare را دارید!"
-            }
-        
-        # اضافه کردن کارت به بازیکن
-        success = self.db.add_card_to_player(user_id, card_id)
-        
-        if success:
-            # بروزرسانی تعداد صادر شده
-            conn = sqlite3.connect(self.db.db_path)
-            cursor = conn.cursor()
-            
-            cursor.execute('''
-                UPDATE rare_cards_info
-                SET total_issued = total_issued + 1
-                WHERE card_id = ?
-            ''', (card_id,))
-            
-            # لاگ صدور
-            cursor.execute('''
-                INSERT INTO rare_cards_log
-                (user_id, card_id, source, issued_at)
-                VALUES (?, ?, ?, ?)
-            ''', (user_id, card_id, source, datetime.now().isoformat()))
-            
-            conn.commit()
-            conn.close()
-            
-            logger.info(f"Rare card issued: {card_id} to user {user_id} from {source}")
-            
-            return {
-                "success": True,
-                "card_id": card_id
-            }
-        
-        return {
-            "success": False,
-            "error": "خطا در صدور کارت"
-        }
+        # Keep the legacy single-copy rule, but make supply, ownership and the
+        # private notice atomic too. Disabling v2 never spends reserved copies.
+        import uuid
+        from systems.progression_economy import ProgressionEconomy
+        from systems.rare_delivery import issue_in
+        try:
+            if source not in ('leaderboard','purchase','event','wheel'):
+                raise ValueError('invalid_source')
+            operation=ProgressionEconomy.operation_key('rare-legacy',request_key or uuid.uuid4().hex)
+            with closing(sqlite3.connect(self.db.db_path,timeout=30)) as conn,conn:
+                conn.execute('BEGIN IMMEDIATE')
+                prior=conn.execute('SELECT user_id,card_id,source,serial FROM rare_card_instances WHERE operation_id=?',(operation,)).fetchone()
+                if prior:
+                    if prior[:3]!=(user_id,card_id,source):raise ValueError('idempotency_conflict')
+                    return {'success':True,'card_id':card_id,'serial':prior[3],'replayed':True}
+                if conn.execute('SELECT 1 FROM player_cards WHERE user_id=? AND card_id=?',(user_id,card_id)).fetchone():
+                    raise ValueError('already_owned')
+                serial=issue_in(conn,user_id,card_id,operation,source)
+                conn.execute('INSERT INTO rare_cards_log(user_id,card_id,source,issued_at) VALUES(?,?,?,?)',
+                             (user_id,card_id,source,datetime.now().isoformat()))
+                return {'success':True,'card_id':card_id,'serial':serial}
+        except ValueError as error:
+            return {'success':False,'error':str(error)}
     
     def get_available_rare_cards(self) -> List[Dict]:
         """
