@@ -236,7 +236,8 @@ class ArenaRegistry:
     def _issue(path: str, code: str, message_fa: str, severity: str = "error") -> Dict[str, str]:
         return {"severity": severity, "path": path, "code": code, "message_fa": message_fa}
 
-    def validate_payload(self, arena_id: str, payload: Mapping[str, Any], publishing: bool = False) -> List[Dict[str, str]]:
+    def validate_payload(self, arena_id: str, payload: Mapping[str, Any], publishing: bool = False,
+                         previous: Optional[Mapping[str, Any]] = None) -> List[Dict[str, str]]:
         issues: List[Dict[str, str]] = []
         if not isinstance(payload, Mapping):
             return [self._issue("payload", "payload_invalid", "ساختار اطلاعات زمین نامعتبر است.")]
@@ -256,7 +257,7 @@ class ArenaRegistry:
             issues.append(self._issue("description_fa", "description_too_long", "توضیح زمین حداکثر ۸۰۰ نویسه است."))
         if len(emoji) > MAX_EMOJI:
             issues.append(self._issue("emoji", "emoji_too_long", "نماد زمین بیش از حد طولانی است."))
-        if publishing and not description:
+        if publishing and not description and (previous is None or previous.get('description_fa')):
             issues.append(self._issue("description_fa", "description_required", "توضیح فارسی برای انتشار الزامی است."))
         tags = payload.get("tags", [])
         if not isinstance(tags, list) or len(tags) > MAX_TAGS or any(not str(tag).strip() or len(str(tag).strip()) > MAX_TAG_LENGTH for tag in tags):
@@ -336,8 +337,10 @@ class ArenaRegistry:
                 if rules.get("compare_stat") not in CORE_STATS:
                     issues.append(self._issue(f"profiles.{mode}.compare_stat", "invalid_stat", "ویژگی مقایسه Deck نامعتبر است."))
                 issues.extend(self._validate_trait_ranks(rules.get("trait_ranks", []), f"profiles.{mode}.trait_ranks"))
-        if publishing and enabled_modes == 0:
+        if publishing and enabled_modes == 0 and previous is None:
             issues.append(self._issue("profiles", "no_mode_enabled", "برای انتشار باید حداقل یک مود فعال باشد."))
+        elif publishing and enabled_modes == 0:
+            issues.append(self._issue("profiles", "arena_paused", "این زمین در همهٔ مودها متوقف می‌شود؛ بازی‌های شروع‌شده نسخهٔ قبلی را نگه می‌دارند.", "warning"))
         platform = payload.get("platform") or {}
         if not isinstance(platform, Mapping):
             issues.append(self._issue("platform", "platform_invalid", "تنظیمات پلتفرم باید یک شیء باشد."))
@@ -648,12 +651,13 @@ class ArenaRegistry:
             if not draft: raise ValueError("draft_not_found")
             if int(draft["draft_revision"]) != int(expected_draft_revision): raise ValueError("draft_conflict")
             payload = self._read_version(conn, arena_id, draft["version"])
-            issues = self.validate_payload(arena_id, payload or {}, publishing=True)
+            current = conn.execute("SELECT current_published_version FROM arenas WHERE arena_id=?", (arena_id,)).fetchone()
+            previous = self._read_version(conn, arena_id, current[0]) if current and current[0] else None
+            issues = self.validate_payload(arena_id, payload or {}, publishing=True, previous=previous)
             if (payload or {}).get("platform", {}).get("miniapp", {}).get("enabled") and not self._background_ready(conn, arena_id, draft["version"]):
                 issues.append(self._issue("platform.miniapp", "miniapp_media_not_ready", "پس‌زمینه آماده Mini App لازم است."))
             errors = [issue for issue in issues if issue["severity"] == "error"]
             if errors: raise ArenaValidationError(errors)
-            current = conn.execute("SELECT current_published_version FROM arenas WHERE arena_id=?", (arena_id,)).fetchone()
             if current and current[0]: conn.execute("UPDATE arena_versions SET version_status='superseded' WHERE arena_id=? AND version=?", (arena_id, current[0]))
             self._refresh_content_hash(conn, arena_id, int(draft["version"]))
             conn.execute("UPDATE arena_versions SET version_status='published',published_at=?,published_by=? WHERE arena_id=? AND version=?", (now, str(actor_id), arena_id, draft["version"]))
@@ -678,11 +682,11 @@ class ArenaRegistry:
             if not row:
                 raise ValueError("draft_not_found")
             draft = self._read_version(conn, arena_id, int(row[0])) or {}
-            issues = self.validate_payload(arena_id, draft, publishing=True)
-            if draft.get("platform", {}).get("miniapp", {}).get("enabled") and not self._background_ready(conn, arena_id, int(row[0])):
-                issues.append(self._issue("platform.miniapp", "miniapp_media_not_ready", "پس‌زمینه آماده Mini App لازم است."))
             current_row = conn.execute("SELECT current_published_version FROM arenas WHERE arena_id=?", (arena_id,)).fetchone()
             published = self._read_version(conn, arena_id, current_row[0]) if current_row and current_row[0] else None
+            issues = self.validate_payload(arena_id, draft, publishing=True, previous=published)
+            if draft.get("platform", {}).get("miniapp", {}).get("enabled") and not self._background_ready(conn, arena_id, int(row[0])):
+                issues.append(self._issue("platform.miniapp", "miniapp_media_not_ready", "پس‌زمینه آماده Mini App لازم است."))
             return {
                 "version": int(row[0]),
                 "valid": not any(item["severity"] == "error" for item in issues),
@@ -710,18 +714,33 @@ class ArenaRegistry:
             walk(key, before.get(key), after.get(key))
         return changes[:200]
 
-    def create_next_draft(self, arena_id: str, actor_id: Any, from_version: Optional[int] = None, request_id: Optional[str] = None) -> Dict[str, Any]:
+    def create_next_draft(self, arena_id: str, actor_id: Any, from_version: Optional[int] = None,
+                          request_id: Optional[str] = None, expected_current_version: Optional[int] = None) -> Dict[str, Any]:
         conn = self._connect(); now = utc_now()
         try:
             conn.execute("BEGIN IMMEDIATE")
             if conn.execute("SELECT 1 FROM arena_versions WHERE arena_id=? AND version_status='draft'", (arena_id,)).fetchone(): raise ValueError("draft_conflict")
             arena = conn.execute("SELECT current_published_version FROM arenas WHERE arena_id=?", (arena_id,)).fetchone()
+            if expected_current_version is not None and (type(expected_current_version) is not int
+                    or not arena or arena[0]!=expected_current_version):
+                raise ValueError('published_conflict')
             source_version = from_version or (arena[0] if arena else None)
             source = self._read_version(conn, arena_id, source_version) if source_version else None
             if not source: raise ValueError("arena_not_found")
             next_version = int(conn.execute("SELECT COALESCE(MAX(version),0)+1 FROM arena_versions WHERE arena_id=?", (arena_id,)).fetchone()[0])
             payload = {key: source.get(key) for key in ("name_fa","name_en","description_fa","emoji","tags","profiles","platform")}
             self._insert_version(conn, arena_id, next_version, payload, "draft", actor_id, now)
+            # Reference the immutable ready files from the selected version.
+            # A later draft upload retires only its own copy, never old matches.
+            for media in conn.execute("SELECT * FROM arena_media WHERE arena_id=? AND version=? AND readiness_status='ready'",
+                                      (arena_id, source_version)).fetchall():
+                conn.execute('''INSERT INTO arena_media(media_id,arena_id,version,platform,media_kind,
+                    storage_path,telegram_file_id,mime_type,width,height,byte_size,sha256,readiness_status,created_at,created_by)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+                    (uuid.uuid4().hex,arena_id,next_version,media['platform'],media['media_kind'],media['storage_path'],
+                     media['telegram_file_id'],media['mime_type'],media['width'],media['height'],media['byte_size'],
+                     media['sha256'],'ready',now,str(actor_id)))
+            self._refresh_content_hash(conn, arena_id, next_version)
             self._audit(conn, arena_id, next_version, "clone_as_draft", actor_id, request_id, source_version, payload)
             conn.commit(); return self._read_version(conn, arena_id, next_version) or {}
         except Exception:
@@ -788,25 +807,37 @@ class ArenaRegistry:
             return {"active_fights": active, "battle_states": battle, "solo_fights": solo, "card_passives": passive, "total": active + battle + solo + passive}
         finally: conn.close()
 
-    def add_media(self, arena_id: str, version: int, platform: str, media_kind: str, storage_path: Optional[str], mime_type: str, byte_size: int, sha256: str, width: Optional[int], height: Optional[int], actor_id: Any, readiness_status: str = "ready", telegram_file_id: Optional[str] = None) -> Dict[str, Any]:
+    def list_media(self, arena_id: str, version: int) -> List[Dict[str, Any]]:
+        conn = self._connect()
+        try:
+            return [dict(row) for row in conn.execute('''SELECT media_id,platform,media_kind,storage_path,
+                width,height,readiness_status FROM arena_media WHERE arena_id=? AND version=?
+                AND readiness_status='ready' ORDER BY created_at DESC''', (arena_id,version))]
+        finally:
+            conn.close()
+
+    def add_media(self, arena_id: str, version: int, platform: str, media_kind: str, storage_path: Optional[str], mime_type: str, byte_size: int, sha256: str, width: Optional[int], height: Optional[int], actor_id: Any, readiness_status: str = "ready", telegram_file_id: Optional[str] = None, mirror_telegram: bool = False) -> Dict[str, Any]:
         if platform not in PLATFORMS or media_kind not in ("background", "photo", "sticker", "thumbnail") or readiness_status not in ("pending", "ready", "failed", "retired"):
             raise ValueError("invalid_media")
+        if mirror_telegram and (platform!='miniapp' or media_kind!='background' or readiness_status!='ready'):
+            raise ValueError('invalid_media')
         conn = self._connect(); now=utc_now(); media_id=uuid.uuid4().hex
         try:
             conn.execute("BEGIN IMMEDIATE")
             target = self._read_version(conn, arena_id, version)
             if not target: raise ValueError("arena_not_found")
             if target.get("version_status") != "draft": raise ValueError("published_media_immutable")
-            if readiness_status == "ready":
-                conn.execute(
-                    """UPDATE arena_media SET readiness_status='retired'
-                       WHERE arena_id=? AND version=? AND platform=? AND media_kind=?
-                         AND readiness_status='ready'""",
-                    (arena_id, version, platform, media_kind),
-                )
-            conn.execute("INSERT INTO arena_media(media_id,arena_id,version,platform,media_kind,storage_path,telegram_file_id,mime_type,width,height,byte_size,sha256,readiness_status,created_at,created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", (media_id,arena_id,version,platform,media_kind,storage_path,telegram_file_id,mime_type,width,height,int(byte_size),sha256,readiness_status,now,str(actor_id)))
+            for target_platform in ([platform,'telegram'] if mirror_telegram else [platform]):
+                if readiness_status == "ready":
+                    conn.execute(
+                        """UPDATE arena_media SET readiness_status='retired'
+                           WHERE arena_id=? AND version=? AND platform=? AND media_kind=?
+                             AND readiness_status='ready'""",
+                        (arena_id, version, target_platform, media_kind),
+                    )
+                conn.execute("INSERT INTO arena_media(media_id,arena_id,version,platform,media_kind,storage_path,telegram_file_id,mime_type,width,height,byte_size,sha256,readiness_status,created_at,created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", (media_id if target_platform==platform else uuid.uuid4().hex,arena_id,version,target_platform,media_kind,storage_path,telegram_file_id,mime_type,width,height,int(byte_size),sha256,readiness_status,now,str(actor_id)))
             self._refresh_content_hash(conn, arena_id, version)
-            self._audit(conn, arena_id, version, "upload_media", actor_id, None, None, {"media_id":media_id,"platform":platform,"media_kind":media_kind}); conn.commit()
+            self._audit(conn, arena_id, version, "upload_media", actor_id, None, None, {"media_id":media_id,"platform":platform,"media_kind":media_kind,"mirror_telegram":mirror_telegram}); conn.commit()
             return {"media_id":media_id,"storage_path":storage_path,"readiness_status":readiness_status}
         except Exception:
             conn.rollback(); raise
