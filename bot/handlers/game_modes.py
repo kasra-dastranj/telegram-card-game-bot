@@ -850,10 +850,27 @@ class GameModeHandlersMixin:
         )
         from bot.battle_visual_delivery import quick_picture, send_result
         picture = await quick_picture(self, context, report)
+        voice_id = None
+        if winner_card:
+            try:
+                from systems.victory_voices import card_choices
+                choices = card_choices(self.db, report['winner_id'], winner['card_id'], winner.get('card_rarity'))
+                if choices:
+                    voice_id = random.choice(choices)
+            except Exception:
+                logger.warning('Quick victory voice settings unavailable; keeping text')
         for chat_id in dict.fromkeys(targets):
             try:
                 if winner_card and getattr(winner_card, "origin", "official")=="official" and hasattr(self, "_send_round_winner_card_media"):
                     await self._send_round_winner_card_media(context, chat_id, winner_card)
+                if voice_id:
+                    from bot.victory_voices import send
+                    has_picture = chat_id in players and await send_result(context, chat_id, picture, None, markup)
+                    if await send(self.db, context, chat_id, voice_id, 'card:' + winner['card_id'],
+                                  None if has_picture else markup, owner_id=report['winner_id']):
+                        continue
+                    await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=markup)
+                    continue
                 if chat_id not in players or not await send_result(context, chat_id, picture, text, markup):
                     await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=markup)
             except Exception as exc:

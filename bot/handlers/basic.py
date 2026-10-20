@@ -1279,6 +1279,11 @@ class BasicHandlersMixin:
         keyboard = [] if card.origin == 'custom' else [
             [InlineKeyboardButton(fav_text, callback_data=f"toggle_fav_{card_id}")],
         ]
+        if context is not None and query.message.chat_id == user_id:
+            from systems.victory_voices import owned
+            if owned(self.db, user_id, card_id):
+                from bot.handlers.legend_voice import button
+                keyboard.append([button(context, card_id)])
         if card.origin == 'custom':
             from systems.easy_questions import CORE_STATS, HIDDEN_STATS, catalog_in
             with sqlite3.connect(self.db.db_path) as metadata_conn:

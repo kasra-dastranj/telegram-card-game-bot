@@ -3,7 +3,7 @@ import re
 import subprocess
 from pathlib import Path
 
-for filename in ('web/card_management.html','web/custom_card_management.html','web/easy_questions.html','web/group_attacks.html'):
+for filename in ('web/card_management.html','web/custom_card_management.html','web/easy_questions.html','web/group_attacks.html','web/victory_voices.html'):
     page = Path(filename).read_text(encoding="utf-8")
     scripts = re.findall(r"<script\b[^>]*>(.*?)</script>", page, re.S | re.I)
     if not scripts:

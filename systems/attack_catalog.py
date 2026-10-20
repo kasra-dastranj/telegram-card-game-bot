@@ -118,7 +118,7 @@ def validate(conn,value):
     if not isinstance(value['attacks'],list) or len(value['attacks'])>100:raise ValueError('حداکثر صد نوع حمله مجازه.')
     ids=set()
     for attack in value['attacks']:
-        if not isinstance(attack,dict) or set(attack)!=set(example()):raise ValueError('ساختار حمله نامعتبره.')
+        if not isinstance(attack,dict) or set(attack)-{'voice_dialogues'}!=set(example()):raise ValueError('ساختار حمله نامعتبره.')
         text(attack['id'],40,'شناسه')
         if not re.fullmatch('[a-z][a-z0-9_-]{0,39}',attack['id']) or attack['id'] in ids:raise ValueError('شناسهٔ حمله تکراری یا نامعتبره.')
         ids.add(attack['id']);text(attack['title'],100,'عنوان')
@@ -153,6 +153,20 @@ def validate(conn,value):
         for lines in dialogues.values():
             if not isinstance(lines,list) or not 1<=len(lines)<=10:raise ValueError('برای هر حالت یک تا ده دیالوگ لازمه.')
             for line in lines:text(line,350,'دیالوگ')
+        from systems.victory_voices import asset_in
+        voices = attack.get('voice_dialogues', {})
+        if not isinstance(voices, dict) or set(voices)-set(dialogues):
+            raise ValueError('تنظیم ویس دیالوگ نامعتبر است.')
+        for config in voices.values():
+            if not isinstance(config,dict) or set(config)!={'mode','media_ids'} or config['mode'] not in ('text','voice','random'):
+                raise ValueError('حالت دیالوگ باید متن، ویس یا تصادفی باشد.')
+            ids=config['media_ids']
+            if not isinstance(ids,list) or len(ids)>5 or len(set(map(str,ids)))!=len(ids):
+                raise ValueError('حداکثر پنج ویس متفاوت برای هر دیالوگ مجاز است.')
+            if config['mode']!='text' and not ids:
+                raise ValueError('برای حالت ویس یا تصادفی حداقل یک ویس آپلود کن.')
+            if any(not asset_in(conn,key,'attack') for key in ids):
+                raise ValueError('ویس حمله باید از همین پنل آپلود شده باشد.')
     if len(json.dumps(value,ensure_ascii=False).encode('utf8'))>512000:raise ValueError('فهرست بیش از حد بزرگه.')
     return value
 

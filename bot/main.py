@@ -522,6 +522,10 @@ class TelegramCardBot(
             from bot.handlers.deck_victory import handle
             return await handle(self, update, context)
         app.add_handler(CallbackQueryHandler(deck_victory_callback, pattern='^deck_victory_'))
+        async def legend_voice_callback(update, context):
+            from bot.handlers.legend_voice import handle
+            return await handle(self, update, context)
+        app.add_handler(CallbackQueryHandler(legend_voice_callback, pattern='^lv:'))
         app.add_handler(CallbackQueryHandler(self.profile_command, pattern='^easy_profile$'))
         app.add_handler(CallbackQueryHandler(self.accept_pvp_random_handler, pattern="^accept_pvp_random_"))
         app.add_handler(CallbackQueryHandler(self.accept_pvp_fight_handler, pattern="^accept_pvp_"))

@@ -56,6 +56,8 @@ class WebAPI:
         register_easy_admin(self)
         from web.attack_admin_api import register_attack_admin
         register_attack_admin(self)
+        from web.voice_admin_api import register_voice_admin
+        register_voice_admin(self)
 
     def _arena_admin_actor(self, scope='write'):
         """Fail-closed token auth with optional independent high-risk scopes."""
