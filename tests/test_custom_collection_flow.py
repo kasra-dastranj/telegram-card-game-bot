@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 from PIL import Image
-from telegram import CallbackQuery, Chat, Message, Update, User
+from telegram import CallbackQuery, Chat, Message, Update, User, PhotoSize
 
 from bot.handlers.game_modes import GameModeHandlersMixin
 from systems.card_collection import custom_collection, custom_owned_card
@@ -84,13 +84,17 @@ def test_custom_pagination_and_outdated_page_reach_all_cards(scene):
 
 
 @pytest.mark.parametrize('entry', ['cardinfo_', 'card_view_'])
-def test_detail_has_stats_traits_hidden_values_and_no_broken_economy_or_favorite(scene, entry):
+def test_detail_has_public_stats_traits_but_never_hidden_easy_values(scene, entry):
     _, handler, card_id = scene
     update, bot = event(entry+card_id)
     asyncio.run((handler.cardinfo_handler if entry == 'cardinfo_' else handler.card_view_handler)(update, SimpleNamespace()))
     text = text_of(bot)
     assert 'شخصیت MH' in text and '51' in text and '84' in text
-    assert 'تریت‌ها' in text and 'hero' in text and 'مدیریت' in text and '60' in text
+    assert 'تریت‌ها' in text and 'hero' in text
+    assert all(value not in text for value in ('ویژگی‌های Easy','⁨مدیریت⁩','کاریزما'))
+    with sqlite3.connect(handler.db.db_path) as conn:
+        import json
+        assert json.loads(conn.execute('SELECT hidden_stats FROM card_mode_metadata WHERE card_id=?',(card_id,)).fetchone()[0]) == {'survival':80,'management':60}
     assert {b.callback_data for b in buttons(bot)} == {'mycards_custom_1'}
     assert handler.db.get_card_by_id_for_player(card_id, 101) is None
 
@@ -124,6 +128,35 @@ def test_private_image_sends_sticker_with_flags_off_not_public_cache(scene, monk
     cache.assert_not_called()
     raw=bot.send_sticker.await_args.kwargs['sticker'].getvalue()
     assert Image.open(BytesIO(raw)).format == 'WEBP'
+
+
+@pytest.mark.parametrize('kind', ['custom','rare'])
+def test_details_from_photo_receipt_open_sticker_and_text_menu_with_working_back(scene,kind):
+    _,handler,custom_id=scene
+    card_id=custom_id
+    if kind=='rare':
+        from core.models import Card,CardRarity
+        handler.db.add_card(Card('rare-receipt','Rare receipt',CardRarity.RARE,15,26,37,48,[]))
+        handler.db.add_card_to_player(101,'rare-receipt')
+        card_id='rare-receipt'
+    update,bot=event('cardinfo_'+card_id)
+    photo=Message(15,datetime.now(timezone.utc),Chat(101,'private'),
+                  photo=[PhotoSize('photo','unique',120,180)],caption='مبارکت باشه!')
+    photo.set_bot(bot)
+    callback=CallbackQuery('receipt',update.callback_query.from_user,'chat',message=photo,data='cardinfo_'+card_id)
+    callback.set_bot(bot)
+    handler._send_owned_card_sticker=AsyncMock()
+    asyncio.run(handler.cardinfo_handler(Update(2,callback_query=callback),SimpleNamespace(bot_data={})))
+    handler._send_owned_card_sticker.assert_awaited_once()
+    bot.edit_message_text.assert_not_awaited();bot.send_message.assert_awaited_once()
+    details=bot.send_message.await_args.kwargs
+    assert ('شخصیت MH' if kind=='custom' else 'Rare receipt') in details['text']
+    assert all(label in details['text'] for label in ('قدرت','سرعت','هوش','محبوبیت'))
+    assert 'ویژگی‌های Easy' not in details['text'] and '⁨مدیریت⁩' not in details['text']
+    back=details['reply_markup'].inline_keyboard[-1][0].callback_data
+    update,bot=event(back)
+    asyncio.run(handler.mycards_navigation_handler(update,SimpleNamespace()))
+    assert bot.edit_message_text.await_count==1
 
 
 def test_group_and_other_user_callbacks_cannot_expose_private_definition(scene):

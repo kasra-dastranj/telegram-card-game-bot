@@ -178,7 +178,7 @@ def test_victory_uses_selected_deck_snapshot_after_edit_and_deletion(flow):
     assert 'همینه قدرت تیم ما!' in victory_caption(report, 1)
     assert 'شعار بعدی' not in victory_caption(report, 1)
     assert victory_caption(report, None) == 'این دست مساوی شد!'
-    assert DEFAULT_SLOGAN in victory_caption({}, 1)
+    assert victory_caption({}, 1) == '🏆 برد مبارکت!'
 
 
 def test_deck_editor_refuses_changes_during_active_match_without_losing_deck(flow, monkeypatch):

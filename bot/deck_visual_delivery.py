@@ -32,8 +32,11 @@ async def send_deck(handler, context, user_id, deck_id, markup):
     lines.extend('• ' + reason for reason in synergy['reasons'])
     if not synergy['reasons']:
         lines.append('فعلاً بدون بونس')
-    if deck.get('victory_slogan'):
-        lines.extend(['', '💬 ' + isolate(deck['victory_slogan'])])
+    from systems.deck_victory import read
+    from systems.deck_presentation import DEFAULT_SLOGAN
+    slogan = read(handler.db, user_id) or deck.get('victory_slogan')
+    if slogan and slogan != DEFAULT_SLOGAN:
+        lines.extend(['', '💬 ' + isolate(slogan)])
     caption = '\n'.join(lines)
     try:
         if not callable(getattr(context.bot, 'send_photo', None)):

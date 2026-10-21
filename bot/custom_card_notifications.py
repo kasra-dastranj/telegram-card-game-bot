@@ -11,13 +11,14 @@ from bot.card_reward_presentation import text_chunks
 from bot.battle_visual_delivery import read_bitmap, work
 from core.display_text import isolate
 from systems.card_collection import custom_owned_card
-from systems.custom_card_notices import claim, checkpoint
+from systems.custom_card_notices import claim, checkpoint, rare_owned_card
 
 logger = logging.getLogger(__name__)
 
 
 def text(payload):
-    lines = ['🎉 مبارکت باشه! کارت شخصی‌سازی‌شده‌ت آماده‌ست.', '',
+    rare = payload.get('delivery_kind') == 'rare'
+    lines = ['🎉 مبارکت باشه! یه کارت Rare به موجودیت اضافه شد.' if rare else '🎉 مبارکت باشه! کارت شخصی‌سازی‌شده‌ت آماده‌ست.', '',
              '🎴 '+isolate(payload['name'])+' '+isolate('('+payload['rarity'].title()+')'), '',
              '📊 آمار کارت:']
     for key, label in (('power','💪 قدرت'),('speed','⚡ سرعت'),('iq','🧠 هوش'),('popularity','❤️ محبوبیت')):
@@ -30,20 +31,22 @@ def text(payload):
     biography = str(payload.get('biography') or '').strip()
     if biography:
         lines += ['', '📖 بیوگرافی', biography]
-    lines += ['', 'کارتت توی «کارت‌های من ← شخصی‌سازی‌شده» منتظرته!']
+    if rare:
+        lines += ['', '🌟 شمارهٔ نسخه: ' + isolate(payload['serial'])]
+    lines += ['', 'کارتت توی «کارت‌های من ← ' + ('Rare' if rare else 'شخصی‌سازی‌شده') + '» منتظرته!']
     return '\n'.join(lines)
 
 
 def markup(card_id):
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton('🎴 مشخصات کارتم', callback_data='cardinfo_'+card_id)],
-        [InlineKeyboardButton('🎨 کارت‌های شخصی‌سازی‌شده‌ام', callback_data='mycards_custom_1')]])
+        [InlineKeyboardButton('🎴 مشخصات کارتم', callback_data='cardinfo_'+card_id)]])
 
 
 def current(bot, key, notice):
     if not checkpoint(bot.db, key, notice):
         return None
-    card = custom_owned_card(bot.db, notice['user_id'], notice['card_id'])
+    card = (rare_owned_card(bot.db, notice) if notice.get('kind') == 'rare' else
+            custom_owned_card(bot.db, notice['user_id'], notice['card_id']))
     if not card:
         checkpoint(bot.db, key, notice, state='cancelled')
     return card
@@ -57,7 +60,10 @@ async def send_one(bot, context, key, notice):
         return
     if not notice['photo_done']:
         image = None
-        if card.image_path:
+        if notice.get('kind') == 'rare':
+            from bot.battle_visual_delivery import card_art
+            image = await card_art(bot, context, card)
+        elif card.image_path:
             try:
                 image = await work(context, read_bitmap, card.image_path)
             except asyncio.TimeoutError:

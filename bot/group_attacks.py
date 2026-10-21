@@ -227,10 +227,40 @@ async def handle(bot,update,context):
         except Exception:pass
 
 
-def group_panel(event):
+def dialogue_key(event):
+    return ('intro' if event['status']=='open' else 'death' if event.get('killed') else
+            'loss' if event['status']=='win' else 'win' if event['status']=='loss' else
+            'tie' if event['status']=='tie' else 'expired')
+
+
+def freeze_dialogue(system, event):
+    """Freeze random text/voice choice per phase, including across restarts."""
+    key = dialogue_key(event)
+    config = event['attack'].get('voice_dialogues', {}).get(key)
+    if not config:
+        return event
+    phase = 'intro' if event['status']=='open' else 'final'
+    def action(conn):
+        current = read(conn, 'event:' + event['id'])
+        if current['revision'] != event['revision']:
+            return None
+        choices = current.setdefault('voice_choices', {})
+        if phase not in choices:
+            mode = config['mode']
+            use_voice = bool(config['media_ids']) and (mode=='voice' or mode=='random' and random.choice([True,False]))
+            choices[phase] = {'text': random.choice(event['attack']['dialogues'][key]),
+                              'media_id': random.choice(config['media_ids']) if use_voice else None}
+            write(conn, 'event:' + event['id'], current)
+        return current
+    return system.run(action)
+
+
+def group_panel(event, omit_dialogue=False):
     attack=event['attack'];rows=[]
+    phase='intro' if event['status']=='open' else 'final'
+    choice=event.get('voice_choices',{}).get(phase)
     if event['status']=='open':
-        text=event.setdefault('intro',random.choice(attack['dialogues']['intro']))
+        text=('' if omit_dialogue else choice['text']) if choice else event.setdefault('intro',random.choice(attack['dialogues']['intro']))
         text+='\n⏳ فرصت دفاع تا '+isolate(date(event['deadline']).astimezone(ZoneInfo(event['settings']['timezone'])).strftime('%H:%M'))
         text+='\n🎁 سهم هر شرکت‌کننده در برد: '+reward_text(attack['win'])
         loss=attack['loss']
@@ -240,7 +270,7 @@ def group_panel(event):
             rows.append([Button(label,callback_data=f'ga_offer:{event["id"]}:{index}' if slot['status']=='open' else 'ga_status:'+event['id'])])
     else:
         key='death' if event.get('killed') else 'loss' if event['status']=='win' else 'win' if event['status']=='loss' else 'tie' if event['status']=='tie' else 'expired'
-        text=random.choice(attack['dialogues'][key])
+        text=('' if omit_dialogue else choice['text']) if choice else random.choice(attack['dialogues'][key])
         text+='\n\n'+{'win':'🏆 دفاع موفق بود!','loss':'دشمن این بار برد!','tie':'🤝 حمله مساوی تموم شد.','void':'حمله کامل نشد؛ پاداش و جریمه‌ای حساب نشد.'}[event['status']]
         if event.get('killed'):text+='\n☠️ این دشمن دیگه به این گروه برنمی‌گرده.'
         if event['status']=='win':
@@ -249,7 +279,7 @@ def group_panel(event):
         if event['status']=='loss':text+='\nسهم هر شرکت‌کننده: −'+isolate(attack['loss']['coins'])+' سکه · −'+isolate(attack['loss']['hearts'])+' قلب'
         if event['status'] in ('tie','void'):text+='\nرزرو جریمهٔ شرکت‌کننده‌ها برگشت.'
         rows=[[Button('📋 جزئیات و پاداش من',callback_data='ga_report:'+event['id'])]]
-    return text,Markup(rows)
+    return text.lstrip('\n'),Markup(rows)
 
 
 async def maintenance(bot,context):
@@ -262,7 +292,9 @@ async def maintenance(bot,context):
         for key,_ in queue:
             event=system.get(key.split(':',1)[1])
             if not event:continue
-            delivery=event['delivery'];text,markup=group_panel(event)
+            event=freeze_dialogue(system,event)
+            if not event:continue
+            delivery=event['delivery']
             try:
                 stage='intro_sticker' if event['status']=='open' else 'final_sticker'
                 if not delivery.get(stage):
@@ -270,6 +302,16 @@ async def maintenance(bot,context):
                     def save_media(conn):
                         current=read(conn,'event:'+event['id']);current['delivery']=delivery;write(conn,'event:'+event['id'],current)
                     system.run(save_media)
+                phase='intro' if event['status']=='open' else 'final'
+                choice=event.get('voice_choices',{}).get(phase,{})
+                if choice.get('media_id') and not delivery.get(phase+'_voice_done'):
+                    from bot.victory_voices import send
+                    delivery[phase+'_voice_ok']=await send(bot.db,context,event['chat_id'],choice['media_id'],'attack')
+                    delivery[phase+'_voice_done']=True
+                    def save_voice(conn):
+                        current=read(conn,'event:'+event['id']);current['delivery']=delivery;write(conn,'event:'+event['id'],current)
+                    system.run(save_voice)
+                text,markup=group_panel(event,omit_dialogue=delivery.get(phase+'_voice_ok',False))
                 if event['status']=='open' and delivery.get('message_id'):
                     try:await asyncio.wait_for(context.bot.edit_message_text(chat_id=event['chat_id'],message_id=delivery['message_id'],text=text,reply_markup=markup,parse_mode=None),timeout=6)
                     except BadRequest as exc:

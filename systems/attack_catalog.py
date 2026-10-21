@@ -4,7 +4,7 @@ from __future__ import annotations
 import copy
 import json
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 STATS=('power','speed','iq','popularity')
 PREFIX='group-attacks:'
@@ -68,6 +68,35 @@ def text(value,limit,label,empty=False):
         raise ValueError('متن نامعتبر: '+label)
 
 
+def normalize_test_schedule(test, now=None):
+    """Accept browser UTC Z on Python 3.9 and server-relative shortcut requests.
+
+    Only the existing chat_id/until pair is persisted; disabled test timing must
+    never prevent saving independently authored attack definitions.
+    """
+    if (not isinstance(test,dict) or not {'chat_id','until'}<=set(test)
+            or set(test)-{'chat_id','until','for_minutes'}):
+        raise ValueError('تنظیم گروه تست نامعتبره.')
+    integer(test['chat_id'],-(2**52),0,'شناسهٔ گروه تست؛ صفر یعنی خاموش')
+    if test['chat_id']==0:
+        return {'chat_id':0,'until':''}
+    now=now or datetime.now(timezone.utc)
+    if 'for_minutes' in test:
+        integer(test['for_minutes'],1,1440,'مدت تست به دقیقه')
+        until=now+timedelta(minutes=test['for_minutes'])
+    else:
+        try:
+            text=test['until'].strip()
+            # datetime.fromisoformat gained Z support only in Python 3.11.
+            until=datetime.fromisoformat(text[:-1]+'+00:00' if text.endswith('Z') else text)
+            if until.tzinfo is None or until.utcoffset() is None:raise ValueError()
+        except (TypeError,ValueError,AttributeError):
+            raise ValueError('زمان پایان تست معتبر نیست؛ تاریخ و ساعت را انتخاب کن یا «یک ساعت بعد» را بزن.') from None
+    if (until-now).total_seconds()>24*3600:
+        raise ValueError('پایان تست باید حداکثر ۲۴ ساعت بعد باشد؛ «یک ساعت بعد» را بزن.')
+    return {'chat_id':test['chat_id'],'until':until.astimezone(timezone.utc).isoformat()}
+
+
 def validate_reward(conn,reward):
     if not isinstance(reward,dict) or set(reward)!={'coins','xp','cards'}:raise ValueError('ساختار پاداش نامعتبره.')
     integer(reward['coins'],0,10000,'سکهٔ پاداش');integer(reward['xp'],0,1000,'XP پاداش')
@@ -94,17 +123,7 @@ def validate(conn,value):
     if not isinstance(value,dict) or set(value)!=set(defaults()):raise ValueError('ساختار تنظیمات حمله نامعتبره.')
     integer(value['revision'],0,2**31,'نسخه')
     if type(value['enabled']) is not bool:raise ValueError('فعال‌بودن باید بله/خیر باشه.')
-    test=value['test_schedule']
-    if not isinstance(test,dict) or set(test)!={'chat_id','until'}:raise ValueError('تنظیم گروه تست نامعتبره.')
-    integer(test['chat_id'],-(2**52),0,'شناسهٔ گروه تست؛ صفر یعنی خاموش')
-    if test['chat_id']==0:
-        if test['until']!='':raise ValueError('برای خاموش‌کردن تست، زمان پایان را هم خالی کن.')
-    else:
-        try:
-            until=datetime.fromisoformat(test['until'])
-            if until.tzinfo is None or until.utcoffset() is None:raise ValueError()
-            if (until-datetime.now(timezone.utc)).total_seconds()>24*3600:raise ValueError()
-        except (TypeError,ValueError):raise ValueError('پایان تست باید زمان دارای منطقهٔ زمانی و حداکثر ۲۴ ساعت بعد باشد.') from None
+    value['test_schedule']=normalize_test_schedule(value['test_schedule'])
     for field,low,high in [('gap_minutes',30,1440),('start_hour',0,23),('end_hour',1,24),('user_daily_limit',1,10),('choice_seconds',30,120)]:
         integer(value[field],low,high,NUMBER_LABELS[field])
     if value['start_hour']>=value['end_hour']:raise ValueError('بازهٔ ساعت باید در یک روز و رو به جلو باشه.')
@@ -118,7 +137,7 @@ def validate(conn,value):
     if not isinstance(value['attacks'],list) or len(value['attacks'])>100:raise ValueError('حداکثر صد نوع حمله مجازه.')
     ids=set()
     for attack in value['attacks']:
-        if not isinstance(attack,dict) or set(attack)!=set(example()):raise ValueError('ساختار حمله نامعتبره.')
+        if not isinstance(attack,dict) or set(attack)-{'voice_dialogues'}!=set(example()):raise ValueError('ساختار حمله نامعتبره.')
         text(attack['id'],40,'شناسه')
         if not re.fullmatch('[a-z][a-z0-9_-]{0,39}',attack['id']) or attack['id'] in ids:raise ValueError('شناسهٔ حمله تکراری یا نامعتبره.')
         ids.add(attack['id']);text(attack['title'],100,'عنوان')
@@ -153,6 +172,20 @@ def validate(conn,value):
         for lines in dialogues.values():
             if not isinstance(lines,list) or not 1<=len(lines)<=10:raise ValueError('برای هر حالت یک تا ده دیالوگ لازمه.')
             for line in lines:text(line,350,'دیالوگ')
+        from systems.victory_voices import asset_in
+        voices = attack.get('voice_dialogues', {})
+        if not isinstance(voices, dict) or set(voices)-set(dialogues):
+            raise ValueError('تنظیم ویس دیالوگ نامعتبر است.')
+        for config in voices.values():
+            if not isinstance(config,dict) or set(config)!={'mode','media_ids'} or config['mode'] not in ('text','voice','random'):
+                raise ValueError('حالت دیالوگ باید متن، ویس یا تصادفی باشد.')
+            ids=config['media_ids']
+            if not isinstance(ids,list) or len(ids)>5 or len(set(map(str,ids)))!=len(ids):
+                raise ValueError('حداکثر پنج ویس متفاوت برای هر دیالوگ مجاز است.')
+            if config['mode']!='text' and not ids:
+                raise ValueError('برای حالت ویس یا تصادفی حداقل یک ویس آپلود کن.')
+            if any(not asset_in(conn,key,'attack') for key in ids):
+                raise ValueError('ویس حمله باید از همین پنل آپلود شده باشد.')
     if len(json.dumps(value,ensure_ascii=False).encode('utf8'))>512000:raise ValueError('فهرست بیش از حد بزرگه.')
     return value
 
@@ -161,6 +194,10 @@ def catalog_in(conn):
     value=read(conn,'catalog',defaults())
     # Catalogs written before test scheduling remain valid without a migration.
     value.setdefault('test_schedule',{'chat_id':0,'until':''})
+    # Read old browser Z values compatibly without writing or renewing a test.
+    until=value['test_schedule'].get('until')
+    if isinstance(until,str) and until.endswith('Z'):
+        value['test_schedule']['until']=until[:-1]+'+00:00'
     return value
 
 

@@ -56,6 +56,10 @@ class WebAPI:
         register_easy_admin(self)
         from web.attack_admin_api import register_attack_admin
         register_attack_admin(self)
+        from web.voice_admin_api import register_voice_admin
+        register_voice_admin(self)
+        from web.rare_admin_api import register_rare_admin
+        register_rare_admin(self)
 
     def _arena_admin_actor(self, scope='write'):
         """Fail-closed token auth with optional independent high-risk scopes."""
@@ -512,23 +516,24 @@ class WebAPI:
                 
                 if self.db.add_card(card):
                     self._save_card_extras(card.card_id, payload)
-                    self.db.save_card_variant(
-                        card.card_id,
-                        card.rarity.value,
-                        {
-                            'power': card.power,
-                            'speed': card.speed,
-                            'iq': card.iq,
-                            'popularity': card.popularity,
-                            'abilities': card.abilities,
-                            'card_effects': card.card_effects,
-                            'image_path': card.image_path,
-                            'card_type': card.card_type,
-                            'passive': payload['metadata']['passive'],
-                            'photo_file_id': payload['media'].get('photo', ''),
-                            'sticker_file_id': payload['media'].get('sticker', ''),
-                        },
-                    )
+                    if card.rarity != CardRarity.RARE:
+                        self.db.save_card_variant(
+                            card.card_id,
+                            card.rarity.value,
+                            {
+                                'power': card.power,
+                                'speed': card.speed,
+                                'iq': card.iq,
+                                'popularity': card.popularity,
+                                'abilities': card.abilities,
+                                'card_effects': card.card_effects,
+                                'image_path': card.image_path,
+                                'card_type': card.card_type,
+                                'passive': payload['metadata']['passive'],
+                                'photo_file_id': payload['media'].get('photo', ''),
+                                'sticker_file_id': payload['media'].get('sticker', ''),
+                            },
+                        )
                     return jsonify({
                         'success': True,
                         'message': f'کارت {card.name} با موفقیت اضافه شد',
@@ -561,7 +566,7 @@ class WebAPI:
                     return jsonify({'success': False, 'error': 'کارت دیگری با این نام وجود دارد'}), 409
                 if not self.db.update_card(payload['card']):
                     return jsonify({'success': False, 'error': 'خطا در ویرایش کارت'}), 500
-                self._save_card_extras(card_id, payload, form_only=True)
+                self._save_card_extras(card_id, payload, form_only=payload['card'].rarity != CardRarity.RARE)
                 return jsonify({
                     'success': True,
                     'message': f"کارت {payload['card'].name} به‌روزرسانی شد",
@@ -984,7 +989,7 @@ class WebAPI:
             if isinstance(error, ArenaValidationError):
                 return jsonify({'success': False, 'error': 'arena_validation_failed', 'issues': error.issues}), 422
             code = str(error)
-            status = 403 if code in {'unauthorized_admin', 'admin_auth_not_configured'} else 429 if code == 'rate_limit_exceeded' else 409 if code in {'arena_id_locked', 'draft_conflict', 'arena_already_archived', 'published_media_immutable'} else 404 if code in {'arena_not_found', 'draft_not_found'} else 400
+            status = 403 if code in {'unauthorized_admin', 'admin_auth_not_configured'} else 429 if code == 'rate_limit_exceeded' else 409 if code in {'arena_id_locked', 'draft_conflict', 'published_conflict', 'arena_already_archived', 'published_media_immutable'} else 404 if code in {'arena_not_found', 'draft_not_found'} else 400
             return jsonify({'success': False, 'error': code}), status
 
         @self.app.route('/arenas')
@@ -1008,7 +1013,9 @@ class WebAPI:
                 versions = self.arena_registry.list_versions(arena_id)
                 if not versions: raise ValueError('arena_not_found')
                 draft = next((item for item in versions if item['version_status'] == 'draft'), None)
-                return jsonify({'success': True, 'arena_id': arena_id, 'published': published, 'draft': self.arena_registry.get_version(arena_id, draft['version']) if draft else None, 'versions': versions})
+                version=draft['version'] if draft else published['version'] if published else None
+                return jsonify({'success': True, 'arena_id': arena_id, 'published': published, 'draft': self.arena_registry.get_version(arena_id, draft['version']) if draft else None, 'versions': versions,
+                                'media':self.arena_registry.list_media(arena_id,version) if version else []})
             except Exception as error:
                 return arena_error(error)
 
@@ -1019,6 +1026,14 @@ class WebAPI:
                 versions = self.arena_registry.list_versions(arena_id)
                 if not versions: raise ValueError('arena_not_found')
                 return jsonify({'success': True, 'versions': versions})
+            except Exception as error:
+                return arena_error(error)
+
+        @self.app.route('/api/arenas/editor-options', methods=['GET'])
+        def arena_editor_options():
+            try:
+                self._arena_admin_actor('read')
+                return jsonify(success=True,traits=self.trait_registry.list_traits())
             except Exception as error:
                 return arena_error(error)
 
@@ -1106,7 +1121,10 @@ class WebAPI:
         @self.app.route('/api/arenas/<arena_id>/versions/<int:version>/clone-as-draft', methods=['POST'])
         def clone_arena_version(arena_id, version):
             try:
-                actor = self._arena_admin_actor('write'); draft = self.arena_registry.create_next_draft(arena_id, actor, version, request.headers.get('X-Request-Id'))
+                actor = self._arena_admin_actor('write')
+                body=request.get_json(silent=True) or {}
+                draft = self.arena_registry.create_next_draft(arena_id, actor, version, request.headers.get('X-Request-Id'),
+                                                             expected_current_version=body.get('expected_current_version'))
                 return jsonify({'success': True, 'arena': draft}), 201
             except Exception as error:
                 return arena_error(error)
@@ -1145,7 +1163,7 @@ class WebAPI:
                     temporary.write_bytes(data)
                     os.replace(temporary, target)
                 try:
-                    item = self.arena_registry.add_media(arena_id, version, 'miniapp', 'background', f'/miniapp-assets/arena-backgrounds/{safe_id}/{filename}', 'image/webp', len(data), digest, width, height, actor, 'ready')
+                    item = self.arena_registry.add_media(arena_id, version, 'miniapp', 'background', f'/miniapp-assets/arena-backgrounds/{safe_id}/{filename}', 'image/webp', len(data), digest, width, height, actor, 'ready', mirror_telegram=True)
                 except Exception:
                     if created_file and target.exists():
                         target.unlink()

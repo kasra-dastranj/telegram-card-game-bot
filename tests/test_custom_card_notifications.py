@@ -62,7 +62,7 @@ def test_fulfill_commits_private_receipts_and_delivers_card_stats_without_reward
         assert all(value in body for value in ('مبارکت','شخصیت MH','51','62','73','84','270','داستان شخصیت','hero'))
         assert 'شعار من' not in body
         callbacks=[b.callback_data for row in call.kwargs['reply_markup'].inline_keyboard for b in row]
-        assert callbacks==['cardinfo_'+result['card_id'],'mycards_custom_1']
+        assert callbacks==['cardinfo_'+result['card_id']]
     assert all(n['state']=='sent' for n in notices(db).values())
     asyncio.run(deliver(bot,context))
     assert sender.await_count==2  # No repeated completed deliveries.

@@ -13,6 +13,17 @@ from PIL import Image, UnidentifiedImageError
 from systems.custom_cards import CustomCards,media_root,now
 
 
+def find_players(db, query):
+    query=query.strip().lstrip('@')
+    if not query or len(query)>100 or len(query)<2 and not query.isdecimal():
+        return []
+    if query.isdecimal():query=str(int(query))
+    escaped=query.replace('\\','\\\\').replace('%','\\%').replace('_','\\_')
+    with closing(sqlite3.connect(db.db_path)) as conn:
+        rows=conn.execute("SELECT user_id,username,first_name FROM players WHERE CAST(user_id AS TEXT)=? OR username LIKE ? ESCAPE '\\' OR first_name LIKE ? ESCAPE '\\' ORDER BY user_id LIMIT 20",(query,'%'+escaped+'%','%'+escaped+'%')).fetchall()
+    return [{'user_id':r[0],'username':r[1],'first_name':r[2]} for r in rows]
+
+
 def register_custom_admin(api):
     service=CustomCards(api.db)
     @api.app.after_request
@@ -67,13 +78,7 @@ def register_custom_admin(api):
     @auth
     def custom_players(actor):
         api._arena_rate_limit('custom_players',60)
-        query=request.args.get('q','').strip().lstrip('@')
-        if not query or len(query)>100 or len(query)<2 and not query.isdecimal():return jsonify(players=[])
-        if query.isdecimal():query=str(int(query))
-        escaped=query.replace('\\','\\\\').replace('%','\\%').replace('_','\\_')
-        with closing(sqlite3.connect(api.db.db_path)) as conn:
-            rows=conn.execute("SELECT user_id,username,first_name FROM players WHERE CAST(user_id AS TEXT)=? OR username LIKE ? ESCAPE '\\' OR first_name LIKE ? ESCAPE '\\' ORDER BY user_id LIMIT 20",(query,'%'+escaped+'%','%'+escaped+'%')).fetchall()
-        return jsonify(players=[{'user_id':r[0],'username':r[1],'first_name':r[2]} for r in rows])
+        return jsonify(players=find_players(api.db,request.args.get('q','')))
 
     @api.app.route('/api/custom/media',methods=['POST'])
     @auth

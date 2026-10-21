@@ -139,7 +139,7 @@ class ProgressionEconomy:
     @staticmethod
     def pool(conn,config,kind):
         rarity='normal' if kind=='daily' else 'epic'
-        rows=conn.execute("""SELECT c.card_id FROM cards c WHERE c.origin='official' AND
+        rows=conn.execute("""SELECT c.card_id FROM cards c WHERE c.origin='official' AND c.rarity!='rare' AND
             (c.rarity=? OR EXISTS(SELECT 1 FROM card_variants v WHERE v.card_id=c.card_id AND v.rarity=?)) ORDER BY c.card_id""",(rarity,rarity)).fetchall()
         configured=config['claim'][kind+'_pool']
         return [row[0] for row in rows if not configured or row[0] in configured]

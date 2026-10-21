@@ -49,6 +49,7 @@ class BasicHandlersMixin:
         chat_type = update.effective_chat.type
         if chat_type == 'private':
             getattr(context, 'user_data', {}).pop('easy_victory_draft', None)
+            getattr(context, 'user_data', {}).pop('deck_victory_draft', None)
             args = getattr(context, 'args', None) or []
             if args and args[0].startswith('gm_') and len(args[0]) > 3:
                 context.user_data['onboarding_invite'] = args[0]
@@ -221,6 +222,7 @@ class BasicHandlersMixin:
         if query:
             await query.answer()
         context.user_data.pop('easy_victory_draft', None)
+        context.user_data.pop('deck_victory_draft', None)
         context.user_data.pop('easy_victory_choices', None)
         if not self._is_command_allowed_in_chat("profile", update.effective_chat.type):
             await update.effective_message.reply_text(
@@ -281,6 +283,7 @@ class BasicHandlersMixin:
             [InlineKeyboardButton("🎴 کارت‌های من", callback_data="my_cards"),
              InlineKeyboardButton("🏆 لیدربرد", callback_data="leaderboard")],
             [InlineKeyboardButton("🏆 شعار برد ایزی مود", callback_data="easy_victory_menu")],
+            [InlineKeyboardButton("🃏 شعار برد دک مود", callback_data="deck_victory_menu")],
             [InlineKeyboardButton("🎯 مأموریت‌ها", callback_data="v2_missions")],
             [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main")]
         ]
@@ -1094,6 +1097,7 @@ class BasicHandlersMixin:
         query = update.callback_query
         await query.answer()
         getattr(context, 'user_data', {}).pop('easy_victory_draft', None)
+        getattr(context, 'user_data', {}).pop('deck_victory_draft', None)
         
         # No expiration check needed for back_to_main as it should always work
         
@@ -1275,19 +1279,18 @@ class BasicHandlersMixin:
         keyboard = [] if card.origin == 'custom' else [
             [InlineKeyboardButton(fav_text, callback_data=f"toggle_fav_{card_id}")],
         ]
+        if context is not None and query.message.chat_id == user_id:
+            from systems.victory_voices import owned
+            if owned(self.db, user_id, card_id):
+                from bot.handlers.legend_voice import button
+                keyboard.append([button(context, card_id)])
         if card.origin == 'custom':
-            from systems.easy_questions import CORE_STATS, HIDDEN_STATS, catalog_in
             with sqlite3.connect(self.db.db_path) as metadata_conn:
-                row = metadata_conn.execute('SELECT traits,hidden_stats FROM card_mode_metadata WHERE card_id=?', (card_id,)).fetchone()
-                labels = {**CORE_STATS, **HIDDEN_STATS, **catalog_in(metadata_conn)['stats']}
+                row = metadata_conn.execute('SELECT traits FROM card_mode_metadata WHERE card_id=?', (card_id,)).fetchone()
             if row:
-                traits, hidden = json.loads(row[0]), json.loads(row[1])
+                traits = json.loads(row[0])
                 if traits:
                     text += '\n\n🧬 تریت‌ها: ' + '، '.join(isolate(escape(str(t))) for t in traits)
-                if hidden:
-                    text += '\n\n📊 ویژگی‌های Easy\n' + '\n'.join(
-                        isolate(escape(str(labels.get(key, key)))) + ': ' + isolate(value)
-                        for key, value in hidden.items())
             text += '\n\n' + escape(custom_gameplay_notice(self.db))
         
         # اگه کارت Epic هست، ماموریت رو نشون بده
@@ -1314,7 +1317,12 @@ class BasicHandlersMixin:
         keyboard.append([InlineKeyboardButton("🔙 بازگشت", callback_data="mycards_custom_1" if card.origin == 'custom' else "mycards_menu_1")])
         
         try:
-            await query.edit_message_text(text=text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+            if getattr(query.message, 'photo', None) or getattr(query.message, 'sticker', None):
+                # Card-ready receipts are photos. Open a text menu so its back
+                # button can use the ordinary collection navigation as well.
+                await query.message.reply_text(text=text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+            else:
+                await query.edit_message_text(text=text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
         except telegram.error.BadRequest as exc:
             if "message is not modified" not in str(exc).lower():
                 raise
