@@ -526,8 +526,13 @@ class DatabaseManager:
     def _ensure_card_variants(self, conn):
         """Backfill three editable forms while preserving the legacy form exactly."""
         cursor = conn.cursor()
+        # Legacy databases acquire origin later in initialization. Before that
+        # column exists every card is official; private custom definitions must
+        # never receive synthetic forms on subsequent service starts.
+        columns = {row[1] for row in cursor.execute('PRAGMA table_info(cards)')}
+        official_only = " AND origin='official'" if 'origin' in columns else ""
         cards = cursor.execute(
-            "SELECT card_id, rarity, power, speed, iq, popularity, abilities, card_effects, image_path, card_type, created_at FROM cards WHERE rarity!='rare'"
+            "SELECT card_id, rarity, power, speed, iq, popularity, abilities, card_effects, image_path, card_type, created_at FROM cards WHERE rarity!='rare'" + official_only
         ).fetchall()
         for row in cards:
             (card_id, source_rarity, power, speed, iq, popularity, abilities,

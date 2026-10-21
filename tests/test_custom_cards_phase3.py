@@ -412,3 +412,18 @@ def test_custom_economy_and_official_missions_cannot_be_spoofed_by_name(custom):
         assert ProgressionMissions.progress_in(conn,1,base,config)['current_progress']==1
         assert ProgressionMissions.progress_in(conn,1,{**base,'type':'character_games','filters':{'card_id':'official'}},config)['current_progress']==0
         assert ProgressionMissions.progress_in(conn,1,{**base,'eligibility':{'official_card_id':card}},config)['visible'] is False
+
+
+@pytest.mark.parametrize('rarity', ['normal', 'epic', 'legend'])
+def test_restart_does_not_generate_official_forms_for_private_card(custom, rarity):
+    db = custom[0]
+    db.init_database()  # Finish any legacy official-form backfill first.
+    _, card = activate(custom, rarity)
+    with sqlite3.connect(db.db_path) as conn:
+        before = '\n'.join(conn.iterdump())
+        assert conn.execute('SELECT COUNT(*) FROM card_variants WHERE card_id=?', (card,)).fetchone()[0] == 0
+    DatabaseManager(db.db_path)
+    with sqlite3.connect(db.db_path) as conn:
+        assert conn.execute('SELECT COUNT(*) FROM card_variants WHERE card_id=?', (card,)).fetchone()[0] == 0
+        assert '\n'.join(conn.iterdump()) == before
+    assert db.get_card_by_id_for_player(card, 1).rarity.value == rarity
