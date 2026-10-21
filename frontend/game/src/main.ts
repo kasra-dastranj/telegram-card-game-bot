@@ -1,8 +1,10 @@
 import Phaser from "phaser";
 import "./styles.css";
 import "./tabletop.css";
+import "./citadel.css";
 import { ApiError, api, type CardData, type CardPage, type ClaimStatus, type DeckData, type Difficulty, type FightData, type FusionPreview, type MissionData, type ProfileData, type QuickState, type RoundData, type SkinCollection, type StatKey, type ThreeRoundAbilityState, type ThreeRoundState, type UpgradePreview } from "./api";
 import { BattleScene } from "./BattleScene";
+import { combatCard, duel, playerProgress, portrait, resultCrest, rewardTiles, roundTrack, safe, shopArt, statIcons } from "./presentation";
 
 type Screen = "splash" | "onboarding" | "lobby" | "profileHub" | "collection" | "decks" | "progress" | "shop" | "quickMenu" | "quickWait" | "threeMenu" | "threeWait" | "threeMatch" | "threeResult" | "cards" | "quickMatch" | "quickResult" | "battle" | "result";
 
@@ -12,6 +14,7 @@ const state: {
   bootProgress: number;
   bootLabel: string;
   profile?: ProfileData;
+  resultProfile?: ProfileData;
   profileStatus: "loading" | "ready" | "error";
   profileError?: string;
   cards: CardData[];
@@ -36,6 +39,7 @@ const state: {
   pendingUpgrade?: UpgradePreview;
   pendingCopyFusion?: { cardId: string; target: "epic" | "legend"; requestKey?: string; preview?: { required: number; upgrade_cards_required: number; xp: number; config_version: number } };
   shopQuote?: { quote_id: string; price: number };
+  shopQuoteItem?: string;
   pendingSale?: { cardId: string; rarity: string; requestKey: string; price: number; config_version: number };
   silverRequestKey?: string;
   decks: DeckData[];
@@ -124,6 +128,8 @@ const game = new Phaser.Game({
 
 const ui = document.querySelector<HTMLDivElement>("#ui-root")!;
 const toast = document.querySelector<HTMLDivElement>("#toast")!;
+let toastTimer: number | undefined;
+let effectTimer: number | undefined;
 ui.addEventListener("toggle", event => {
   if (event.target instanceof HTMLDetailsElement && event.target.classList.contains("three-ability-menu")) threeAbilityMenuOpen = event.target.open;
 }, true);
@@ -135,25 +141,31 @@ function haptic(kind: "light" | "medium" | "success" = "light"): void {
   else feedback.impactOccurred(kind);
 }
 
-function showToast(message: string): void {
+function showToast(message: string, kind: "error" | "success" | "info" = "error"): void {
   toast.textContent = message;
+  toast.dataset.kind = kind;
+  toast.setAttribute("role", kind === "error" ? "alert" : "status");
+  toast.setAttribute("aria-live", kind === "error" ? "assertive" : "polite");
   toast.classList.add("toast--visible");
-  window.setTimeout(() => toast.classList.remove("toast--visible"), 3000);
+  if (toastTimer !== undefined) window.clearTimeout(toastTimer);
+  toastTimer = window.setTimeout(() => toast.classList.remove("toast--visible"), 3300);
 }
 
-game.events.on("card-drag-start", () => haptic("light"));
-game.events.on("hand-page-changed", (page: number, pageCount: number) => {
-  ui.dataset.handPage = String(page);
-  ui.dataset.handPageCount = String(pageCount);
-});
-game.events.on("card-dropped", (cardId: string) => {
-  if (state.loading || (state.playMode === "quick" ? state.quick?.phase !== "card_selection" || state.quick.my_card_locked : state.playMode === "three" ? state.three?.phase !== "card_selection" || state.three.my_card_locked : true)) return;
-  const card = state.cards.find((item) => item.card_id === cardId);
-  if (!card) return;
-  state.selected = card;
-  if (state.playMode === "three") void submitThreeCard();
-  else void submitQuickCard();
-});
+function showEffect(kind: "heart" | "upgrade" | "ability" | "reward" | "victory"): void {
+  document.querySelector(".event-effect")?.remove();
+  const icon = { heart: "♥", upgrade: "✦", ability: "⚡", reward: "✧", victory: "♛" }[kind];
+  const effect = document.createElement("div");
+  effect.className = `event-effect event-effect--${kind}`;
+  effect.setAttribute("aria-hidden", "true");
+  effect.innerHTML = `<span>${icon}</span>${Array.from({ length: 8 }, (_, index) => `<i style="--particle:${index}"></i>`).join("")}`;
+  document.body.append(effect);
+  if (effectTimer !== undefined) window.clearTimeout(effectTimer);
+  effectTimer = window.setTimeout(() => effect.remove(), 1350);
+}
+
+ui.addEventListener("error", event => {
+  if (event.target instanceof HTMLImageElement) event.target.hidden = true;
+}, true);
 
 let lastBattleMarkup = "";
 
@@ -175,7 +187,8 @@ function renderBattleScreen(markup: string, sameScreen: boolean): void {
 function render(): void {
   const sameScreen = ui.dataset.screen === state.screen;
   const screenScroll = sameScreen ? ui.querySelector<HTMLElement>(".screen")?.scrollTop ?? 0 : 0;
-  const abilityScroll = ui.querySelector<HTMLElement>(".three-ability-menu .ability-list")?.scrollTop ?? 0;
+  const scrollSelectors = [".hub-scroll", ".card-grid", ".deck-picker", ".fusion-grid", ".card-sheet", ".three-ability-menu .ability-list"];
+  const scrollPositions = sameScreen ? scrollSelectors.map(selector => ui.querySelector<HTMLElement>(selector)?.scrollTop ?? 0) : [];
   ui.dataset.screen = state.screen;
   document.body.dataset.appScreen = state.screen;
   if (state.screen === "splash") ui.innerHTML = splashTemplate();
@@ -197,8 +210,10 @@ function render(): void {
   if (state.screen === "quickResult") ui.innerHTML = quickResultTemplate();
   if (state.screen === "battle") renderBattleScreen(battleTemplate(), sameScreen);
   if (state.screen === "result") ui.innerHTML = resultTemplate();
-  const abilityList = ui.querySelector<HTMLElement>(".three-ability-menu .ability-list");
-  if (abilityList) abilityList.scrollTop = abilityScroll;
+  scrollSelectors.forEach((selector, index) => {
+    const element = ui.querySelector<HTMLElement>(selector);
+    if (element) element.scrollTop = scrollPositions[index] ?? 0;
+  });
   const screen = ui.querySelector<HTMLElement>(".screen");
   if (screen) screen.scrollTop = screenScroll;
 }
@@ -531,6 +546,7 @@ function progressTemplate(): string {
   </article>`).join("");
   return `<section class="screen hub-screen progress-screen">
     ${resourceHud()}<div class="hub-scroll"><header class="hub-title"><div><p class="eyebrow">PROGRESS</p><h1>پیشرفت و پاداش</h1></div></header>
+    ${playerProgress(state.profile)}
     <article class="daily-claim glass-panel"><div><small>${v2 ? "DAILY REWARD" : "DAILY CARD"}</small><h2>${claim?.pool_exhausted ? "کارت Normal موجود نیست" : claim?.can_claim ? `${claimTitle} آماده است` : "پاداش امروز دریافت شده"}</h2><p>${claim?.pool_exhausted ? "فعلاً کاتالوگ کارت Normal ندارد؛ نوبت Claim مصرف نشده است." : claim?.can_claim ? claimDescription : `دریافت بعدی: ${formatDuration(claim?.remaining_seconds)}`}</p></div><button data-action="claim-daily" ${!claim?.can_claim || state.loading ? "disabled" : ""}>${state.loading ? "…" : v2 ? "دریافت پاداش" : "دریافت کارت"}</button></article>
     ${state.rewardCard ? `<article class="reward-reveal glass-panel"><span style="background-image:url('${escapeHtml(state.rewardCard.image_url)}')"></span><div><small>پاداش تازه</small><h2 dir="auto">${escapeHtml(state.rewardCard.name)}</h2><b dir="ltr">${escapeHtml(state.rewardCard.rarity.toUpperCase())}</b>${state.rewardAbility ? `<p>🎁 ابیلیتی مصرفی: ${escapeHtml(state.rewardAbility.title)} ×۱</p>` : ""}</div></article>` : ""}
     ${state.rewardTicket ? `<article class="mission-card glass-panel"><h2>🎟 یک Silver Ticket دریافت شد</h2><p>ابیلیتی مصرفی: ${escapeHtml(state.rewardAbility?.title)} ×۱</p></article>` : ""}
@@ -552,9 +568,10 @@ function skinsSheet(): string {
 function economyShopTemplate(): string {
   const economy = state.profile?.economy;
   const labels: Record<string, string> = { upgrade_card: 'کارت ارتقا', silver_ticket: 'Silver Ticket', deck_slot: 'ظرفیت دک', refill: 'پرکردن قلب‌ها', permanent_heart: 'قلب دائمی' };
-  const items = Object.keys(economy?.shop || {}).map(item => `<article class="mission-card glass-panel"><h2>${labels[item] || escapeHtml(item)}</h2><button data-action="v2-quote" data-value="${escapeHtml(item)}">نمایش قیمت</button></article>`).join('');
+  const descriptions: Record<string, string> = { upgrade_card: "برای ارتقای کارت‌های واجد شرایط", silver_ticket: "برای دریافت Silver Claim", deck_slot: "افزایش ظرفیت دک", refill: "جان‌های خالی را پر می‌کند", permanent_heart: "حداکثر جان را یک واحد بیشتر می‌کند" };
+  const items = Object.entries(economy?.shop || {}).filter(([, config]) => config.enabled).map(([item]) => `<article class="shop-item glass-panel">${shopArt(item)}<div><h2>${labels[item] || escapeHtml(item)}</h2><p>${descriptions[item] || "آیتم موجود در فروشگاه"}</p></div><button data-action="v2-quote" data-value="${escapeHtml(item)}">دیدن قیمت</button></article>`).join('');
   const quote = state.shopQuote ? `<div class="upgrade-confirm" role="alertdialog"><strong>قیمت خرید: ${state.shopQuote.price.toLocaleString('fa-IR')} سکه</strong><p>پس از تأیید از موجودی برداشت می‌شود.</p><button data-action="v2-buy" ${state.loading ? 'disabled' : ''}>تأیید خرید</button><button data-action="v2-cancel">انصراف</button></div>` : '';
-  return `<section class="screen hub-screen shop-screen">${resourceHud()}<div class="hub-scroll"><header class="hub-title"><h1>فروشگاه</h1></header><p>🎟 ${economy?.items.silver_ticket ?? 0} Ticket · ${economy?.items.upgrade_card ?? 0} کارت ارتقا · ${economy?.capacity.slots ?? 3} ظرفیت دک</p><article class="mission-card glass-panel"><h2>Silver Claim</h2><p>${economy?.items.free_silver_claim ?? 0} دریافت رایگان؛ پس از آن با ${economy?.silver_claim_tickets ?? 3} Ticket.</p><button data-action="v2-silver" ${state.loading ? 'disabled' : ''}>دریافت Epic</button></article>${quote}${items}<p>ارتقا و فروش نسخه‌ها از جزئیات کارت در کلکسیون انجام می‌شود.</p><button data-action="open-collection">کلکسیون</button></div>${bottomNav('shop')}</section>`;
+  return `<section class="screen hub-screen shop-screen">${resourceHud()}<div class="hub-scroll"><header class="hub-title"><div><p class="eyebrow">SHOP</p><h1>فروشگاه</h1></div></header><div class="shop-inventory glass-panel"><span>🎟 ${economy?.items.silver_ticket ?? 0} بلیت</span><span>✦ ${economy?.items.upgrade_card ?? 0} کارت ارتقا</span><span>▣ ${economy?.capacity.slots ?? 3} ظرفیت دک</span></div><article class="shop-item shop-item--featured glass-panel">${shopArt("silver_ticket")}<div><h2>Silver Claim</h2><p>${economy?.items.free_silver_claim ?? 0} دریافت رایگان؛ پس از آن با ${economy?.silver_claim_tickets ?? 3} بلیت.</p></div><button data-action="v2-silver" ${state.loading ? 'disabled' : ''}>دریافت Epic</button></article>${quote}<div class="shop-items">${items}</div><p class="section-note">ارتقا و فروش کارت از بخش جزئیات همان کارت انجام می‌شود.</p><button class="secondary-button" data-action="open-collection">دیدن کارت‌ها</button></div>${bottomNav('shop')}</section>`;
 }
 
 async function askCopyFusion(target: 'epic' | 'legend'): Promise<void> {
@@ -572,15 +589,16 @@ async function askCopyFusion(target: 'epic' | 'legend'): Promise<void> {
 
 async function quoteEconomy(item: string): Promise<void> {
   state.loading = true; render();
-  try { state.shopQuote = await api.economyQuote(item); }
+  try { state.shopQuote = await api.economyQuote(item); state.shopQuoteItem = item; }
   catch (error) { showToast(error instanceof Error ? error.message : 'قیمت دریافت نشد'); }
   finally { state.loading = false; render(); }
 }
 
 async function purchaseEconomy(): Promise<void> {
   if (!state.shopQuote || state.loading) return;
+  const item = state.shopQuoteItem;
   state.loading = true; render();
-  try { const result = await api.economyPurchase(state.shopQuote.quote_id); state.profile = result.profile; state.shopQuote = undefined; showToast('خرید انجام شد'); }
+  try { const result = await api.economyPurchase(state.shopQuote.quote_id); state.profile = result.profile; state.shopQuote = undefined; state.shopQuoteItem = undefined; haptic("success"); showEffect(item === "refill" || item === "permanent_heart" ? "heart" : "reward"); showToast('خرید انجام شد', "success"); }
   catch (error) { showToast(error instanceof Error ? error.message : 'خرید انجام نشد'); }
   finally { state.loading = false; render(); }
 }
@@ -588,7 +606,7 @@ async function purchaseEconomy(): Promise<void> {
 async function silverClaim(): Promise<void> {
   if (state.loading) return;
   state.loading = true; state.silverRequestKey ||= crypto.randomUUID(); render();
-  try { const result = await api.silverClaim(state.silverRequestKey); state.profile = result.profile; state.silverRequestKey = undefined; showToast('یک Epic دریافت شد؛ در کلکسیون ببین.'); }
+  try { const result = await api.silverClaim(state.silverRequestKey); state.profile = result.profile; state.silverRequestKey = undefined; showEffect("reward"); showToast('یک Epic دریافت شد؛ در کلکسیون ببین.', "success"); }
   catch (error) { showToast(error instanceof Error ? error.message : 'دریافت Epic انجام نشد'); }
   finally { state.loading = false; render(); }
 }
@@ -604,7 +622,7 @@ async function previewSale(rarity: string): Promise<void> {
 async function confirmSale(): Promise<void> {
   if (!state.pendingSale || state.loading) return;
   const sale = state.pendingSale; state.loading = true; render();
-  try { const result = await api.sellCard(sale.cardId, sale.rarity, sale.requestKey, sale.config_version); state.profile = result.profile; state.pendingSale = undefined; state.detailCard = undefined; await loadCollection(state.collectionPage); showToast('فروش انجام شد'); }
+  try { const result = await api.sellCard(sale.cardId, sale.rarity, sale.requestKey, sale.config_version); state.profile = result.profile; state.pendingSale = undefined; state.detailCard = undefined; await loadCollection(state.collectionPage); showToast('فروش انجام شد', "success"); }
   catch (error) { showToast(error instanceof Error ? error.message : 'فروش انجام نشد'); }
   finally { state.loading = false; render(); }
 }
@@ -631,7 +649,11 @@ function fusionConfirmDialog(): string {
 }
 
 function cardStatStrip(card: CardData): string {
-  return `<span class="card-stat-strip">${(Object.keys(labels) as StatKey[]).map((key) => `<span><b>${card[key].toLocaleString("fa-IR")}</b><small>${labels[key].title}</small></span>`).join("")}</span>`;
+  return `<span class="card-stat-strip">${(Object.keys(labels) as StatKey[]).map((key) => `<span title="${labels[key].title}"><small aria-hidden="true">${statIcons[key]}</small><b>${card[key].toLocaleString("fa-IR")}</b></span>`).join("")}</span>`;
+}
+
+function arenaArt(url?: string | null): string {
+  return url ? `<img class="arena-art" src="${safe(url)}" alt="" aria-hidden="true">` : "";
 }
 
 function lobbyTemplate(): string {
@@ -768,9 +790,11 @@ function threeMatchTemplate(): string {
   const myLast = last?.values[String(match?.user_id)];
   const rivalLast = last?.values[String(match?.opponent_id)];
   return `<section class="screen quick-match-screen">
-    <header class="quick-match-hud glass-panel"><div><small>راند ${match?.round ?? 1} از ۳</small><strong>${match?.arena?.emoji ?? "◇"} ${escapeHtml(match?.arena?.name_fa ?? "میدان")}</strong></div><div class="versus-chip"><span>${mine}</span><i>VS</i><span>${rival}</span></div></header>
+    ${arenaArt(match?.arena?.background_url)}
+    <header class="quick-match-hud glass-panel"><div><small>نبرد سه‌راندی</small><strong>${match?.arena?.emoji ?? "◇"} ${escapeHtml(match?.arena?.name_fa ?? "میدان")}</strong></div><div class="versus-chip"><span>${mine}</span><i>VS</i><span>${rival}</span></div></header>
+    ${roundTrack(match?.round ?? 1)}
+    ${duel(match?.my_card, match?.opponent_card, match?.my_values)}
     <div class="arena-banner"><span>${match?.arena?.emoji ?? "◇"}</span><div><small>ویژگی زمین</small><strong>${match?.arena?.boost_stat ? labels[match.arena.boost_stat].title : "—"}</strong><p>تقویت فقط برای کارت سازگار اعمال می‌شود. با ابیلیتی تغییر زمین، میدان همین راوند و راوندهای بعد عوض می‌شود.</p></div></div>
-    ${match?.opponent_card ? `<div class="reveal-card glass-panel"><span class="reveal-card__art" style="background-image:url('${escapeHtml(match.opponent_card.image_url)}')"></span><div><small>کارت حریف</small><strong>${escapeHtml(match.opponent_card.name)}</strong></div></div>` : ""}
     ${last ? `<div class="glass-panel" style="padding:12px;margin:10px 0"><strong>راند ${last.round}: ${last.winner_id === null ? "مساوی" : last.winner_id === match?.user_id ? "برد تو" : "برد حریف"}</strong><p>${myLast ? `${labels[myLast.stat].title} ${myLast.base}${myLast.boost ? ` + ${myLast.boost}` : ""} = ${myLast.total}` : "—"} · ${rivalLast ? `${labels[rivalLast.stat].title} ${rivalLast.base}${rivalLast.boost ? ` + ${rivalLast.boost}` : ""} = ${rivalLast.total}` : "—"}</p></div>` : ""}
     <div class="decision-panel glass-panel">${match?.phase === "stat_selection" ? threeAbilityTemplate(match) : ""}${match?.phase === "card_selection" || match?.my_stat_locked ? `<div class="choice-locked"><span>✓</span><strong>انتخابت ثبت شد</strong><p>منتظر تصمیم حریف هستیم…</p></div>` : `<div class="decision-title"><small>هر ویژگی فقط یک بار</small><strong>ویژگی راند ${match?.round ?? 1} را انتخاب کن</strong></div><div class="stat-grid quick-stat-grid">${(Object.keys(labels) as StatKey[]).map((key) => `<button class="stat-button ${(match?.my_boosts?.[key] ?? 0) > 0 ? "is-boosted" : ""}" data-action="three-stat" data-value="${key}" ${(match?.available_stats || []).includes(key) && !state.loading ? "" : "disabled"}><span>${labels[key].short}</span><strong>${match?.my_values?.[key] ?? "—"}</strong><small>${labels[key].title}${match?.my_boosts?.[key] ? ` +${match.my_boosts[key]} زمین` : ""}</small></button>`).join("")}</div>`}</div>
   </section>`;
@@ -797,36 +821,26 @@ function threeResultTemplate(): string {
   const rival = report?.rounds_won?.[String(match?.opponent_id)] ?? 0;
   const earned = report?.rewards?.[String(match?.user_id)];
   return `<section class="screen result-screen quick-result-screen">
-    <div class="result-emblem ${won ? "result-emblem--win" : "result-emblem--lose"}"><span>${tie ? "=" : won ? "W" : "L"}</span></div>
-    <p class="eyebrow">THREE ROUNDS COMPLETE</p><h2>${tie ? "نبرد مساوی شد" : won ? "تو برنده شدی" : "حریف برنده شد"}</h2>
+    ${arenaArt(match?.arena?.background_url)}
+    ${resultCrest(tie ? "tie" : won ? "win" : "loss", tie ? "نبرد مساوی شد" : won ? "تو برنده شدی" : "حریف برنده شد")}
+    ${combatCard(match?.my_card, "player")}
     <p>${report?.forfeit ? "نبرد به‌خاطر پایان مهلت انتخاب تمام شد." : `${report?.rounds.length ?? 0} راوند انجام شد؛ آخرین میدان: ${escapeHtml(match?.arena?.name_fa ?? "میدان")}.`}</p>
     <div class="reward-panel glass-panel"><div><small>برد راندها</small><strong>${mine} — ${rival}</strong></div></div>
-    ${earned ? `<div class="reward-panel glass-panel"><div><small>پاداش نبرد</small><strong>+${earned.xp} XP · +${earned.score} Score</strong></div></div>` : ""}
+    ${rewardTiles(earned)}
+    ${playerProgress(state.resultProfile)}
     ${(report?.rounds || []).map((round) => { const a = round.values[String(match?.user_id)]; const b = round.values[String(match?.opponent_id)]; return `<div class="glass-panel" style="padding:12px;margin-bottom:10px"><strong>راند ${round.round}: ${round.winner_id === null ? "مساوی" : round.winner_id === match?.user_id ? "برد تو" : "برد حریف"}</strong>${round.arena ? `<small> · ${escapeHtml(round.arena.name_fa)}</small>` : ""}<p>تو: ${a ? `${labels[a.stat].title} ${a.base} + ${a.boost} = ${a.total}` : "—"} · حریف: ${b ? `${labels[b.stat].title} ${b.base} + ${b.boost} = ${b.total}` : "—"}</p></div>`; }).join("")}
     <button class="primary-button" data-action="enter-three">نبرد سه‌راندی دوباره</button><button class="secondary-button" data-action="home">بازگشت به پایگاه</button>
   </section>`;
 }
 
 function cardsTemplate(): string {
-  if (state.playMode === "quick" || state.playMode === "three") {
-    const arena = state.playMode === "quick" ? state.quick?.arena : state.three?.arena;
-    const arenaName = arena && ("name" in arena ? arena.name : arena.name_fa);
-    return `
-      <section class="screen cards-screen drag-card-screen">
-        <header class="section-header drag-card-header">
-          <button class="icon-button" data-action="back" aria-label="بازگشت">←</button>
-          <div><p class="eyebrow">${state.playMode === "three" ? "THREE ROUNDS" : "QUICK"} · DRAG TO PLAY</p><h2>${arena ? `${arena.emoji || ""} ${arenaName}` : "کارتت را وارد میدان کن"}</h2></div>
-        </header>
-        <div class="drag-guide" role="status" aria-live="polite">
-          <span class="drag-guide__grip" aria-hidden="true"></span>
-          <div><strong>${state.loading ? "در حال ثبت انتخاب…" : "کارت را بکش و وسط زمین رها کن"}</strong><small>${state.loading ? "انتخاب نهایی است و دیگر تغییر نمی‌کند." : `${state.cards.length} کارت · برای دیدن بقیه از فلش‌های کنار دست استفاده کن`}</small></div>
-        </div>
-      </section>`;
-  }
+  const multiplayer = state.playMode === "quick" || state.playMode === "three";
+  const arena = state.playMode === "quick" ? state.quick?.arena : state.three?.arena;
+  const arenaName = arena && ("name" in arena ? arena.name : arena.name_fa);
   const cards = state.cards.map((card) => {
     const selected = state.selected?.card_id === card.card_id;
-    return `<button class="card-choice rarity-${card.rarity} ${selected ? "is-selected" : ""}" data-action="select-card" data-id="${card.card_id}" aria-pressed="${selected}">
-      <span class="card-choice__art" style="background-image:url('${card.image_url}')"></span>
+    return `<button class="card-choice rarity-${escapeHtml(card.rarity)} ${selected ? "is-selected" : ""}" data-action="select-card" data-id="${escapeHtml(card.card_id)}" aria-pressed="${selected}">
+      <span class="card-choice__art">${portrait(card)}</span>
       <span class="card-choice__shade"></span>
       <span class="card-choice__name" dir="auto">${escapeHtml(card.name)}</span>
       <span class="card-choice__rarity">${escapeHtml(card.rarity.toUpperCase())}</span>
@@ -835,14 +849,14 @@ function cardsTemplate(): string {
   }).join("");
   return `
     <section class="screen cards-screen">
-      <header class="section-header"><button class="icon-button" data-action="back" aria-label="بازگشت">←</button><div><p class="eyebrow">LOADOUT</p><h2>قهرمانت را انتخاب کن</h2></div></header>
-      <div class="difficulty" role="group" aria-label="درجه سختی">
+      <header class="section-header"><button class="icon-button" data-action="back" aria-label="بازگشت">←</button><div><p class="eyebrow">${multiplayer ? state.playMode === "three" ? "THREE ROUNDS" : "QUICK MODE" : "SOLO ARENA"}</p><h2>${arenaName ? `${escapeHtml(arenaName)} · کارتت را انتخاب کن` : "قهرمانت را انتخاب کن"}</h2></div></header>
+      ${!multiplayer ? `<div class="difficulty" role="group" aria-label="درجه سختی">
         ${(["easy", "medium", "hard"] as Difficulty[]).map((item) => `<button data-action="difficulty" data-value="${item}" class="difficulty__item ${state.difficulty === item ? "is-active" : ""}">${item === "easy" ? "آسان" : item === "medium" ? "تاکتیکی" : "بی‌رحم"}</button>`).join("")}
-      </div>
+      </div>` : `<p class="card-selection-note">${state.cards.length.toLocaleString("fa-IR")} کارت قابل بازی · فهرست را بالا و پایین بکش و بعد انتخابت را ثبت کن.</p>`}
       <div class="card-grid" aria-label="کارت‌های شما">${state.loading ? skeletons() : cards || `<p class="empty-state">کارتی برای نمایش پیدا نشد.</p>`}</div>
       <div class="selection-dock glass-panel ${state.selected ? "is-visible" : ""}">
-        <div><small>انتخاب شما</small><strong>${state.selected?.name ?? "یک کارت انتخاب کن"}</strong></div>
-        <button class="primary-button primary-button--compact" data-action="start" ${!state.selected || state.loading ? "disabled" : ""}>شروع نبرد</button>
+        <div><small>انتخاب تو</small><strong dir="auto">${state.selected ? escapeHtml(state.selected.name) : "یک کارت انتخاب کن"}</strong></div>
+        <button class="primary-button primary-button--compact" data-action="start" ${!state.selected || state.loading ? "disabled" : ""}>${state.loading ? "در حال ثبت…" : multiplayer ? "ثبت این کارت" : "شروع نبرد"}</button>
       </div>
     </section>`;
 }
@@ -860,12 +874,13 @@ function quickMatchTemplate(): string {
   const arenaEffects = (arena?.effects || []).map((effect) => `کارت‌های ${cardTypeLabels[effect.card_type]}: ${labels[effect.stat].title} <bdi dir="ltr">${effect.delta > 0 ? "+" : ""}${effect.delta}</bdi>`).join(" · ");
   return `
     <section class="screen quick-match-screen">
+      ${arenaArt(arena?.background_url)}
       <header class="quick-match-hud glass-panel">
         <div><small>QUICK</small><strong>${phaseTitle}</strong></div>
         <div class="versus-chip"><span>تو</span><i>VS</i><span>حریف</span></div>
       </header>
+      ${duel(quick?.my_card, quick?.opponent_card, quick?.my_final_values)}
       ${arena ? `<div class="arena-banner"><span>${arena.emoji || "◇"}</span><div><small>میدان</small><strong>${arena.name}</strong><p>${arenaEffects || "بدون تغییر عددی برای نوع کارت‌ها"}</p></div></div>` : ""}
-      ${quick?.opponent_card ? `<div class="reveal-card glass-panel"><span class="reveal-card__art" style="background-image:url('${quick.opponent_card.image_url}')"></span><div><small>کارت حریف آشکار شد</small><strong>${quick.opponent_card.name}</strong></div></div>` : ""}
       <div class="decision-panel glass-panel">
         ${waitingForOpponent ? `
           <div class="choice-locked"><span>✓</span><strong>انتخابت ثبت و قفل شد</strong><p>منتظر تصمیم حریف هستیم…</p></div>
@@ -908,12 +923,13 @@ function quickResultTemplate(): string {
     : "";
   return `
     <section class="screen result-screen quick-result-screen">
-      <div class="result-emblem ${won ? "result-emblem--win" : "result-emblem--lose"}"><span>${tie ? "=" : won ? "W" : "L"}</span></div>
-      <p class="eyebrow">${quick?.variant?.startsWith("friendly") ? "QUICK FRIENDLY" : "QUICK COMPLETE"}</p>
-      <h2>${tie ? "نبرد مساوی شد" : won ? "تصمیم تو برنده شد" : "حریف این نبرد را برد"}</h2>
+      ${arenaArt(quick?.arena?.background_url)}
+      ${resultCrest(tie ? "tie" : won ? "win" : "loss", tie ? "نبرد مساوی شد" : won ? "تصمیم تو برنده شد" : "حریف این نبرد را برد")}
+      ${duel(quick?.my_card, quick?.opponent_card, quick?.my_final_values, tie ? "tie" : won ? "win" : "loss")}
       <p>${report?.forfeit ? "نتیجه به‌خاطر پایان مهلت انتخاب ثبت شد." : mine?.scored_stats ? "امتیاز هر کارت از جمع ویژگی انتخابی دو بازیکن به دست آمد. برای توضیح بیشتر، محاسبهٔ امتیاز را باز کن." : "ویژگی انتخابی هر بازیکن مقایسه شد."}</p>
       <div class="reward-panel glass-panel"><div><small>امتیاز Quick</small><strong>${mine?.scored_stats ? "جمع دو ویژگی" : mine ? labels[mine.selected_stat].short : "—"}</strong></div><div class="reward-list"><span><small>YOU</small><strong>${mine?.final_value ?? "—"}</strong></span><span><small>RIVAL</small><strong>${opponent?.final_value ?? "—"}</strong></span></div></div>
-      ${earned ? `<div class="reward-panel glass-panel"><div><small>پاداش نبرد</small><strong>+${earned.xp} XP · +${earned.score} Score</strong></div></div>` : ""}
+      ${rewardTiles(earned)}
+      ${playerProgress(state.resultProfile)}
       ${quick?.variant?.startsWith("friendly") ? `<p>0 XP / 0 Score / 0 Coin · ${earned?.hearts_lost ? "-1 Heart" : "بدون کسر قلب"}</p>` : ""}
       ${calculation}
       <button class="primary-button" data-action="enter-quick">Quick دوباره</button>
@@ -927,13 +943,15 @@ function battleTemplate(): string {
   const available = round?.available_stats ?? fight?.available_stats ?? [];
   return `
     <section class="screen battle-screen">
+      ${arenaArt(fight?.arena.background_url)}
       <header class="battle-hud glass-panel">
         <div><small>راند</small><strong>${round?.next_round && !round.game_over ? round.next_round : fight?.current_round ?? 1}<span>/3</span></strong></div>
         <div class="round-score" aria-label="امتیاز راند"><span class="score-player">${round?.player_rounds_won ?? 0}</span><i></i><span class="score-ai">${round?.ai_rounds_won ?? 0}</span></div>
         <div class="arena-name"><small>میدان</small><strong>${fight?.arena.name_fa ?? "—"}</strong></div>
       </header>
+      ${roundTrack(round?.next_round && !round.game_over ? round.next_round : fight?.current_round ?? 1)}
+      ${duel(fight?.player_card, fight?.ai_card, fight?.my_values)}
       <div class="opponent-callout"><span>ASO</span><p>${round?.aso_dialog ?? fight?.aso_dialog ?? "در حال ورود حریف..."}</p></div>
-      <div class="versus-label">VS</div>
       <div class="stat-console glass-panel">
         ${fight ? threeAbilityTemplate(fight, "solo-ability") : ""}
         <div class="console-title"><div><small>حرکت بعدی</small><strong>ویژگی حمله را انتخاب کن</strong></div><span>تقویت زمین: ${fight ? labels[fight.arena.boost_stat]?.title ?? "—" : "—"}</span></div>
@@ -955,14 +973,15 @@ function resultTemplate(): string {
   const rewards = result?.rewards ?? {};
   return `
     <section class="screen result-screen">
-      <div class="result-emblem ${won ? "result-emblem--win" : "result-emblem--lose"}"><span>${won ? "W" : "L"}</span></div>
-      <p class="eyebrow">BATTLE COMPLETE</p>
-      <h2>${won ? "میدان برای توست" : "این نبرد تمام شد"}</h2>
+      ${arenaArt(state.fight?.arena.background_url)}
+      ${resultCrest(result?.winner === "tie" ? "tie" : won ? "win" : "loss", won ? "میدان برای توست" : result?.winner === "tie" ? "نبرد مساوی شد" : "این نبرد تمام شد")}
+      ${combatCard(state.fight?.player_card, "player")}
       <p>${result?.aso_dialog ?? "نتیجه نبرد ثبت شد."}</p>
       <div class="reward-panel glass-panel">
         <div><small>نتیجه</small><strong>${state.lastRound?.player_rounds_won ?? 0} — ${state.lastRound?.ai_rounds_won ?? 0}</strong></div>
-        <div class="reward-list">${Object.entries(rewards).map(([key, value]) => `<span><small>${key.toUpperCase()}</small><strong>+${value}</strong></span>`).join("") || "<span>پاداش ثبت شد</span>"}</div>
       </div>
+      ${rewardTiles(rewards)}
+      ${playerProgress(state.resultProfile)}
       <button class="primary-button" data-action="again">نبرد دوباره</button>
       <button class="secondary-button" data-action="home">بازگشت به پایگاه</button>
     </section>`;
@@ -994,6 +1013,16 @@ async function refreshProfile(): Promise<void> {
     state.profileError = profileErrorMessage(error);
     throw error;
   }
+}
+
+async function refreshResultProfile(): Promise<void> {
+  try {
+    await refreshProfile();
+    if (["quickResult", "threeResult", "result"].includes(state.screen)) {
+      state.resultProfile = state.profile;
+      render();
+    }
+  } catch { /* The settled rewards remain visible even if profile refresh fails. */ }
 }
 
 let featuredRequest = 0;
@@ -1109,7 +1138,8 @@ async function confirmUpgrade(): Promise<void> {
     state.pendingUpgrade = undefined;
     await loadCollection(state.collectionPage);
     haptic("success");
-    showToast(result.message);
+    showEffect("upgrade");
+    showToast(result.message, "success");
   } catch (error) {
     showToast(error instanceof Error ? error.message : "ارتقای کارت انجام نشد");
   } finally {
@@ -1126,7 +1156,7 @@ async function activateCardForm(rarity: string): Promise<void> {
     await api.activateCardForm(card.card_id, rarity);
     state.detailCard = await api.cardDetail(card.card_id);
     await loadCollection(state.collectionPage);
-    showToast(`فرم ${rarity.toUpperCase()} فعال شد`);
+    showToast(`فرم ${rarity.toUpperCase()} فعال شد`, "success");
   } catch (error) { showToast(error instanceof Error ? error.message : "تغییر فرم انجام نشد"); }
   finally { state.loading = false; render(); }
 }
@@ -1144,7 +1174,8 @@ async function confirmCopyFusion(): Promise<void> {
     state.pendingCopyFusion = undefined;
     await loadCollection(state.collectionPage);
     haptic("success");
-    showToast(`ترکیب انجام شد؛ +${result.xp_gained} XP`);
+    showEffect("upgrade");
+    showToast(`ترکیب انجام شد؛ +${result.xp_gained} XP`, "success");
   } catch (error) { showToast(error instanceof Error ? error.message : "ترکیب نسخه‌ها انجام نشد"); }
   finally { state.loading = false; render(); }
 }
@@ -1185,7 +1216,7 @@ async function saveDeck(): Promise<void> {
     state.deckEditor = undefined;
     await refreshProfile();
     haptic("success");
-    showToast(editor.deckId ? "دک بروزرسانی شد" : "دک ساخته شد");
+    showToast(editor.deckId ? "دک بروزرسانی شد" : "دک ساخته شد", "success");
   } catch (error) {
     showToast(error instanceof Error ? error.message : "ذخیره دک انجام نشد");
   } finally {
@@ -1204,7 +1235,7 @@ async function confirmDeleteDeck(): Promise<void> {
     state.decks = state.decks.filter((deck) => deck.deck_id !== deckId);
     state.deleteDeckId = undefined;
     await refreshProfile();
-    showToast("دک حذف شد");
+    showToast("دک حذف شد", "success");
   } catch (error) {
     showToast(error instanceof Error ? error.message : "حذف دک انجام نشد");
   } finally {
@@ -1223,14 +1254,14 @@ async function openProgress(): Promise<void> {
 async function claimDaily(): Promise<void> {
   if (state.loading || !state.claimStatus?.can_claim) return;
   state.loading = true; render();
-  try { const result = await api.claimDaily(); state.rewardCard = result.data.card || undefined; state.rewardTicket = result.data.reward_type === "silver_ticket"; state.rewardAbility = result.data.ability; state.profile = { ...(state.profile || {} as ProfileData), ...result.profile }; state.claimStatus = await api.claimStatus(); haptic("success"); showToast(result.message); }
+  try { const result = await api.claimDaily(); state.rewardCard = result.data.card || undefined; state.rewardTicket = result.data.reward_type === "silver_ticket"; state.rewardAbility = result.data.ability; state.profile = { ...(state.profile || {} as ProfileData), ...result.profile }; state.claimStatus = await api.claimStatus(); haptic("success"); showEffect("reward"); showToast(result.message, "success"); }
   catch (error) { showToast(error instanceof Error ? error.message : "دریافت کارت انجام نشد"); }
   finally { state.loading = false; render(); }
 }
 
 async function claimMission(missionId: string): Promise<void> {
   if (state.loading) return; state.loading = true; render();
-  try { const result = await api.claimMission(missionId); state.rewardCard = result.data.card || undefined; state.rewardTicket = false; state.rewardAbility = undefined; state.missions = await api.missions(); await refreshProfile(); haptic("success"); showToast(result.message); }
+  try { const result = await api.claimMission(missionId); state.rewardCard = result.data.card || undefined; state.rewardTicket = false; state.rewardAbility = undefined; state.missions = await api.missions(); await refreshProfile(); haptic("success"); showEffect("reward"); showToast(result.message, "success"); }
   catch (error) { showToast(error instanceof Error ? error.message : "دریافت پاداش انجام نشد"); }
   finally { state.loading = false; render(); }
 }
@@ -1244,7 +1275,7 @@ async function openSkins(cardId: string): Promise<void> {
 
 async function mutateSkin(cardId: string, skinId: string | null, purchase = false): Promise<void> {
   if (state.loading) return; state.loading = true; render();
-  try { if (purchase && skinId && state.profile?.progression_v2_enabled) { state.screen = "shop"; state.skinPanel = undefined; await quoteEconomy("skin:" + skinId); return; } if (purchase && skinId) await api.purchaseSkin(cardId, skinId); await api.activateSkin(cardId, skinId); state.skinPanel = { cardId, data: await api.cardSkins(cardId) }; await refreshProfile(); haptic("success"); showToast(purchase ? "پوسته خریداری و فعال شد" : "ظاهر کارت تغییر کرد"); }
+  try { if (purchase && skinId && state.profile?.progression_v2_enabled) { state.screen = "shop"; state.skinPanel = undefined; await quoteEconomy("skin:" + skinId); return; } if (purchase && skinId) await api.purchaseSkin(cardId, skinId); await api.activateSkin(cardId, skinId); state.skinPanel = { cardId, data: await api.cardSkins(cardId) }; await refreshProfile(); haptic("success"); showEffect("upgrade"); showToast(purchase ? "پوسته خریداری و فعال شد" : "ظاهر کارت تغییر کرد", "success"); }
   catch (error) { showToast(error instanceof Error ? error.message : "تغییر پوسته انجام نشد"); }
   finally { state.loading = false; render(); }
 }
@@ -1268,7 +1299,7 @@ async function executeFusion(): Promise<void> {
   const fusion = state.fusion;
   if (state.loading || !fusion.retainedId || !fusion.preview) return;
   state.loading = true; render();
-  try { const result = await api.executeFusion(fusion.cardIds, fusion.retainedId, fusion.target); state.rewardCard = result.data.card || undefined; state.rewardTicket = false; state.rewardAbility = undefined; state.profile = { ...(state.profile || {} as ProfileData), ...result.profile }; state.cards = await api.cards(); state.fusion = { target: fusion.target, cardIds: [] }; haptic("success"); showToast(result.message); }
+  try { const result = await api.executeFusion(fusion.cardIds, fusion.retainedId, fusion.target); state.rewardCard = result.data.card || undefined; state.rewardTicket = false; state.rewardAbility = undefined; state.profile = { ...(state.profile || {} as ProfileData), ...result.profile }; state.cards = await api.cards(); state.fusion = { target: fusion.target, cardIds: [] }; haptic("success"); showEffect("upgrade"); showToast(result.message, "success"); }
   catch (error) { showToast(error instanceof Error ? error.message : "Fusion انجام نشد"); }
   finally { state.loading = false; render(); }
 }
@@ -1307,9 +1338,12 @@ function syncQuickScreen(): void {
   } else if (quick.phase === "card_selection" && !quick.my_card_locked) {
     state.playMode = "quick";
     state.screen = "cards";
-    scene.showCardHand(state.cards, quick.arena?.id);
+    scene.showIdle();
   } else if (quick.phase === "completed") {
+    const firstResult = state.screen !== "quickResult";
+    if (firstResult && quick.report?.winner_id === quick.user_id && !quick.report.is_tie) showEffect("victory");
     state.screen = "quickResult";
+    if (firstResult) void refreshResultProfile();
     stopQuickPolling();
     const mine = quick.report?.breakdown?.[String(quick.user_id)];
     const opponent = quick.opponent_id ? quick.report?.breakdown?.[String(quick.opponent_id)] : undefined;
@@ -1348,6 +1382,7 @@ async function pollQuick(): Promise<void> {
 }
 
 async function beginQuick(kind: "random" | "invite"): Promise<void> {
+  state.resultProfile = undefined;
   state.loading = true;
   state.playMode = "quick";
   render();
@@ -1395,7 +1430,6 @@ async function submitQuickCard(): Promise<void> {
     scheduleQuickPoll();
   } catch (error) {
     showToast(error instanceof Error ? error.message : "کارت ثبت نشد");
-    scene.resetCardHand();
   } finally {
     state.loading = false;
     render();
@@ -1409,6 +1443,7 @@ async function submitQuickAbility(abilityKey: string): Promise<void> {
   try {
     state.quick = await api.quickAbility(state.quick.request_id, abilityKey);
     syncQuickScreen();
+    if (abilityKey !== "skip") showEffect("ability");
     scheduleQuickPoll();
   } catch (error) {
     showToast(error instanceof Error ? error.message : "Ability ثبت نشد");
@@ -1468,9 +1503,12 @@ function syncThreeScreen(): void {
   } else if (match.phase === "card_selection" && !match.my_card_locked) {
     state.playMode = "three";
     state.screen = "cards";
-    scene.showCardHand(state.cards, match.arena?.arena_id);
+    scene.showIdle();
   } else if (match.phase === "completed") {
+    const firstResult = state.screen !== "threeResult";
+    if (firstResult && match.report?.winner_id === match.user_id && !match.report.is_tie) showEffect("victory");
     state.screen = "threeResult";
+    if (firstResult) void refreshResultProfile();
     stopThreePolling();
     if (match.my_card && match.opponent_card) {
       const last = match.last_round;
@@ -1512,6 +1550,7 @@ async function pollThree(): Promise<void> {
 }
 
 async function beginThree(kind: "random" | "invite"): Promise<void> {
+  state.resultProfile = undefined;
   threeAbilityMenuOpen = false;
   state.loading = true; state.playMode = "three"; render();
   try {
@@ -1542,7 +1581,7 @@ async function submitThreeCard(): Promise<void> {
   try {
     state.three = await api.threeCard(state.three.request_id, state.selected.card_id);
     syncThreeScreen(); scheduleThreePoll(); haptic("success");
-  } catch (error) { showToast(error instanceof Error ? error.message : "کارت ثبت نشد"); scene.resetCardHand(); }
+  } catch (error) { showToast(error instanceof Error ? error.message : "کارت ثبت نشد"); }
   finally { state.loading = false; render(); }
 }
 
@@ -1565,7 +1604,7 @@ async function submitThreeAbility(abilityKey: string): Promise<void> {
   state.loading = true; render();
   try {
     state.three = await api.threeAbility(match.request_id, abilityKey, match.round);
-    syncThreeScreen(); haptic("success"); showToast("ابیلیتی استفاده شد؛ حالا ویژگی را انتخاب کن");
+    syncThreeScreen(); haptic("success"); showEffect("ability"); showToast("ابیلیتی استفاده شد؛ حالا ویژگی را انتخاب کن", "success");
   } catch (error) { showToast(error instanceof Error ? error.message : "ابیلیتی ثبت نشد"); }
   finally { state.loading = false; render(); scheduleThreePoll(900); }
 }
@@ -1609,7 +1648,7 @@ async function shareInvite(url: string): Promise<void> {
     const canShare = typeof navigator.share === "function";
     if (canShare) await navigator.share({ title: "دعوت به TelBattle", text: url.includes("three_invite=") ? "بیا نبرد سه‌راندی بازی کنیم" : "بیا با هم Quick بازی کنیم", url });
     else await navigator.clipboard.writeText(url);
-    showToast(canShare ? "دعوت آماده ارسال است" : "لینک دعوت کپی شد");
+    showToast(canShare ? "دعوت آماده ارسال است" : "لینک دعوت کپی شد", "info");
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") return;
     showToast("کپی لینک ممکن نشد");
@@ -1617,6 +1656,7 @@ async function shareInvite(url: string): Promise<void> {
 }
 
 async function startFight(): Promise<void> {
+  state.resultProfile = undefined;
   if (!state.selected) return;
   state.loading = true;
   render();
@@ -1648,7 +1688,8 @@ async function playStat(stat: StatKey): Promise<void> {
     haptic(result.round_winner === "player" ? "success" : "medium");
     if (result.game_over) {
       scene.showVictory(result.final_result?.winner === "player");
-      window.setTimeout(() => { state.screen = "result"; render(); }, 520);
+      if (result.final_result?.winner === "player") showEffect("victory");
+      window.setTimeout(() => { state.screen = "result"; render(); void refreshResultProfile(); }, 520);
     }
   } catch (error) {
     showToast(error instanceof Error ? error.message : "حرکت ثبت نشد");
@@ -1666,7 +1707,8 @@ async function submitSoloAbility(abilityKey: string): Promise<void> {
     state.fight = await api.soloAbility(state.fight.fight_id, abilityKey, state.fight.current_round);
     scene.showBattle(state.fight);
     haptic("success");
-    showToast("ابیلیتی استفاده شد؛ حالا ویژگی را انتخاب کن.");
+    showEffect("ability");
+    showToast("ابیلیتی استفاده شد؛ حالا ویژگی را انتخاب کن.", "success");
   } catch (error) {
     showToast(error instanceof Error ? error.message : "ابیلیتی ثبت نشد");
     // A lost response may follow a successful server commit. Re-read before retry.
@@ -1736,7 +1778,7 @@ ui.addEventListener("click", (event) => {
   if (action === "hub-shop") void openShop();
   if (action === "v2-quote") void quoteEconomy(button.dataset.value || "");
   if (action === "v2-buy") void purchaseEconomy();
-  if (action === "v2-cancel") { state.shopQuote = undefined; render(); }
+  if (action === "v2-cancel") { state.shopQuote = undefined; state.shopQuoteItem = undefined; render(); }
   if (action === "v2-silver") void silverClaim();
   if (action === "preview-sell") void previewSale(button.dataset.value || "");
   if (action === "confirm-sell") void confirmSale();
