@@ -263,6 +263,24 @@ def test_attack_audio_validation_requires_upload_and_keeps_old_catalog_valid(att
             with pytest.raises(ValueError):validate(conn,catalog)
 
 
+def test_multiple_attacks_with_voice_keep_duplicate_id_validation(attacks_scene):
+    from systems.attack_catalog import catalog_in, validate
+    db, _ = attacks_scene
+    setup(attacks_scene)
+    key = voices.upload(db, ogg(), 'attack', 'offline')
+    with sqlite3.connect(db.db_path) as conn:
+        catalog = catalog_in(conn)
+        first = catalog['attacks'][0]
+        first['voice_dialogues'] = {'intro': {'mode': 'voice', 'media_ids': [key]}}
+        second = copy.deepcopy(first)
+        second['id'] = first['id'] + '-second'
+        catalog['attacks'].append(second)
+        assert validate(conn, catalog)
+        second['id'] = first['id']
+        with pytest.raises(ValueError, match='شناسه'):
+            validate(conn, catalog)
+
+
 @pytest.mark.parametrize('status,killed,key', [('open',False,'intro'),('win',False,'loss'),
     ('win',True,'death'),('loss',False,'win'),('tie',False,'tie'),('void',False,'expired')])
 def test_attack_dialogue_stage_and_multiline_text_omission(attacks_scene,status,killed,key):

@@ -179,12 +179,12 @@ def validate(conn,value):
         for config in voices.values():
             if not isinstance(config,dict) or set(config)!={'mode','media_ids'} or config['mode'] not in ('text','voice','random'):
                 raise ValueError('حالت دیالوگ باید متن، ویس یا تصادفی باشد.')
-            ids=config['media_ids']
-            if not isinstance(ids,list) or len(ids)>5 or len(set(map(str,ids)))!=len(ids):
+            media_ids=config['media_ids']
+            if not isinstance(media_ids,list) or len(media_ids)>5 or len(set(map(str,media_ids)))!=len(media_ids):
                 raise ValueError('حداکثر پنج ویس متفاوت برای هر دیالوگ مجاز است.')
-            if config['mode']!='text' and not ids:
+            if config['mode']!='text' and not media_ids:
                 raise ValueError('برای حالت ویس یا تصادفی حداقل یک ویس آپلود کن.')
-            if any(not asset_in(conn,key,'attack') for key in ids):
+            if any(not asset_in(conn,key,'attack') for key in media_ids):
                 raise ValueError('ویس حمله باید از همین پنل آپلود شده باشد.')
     if len(json.dumps(value,ensure_ascii=False).encode('utf8'))>512000:raise ValueError('فهرست بیش از حد بزرگه.')
     return value
