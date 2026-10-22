@@ -518,6 +518,10 @@ class TelegramCardBot(
             from bot.handlers.easy_victory import handle
             return await handle(self, update, context)
         app.add_handler(CallbackQueryHandler(easy_victory_callback, pattern='^easy_victory_'))
+        async def easy_details_callback(update, context):
+            from bot.handlers.easy_victory import show_details
+            return await show_details(self, update, context)
+        app.add_handler(CallbackQueryHandler(easy_details_callback, pattern='^easy_details_'))
         async def deck_victory_callback(update, context):
             from bot.handlers.deck_victory import handle
             return await handle(self, update, context)

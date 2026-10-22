@@ -1744,3 +1744,33 @@ class GameModeSystem:
                         (request_id, json.dumps(report, ensure_ascii=False), _iso(_now())),
                     )
         return {"round": round_result, "state": state, "completed": completed, "report": report}
+
+    def claim_easy_details(self, request_id: str) -> Optional[Dict[str, Any]]:
+        """Reserve the public details once, even if callbacks arrive together."""
+        with closing(self._connect()) as conn:
+            with conn:
+                conn.execute("BEGIN IMMEDIATE")
+                row = conn.execute(
+                    "SELECT state_json FROM game_match_states WHERE request_id=?", (request_id,)
+                ).fetchone()
+                state = _loads(row[0], {}) if row else {}
+                if state.get('phase') != 'completed' or state.get('easy_details_shown'):
+                    return None
+                report = state.get('report')
+                if not report:
+                    return None
+                state['easy_details_shown'] = True
+                self._save_state(conn, request_id, state)
+                return report
+
+    def release_easy_details(self, request_id: str) -> None:
+        """Allow a retry when Telegram rejected the details message."""
+        with closing(self._connect()) as conn:
+            with conn:
+                conn.execute("BEGIN IMMEDIATE")
+                row = conn.execute(
+                    "SELECT state_json FROM game_match_states WHERE request_id=?", (request_id,)
+                ).fetchone()
+                state = _loads(row[0], {}) if row else {}
+                if state.get('phase') == 'completed' and state.pop('easy_details_shown', None):
+                    self._save_state(conn, request_id, state)

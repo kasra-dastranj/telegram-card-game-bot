@@ -47,7 +47,7 @@ def scene(tmp_path):
     user = SimpleNamespace(id=1, first_name='MH_*', username='mh')
     message = SimpleNamespace(text='', reply_text=AsyncMock(), chat=SimpleNamespace(type='private'))
     query = SimpleNamespace(data='easy_victory_menu', from_user=user, answer=AsyncMock(),
-                            edit_message_text=AsyncMock(), message=message)
+                            edit_message_text=AsyncMock(), edit_message_reply_markup=AsyncMock(), message=message)
     update = SimpleNamespace(effective_user=user, effective_message=message, effective_chat=message.chat,
                              callback_query=query, message=message)
     events = []
@@ -248,13 +248,13 @@ def test_unique_winner_gets_exact_form_sticker_before_plain_text_slogan(scene, m
         assert max(image.size) == 512 and image.getpixel((100, 100))[2] > 200
     else:
         assert [e[0] for e in events] == ['message']
-    assert readable(events[-1][1]) == '🏆 MH_* برنده شد!\n\n💬 بُردیم <win>_*'
+    assert readable(events[-1][1]) == '🏆 MH_*: "بُردیم <win>_*"'
     assert events[-1][2]['chat_id'] == -100 and events[-1][2].get('parse_mode') is None
 
 
 @pytest.mark.parametrize('winners', [[], [1, 2]])
 def test_no_single_winner_sends_no_victory_sticker_or_slogan(scene, winners):
-    bot, _, context, events = scene
+    bot, update, context, events = scene
     settings.save(bot.db, 1, card_id='hero', rarity='normal', slogan='شعار')
     asyncio.run(easy_victory.announce(bot, context, {'origin_chat_id': -100}, {'winner_ids': winners}))
     assert events == []
@@ -262,7 +262,7 @@ def test_no_single_winner_sends_no_victory_sticker_or_slogan(scene, winners):
 
 @pytest.mark.parametrize('v2', [False, True])
 def test_real_easy_match_keeps_question_lifecycle_rewards_and_single_settlement(scene, v2):
-    bot, _, context, events = scene
+    bot, update, context, events = scene
     if v2:
         with sqlite3.connect(bot.db.db_path) as conn:
             conn.execute("UPDATE foundation_settings SET value_json='true' WHERE key='progression_v2_enabled'")
@@ -294,11 +294,37 @@ def test_real_easy_match_keeps_question_lifecycle_rewards_and_single_settlement(
     final = readable(context.bot.edit_message_text.await_args.kwargs['text'])
     assert '🥇 Varan: 3' in final and '🥈 MH_*: 2' in final and 'برنده:' not in final
     assert [e[0] for e in events[-2:]] == ['sticker', 'message']
-    assert 'Varan برنده شد!' in readable(events[-1][1])
+    assert readable(events[-1][1]) == '🏆 Varan: "بردم!"'
+    button = events[-1][2]['reply_markup'].inline_keyboard[0][0]
+    assert button.text == 'مشاهده جزئیات'
+    assert button.callback_data == f'easy_details_{key}'
     report = bot.modes.get_state(key)['report']
     assert (report['rewards']['1']['xp'], report['rewards']['2']['xp']) == ((0, 0) if v2 else (3, 10))
     with sqlite3.connect(bot.db.db_path) as conn:
         count = conn.execute('SELECT COUNT(*) FROM match_reward_events WHERE request_id=?', (key,)).fetchone()[0]
+    update.effective_chat = SimpleNamespace(type='private', id=1)
+    update.callback_query.data = button.callback_data
+    update.callback_query.message = SimpleNamespace(message_id=99)
+    before = len(events)
+    asyncio.run(easy_victory.show_details(bot, update, context))
+    assert len(events) == before
+    update.effective_chat = SimpleNamespace(type='group', id=-100)
+    send_message = context.bot.send_message.side_effect
+    context.bot.send_message.side_effect = RuntimeError('temporary Telegram error')
+    asyncio.run(easy_victory.show_details(bot, update, context))
+    assert not bot.modes.get_state(key).get('easy_details_shown')
+    assert len(events) == before
+    context.bot.send_message.side_effect = send_message
+    asyncio.run(easy_victory.show_details(bot, update, context))
+    detail = readable(events[-1][1])
+    assert '🎯 راند 1: کدوم قوی‌تره؟' in detail
+    assert '🥇 اول · Varan: دیگری' in detail
+    assert '🥈 دوم · MH_*: قهرمان <MH>' in detail
+    assert events[-1][2]['chat_id'] == -100
+    assert events[-1][2]['reply_to_message_id'] == 99
+    context.bot.send_message.reset_mock()
+    asyncio.run(easy_victory.show_details(bot, update, context))
+    context.bot.send_message.assert_not_awaited()
     before = len(events)
     asyncio.run(bot._resolve_and_announce_easy(context, key))
     assert len(events) == before
@@ -309,7 +335,7 @@ def test_real_easy_match_keeps_question_lifecycle_rewards_and_single_settlement(
 def test_shared_first_place_medals_use_same_competition_rank_as_rewards(scene):
     bot, _, context, events = scene
     bot._cancel_mode_job = Mock()
-    report = {'scores': {'1': 9, '2': 9, '3': 5, '4': 2}, 'winner_ids': [1, 2]}
+    report = {'request_id': 'tied', 'scores': {'1': 9, '2': 9, '3': 5, '4': 2}, 'winner_ids': [1, 2]}
     bot.modes = SimpleNamespace(get_state=Mock(return_value={'current_round': 3}),
         get_request=Mock(return_value={'origin_chat_id': -100, 'origin_message_id': 77}),
         resolve_easy_round=Mock(return_value={'completed': True, 'report': report}))
@@ -317,7 +343,30 @@ def test_shared_first_place_medals_use_same_competition_rank_as_rewards(scene):
     text = readable(context.bot.edit_message_text.await_args.kwargs['text'])
     assert '🥇 MH_*: 9' in text and '🥇 Varan: 9' in text and '🥉 کسری: 5' in text
     assert '🥈' not in text and '• چهارم: 2' in text and 'برنده:' not in text
+    markup = context.bot.edit_message_text.await_args.kwargs['reply_markup']
+    assert markup.inline_keyboard[0][0].callback_data == 'easy_details_tied'
     assert events == []
+
+
+def test_easy_details_keep_tied_places_and_all_rounds_within_message_limit(scene):
+    bot, _, _, _ = scene
+    round_result = {'round': 1, 'question': {'text': 'کدام قوی‌تر است؟'}, 'entries': [
+        {'user_id': 2, 'card_name': 'دیگری', 'eligible': True, 'hidden_value': 9},
+        {'user_id': 1, 'card_name': 'قهرمان <MH>', 'eligible': True, 'hidden_value': 9},
+        {'user_id': 3, 'card_name': 'سومی', 'eligible': False, 'hidden_value': 20},
+    ]}
+    report = {'scores': {'1': 3, '2': 3, '3': 1, '4': 0},
+              'round_history': [round_result, dict(round_result, round=2)]}
+    parts = easy_victory.details_parts(report, bot.db, limit=110)
+    combined = readable('\n'.join(parts))
+    assert len(parts) > 1 and all(len(part) <= 110 for part in parts)
+    assert '🎯 راند 1: کدام قوی‌تر است؟' in combined
+    assert '🎯 راند 2: کدام قوی‌تر است؟' in combined
+    assert '🥇 اول · Varan: دیگری' in combined
+    assert '🥇 اول · MH_*: قهرمان <MH>' in combined
+    assert '🥈 دوم · کسری: سومی' in combined
+    assert 'چهارم: انتخاب نکرد' in combined
+    assert 'hidden_value' not in combined
 
 
 def test_profile_handlers_are_registered_and_callback_data_fits_telegram_limit(scene):
@@ -327,7 +376,7 @@ def test_profile_handlers_are_registered_and_callback_data_fits_telegram_limit(s
     bot.setup_handlers(app)
     handlers = [call.args[0] for call in app.add_handler.call_args_list]
     callbacks = [h for h in handlers if isinstance(h, CallbackQueryHandler)]
-    for data in ['easy_victory_menu', 'easy_victory_slogan', 'easy_profile']:
+    for data in ['easy_victory_menu', 'easy_victory_slogan', 'easy_details_game123', 'easy_profile']:
         assert len([h for h in callbacks if h.pattern and h.pattern.match(data)]) == 1
     update.callback_query.data = 'easy_victory_cards_0'
     asyncio.run(easy_victory.handle(bot, update, context))

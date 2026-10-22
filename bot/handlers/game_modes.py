@@ -1452,6 +1452,7 @@ class GameModeHandlersMixin:
         if result["completed"]:
             await self._delete_easy_round_prompt(context, request_id)
             report = result["report"]
+            from bot.handlers.easy_victory import announce, details_button
             from systems.progression_match_rewards import shared_ranks
             ranks = shared_ranks(report['scores'])
             medals = {1: '🥇', 2: '🥈', 3: '🥉'}
@@ -1470,8 +1471,9 @@ class GameModeHandlersMixin:
                     + bidi_isolate(f"+{reward['xp']} XP") + ' · ' + bidi_isolate(f"+{reward['score']} Score")
                     for uid, reward in report["rewards"].items()
                 ) if report.get("rewards") else "\n\nاین بازی پاداشی نداشت."),
+                reply_markup=(details_button(report['request_id'])
+                              if len(report.get('winner_ids', [])) != 1 and report.get('request_id') else None),
             )
-            from bot.handlers.easy_victory import announce
             await announce(self, context, request, report)
         else:
             await self._send_easy_question(
