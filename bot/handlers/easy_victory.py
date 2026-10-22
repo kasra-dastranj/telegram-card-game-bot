@@ -22,7 +22,10 @@ def details_button(request_id):
 
 
 def details_parts(report, db, limit=4000):
-    """Keep the report readable within Telegram's text limit."""
+    """Keep the report readable within Telegram's UTF-16 text limit."""
+    from bot.card_reward_presentation import text_chunks
+    def units(value):
+        return sum(2 if ord(character) > 0xFFFF else 1 for character in value)
     parts = []
     current = '📋 جزئیات Easy Mode'
     players = [int(user_id) for user_id in report.get('scores', {})]
@@ -30,7 +33,7 @@ def details_parts(report, db, limit=4000):
     for played in report.get('round_history', []):
         question = played.get('question', {}).get('text', '')
         heading = f"🎯 راند {played['round']}: {question}"
-        if len(current) + len(heading) + 2 > limit:
+        if units(current) + units(heading) + 2 > limit:
             parts.append(current)
             current = '📋 ادامهٔ جزئیات Easy Mode'
         current += '\n\n' + heading
@@ -48,12 +51,13 @@ def details_parts(report, db, limit=4000):
                 rank = ranked_values.index((item.get('eligible', True), item['hidden_value'])) + 1
                 place = rank_names.get(rank, f'رتبهٔ {rank}')
                 line = f"{place} · {name}: {isolate(item['card_name'])}"
-            if len(current) + len(line) + 1 > limit:
+            if units(current) + units(line) + 1 > limit:
                 parts.append(current)
                 current = '📋 ادامهٔ جزئیات Easy Mode\n\n' + heading
             current += '\n' + line
     parts.append(current)
-    return parts
+    # A single authored heading/card name can itself exceed the limit.
+    return [chunk for part in parts for chunk in text_chunks(part, limit)]
 
 
 async def show_details(bot, update, context):

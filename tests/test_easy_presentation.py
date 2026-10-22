@@ -382,3 +382,43 @@ def test_profile_handlers_are_registered_and_callback_data_fits_telegram_limit(s
     asyncio.run(easy_victory.handle(bot, update, context))
     rows = update.callback_query.edit_message_text.await_args.kwargs['reply_markup'].inline_keyboard
     assert all(len(b.callback_data.encode('utf-8')) <= 64 for row in rows for b in row)
+
+
+@pytest.mark.parametrize('limit,card_name,question', [
+    (4000, '🎴' * 180, 'سؤال ' + '🌟' * 80),
+    (110, 'کارت ' + '🎴' * 120, 'سؤال ' + '🌟' * 120),
+], ids=['emoji-report', 'oversized-line'])
+def test_easy_details_bound_emoji_and_individual_long_lines(scene, limit, card_name, question):
+    bot, _, _, _ = scene
+    entries = [{'user_id': user, 'card_name': card_name, 'hidden_value': user, 'eligible': True}
+               for user in range(1, 5)]
+    report = {'scores': {str(user): 1 for user in range(1, 5)}, 'round_history': [
+        {'round': index, 'question': {'text': question}, 'entries': entries}
+        for index in range(1, 5)]}
+    parts = easy_victory.details_parts(report, bot.db, limit=limit)
+    assert all(len(part.encode('utf-16-le')) // 2 <= limit for part in parts)
+    combined = ''.join(parts)
+    assert combined.count(card_name) == 16
+    assert combined.count(question) >= 4
+
+
+def test_easy_details_claim_is_atomic_and_other_groups_cannot_consume_it(scene):
+    from concurrent.futures import ThreadPoolExecutor
+    bot, update, context, _ = scene
+    request = bot.modes.create_easy_lobby(1, -100, 1)
+    key = request['request_id']
+    report = {'request_id': key, 'mode': 'easy', 'scores': {'1': 3}, 'round_history': []}
+    with bot.modes._connect() as conn:
+        bot.modes._save_state(conn, key, {'phase': 'completed', 'report': report})
+    update.callback_query.data = 'easy_details_' + key
+    update.effective_chat = SimpleNamespace(type='supergroup', id=-200)
+    asyncio.run(easy_victory.show_details(bot, update, context))
+    assert not bot.modes.get_state(key).get('easy_details_shown')
+    context.bot.send_message.assert_not_awaited()
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(bot.modes.claim_easy_details, [key, key]))
+    assert sum(result is not None for result in results) == 1
+    assert next(result for result in results if result is not None) == report
+    bot.modes.release_easy_details(key)
+    assert bot.modes.claim_easy_details(key) == report
+    assert bot.modes.claim_easy_details(key) is None
