@@ -84,7 +84,7 @@ try {
 
     await page.locator('[data-action="hub-decks"]').first().click();
     await page.getByRole("heading", { name: "دک‌های من" }).waitFor();
-    await page.locator('[data-action="new-deck"]').click();
+    await page.locator('[data-action="new-deck"]').first().click();
     await page.locator("#deck-name").fill("تیم QA");
     const picks = page.locator('[data-action="toggle-deck-card"]');
     await picks.nth(0).click();

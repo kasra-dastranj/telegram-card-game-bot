@@ -74,7 +74,7 @@ try {
     assert(await page.locator('.three-ability-menu .ability-list').evaluate(node => node.scrollTop > 0));
     assert.equal(await page.locator('[data-action="three-ability"]').count(), 6);
     assert.equal(await page.locator('.decision-panel').count(), 1); // No overlapping panels in landscape.
-    assert(await page.locator('#game-root').isVisible());
+    assert(await page.locator('.citadel-duel').isVisible());
     assert(!(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)));
     if (width === 375 && height === 667) {
       const bounds = await page.locator('.three-ability-panel .decision-title').boundingBox();
@@ -105,7 +105,7 @@ try {
     if (releaseRead) { releaseRead(); await page.waitForTimeout(600); }
     assert.equal(await page.locator('[data-action="three-ability"]').count(), 0);
     assert.equal(requests.length, 1);
-    if (abilityKey === 'reveal_opponent') assert(await page.locator('.reveal-card').isVisible());
+    if (abilityKey === 'reveal_opponent') assert(await page.locator('.duel-side--rival .combat-card:not(.combat-card--hidden)').isVisible());
     if (abilityKey === 'reroll_arena') assert(await page.locator('.quick-match-hud').innerText().then(text => text.includes('زمین تازه')));
     await page.screenshot({ path: `${output}/used-${width}.png` });
     await page.locator('[data-action="three-stat"][data-value="speed"]').click();
@@ -172,7 +172,7 @@ try {
     assert(await page.locator('[data-action="stat"][data-value="power"]').isDisabled());
     assert(await page.locator('[data-action="stat"][data-value="speed"]').isEnabled());
     if (abilityKey === 'reroll_arena') assert((await page.locator('.arena-name').innerText()).includes('زمین تازه'));
-    assert(await page.locator('#game-root').isVisible());
+    assert(await page.locator('.citadel-duel').isVisible());
     await page.screenshot({ path: `${output}/aso-${abilityKey}.png` });
     assert.deepEqual(errors, []);
     await page.setViewportSize({ width: 844, height: 390 });

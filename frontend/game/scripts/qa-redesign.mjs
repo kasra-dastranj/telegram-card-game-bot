@@ -48,6 +48,7 @@ try {
       if(fit.overflow || fit.nav.bottom>height+1) throw new Error(`${name} layout overflow ${width}`);
     }
     await page.locator('[data-action="hub-game"]').click();
+    await page.locator('[data-action="enter-three"]').first().click();
     await page.locator('[data-action="enter-arena"]').click();
     await page.locator('[data-action="select-card"]').first().waitFor();
     await page.screenshot({path:`${output}/selection-${width}.png`});
@@ -56,13 +57,13 @@ try {
     await page.locator('.battle-screen').waitFor();
     await page.waitForTimeout(800);
     const boardFit = await page.evaluate(() => {
-      const canvas=document.querySelector('#game-root canvas').getBoundingClientRect();
+      const screen=document.querySelector('.battle-screen');
+      const cards=document.querySelector('.citadel-duel').getBoundingClientRect();
       const hud=document.querySelector('.battle-hud').getBoundingClientRect();
       const controls=document.querySelector('.stat-console').getBoundingClientRect();
-      // Solo cards use logical centers 330/760; allow for the tilted frame corners.
-      return {opponentTop:canvas.top+canvas.height*(330-125)/1280,playerBottom:canvas.top+canvas.height*(760+150)/1280,hudBottom:hud.bottom,controlsTop:controls.top};
+      return {cardTop:cards.top,cardBottom:cards.bottom,hudBottom:hud.bottom,controlsTop:controls.top,scrollHeight:screen.scrollHeight,clientHeight:screen.clientHeight};
     });
-    if(boardFit.opponentTop < boardFit.hudBottom || boardFit.playerBottom > boardFit.controlsTop) throw new Error(`Board covered by controls: ${JSON.stringify(boardFit)}`);
+    if(boardFit.cardTop < boardFit.hudBottom || boardFit.cardBottom > boardFit.controlsTop) throw new Error(`Board covered by controls: ${JSON.stringify(boardFit)}`);
     await page.screenshot({path:`${output}/battle-${width}.png`});
     // The demo wins the first two rounds, so best-of-three ends at 2–0.
     for (let round=0; round<2; round++) {
