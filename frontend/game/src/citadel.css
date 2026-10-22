@@ -133,7 +133,7 @@ body:is([data-app-screen="quickMatch"],[data-app-screen="threeMatch"],[data-app-
 .combat-card--hidden p { margin: 0; padding: 0 4px; color: #dfc49b; font-size: 11px; }
 .arena-banner { align-self: stretch; max-width: none; border-color: #b3874a; border-radius: 5px; background: #071625e8; }
 .arena-banner p { color: #c5b48f; line-height: 1.5; }
-.opponent-callout { align-self: flex-start; max-width: 100%; margin: 0; border-color: #b96b4e; background: #27151bcf; }
+.opponent-callout { position: static; inset: auto; align-self: flex-start; max-width: 100%; margin: 0; padding: 9px 12px; border: 1px solid #b96b4e; background: #27151bcf; }
 .stat-console, .decision-panel { flex: 0 0 auto; width: 100%; margin: 0; border-radius: 7px; }
 .decision-title strong, .console-title strong { color: #ffe1a3; font-size: 18px; }
 .stat-button, .ability-list button { border-color: #ba8d51; border-radius: 5px; background: linear-gradient(#0c2138,#030b17); color: #fff0d5; }

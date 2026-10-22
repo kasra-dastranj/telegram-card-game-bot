@@ -103,6 +103,7 @@ try {
       progression_v2_enabled: true, economy: { items: { silver_ticket: 0, upgrade_card: 0, free_silver_claim: 0 },
         capacity: { slots: 3, max_hearts: 5 }, shop: { refill: { enabled: true } }, silver_claim_tickets: 3 } };
     let purchased = false;
+    let purchaseAttempts = 0;
     await page.route('**/api/v1/**', async route => {
       const path = new URL(route.request().url()).pathname;
       if (path.endsWith('/profile')) return route.fulfill({ json: { ...profile, hearts: purchased ? 5 : 2 } });
@@ -112,7 +113,9 @@ try {
         return route.fulfill({ json: { quote_id: 'local-quote', price: 80, config_version: 1 } });
       }
       if (path.endsWith('/economy/purchase')) {
-        assert.equal(route.request().postDataJSON().quote_id, 'local-quote'); purchased = true;
+        assert.equal(route.request().postDataJSON().quote_id, 'local-quote');
+        if (++purchaseAttempts === 1) return route.fulfill({ status: 503, json: { error: 'خرید آزمایشی ناموفق بود' } });
+        purchased = true;
         return route.fulfill({ json: { profile: { ...profile, hearts: 5, coins: 420 } } });
       }
       throw new Error(`Unexpected fixture API: ${path}`);
@@ -121,6 +124,10 @@ try {
     await page.locator('[data-action="hub-shop"]').first().click();
     await page.locator('[data-action="v2-quote"][data-value="refill"]').click();
     await page.locator('[data-action="v2-buy"]').click();
+    await page.locator('#toast[data-kind="error"]').waitFor();
+    assert.equal(await page.locator('.event-effect--heart').count(), 0, 'Failed purchase must not celebrate');
+    assert(await page.locator('.hub-resources').innerText().then(text => text.includes('2/5')));
+    await page.locator('[data-action="v2-buy"]:enabled').click();
     await page.locator('#toast[data-kind="success"]').waitFor();
     assert(await page.locator('.event-effect--heart').isVisible(), 'Confirmed heart purchase needs heart feedback');
     assert(await page.locator('.hub-resources').innerText().then(text => text.includes('5/5')));
@@ -129,7 +136,7 @@ try {
     await page.screenshot({ path: 'test-results/citadel/heart-purchase-375.png' });
     assert.deepEqual(errors, []);
     await context.close();
-    console.log('Real-price quote, confirmed refill and success effect passed');
+    console.log('Real-price quote, failed purchase without effects, retry and confirmed refill passed');
   }
 } finally {
   await browser.close();

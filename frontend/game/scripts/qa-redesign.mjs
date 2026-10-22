@@ -61,9 +61,11 @@ try {
       const cards=document.querySelector('.citadel-duel').getBoundingClientRect();
       const hud=document.querySelector('.battle-hud').getBoundingClientRect();
       const controls=document.querySelector('.stat-console').getBoundingClientRect();
-      return {cardTop:cards.top,cardBottom:cards.bottom,hudBottom:hud.bottom,controlsTop:controls.top,scrollHeight:screen.scrollHeight,clientHeight:screen.clientHeight};
+      const callout=document.querySelector('.opponent-callout').getBoundingClientRect();
+      return {cardTop:cards.top,cardBottom:cards.bottom,hudBottom:hud.bottom,controlsTop:controls.top,calloutTop:callout.top,calloutBottom:callout.bottom,scrollHeight:screen.scrollHeight,clientHeight:screen.clientHeight};
     });
     if(boardFit.cardTop < boardFit.hudBottom || boardFit.cardBottom > boardFit.controlsTop) throw new Error(`Board covered by controls: ${JSON.stringify(boardFit)}`);
+    if(boardFit.calloutTop < boardFit.cardBottom || boardFit.calloutBottom > boardFit.controlsTop) throw new Error(`ASO dialogue covers the battle cards: ${JSON.stringify(boardFit)}`);
     await page.screenshot({path:`${output}/battle-${width}.png`});
     // The demo wins the first two rounds, so best-of-three ends at 2–0.
     for (let round=0; round<2; round++) {
