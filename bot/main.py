@@ -488,6 +488,9 @@ class TelegramCardBot(
             return await handle(self, update, context)
         app.add_handler(CallbackQueryHandler(customization_callback, pattern='^style_'))
         async def group_navigation(update, context):
+            from bot.easter_eggs import handle
+            if await handle(self, update, context):
+                return
             from bot.navigation import text
             return await text(self, update, context)
         app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & filters.ChatType.GROUPS, group_navigation))
@@ -671,8 +674,15 @@ class TelegramCardBot(
             from bot.handlers.easy_victory import receive_slogan
             await receive_slogan(self, update, context)
         else:
+            from bot.easter_eggs import handle
+            if await handle(self, update, context):
+                return
             from bot.navigation import text
             return await text(self, update, context)
+
+    async def easter_egg_delivery_task(self, context):
+        from bot.easter_eggs import drain
+        await drain(self, context)
 
     async def cleanup_task(self, context: ContextTypes.DEFAULT_TYPE):
         """تسک تمیزکردن فایت‌های منقضی"""
@@ -813,6 +823,8 @@ def schedule_maintenance_jobs(job_queue, bot):
         job_queue.run_repeating(bot.custom_card_notifications_task,interval=15,first=15,name='custom-card-notifications')
     if hasattr(bot,'group_attacks_task'):
         job_queue.run_repeating(bot.group_attacks_task,interval=30,first=45,name='group-attacks')
+    if hasattr(bot, 'easter_egg_delivery_task'):
+        job_queue.run_repeating(bot.easter_egg_delivery_task, interval=20, first=20, name='easter-egg-delivery')
     job_queue.run_daily(
         bot.reset_lives_task,
         time=dt_time(hour=0, minute=5, tzinfo=MAINTENANCE_TIMEZONE),

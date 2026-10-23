@@ -60,6 +60,8 @@ class WebAPI:
         register_voice_admin(self)
         from web.rare_admin_api import register_rare_admin
         register_rare_admin(self)
+        from web.easter_admin_api import register_easter_admin
+        register_easter_admin(self)
 
     def _arena_admin_actor(self, scope='write'):
         """Fail-closed token auth with optional independent high-risk scopes."""

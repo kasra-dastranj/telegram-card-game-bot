@@ -99,6 +99,8 @@ async def text(bot, update, context):
             await bot.profile_command(update, context, subject=target)
     elif action == 'رتبه':
         await bot.leaderboard_command(update, context)
+    elif action == 'کلیم':
+        await bot.claim_command(update, context)
     elif action == 'راهنما':
         await guide(bot, update, context)
     elif not action:
