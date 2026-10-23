@@ -16,7 +16,7 @@ def menu(bot, user_id):
         [Button('🎭 انتخاب آواتار برد', callback_data='avatar_page_deck_0')],
         [Button('💬 نوشتن / تغییر شعار', callback_data='deck_victory_slogan')],
         [Button('🗑 پاک‌کردن شعار پروفایل', callback_data='deck_victory_clear')],
-        [Button('🔙 پروفایل', callback_data='easy_profile')]])
+        [Button('🔙 ظاهر و برد', callback_data='style_menu')]])
 
 
 async def handle(bot, update, context):

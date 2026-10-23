@@ -18,7 +18,9 @@ def back_buttons():
 
 
 def details_button(request_id):
-    return Markup([[Button('مشاهده جزئیات', callback_data=f'easy_details_{request_id}')]])
+    from bot.navigation import again_button
+    return Markup([[Button('مشاهده جزئیات', callback_data=f'easy_details_{request_id}')],
+                   [again_button('easy', request_id)]])
 
 
 def details_parts(report, db, limit=4000):
@@ -83,7 +85,8 @@ async def show_details(bot, update, context):
         return
     await query.answer()
     try:
-        await query.edit_message_reply_markup(reply_markup=None)
+        from bot.navigation import again_button
+        await query.edit_message_reply_markup(reply_markup=Markup([[again_button('easy', request_id)]]))
     except Exception:
         logger.debug('Could not remove Easy details button', exc_info=True)
 
@@ -99,7 +102,7 @@ def menu(bot, user_id):
         [Button('🎭 انتخاب آواتار برد', callback_data='avatar_page_easy_0')],
         [Button('💬 نوشتن شعار', callback_data='easy_victory_slogan')],
         [Button('🗑 پاک‌کردن تنظیم برد', callback_data='easy_victory_clear')],
-        [Button('🔙 پروفایل', callback_data='easy_profile')]])
+        [Button('🔙 ظاهر و برد', callback_data='style_menu')]])
 
 
 async def handle(bot, update, context):

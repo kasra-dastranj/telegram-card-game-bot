@@ -52,6 +52,9 @@ def test_avatar_slots_profile_group_and_victory_use_uploaded_artwork(scene):
     buttons = update.effective_message.reply_text.await_args.kwargs['reply_markup'].inline_keyboard
     update.callback_query = SimpleNamespace(data=buttons[0][0].callback_data, from_user=update.effective_user,
                                            answer=AsyncMock(), edit_message_text=AsyncMock())
+    from bot.handlers.customization import handle as customization_menu
+    asyncio.run(customization_menu(bot, update, context))
+    update.callback_query.data = 'avatar_page_profile_0'
     from bot.handlers.avatar_profile import handle as avatar_menu
     asyncio.run(avatar_menu(bot, update, context))
     assert 'آواتار پروفایل' in update.callback_query.edit_message_text.await_args.args[0]
@@ -149,7 +152,7 @@ def test_profile_command_and_callback_offer_settings_without_changing_main_menu(
     update.callback_query = None
     asyncio.run(bot.profile_command(update, context))
     markup = update.message.reply_text.await_args.kwargs['reply_markup']
-    assert any(b.callback_data == 'easy_victory_menu' for row in markup.inline_keyboard for b in row)
+    assert any(b.callback_data == 'style_menu' for row in markup.inline_keyboard for b in row)
     assert 'MH\\_\\*' in update.message.reply_text.await_args.args[0]
     context.user_data['easy_victory_draft'] = {'expires_at': time.time() + 600}
     update.callback_query = SimpleNamespace(answer=AsyncMock(), edit_message_text=AsyncMock())

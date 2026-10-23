@@ -86,6 +86,17 @@ class BasicHandlersMixin:
             # handled before rendering the normal private start menu.
             if chat_type == 'private' and await self.handle_game_invite_start(update, context):
                 return
+            args = getattr(context, 'args', None) or []
+            if chat_type == 'private' and args and args[0].startswith('nav'):
+                from bot.navigation import resume, home
+                if args[0] == 'nav_resume':
+                    await resume(self, update, context)
+                elif args[0] == 'nav_decks':
+                    await update.effective_message.reply_text('🗂 دک‌هایت را در همین پیوی مدیریت کن.',
+                        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton('🗂 مدیریت دک‌ها', callback_data='deck_menu')]]))
+                else:
+                    await home(self, update, context)
+                return
 
             # Group behavior
             if chat_type in ['group', 'supergroup']:
@@ -117,6 +128,9 @@ class BasicHandlersMixin:
                  InlineKeyboardButton("🎟 Silver Claim", callback_data="v2_silver_claim") if __import__("systems.progression_config", fromlist=["enabled"]).enabled(self.db) else InlineKeyboardButton("⛏️ ماینینگ", callback_data="mining_claim")],
                 [InlineKeyboardButton("🔮 Fusion کارت‌ها", callback_data="fusion_menu"),
                  InlineKeyboardButton("🛒 شاپ", callback_data="shop_menu")],
+                [InlineKeyboardButton('👤 پروفایل من', callback_data='easy_profile'),
+                 InlineKeyboardButton('🎭 ظاهر و برد', callback_data='style_menu')],
+                [InlineKeyboardButton('📖 راهنما و دستورها', callback_data='bn_help')],
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -143,27 +157,8 @@ class BasicHandlersMixin:
 
     async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """راهنمای بازی"""
-        cfg_help = self.config.get('texts', {}).get('help')
-        if cfg_help and isinstance(cfg_help, str) and cfg_help.strip():
-            help_text = cfg_help
-        else:
-            help_text = (
-                "📖 **راهنمای بازی کارت‌ها**\n\n"
-                "🎯 کارت جمع کن، مبارزه کن، امتیاز بگیر!\n\n"
-                "🃏 رریتی‌ها: 🟢 Normal • 🟣 Epic • 🟡 Legend\n"
-                f"🎁 کارت روزانه هر {self.game.CLAIM_COOLDOWN_HOURS} ساعت\n"
-                "🥊 PvP در گروه‌ها: چالش بده یا قبول کن\n"
-                "⚙️ در مساوی امتیاز/قلبی کم یا زیاد نمی‌شود\n"
-            )
-        
-        if update.callback_query:
-            keyboard = [[InlineKeyboardButton("🔙 بازگشت", callback_data="back_to_main")]]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            await update.callback_query.edit_message_text(
-                help_text, reply_markup=reply_markup, parse_mode='Markdown'
-            )
-        else:
-            await update.message.reply_text(help_text, parse_mode='Markdown')
+        from bot.navigation import guide
+        return await guide(self, update, context)
 
     async def story_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """ارسال داستان سینماتیک بازی (/story)"""
@@ -216,7 +211,7 @@ class BasicHandlersMixin:
             # هنوز عضو نشده
             await query.answer("هنوز عضویتت تأیید نشده؛ عضو کانال شو و دوباره بررسی رو بزن.", show_alert=True)
 
-    async def profile_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def profile_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE, *, subject=None):
         """نمایش پروفایل کاربر"""
         query = getattr(update, 'callback_query', None)
         if query:
@@ -231,9 +226,17 @@ class BasicHandlersMixin:
             )
             return
 
-        user = update.effective_user
+        user = subject or update.effective_user
+        if subject is not None:
+            import sqlite3
+            from contextlib import closing
+            with closing(sqlite3.connect(self.db.db_path)) as conn:
+                exists = conn.execute('SELECT 1 FROM players WHERE user_id=?', (user.id,)).fetchone()
+            if not exists:
+                await update.effective_message.reply_text('این بازیکن هنوز در بتل ثبت نشده؛ اول باید ربات را /start کند.')
+                return
 
-        if not await self.is_user_in_channel(user.id, context):
+        if not await self.is_user_in_channel(update.effective_user.id, context):
             await self.send_channel_join_message(update)
             return
 
@@ -284,11 +287,9 @@ class BasicHandlersMixin:
         )
 
         keyboard = [
-            [InlineKeyboardButton('🎭 آواتار پروفایل', callback_data='avatar_page_profile_0')],
+            [InlineKeyboardButton('🎭 ظاهر و برد', callback_data='style_menu')],
             [InlineKeyboardButton("🎴 کارت‌های من", callback_data="my_cards"),
              InlineKeyboardButton("🏆 لیدربرد", callback_data="leaderboard")],
-            [InlineKeyboardButton("🏆 شعار برد ایزی مود", callback_data="easy_victory_menu")],
-            [InlineKeyboardButton("🃏 شعار برد دک مود", callback_data="deck_victory_menu")],
             [InlineKeyboardButton("🎯 مأموریت‌ها", callback_data="v2_missions")],
             [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main")]
         ]
@@ -300,7 +301,7 @@ class BasicHandlersMixin:
             text += f'\n\n🌍 رتبهٔ جهانی: {rank_text}\n👥 رتبهٔ گروه: {position_text}'
             if points is not None:
                 text += f' · اسکور گروه: {points}'
-        markup = None if is_group else InlineKeyboardMarkup(keyboard)
+        markup = None if is_group or subject is not None else InlineKeyboardMarkup(keyboard)
         from systems.card_avatars import selected
         avatar = selected(self.db, user.id, 'profile')
         if avatar:
@@ -1163,6 +1164,9 @@ class BasicHandlersMixin:
              InlineKeyboardButton("🎟 Silver Claim", callback_data="v2_silver_claim") if __import__("systems.progression_config", fromlist=["enabled"]).enabled(self.db) else InlineKeyboardButton("⛏️ ماینینگ", callback_data="mining_claim")],
             [InlineKeyboardButton("🔮 Fusion کارت‌ها", callback_data="fusion_menu"),
              InlineKeyboardButton("🛒 شاپ", callback_data="shop_menu")],
+            [InlineKeyboardButton('👤 پروفایل من', callback_data='easy_profile'),
+             InlineKeyboardButton('🎭 ظاهر و برد', callback_data='style_menu')],
+            [InlineKeyboardButton('📖 راهنما و دستورها', callback_data='bn_help')],
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)

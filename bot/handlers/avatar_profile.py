@@ -21,7 +21,7 @@ async def handle(bot, update, context):
         if slot not in LABELS:
             return
         card_avatars.clear_choice(bot.db, query.from_user.id, slot)
-        await query.edit_message_text('آواتار انتخاب‌شده برداشته شد.', reply_markup=Markup([[Button('🔙 پروفایل', callback_data='easy_profile')]]))
+        await query.edit_message_text('آواتار انتخاب‌شده برداشته شد.', reply_markup=Markup([[Button('🔙 ظاهر و برد', callback_data='style_menu')]]))
         return
     if data.startswith('avatar_pick_'):
         token = data.removeprefix('avatar_pick_')
@@ -30,12 +30,13 @@ async def handle(bot, update, context):
             try:
                 card_avatars.save_choice(bot.db, query.from_user.id, item['slot'], item['card_id'], item['rarity'])
             except ValueError as error:
-                await query.edit_message_text(str(error))
+                await query.edit_message_text(str(error), reply_markup=Markup([[Button('🎭 بازکردن ظاهر و برد', callback_data='style_menu')]]))
                 return
             await query.edit_message_text('✅ آواتار ' + LABELS[item['slot']] + ' ذخیره شد.',
-                                          reply_markup=Markup([[Button('🔙 پروفایل', callback_data='easy_profile')]]))
+                                          reply_markup=Markup([[Button('🔙 ظاهر و برد', callback_data='style_menu')]]))
             return
-        await query.edit_message_text('این انتخاب قدیمی شده؛ دوباره از پروفایل بازش کن.')
+        await query.edit_message_text('این انتخاب قدیمی شده؛ دوباره از ظاهر و برد بازش کن.',
+                                     reply_markup=Markup([[Button('🎭 ظاهر و برد', callback_data='style_menu')]]))
         return
     if not data.startswith('avatar_page_'):
         return
@@ -66,7 +67,7 @@ async def handle(bot, update, context):
         rows.append(nav)
     if selected:
         rows.append([Button('برداشتن آواتار', callback_data=f'avatar_clear_{slot}')])
-    rows.append([Button('🔙 پروفایل', callback_data='easy_profile')])
+    rows.append([Button('🔙 ظاهر و برد', callback_data='style_menu')])
     await query.edit_message_text('🎭 آواتار ' + LABELS[slot] + ' را انتخاب کن:\n\n'
                                   + ('از آواتار کارت‌هایی که داری انتخاب کن.' if items else 'هنوز آواتار قابل انتخابی نداری.'),
                                   reply_markup=Markup(rows))

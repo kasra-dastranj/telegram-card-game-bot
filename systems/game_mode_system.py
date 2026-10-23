@@ -438,7 +438,7 @@ class GameModeSystem:
         return request
 
     def create_group_challenge(
-        self, creator_id: int, mode: str, variant: str, chat_id: int
+        self, creator_id: int, mode: str, variant: str, chat_id: int, *, target_id: Optional[int] = None
     ) -> Dict[str, Any]:
         allowed, reason = self.mode_access.check(creator_id, mode)
         if not allowed:
@@ -453,6 +453,13 @@ class GameModeSystem:
             QUICK_GROUP_TTL_SECONDS,
             origin_chat_id=chat_id,
         )
+        if target_id is not None:
+            if target_id == creator_id:
+                conn.rollback()
+                conn.close()
+                raise ValueError('نمی‌تونی خودت را دعوت کنی.')
+            conn.execute('INSERT OR REPLACE INTO foundation_settings(key,value_json) VALUES (?,?)',
+                         ('challenge-target:' + request['request_id'], json.dumps(target_id)))
         conn.commit()
         conn.close()
         return request
@@ -581,6 +588,12 @@ class GameModeSystem:
             conn.rollback()
             conn.close()
             return False, row["status"], dict(row)
+        target = conn.execute('SELECT value_json FROM foundation_settings WHERE key=?',
+                              ('challenge-target:' + request_id,)).fetchone()
+        if target and json.loads(target[0]) != opponent_id:
+            conn.rollback()
+            conn.close()
+            return False, 'این دعوت فقط برای بازیکن مشخص‌شده است.', dict(row)
         if row["expires_at"] <= now:
             conn.execute(
                 "UPDATE game_requests SET status='expired', updated_at=? WHERE request_id=?",

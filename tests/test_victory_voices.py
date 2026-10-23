@@ -58,6 +58,25 @@ def grant_legend(db, user=1, card='official'):
         CardInventorySystem.grant_in(conn, user, card, 'legend')
 
 
+def test_private_voice_preview_uses_owned_audio_without_changing_preference(custom):
+    db = custom[0]
+    grant_legend(db)
+    upload_card(custom)
+    context = NS(user_data={}, bot=NS(id=991, send_voice=AsyncMock(return_value=NS(voice=None))))
+    token = legend_voice.button(context, 'official').callback_data.replace(':menu', ':preview')
+    user = NS(id=1, first_name='QA')
+    query = NS(data=token, from_user=user, answer=AsyncMock(), message=NS(reply_text=AsyncMock()))
+    update = NS(callback_query=query, effective_chat=NS(type='private'))
+    asyncio.run(legend_voice.handle(NS(db=db), update, context))
+    assert context.bot.send_voice.await_args.kwargs['chat_id'] == 1
+    assert voices.preference(db, 1, 'official') == 'voice'
+    query.from_user = NS(id=2)
+    context.bot.send_voice.reset_mock()
+    asyncio.run(legend_voice.handle(NS(db=db), update, context))
+    context.bot.send_voice.assert_not_awaited()
+    assert query.answer.await_args.kwargs['show_alert']
+
+
 def test_ogg_duration_and_corrupt_or_long_audio_rejected():
     assert voices.ogg_duration(ogg()) == .02
     for raw in (b'', b'ID3mp3', ogg()[:-1], ogg()+b'extra', ogg()+ogg(), ogg(31), ogg(0), b'x'*(voices.MAX_BYTES+1)):

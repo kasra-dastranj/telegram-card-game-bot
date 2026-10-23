@@ -479,6 +479,18 @@ class TelegramCardBot(
         app.add_handler(CommandHandler("fight", self.fight_command))
         app.add_handler(CommandHandler("story", self.story_command))
         app.add_handler(CommandHandler("recalc", self.recalc_command))
+        async def navigation_callback(update, context):
+            from bot.navigation import handle
+            return await handle(self, update, context)
+        app.add_handler(CallbackQueryHandler(navigation_callback, pattern='^bn_'))
+        async def customization_callback(update, context):
+            from bot.handlers.customization import handle
+            return await handle(self, update, context)
+        app.add_handler(CallbackQueryHandler(customization_callback, pattern='^style_'))
+        async def group_navigation(update, context):
+            from bot.navigation import text
+            return await text(self, update, context)
+        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & filters.ChatType.GROUPS, group_navigation))
         
         # کالبک‌های اصلی
         async def progression_callback(update, context):
@@ -658,6 +670,9 @@ class TelegramCardBot(
         elif context.user_data.get('easy_victory_draft'):
             from bot.handlers.easy_victory import receive_slogan
             await receive_slogan(self, update, context)
+        else:
+            from bot.navigation import text
+            return await text(self, update, context)
 
     async def cleanup_task(self, context: ContextTypes.DEFAULT_TYPE):
         """تسک تمیزکردن فایت‌های منقضی"""
