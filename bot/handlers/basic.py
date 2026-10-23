@@ -238,7 +238,10 @@ class BasicHandlersMixin:
             return
 
         player = self.db.get_or_create_player(user.id, user.username, user.first_name)
-        card_counts = self.db.get_player_card_counts(user.id)
+        from systems.easy_presentation import choices as owned_forms
+        forms = owned_forms(self.db, user.id)
+        card_counts = {rarity: sum(item['rarity'] == rarity for item in forms) for rarity in ('normal', 'epic', 'legend', 'rare')}
+        card_counts['total'] = len(forms)
         stats = self.db.get_player_stats(user.id)
         rank = self.db.get_player_rank(user.id)
         prog = self.db.get_or_create_progression(user.id)
@@ -271,7 +274,8 @@ class BasicHandlersMixin:
             f"❤️ جان: {ratio(player.hearts, getattr(player, 'max_hearts', self.game.DAILY_HEARTS))}\n"
             f"🏆 امتیاز: {player.total_score}  •  رتبه: {rank_text}\n"
             f"🎴 کارت‌ها: {card_counts.get('total', 0)} "
-            f"(🟢{card_counts.get('normal',0)} 🟣{card_counts.get('epic',0)} 🟡{card_counts.get('legend',0)})\n\n"
+            f"(🟢{card_counts.get('normal',0)} 🟣{card_counts.get('epic',0)} 🟡{card_counts.get('legend',0)} 🔵{card_counts.get('rare',0)})\n"
+            f"🃏 دک‌ها: {self.db.count_player_decks(user.id)}\n\n"
             f"⚔️ **آمار فایت:**\n"
             f"  بازی: {total_stats['games_played']}  •  "
             f"برد: {total_stats['wins']}  •  "
@@ -280,6 +284,7 @@ class BasicHandlersMixin:
         )
 
         keyboard = [
+            [InlineKeyboardButton('🎭 آواتار پروفایل', callback_data='avatar_page_profile_0')],
             [InlineKeyboardButton("🎴 کارت‌های من", callback_data="my_cards"),
              InlineKeyboardButton("🏆 لیدربرد", callback_data="leaderboard")],
             [InlineKeyboardButton("🏆 شعار برد ایزی مود", callback_data="easy_victory_menu")],
@@ -287,10 +292,40 @@ class BasicHandlersMixin:
             [InlineKeyboardButton("🎯 مأموریت‌ها", callback_data="v2_missions")],
             [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main")]
         ]
+        is_group = update.effective_chat.type in ('group', 'supergroup')
+        if is_group:
+            from systems.group_ranking import rank as group_rank
+            position, points = group_rank(self.db, update.effective_chat.id, user.id)
+            position_text = ltr(f'#{position}') if position else 'هنوز نداری'
+            text += f'\n\n🌍 رتبهٔ جهانی: {rank_text}\n👥 رتبهٔ گروه: {position_text}'
+            if points is not None:
+                text += f' · اسکور گروه: {points}'
+        markup = None if is_group else InlineKeyboardMarkup(keyboard)
+        from systems.card_avatars import selected
+        avatar = selected(self.db, user.id, 'profile')
+        if avatar:
+            from io import BytesIO
+            from bot.card_reward_presentation import text_chunks
+            parts = text_chunks(text, limit=900)
+            try:
+                if not is_group:
+                    # Keep menu buttons on a text message: Telegram cannot edit
+                    # a photo into the text menus opened by these callbacks.
+                    await update.effective_message.reply_photo(photo=BytesIO(avatar['path'].read_bytes()))
+                    await update.effective_message.reply_text(text, reply_markup=markup, parse_mode='Markdown')
+                    return
+                await update.effective_message.reply_photo(photo=BytesIO(avatar['path'].read_bytes()),
+                    caption=parts[0], reply_markup=markup if len(parts) == 1 else None, parse_mode='Markdown')
+                for index, part in enumerate(parts[1:]):
+                    await update.effective_message.reply_text(part, parse_mode='Markdown',
+                        reply_markup=markup if index == len(parts) - 2 else None)
+                return
+            except Exception:
+                logger.warning('Could not deliver profile avatar', exc_info=True)
         if query:
-            await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
+            await query.edit_message_text(text, reply_markup=markup, parse_mode='Markdown')
         else:
-            await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
+            await update.message.reply_text(text, reply_markup=markup, parse_mode='Markdown')
 
     async def start_game_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle inline 'شروع بازی' button by invoking the start command flow."""
@@ -680,11 +715,11 @@ class BasicHandlersMixin:
         leaderboard = self.db.get_leaderboard_by_timeframe(
             timeframe=timeframe,
             limit=limit if not is_group else 1000,
-            chat_id=None  # فعلا همه رو بگیر، بعدا فیلتر می‌کنیم
+            chat_id=chat_id if is_group and timeframe == 'all' else None
         )
         
         # اگه گروهه، فقط اعضای گروه که بازی کردن رو نگه دار
-        if is_group:
+        if is_group and timeframe != 'all':
             # چون نمی‌تونیم همه اعضای گروه رو بگیریم، از روش دیگه استفاده می‌کنیم:
             # فقط کسایی که در این گروه فعالیت داشتن (fight کردن) رو نشون میدیم
             filtered_leaderboard = []
@@ -760,7 +795,7 @@ class BasicHandlersMixin:
             
             for i, player in enumerate(leaderboard):
                 if player['user_id'] == user_id:
-                    user_rank = i + 1
+                    user_rank = player.get('rank', i + 1)
                     user_score = player['period_score']
                     break
             

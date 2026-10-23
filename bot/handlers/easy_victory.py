@@ -85,15 +85,14 @@ async def show_details(bot, update, context):
 
 
 def menu(bot, user_id):
+    from systems import card_avatars
     value = settings.read(bot.db, user_id)
-    card = settings.owned_card(bot.db, user_id, value['card_id'], value['rarity']) if value.get('card_id') else None
-    character = isolate(f'{card.name} ({card.rarity.value.title()})') if card else 'هنوز انتخاب نکردی'
-    text = ('🏆 بردِ ایزی مودت چه شکلی باشه؟\n\n🎴 شخصیت: ' + character
+    avatar = card_avatars.selected(bot.db, user_id, 'easy')
+    character = isolate(f"{avatar['card'].name} ({avatar['rarity'].title()})") if avatar else 'هنوز انتخاب نکردی'
+    text = ('🏆 بردِ ایزی مودت چه شکلی باشه؟\n\n🎭 آواتار: ' + character
             + '\n💬 شعار: ' + isolate(value.get('slogan', 'هنوز ننوشتی')))
-    if value.get('card_id') and not card:
-        text += '\nکارت قبلی دیگه در دسترست نیست؛ یه شخصیت دیگه انتخاب کن.'
     return text, Markup([
-        [Button('🎴 انتخاب شخصیت', callback_data='easy_victory_cards_0')],
+        [Button('🎭 انتخاب آواتار برد', callback_data='avatar_page_easy_0')],
         [Button('💬 نوشتن شعار', callback_data='easy_victory_slogan')],
         [Button('🗑 پاک‌کردن تنظیم برد', callback_data='easy_victory_clear')],
         [Button('🔙 پروفایل', callback_data='easy_profile')]])
@@ -162,6 +161,8 @@ async def handle(bot, update, context):
         context.user_data.pop('easy_victory_choices', None)
     elif data == 'easy_victory_clear':
         settings.clear(bot.db, user_id)
+        from systems.card_avatars import clear_choice
+        clear_choice(bot.db, user_id, 'easy')
     elif data != 'easy_victory_menu':
         return
     text, markup = menu(bot, user_id)
@@ -193,9 +194,11 @@ async def announce(bot, context, request, report):
         return
     user_id = int(winners[0])
     try:
+        from systems import card_avatars
         value = settings.read(bot.db, user_id)
+        avatar_sent = await card_avatars.send_sticker(bot, context, request['origin_chat_id'], user_id, 'easy')
         card = settings.owned_card(bot.db, user_id, value['card_id'], value['rarity']) if value.get('card_id') else None
-        if card:
+        if card and not avatar_sent:
             from bot.card_reward_presentation import send_card_sticker
             async def send_sticker(sticker):
                 return await context.bot.send_sticker(chat_id=request['origin_chat_id'], sticker=sticker)

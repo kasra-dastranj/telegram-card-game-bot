@@ -1,4 +1,4 @@
-"""Private profile editor for Deck victory text, without character selection."""
+"""Private profile editor for Deck victory text and its avatar picker."""
 import time
 from telegram import InlineKeyboardButton as Button, InlineKeyboardMarkup as Markup
 from core.display_text import isolate
@@ -13,6 +13,7 @@ def menu(bot, user_id):
     slogan = settings.read(bot.db, user_id)
     return ('🃏 وقتی دک‌مود رو بردی چی بگیم؟\n\n💬 ' + isolate(slogan or 'هنوز شعاری ننوشتی')
             + '\n\nاین شعار زیر عکس نتیجهٔ بردت میاد و برای همهٔ دک‌هات استفاده می‌شه.'), Markup([
+        [Button('🎭 انتخاب آواتار برد', callback_data='avatar_page_deck_0')],
         [Button('💬 نوشتن / تغییر شعار', callback_data='deck_victory_slogan')],
         [Button('🗑 پاک‌کردن شعار پروفایل', callback_data='deck_victory_clear')],
         [Button('🔙 پروفایل', callback_data='easy_profile')]])

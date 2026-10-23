@@ -79,6 +79,7 @@ PRIVATE_CHAT_COMMANDS = [
 
 GROUP_CHAT_COMMANDS = [
     BotCommand("fight", "شروع چالش PvP در گروه"),
+    BotCommand("profile", "نمایش پروفایل و رتبهٔ گروهی"),
     BotCommand("claim", "دریافت کارت روزانه رایگان"),
     BotCommand("leaderboard", "مشاهده لیست برترین بازیکنان"),
     BotCommand("help", "راهنمای بازی")
@@ -531,6 +532,10 @@ class TelegramCardBot(
             return await handle(self, update, context)
         app.add_handler(CallbackQueryHandler(legend_voice_callback, pattern='^lv:'))
         app.add_handler(CallbackQueryHandler(self.profile_command, pattern='^easy_profile$'))
+        async def avatar_profile_callback(update, context):
+            from bot.handlers.avatar_profile import handle
+            return await handle(self, update, context)
+        app.add_handler(CallbackQueryHandler(avatar_profile_callback, pattern=r'^avatar_(?:page|pick|clear)_'))
         app.add_handler(CallbackQueryHandler(self.accept_pvp_random_handler, pattern="^accept_pvp_random_"))
         app.add_handler(CallbackQueryHandler(self.accept_pvp_fight_handler, pattern="^accept_pvp_"))
         app.add_handler(CallbackQueryHandler(self.pvp_cards_navigation_handler, pattern="^pvp_cards_"))

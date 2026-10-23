@@ -1671,6 +1671,12 @@ class BattleHandlersMixin:
                                      (ch_rounds_won, op_rounds_won), winner_id, deck_report, settlement['awards'])
                    if deck_report else None)
         if deck_report and fight and fight.chat_id:
+            if winner_id is not None:
+                try:
+                    from systems.card_avatars import send_sticker as send_avatar_sticker
+                    await send_avatar_sticker(self, context, fight.chat_id, winner_id, 'deck')
+                except Exception:
+                    logger.warning('Could not deliver Deck victory avatar', exc_info=True)
             from bot.deck_reports import victory_caption
             caption = victory_caption(deck_report, winner_id)
             private_markup = InlineKeyboardMarkup([

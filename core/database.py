@@ -1940,6 +1940,15 @@ class DatabaseManager:
             limit: تعداد نتایج (برای جهانی)
             chat_id: اگه مقدار داشته باشه، فقط اعضای این گروه رو نشون میده
         """
+        if chat_id is not None and timeframe == 'all':
+            from systems.group_ranking import standings
+            entries = []
+            for item in standings(self, chat_id)[:limit]:
+                player = self.get_or_create_player(item['user_id'])
+                entries.append(dict(item, period_score=item['score'], total_score=player.total_score,
+                                    first_name=player.first_name, username=player.username,
+                                    card_count=self.get_player_card_counts(player.user_id)['total']))
+            return entries
         from systems.progression_config import enabled
         if enabled(self):
             from systems.progression_leaderboard import ProgressionLeaderboard
