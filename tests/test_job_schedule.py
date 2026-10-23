@@ -19,6 +19,7 @@ def test_maintenance_jobs_do_not_run_daily_or_weekly_tasks_on_startup():
         call(bot.level_notifications_task, interval=15, first=15, name="level-notifications"),
         call(bot.custom_card_notifications_task, interval=15, first=15, name="custom-card-notifications"),
         call(bot.group_attacks_task, interval=30, first=45, name="group-attacks"),
+        call(bot.easter_egg_delivery_task, interval=20, first=20, name="easter-egg-delivery"),
     ]
 
     daily_calls = job_queue.run_daily.call_args_list
