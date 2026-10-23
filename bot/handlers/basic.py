@@ -238,7 +238,7 @@ class BasicHandlersMixin:
             return
 
         player = self.db.get_or_create_player(user.id, user.username, user.first_name)
-        from systems.easy_presentation import choices as owned_forms
+        from systems.card_avatars import owned_forms
         forms = owned_forms(self.db, user.id)
         card_counts = {rarity: sum(item['rarity'] == rarity for item in forms) for rarity in ('normal', 'epic', 'legend', 'rare')}
         card_counts['total'] = len(forms)

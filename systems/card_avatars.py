@@ -92,9 +92,42 @@ def path_for(db, card_id, rarity):
     return path if path and path.is_file() else None
 
 
+def owned_forms(db, user_id):
+    """Cosmetics follow card ownership, independently of gameplay flags."""
+    import json
+    with closing(sqlite3.connect(db.db_path)) as conn:
+        result = [dict(card_id=row[0], rarity=row[1], name=row[2]) for row in conn.execute('''
+            SELECT s.card_id,s.rarity,c.name FROM player_card_stacks s JOIN cards c USING(card_id)
+            WHERE s.user_id=? AND s.quantity>0 AND c.origin='official'
+            ORDER BY c.name,s.card_id,s.rarity''', (user_id,))]
+        result.extend(dict(card_id=row[0], rarity=row[1], name=json.loads(row[2])['name'])
+                      for row in conn.execute('''SELECT c.card_id,c.rarity,d.payload_json FROM custom_grants g
+            JOIN custom_definitions d USING(card_id) JOIN cards c USING(card_id)
+            WHERE g.user_id=? AND g.active=1 AND d.status='active' AND c.origin='custom'
+            ORDER BY c.card_id''', (user_id,)))
+    return result
+
+
+def _owned_card_in(db, conn, user_id, card_id, rarity):
+    if rarity not in RARITIES:
+        return None
+    official = conn.execute('''SELECT 1 FROM player_card_stacks s JOIN cards c USING(card_id)
+        WHERE s.user_id=? AND s.card_id=? AND s.rarity=? AND s.quantity>0 AND c.origin='official'
+        ''', (user_id, card_id, rarity)).fetchone()
+    if official:
+        return db.get_card_by_id_for_rarity(card_id, rarity)
+    custom = conn.execute('''SELECT 1 FROM custom_grants g JOIN custom_definitions d USING(card_id)
+        JOIN cards c USING(card_id) WHERE g.user_id=? AND g.card_id=? AND g.active=1
+        AND d.status='active' AND c.origin='custom' AND c.rarity='legend' ''', (user_id, card_id)).fetchone()
+    if custom and rarity == 'legend':
+        from systems.custom_cards import display_card_in
+        card = db.get_card_by_id(card_id)
+        return display_card_in(conn, card) if card else None
+    return None
+
+
 def choices(db, user_id):
-    from systems.easy_presentation import choices as owned_choices
-    return [item for item in owned_choices(db, user_id)
+    return [item for item in owned_forms(db, user_id)
             if item['rarity'] in RARITIES and path_for(db, item['card_id'], item['rarity'])]
 
 
@@ -107,8 +140,8 @@ def selected(db, user_id, slot):
                            (user_id, slot)).fetchone()
     if not row:
         return None
-    from systems.easy_presentation import owned_card
-    card = owned_card(db, user_id, row[0], row[1])
+    with closing(sqlite3.connect(db.db_path)) as conn:
+        card = _owned_card_in(db, conn, user_id, row[0], row[1])
     path = path_for(db, row[0], row[1])
     return {'card': card, 'path': path, 'card_id': row[0], 'rarity': row[1]} if card and path else None
 
@@ -116,10 +149,9 @@ def selected(db, user_id, slot):
 def save_choice(db, user_id, slot, card_id, rarity):
     if slot not in SLOTS:
         raise ValueError('avatar_slot_invalid')
-    from systems.easy_presentation import owned_card_in
     with closing(sqlite3.connect(db.db_path)) as conn, conn:
         ensure_in(conn)
-        if not owned_card_in(db, conn, user_id, card_id, rarity) or not path_for(db, card_id, rarity):
+        if not _owned_card_in(db, conn, user_id, card_id, rarity) or not path_for(db, card_id, rarity):
             raise ValueError('این آواتار را نداری یا تصویرش هنوز بارگذاری نشده است.')
         conn.execute('''INSERT INTO player_avatar_choices VALUES(?,?,?,?)
             ON CONFLICT(user_id,slot) DO UPDATE SET card_id=excluded.card_id,rarity=excluded.rarity''',

@@ -23,7 +23,6 @@ def test_custom_legend_avatar_requires_admin_and_active_ownership(custom):
     from PIL import Image
     from systems import card_avatars
     card = post(custom, 'fulfill', form('legend')).get_json()['card_id']
-    post(custom, 'settings', {'custom_cards_enabled': True})
     raw = BytesIO()
     Image.new('RGBA', (64, 64), 'green').save(raw, 'PNG')
     url = '/api/custom/avatar/' + card
@@ -33,6 +32,10 @@ def test_custom_legend_avatar_requires_admin_and_active_ownership(custom):
     assert card_avatars.choices(custom[0], 1)[0]['card_id'] == card
     card_avatars.save_choice(custom[0], 1, 'profile', card, 'legend')
     assert card_avatars.selected(custom[0], 1, 'profile')
+    # Cosmetic ownership is available even while custom gameplay is disabled.
+    assert card_avatars.selected(custom[0], 1, 'profile')['card'].name == 'شخصیت MH'
+    assert any(item['card_id'] == card for item in card_avatars.owned_forms(custom[0], 1))
+    assert card_avatars.choices(custom[0], 3) == []
     post(custom, 'revoke', {'card_id': card, 'users': [1]})
     assert card_avatars.selected(custom[0], 1, 'profile') is None
     assert card_avatars.choices(custom[0], 1) == []
