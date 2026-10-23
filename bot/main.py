@@ -20,6 +20,7 @@ from telegram.ext import (
     Application, 
     CommandHandler, 
     CallbackQueryHandler, 
+    ChatMemberHandler,
     ChosenInlineResultHandler,
     InlineQueryHandler,
     MessageHandler, 
@@ -466,6 +467,10 @@ class TelegramCardBot(
 
     def setup_handlers(self, app: Application):
         """تنظیم هندلرهای ربات"""
+        async def group_welcome(update, context):
+            from bot.group_welcome import handle
+            await handle(self, update, context)
+        app.add_handler(ChatMemberHandler(group_welcome, ChatMemberHandler.MY_CHAT_MEMBER))
         # دستورات اصلی
         app.add_handler(CommandHandler("start", self.start_command))
         from bot.group_attacks import chat_id_command
