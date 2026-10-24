@@ -480,3 +480,16 @@ def test_easy_details_claim_is_atomic_and_other_groups_cannot_consume_it(scene):
     bot.modes.release_easy_details(key)
     assert bot.modes.claim_easy_details(key) == report
     assert bot.modes.claim_easy_details(key) is None
+
+
+def test_broken_avatar_falls_back_without_losing_easy_winner(scene, monkeypatch, tmp_path):
+    from systems import card_avatars
+    bot, _, context, events = scene
+    damaged = tmp_path / 'damaged.png'
+    damaged.write_bytes(b'broken avatar file')
+    monkeypatch.setattr(card_avatars, 'selected', lambda *args: {'path': damaged})
+    asyncio.run(easy_victory.announce(bot, context, {'origin_chat_id': -100},
+                                    {'winner_ids': [1], 'request_id': 'avatar-fallback'}))
+    assert len(events) == 1 and events[0][0] == 'message'
+    assert 'MH_*' in readable(events[0][1])
+    assert events[0][2]['reply_markup'].inline_keyboard[0][0].callback_data == 'easy_details_avatar-fallback'

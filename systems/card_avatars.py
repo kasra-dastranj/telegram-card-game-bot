@@ -165,13 +165,13 @@ def clear_choice(db, user_id, slot):
 
 
 async def send_sticker(bot, context, chat_id, user_id, slot):
-    choice = selected(bot.db, user_id, slot)
-    if not choice:
-        return False
-    from bot.card_reward_presentation import sticker_bytes
-    sticker = BytesIO(sticker_bytes(choice['path'].read_bytes()))
-    sticker.name = 'avatar.webp'
     try:
+        choice = selected(bot.db, user_id, slot)
+        if not choice:
+            return False
+        from bot.card_reward_presentation import sticker_bytes
+        sticker = BytesIO(sticker_bytes(choice['path'].read_bytes()))
+        sticker.name = 'avatar.webp'
         await context.bot.send_sticker(chat_id=chat_id, sticker=sticker)
         return True
     except Exception:

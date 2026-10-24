@@ -266,3 +266,18 @@ def test_normal_claim_alias_and_secret_claim_router(scene):
     asyncio.run(bot._deck_name_message_router(update, context))
     assert count(bot.db, 'easter_events') == 1
     bot.claim_command.assert_awaited_once()
+
+
+def test_browser_utc_schedule_works_on_server_python39(custom, monkeypatch):
+    class Python39DateTime(datetime):
+        @classmethod
+        def fromisoformat(cls, value):
+            if value.endswith('Z'):
+                raise ValueError('Python 3.9 does not accept Z')
+            return super().fromisoformat(value)
+    monkeypatch.setattr(eggs, 'datetime', Python39DateTime)
+    with sqlite3.connect(custom[0].db_path) as conn:
+        result = eggs.validate_in(conn, rule(starts_at='2026-10-24T00:00:00.000Z',
+                                              ends_at='2026-10-25T00:00:00.000Z'))
+    assert result['starts_at'] == '2026-10-24T00:00:00+00:00'
+    assert result['ends_at'] == '2026-10-25T00:00:00+00:00'

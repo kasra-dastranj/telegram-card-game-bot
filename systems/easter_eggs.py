@@ -47,6 +47,9 @@ def _date(value):
     if value is None or value == '':
         return None
     try:
+        # Browser toISOString emits Z; Python 3.9 needs an explicit UTC offset.
+        if isinstance(value, str) and value.endswith('Z'):
+            value = value[:-1] + '+00:00'
         parsed = datetime.fromisoformat(value)
         if parsed.tzinfo is None:
             raise ValueError()
