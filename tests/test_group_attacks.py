@@ -362,8 +362,48 @@ def test_bot_offer_then_confirm_and_exact_private_quick_flow(scene):
         query.data=action;asyncio.run(handle(bot,update,context))
     assert system.get(event['id'])['status']=='win'
     assert scalar(db,'SELECT coins FROM players WHERE user_id=1')==1020
+    result_message=query.edit_message_text.await_args
+    assert 'امتیاز تو' not in result_message.args[0]
+    details=result_message.kwargs['reply_markup'].inline_keyboard[0][0]
+    query.data=details.callback_data
+    asyncio.run(handle(bot,update,context))
+    assert 'امتیاز تو' in query.edit_message_text.await_args.args[0]
+    assert 'انتخاب تو' in query.edit_message_text.await_args.args[0]
+    assert scalar(db,'SELECT coins FROM players WHERE user_id=1')==1020
     asyncio.run(maintenance(bot,context));count=telegram.send_message.await_count
     asyncio.run(maintenance(bot,context));assert telegram.send_message.await_count==count
+
+
+@pytest.mark.parametrize('card,status', [('strong','win'),('weak','loss'),('equal','tie'),(None,'void')])
+def test_compact_group_result_keeps_dialogue_actual_accounting_and_detail_button(scene,card,status):
+    from bot.group_attacks import group_panel,details_text
+    db,system=scene;event=setup(scene)
+    result=play(system,event,0,1,card) if card else system.cancel(event['id'])
+    assert result['status']==status
+    text,markup=group_panel(result)
+    key={'win':'loss','loss':'win','tie':'tie','void':'expired'}[status]
+    assert any(text.startswith(line) for line in result['attack']['dialogues'][key])
+    assert markup.inline_keyboard[0][0].callback_data=='ga_report:'+event['id']
+    assert not any(extra in text for extra in ('دفاع موفق بود','دشمن این بار برد','حمله مساوی تموم شد','امتیاز تو','انتخاب تو'))
+    if status=='win':
+        assert '20' in text and 'XP' in text
+    elif status=='loss':
+        assert '-10' in text and 'قلب' not in text
+    else:
+        assert 'رزرو جریمه برگشت' in text
+    if card:
+        assert 'امتیاز تو' in details_text(result,1)
+        assert 'امتیاز تو' not in details_text(result,2)
+
+
+def test_short_private_offer_keeps_stakes_team_rules_death_bonus_and_timeout(scene):
+    from bot.group_attacks import rules
+    event=setup(scene,2,mutate=lambda config,attack:attack.update(death_after=3))
+    text=rules(event)
+    assert '20' in text and '-10' in text and 'رزرو' in text
+    assert 'نتیجهٔ تیم' in text and 'تکمیل نبردها' in text and 'باختِ قطعی' in text
+    assert 'جایزهٔ آخر' in text and '60' in text and 'بی‌پاسخ‌موندن باخته' in text
+    assert 'جمع ویژگی' not in text and len(text)<500
 
 
 def test_bot_denies_wrong_group_or_nonmember_before_escrow(scene):
