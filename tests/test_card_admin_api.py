@@ -43,6 +43,22 @@ def _client(tmp_path):
     return db, api.app.test_client()
 
 
+def test_admin_avatar_upload_is_separate_from_card_image(tmp_path):
+    from PIL import Image
+    db, client = _client(tmp_path)
+    response = client.post('/api/cards', json=_payload())
+    key = response.get_json()['card']['id']
+    raw = BytesIO()
+    Image.new('RGBA', (100, 100), 'yellow').save(raw, 'PNG')
+    url = f'/api/cards/{key}/avatar/legend'
+    assert client.post(url, data={'image': (BytesIO(raw.getvalue()), 'avatar.png')}).status_code == 200
+    with client.get(url) as preview:
+        assert preview.status_code == 200
+    assert client.post(f'/api/cards/{key}/avatar/normal', data={'image': (BytesIO(raw.getvalue()), 'avatar.png')}).status_code == 400
+    assert db.get_card_by_id(key).image_path == 'assets/card_images/admin-test.webp'
+    assert client.get('/api/custom/avatar/cc-no-access').status_code == 401
+
+
 def test_card_admin_create_read_and_update_current_schema(tmp_path):
     db, client = _client(tmp_path)
 

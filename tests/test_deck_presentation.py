@@ -24,6 +24,10 @@ def test_deck_group_invite_keeps_accept_button_and_short_copy(tmp_path, variant)
     handler = GameModeHandlersMixin()
     handler.db = DatabaseManager(str(tmp_path / 'invite.db'))
     handler.db.get_or_create_player(1, first_name='MH')
+    for cid in ('a', 'b', 'c'):
+        handler.db.add_card(Card(cid, cid.upper(), CardRarity.NORMAL, 50, 50, 50, 50, []))
+        handler.db.add_card_to_player(1, cid)
+    handler.db.create_deck(1, 'Test deck', 'a', 'b', 'c')
     handler.modes = GameModeSystem(handler.db)
     handler._schedule_mode_job = Mock()
     query = SimpleNamespace(data=f'gm_variant_deck_{variant}', from_user=SimpleNamespace(id=1, first_name='MH'),
@@ -143,7 +147,7 @@ def test_three_round_deck_final_and_private_history_survive_fight_deletion_and_c
         assert [call.kwargs['chat_id'] for call in context.bot.send_message.await_args_list] == [1, 2]
     private_control = (context.bot.send_photo if with_photo else context.bot.send_message).await_args.kwargs
     assert 'دک آبی همیشه آماده‌ست!' in private_control['caption' if with_photo else 'text']
-    assert private_control['reply_markup'].inline_keyboard[-1][0].switch_inline_query == 'game'
+    assert private_control['reply_markup'].inline_keyboard[-1][0].callback_data == f'bn_again_deck_{key}'
     context.bot.send_message.reset_mock()
     # A new handler after restart reads the saved cards, forms and causes.
     with sqlite3.connect(db.db_path) as conn:

@@ -109,7 +109,7 @@
         </div>
         <div><h1>مدیریت کارت‌های TelBattle</h1><p>ویرایش داده‌های پایه و مودهای Quick، Deck و Easy</p></div>
       </div>
-      <div class="actions"><a class="btn" href="rare-cards">🌟 تحویل Rare</a><a class="btn" href="victory-voices">🎙 ویس کارت‌های Legend</a><a class="btn" href="custom-cards">کارت‌های سفارشی</a><a class="btn" href="group-attacks">حمله‌های گروهی</a><a class="btn" href="easy-questions">سؤال‌های ایزی‌مود</a><a class="btn" href="arenas">مدیریت زمین‌ها</a><button id="refreshBtn" class="btn" type="button" aria-label="بارگذاری دوباره کارت‌ها">
+      <div class="actions"><a class="btn" href="easter-eggs">🥚 ایستراگ‌ها</a><a class="btn" href="rare-cards">🌟 تحویل Rare</a><a class="btn" href="victory-voices">🎙 ویس کارت‌های Legend</a><a class="btn" href="custom-cards">کارت‌های سفارشی</a><a class="btn" href="group-attacks">حمله‌های گروهی</a><a class="btn" href="easy-questions">سؤال‌های ایزی‌مود</a><a class="btn" href="arenas">مدیریت زمین‌ها</a><button id="refreshBtn" class="btn" type="button" aria-label="بارگذاری دوباره کارت‌ها">
         <svg class="icon" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg> بروزرسانی
       </button></div>
     </header>
@@ -202,6 +202,7 @@
               </div>
               <div class="field full"><label for="photoFileId">Telegram Photo file_id</label><input id="photoFileId" class="input" dir="ltr"><span class="hint">اختیاری؛ برای Inline Picker بدون آپلود دوباره.</span></div>
               <div class="field full"><label for="stickerFileId">Telegram Sticker file_id</label><input id="stickerFileId" class="input" dir="ltr"><span class="hint">اگر وارد شود، Easy و Deck مستقیماً از Sticker تلگرام استفاده می‌کنند.</span></div>
+              <div id="avatarUpload" class="field full upload" hidden><label for="avatarFile">آواتار شخصیت برای فرم Legend یا Rare</label><input id="avatarFile" class="input" type="file" accept="image/png,image/jpeg,image/webp"><div id="avatarPreview" class="preview" style="margin-top:8px">هنوز آواتاری ثبت نشده است.</div><span class="hint">تصویر نهایی را خودت آماده کن. پس از ذخیرهٔ کارت، آواتار جدا از تصویر کارت بارگذاری می‌شود و برای پروفایل و استیکر برد در دسترس مالکان قرار می‌گیرد.</span></div>
             </div>
           </div>
 
@@ -216,7 +217,7 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script>
-    const state = { cards: [], selectedId: null, selectedCard: null, creating: false, busy: false, drafts: {}, currentRarity: 'normal', options: {arenas:[], traits:[], series:[], names:[], images:[]} };
+    const state = { cards: [], selectedId: null, selectedCard: null, creating: false, busy: false, drafts: {}, avatarFiles: {}, currentRarity: 'normal', options: {arenas:[], traits:[], series:[], names:[], images:[]} };
     const apiPrefix = window.location.pathname.startsWith('/card-admin') ? '/card-admin' : '';
     const $ = id => document.getElementById(id);
     const splitList = value => [...new Set(String(value || '').split(/[\n,،]+/).map(x => x.trim()).filter(Boolean))];
@@ -340,6 +341,7 @@
       }).join('  ·  ') + (state.currentRarity === 'rare' ? ' — کارت Rare مستقل؛ تیراژ و گیرنده در «تحویل Rare» تنظیم می‌شوند.' : ' — هر سه فرم با هم ذخیره می‌شوند.');
     }
     function fillVariant(variant) {
+      $('avatarFile').value = '';
       setChoices('traits', state.options.traits, variant.traits || []);
       document.querySelector('label[for="traits"]').textContent = `Traitهای فرم ${rarityLabel[state.currentRarity]}`;
       $('cardType').value = variant.card_type || 'POWER_TYPE';
@@ -350,6 +352,19 @@
       $('imagePath').value = variant.image_path || ''; $('photoFileId').value = variant.photo_file_id || ''; $('stickerFileId').value = variant.sticker_file_id || '';
       $('variantHint').textContent = `در حال ویرایش فرم ${rarityLabel[state.currentRarity]}: Trait، آمار، Ability، Passive و مدیا مستقل است.`;
       updatePreview();
+      updateAvatarPreview();
+    }
+    function updateAvatarPreview() {
+      const rarity = state.currentRarity, allowed = rarity === 'legend' || rarity === 'rare';
+      $('avatarUpload').hidden = !allowed;
+      if (!allowed) return;
+      const file = state.avatarFiles[rarity], preview = $('avatarPreview');
+      if (file) { preview.replaceChildren(); const image = document.createElement('img'); image.src = URL.createObjectURL(file); image.onload = () => URL.revokeObjectURL(image.src); image.alt = 'پیش‌نمایش آواتار'; preview.append(image); return; }
+      if (!state.selectedId) { preview.textContent = 'هنوز آواتاری ثبت نشده است.'; return; }
+      preview.replaceChildren(); const image = document.createElement('img');
+      image.src = `${apiPrefix}/api/cards/${encodeURIComponent(state.selectedId)}/avatar/${rarity}?t=${Date.now()}`;
+      image.alt = 'آواتار ذخیره‌شده'; image.onerror = () => { preview.textContent = 'هنوز آواتاری ثبت نشده است.'; };
+      preview.append(image);
     }
     function readEasyStats() {
       return Object.fromEntries([...document.querySelectorAll('#easyStats input')].map(input => [input.dataset.stat, input.value]));
@@ -367,6 +382,7 @@
     function fillForm(card) {
       $('emptyState').hidden = true; $('cardForm').hidden = false; $('editorTitle').textContent = state.creating ? 'کارت جدید' : card.name; $('cardId').textContent = state.creating ? 'new' : card.id;
       $('name').value = card.name || ''; state.currentRarity = card.rarity === 'rare' ? 'rare' : 'normal';
+      state.avatarFiles = {}; $('avatarFile').value = '';
       $('rarity').replaceChildren(...editableRarities().map(rarity => new Option(rarityLabel[rarity],rarity)));
       $('rarity').value = state.currentRarity; $('biography').value = card.biography || ''; $('dialogs').value = (card.dialogs || []).join('\n');
       $('newTrait').value = ''; $('series').value = card.series || '';
@@ -406,7 +422,7 @@
     }
     async function saveCard(event) {
       event.preventDefault(); if (state.busy) return;
-      try { const payload = collectPayload(); setBusy(true); const suffix = state.currentRarity === 'rare' ? '' : '/family'; const url = state.creating ? '/api/cards'+suffix : `/api/cards/${encodeURIComponent(state.selectedId)}`+suffix; const method = state.creating ? 'POST' : 'PUT'; const data = await api(url, {method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)}); state.selectedId = data.card.id; state.creating = false; toast(data.message); await loadCards(state.selectedId); await loadOptions(); }
+      try { const payload = collectPayload(); setBusy(true); const suffix = state.currentRarity === 'rare' ? '' : '/family'; const url = state.creating ? '/api/cards'+suffix : `/api/cards/${encodeURIComponent(state.selectedId)}`+suffix; const method = state.creating ? 'POST' : 'PUT'; const data = await api(url, {method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)}); state.selectedId = data.card.id; state.creating = false; for (const [rarity, file] of Object.entries(state.avatarFiles)) { const form = new FormData(); form.append('image', file); await api(`/api/cards/${encodeURIComponent(state.selectedId)}/avatar/${rarity}`, {method:'POST', body:form}); } state.avatarFiles = {}; toast(data.message); await loadCards(state.selectedId); await loadOptions(); }
       catch (error) { toast(error.message, true); } finally { setBusy(false); }
     }
     async function deleteCard() {
@@ -425,6 +441,7 @@
     $('cardList').addEventListener('click', event => { const button = event.target.closest('[data-card-id]'); if (button) selectCard(button.dataset.cardId); });
     $('newBtn').addEventListener('click', startNew); $('refreshBtn').addEventListener('click', async () => { await loadCards(); await loadOptions(); }); $('search').addEventListener('input', renderList); $('rarityFilter').addEventListener('change', renderList); $('rarity').addEventListener('change', () => { stashVariant(); state.currentRarity = $('rarity').value; fillVariant(state.drafts[state.currentRarity]); });
     $('newRareBtn').addEventListener('click', () => startNew(true));
+    $('avatarFile').addEventListener('change', () => { const file = $('avatarFile').files[0]; if (file) { if (file.size > 7 * 1024 * 1024 || !['image/png','image/jpeg','image/webp'].includes(file.type)) { $('avatarFile').value = ''; toast('تصویر PNG، JPG یا WebP تا ۷ مگابایت انتخاب کنید.', true); return; } state.avatarFiles[state.currentRarity] = file; updateAvatarPreview(); } });
     $('cardForm').addEventListener('submit', saveCard); $('deleteBtn').addEventListener('click', deleteCard); $('cancelBtn').addEventListener('click', () => state.selectedId ? selectCard(state.selectedId) : startNew(state.currentRarity === 'rare'));
     $('addTraitBtn').addEventListener('click', addTrait); $('newTrait').addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); addTrait(); } });
     $('passiveEnabled').addEventListener('change', () => $('passiveFields').disabled = !$('passiveEnabled').checked); $('conditionType').addEventListener('change', () => refreshConditionChoices()); $('imagePath').addEventListener('input', () => { $('photoFileId').value = ''; updatePreview(); }); $('name').addEventListener('input', () => { if (!state.creating) $('editorTitle').textContent = $('name').value || 'بدون نام'; });

@@ -1643,6 +1643,9 @@ class BattleHandlersMixin:
             else:
                 keyboard = [[InlineKeyboardButton("🥊 چالش جدید", callback_data="request_pvp_fight")]]
             if deck_report:
+                if not context.bot_data.get(f"deck_{fight_id}_inline_message_id"):
+                    from bot.navigation import again_button
+                    keyboard = [[again_button('deck', fight_id)]]
                 keyboard.insert(0, [InlineKeyboardButton('📋 مشاهده جزئیات', callback_data=f'deck_report_{fight_id}')])
             try:
                 if deck_summary:
@@ -1671,11 +1674,18 @@ class BattleHandlersMixin:
                                      (ch_rounds_won, op_rounds_won), winner_id, deck_report, settlement['awards'])
                    if deck_report else None)
         if deck_report and fight and fight.chat_id:
+            if winner_id is not None:
+                try:
+                    from systems.card_avatars import send_sticker as send_avatar_sticker
+                    await send_avatar_sticker(self, context, fight.chat_id, winner_id, 'deck')
+                except Exception:
+                    logger.warning('Could not deliver Deck victory avatar', exc_info=True)
             from bot.deck_reports import victory_caption
+            from bot.navigation import again_button
             caption = victory_caption(deck_report, winner_id)
             private_markup = InlineKeyboardMarkup([
                 [InlineKeyboardButton('📋 مشاهده جزئیات', callback_data=f'deck_report_{fight_id}')],
-                [InlineKeyboardButton('🥊 بازی دوباره', switch_inline_query='game')]])
+                [again_button('deck', fight_id)]])
             for user_id in (ch_id, op_id):
                 if not await send_result(context, user_id, picture, caption, private_markup):
                     try:

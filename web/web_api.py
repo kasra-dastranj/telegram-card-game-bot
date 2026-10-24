@@ -60,6 +60,8 @@ class WebAPI:
         register_voice_admin(self)
         from web.rare_admin_api import register_rare_admin
         register_rare_admin(self)
+        from web.easter_admin_api import register_easter_admin
+        register_easter_admin(self)
 
     def _arena_admin_actor(self, scope='write'):
         """Fail-closed token auth with optional independent high-risk scopes."""
@@ -895,6 +897,28 @@ class WebAPI:
         def serve_image(filename):
             """سرو کردن تصاویر کارت‌ها"""
             return send_from_directory(str(PROJECT_ROOT / 'assets' / 'card_images'), filename)
+
+        @self.app.route('/api/cards/<card_id>/avatar/<rarity>', methods=['GET', 'POST'])
+        def official_avatar(card_id, rarity):
+            from systems.card_avatars import path_for, save_upload
+            card = self.db.get_card_by_id(card_id)
+            if not card or card.origin != 'official':
+                return jsonify(error='card_not_found'), 404
+            if request.method == 'GET':
+                path = path_for(self.db, card_id, rarity)
+                if not path:
+                    return jsonify(error='avatar_not_found'), 404
+                response = send_from_directory(str(path.parent), path.name, mimetype='image/png')
+                response.headers['Cache-Control'] = 'private, no-store'
+                return response
+            upload = request.files.get('image')
+            if not upload:
+                return jsonify(error='image_required'), 400
+            try:
+                save_upload(self.db, card_id, rarity, upload.read(8 * 1024 * 1024 + 1))
+            except ValueError as error:
+                return jsonify(error=str(error)), 400
+            return jsonify(success=True, message='آواتار این فرم ذخیره شد.'), 200
             
         @self.app.route('/api/upload_image', methods=['POST'])
         def upload_image():

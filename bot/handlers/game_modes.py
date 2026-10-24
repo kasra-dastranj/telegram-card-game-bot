@@ -59,17 +59,39 @@ class GameModeHandlersMixin:
         chat_type = update.effective_chat.type
         is_group = chat_type in ("group", "supergroup")
         user_id = update.effective_user.id
+        from bot.navigation import active_notice, private_link, reply_target, bind_target
+        if await active_notice(self, update, context):
+            return
         if not self.db.get_player_cards(user_id):
-            await update.message.reply_text("🎴 برای بازی ابتدا باید حداقل یک کارت داشته باشی.")
+            await update.message.reply_text("🎴 برای بازی ابتدا باید حداقل یک کارت داشته باشی؛ اولین کارتت را از دریافت کارت بگیر.",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton('🎁 دریافت کارت', callback_data='daily_claim')]]
+                    if not is_group else [[InlineKeyboardButton('🎁 گرفتن اولین کارت', url=private_link(context))]]))
+            return
+        target = reply_target(update) if is_group else None
+        if target and target.id == user_id:
+            await update.message.reply_text('برای دعوت دوستت روی پیام او ریپلای کن؛ برای چالش عمومی بدون ریپلای بنویس «بتل مبارزه».')
             return
         text, markup = self._game_mode_menu(is_group)
-        await update.message.reply_text(text, reply_markup=markup)
+        if target:
+            text += '\nدعوت برای ' + bidi_isolate(target.first_name or 'بازیکن') + '؛ Easy همچنان لابی گروهی است.'
+        panel = await update.message.reply_text(text, reply_markup=markup)
+        if target:
+            bind_target(self, panel, user_id, target)
 
     async def request_pvp_fight_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Replace the legacy PvP entry button with the explicit mode selector."""
         query = update.callback_query
         await query.answer()
+        from bot.navigation import active_notice
+        if await active_notice(self, update, context):
+            return
         is_group = query.message.chat.type in ("group", "supergroup")
+        if not self.db.get_player_cards(query.from_user.id):
+            from bot.navigation import private_link
+            await query.edit_message_text('برای مبارزه اول یک کارت بگیر؛ /claim در پیوی ربات.',
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton('🎁 دریافت کارت', url=private_link(context))]]
+                    if is_group else [[InlineKeyboardButton('🎁 دریافت کارت', callback_data='daily_claim')]]))
+            return
         text, markup = self._game_mode_menu(is_group)
         await query.edit_message_text(text, reply_markup=markup)
 
@@ -96,6 +118,12 @@ class GameModeHandlersMixin:
         query = update.callback_query
         await query.answer()
         mode = query.data.removeprefix("gm_mode_")
+        from bot.navigation import menu_context
+        try:
+            menu_context(self, query)
+        except ValueError as error:
+            await query.answer(str(error), show_alert=True)
+            return
         is_group = query.message.chat.type in ("group", "supergroup")
         if mode in ("quick", "deck", "easy"):
             allowed, reason = self.modes.mode_access.check(query.from_user.id, mode)
@@ -144,8 +172,24 @@ class GameModeHandlersMixin:
             return
         is_group = query.message.chat.type in ("group", "supergroup")
         if is_group:
+            from bot.navigation import menu_context, private_link
+            try:
+                invitation = menu_context(self, query)
+            except ValueError as error:
+                await query.answer(str(error), show_alert=True)
+                return
+            if mode == 'deck' and variant == 'normal' and not DeckSystem(self.db).get_valid_decks(query.from_user.id):
+                await query.edit_message_text('برای Deck Normal یک دک معتبر سه‌کارتی لازم داری؛ در پیوی دکت را بساز یا Random را انتخاب کن.',
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton('🗂 ساخت دک در پیوی', url=private_link(context, 'nav_decks'))],
+                        [InlineKeyboardButton('🎲 انتخاب Random', callback_data='gm_variant_deck_random')]]))
+                return
+            if mode == 'deck' and variant == 'random' and len(eligible_cards(self.db, self.db.get_player_cards(query.from_user.id), 'deck')) < 3:
+                await query.edit_message_text('Deck Random حداقل سه کارت مجاز و متفاوت می‌خواهد؛ از پیوی کارت بگیر.',
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton('🎁 کارت‌های من و دریافت کارت', url=private_link(context))]]))
+                return
             request = self.modes.create_group_challenge(
-                query.from_user.id, mode, variant, query.message.chat_id
+                query.from_user.id, mode, variant, query.message.chat_id,
+                **({'target_id': invitation['target']} if invitation else {})
             )
             mode_title = "Quick" if mode == "quick" else "Deck"
             variant_title = "دوستانه (بدون پاداش؛ باخت یک قلب)" if variant.startswith("friendly") else "Normal" if variant == "normal" else "Random"
@@ -165,6 +209,8 @@ class GameModeHandlersMixin:
                     "اولین بازیکنی که قبول کند وارد بازی می‌شود.\n"
                     f"⏳ مهلت پذیرش: {QUICK_GROUP_TTL_SECONDS} ثانیه"
                 )
+            if invitation:
+                text = f"⚔️ دعوت {bidi_isolate(invitation['name'])} به {mode_title}-{variant_title}\nفقط همین بازیکن می‌تواند قبول کند.\n⏳ ۶۰ ثانیه"
             await query.edit_message_text(
                 text,
                 reply_markup=InlineKeyboardMarkup(
@@ -183,6 +229,15 @@ class GameModeHandlersMixin:
             )
             return
 
+        if mode == 'deck' and variant == 'normal' and not DeckSystem(self.db).get_valid_decks(query.from_user.id):
+            await query.edit_message_text('برای بازی با دک خودت، یک دک معتبر سه‌کارتی بساز یا دک قبلی را اصلاح کن.',
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton('🗂 مدیریت دک‌ها', callback_data='deck_menu')],
+                    [InlineKeyboardButton('🎲 انتخاب Random', callback_data='gm_variant_deck_random')]]))
+            return
+        if mode == 'deck' and variant == 'random' and len(eligible_cards(self.db, self.db.get_player_cards(query.from_user.id), 'deck')) < 3:
+            await query.edit_message_text('Deck Random حداقل سه کارت مجاز و متفاوت می‌خواهد؛ اول کارت بگیر.',
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton('🎁 دریافت کارت', callback_data='daily_claim')]]))
+            return
         keyboard = [[
             InlineKeyboardButton(
                 "👤 انتخاب بازی در پی‌وی دوست",
@@ -466,14 +521,15 @@ class GameModeHandlersMixin:
             return
         ok, reason, request = self.modes.accept_request(request_id, query.from_user.id)
         if not ok:
-            message = get_self_invite_message() if reason == "self_accept" else reason if reason.startswith("برای ورود") else (
+            message = get_self_invite_message() if reason == "self_accept" else reason if reason.startswith(("برای ورود", "این دعوت فقط")) else (
                 "⏳ وقت این درخواست تموم شد؛ دوباره /fight بزن."
                 if reason == "expired"
                 else "❌ این درخواست دیگر قابل پذیرش نیست."
             )
             await query.answer(message, show_alert=True)
             if reason == "expired":
-                await query.edit_message_text("⏳ وقت این درخواست تموم شد؛ دوباره /fight بزن.")
+                await query.edit_message_text("⏳ وقت این درخواست تموم شد؛ یک منوی تازه باز کن.",
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton('⚔️ بازکردن مبارزه', callback_data='bn_fight')]]))
             return
         if request["mode"] == "quick":
             creator = self.db.get_or_create_player(request["creator_id"])
@@ -517,6 +573,7 @@ class GameModeHandlersMixin:
             context,
             request,
             "⏳ وقت این درخواست تموم شد؛ دوباره /fight بزن.",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton('⚔️ بازکردن مبارزه', callback_data='bn_fight')]]),
         )
 
     async def _edit_request_panel(self, context, request, text: str, reply_markup=None):
@@ -840,8 +897,10 @@ class GameModeHandlersMixin:
                 getattr(winner_card, "dialogs", None),
             )
             text = f"💬 «{victory_line}»"
+        from bot.navigation import again_button
         markup = InlineKeyboardMarkup(
-            [[InlineKeyboardButton("📋 مشاهده جزئیات", callback_data=f"gm_report_{report['request_id']}")]]
+            [[InlineKeyboardButton("📋 مشاهده جزئیات", callback_data=f"gm_report_{report['request_id']}")],
+             [again_button('quick', report['request_id'])]]
         )
         targets = (
             [request["origin_chat_id"]]
@@ -1066,6 +1125,12 @@ class GameModeHandlersMixin:
     @handle_active_match
     async def easy_round_count_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
+        from bot.navigation import menu_context
+        try:
+            menu_context(self, query)
+        except ValueError as error:
+            await query.answer(str(error), show_alert=True)
+            return
         if query.message.chat.type not in ("group", "supergroup"):
             await query.answer("Easy Mode فقط در گروه است.", show_alert=True)
             return

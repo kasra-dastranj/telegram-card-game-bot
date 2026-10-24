@@ -20,6 +20,7 @@ from telegram.ext import (
     Application, 
     CommandHandler, 
     CallbackQueryHandler, 
+    ChatMemberHandler,
     ChosenInlineResultHandler,
     InlineQueryHandler,
     MessageHandler, 
@@ -79,6 +80,7 @@ PRIVATE_CHAT_COMMANDS = [
 
 GROUP_CHAT_COMMANDS = [
     BotCommand("fight", "شروع چالش PvP در گروه"),
+    BotCommand("profile", "نمایش پروفایل و رتبهٔ گروهی"),
     BotCommand("claim", "دریافت کارت روزانه رایگان"),
     BotCommand("leaderboard", "مشاهده لیست برترین بازیکنان"),
     BotCommand("help", "راهنمای بازی")
@@ -465,6 +467,10 @@ class TelegramCardBot(
 
     def setup_handlers(self, app: Application):
         """تنظیم هندلرهای ربات"""
+        async def group_welcome(update, context):
+            from bot.group_welcome import handle
+            await handle(self, update, context)
+        app.add_handler(ChatMemberHandler(group_welcome, ChatMemberHandler.MY_CHAT_MEMBER))
         # دستورات اصلی
         app.add_handler(CommandHandler("start", self.start_command))
         from bot.group_attacks import chat_id_command
@@ -478,6 +484,21 @@ class TelegramCardBot(
         app.add_handler(CommandHandler("fight", self.fight_command))
         app.add_handler(CommandHandler("story", self.story_command))
         app.add_handler(CommandHandler("recalc", self.recalc_command))
+        async def navigation_callback(update, context):
+            from bot.navigation import handle
+            return await handle(self, update, context)
+        app.add_handler(CallbackQueryHandler(navigation_callback, pattern='^bn_'))
+        async def customization_callback(update, context):
+            from bot.handlers.customization import handle
+            return await handle(self, update, context)
+        app.add_handler(CallbackQueryHandler(customization_callback, pattern='^style_'))
+        async def group_navigation(update, context):
+            from bot.easter_eggs import handle
+            if await handle(self, update, context):
+                return
+            from bot.navigation import text
+            return await text(self, update, context)
+        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & filters.ChatType.GROUPS, group_navigation))
         
         # کالبک‌های اصلی
         async def progression_callback(update, context):
@@ -531,6 +552,10 @@ class TelegramCardBot(
             return await handle(self, update, context)
         app.add_handler(CallbackQueryHandler(legend_voice_callback, pattern='^lv:'))
         app.add_handler(CallbackQueryHandler(self.profile_command, pattern='^easy_profile$'))
+        async def avatar_profile_callback(update, context):
+            from bot.handlers.avatar_profile import handle
+            return await handle(self, update, context)
+        app.add_handler(CallbackQueryHandler(avatar_profile_callback, pattern=r'^avatar_(?:page|pick|clear)_'))
         app.add_handler(CallbackQueryHandler(self.accept_pvp_random_handler, pattern="^accept_pvp_random_"))
         app.add_handler(CallbackQueryHandler(self.accept_pvp_fight_handler, pattern="^accept_pvp_"))
         app.add_handler(CallbackQueryHandler(self.pvp_cards_navigation_handler, pattern="^pvp_cards_"))
@@ -653,6 +678,16 @@ class TelegramCardBot(
         elif context.user_data.get('easy_victory_draft'):
             from bot.handlers.easy_victory import receive_slogan
             await receive_slogan(self, update, context)
+        else:
+            from bot.easter_eggs import handle
+            if await handle(self, update, context):
+                return
+            from bot.navigation import text
+            return await text(self, update, context)
+
+    async def easter_egg_delivery_task(self, context):
+        from bot.easter_eggs import drain
+        await drain(self, context)
 
     async def cleanup_task(self, context: ContextTypes.DEFAULT_TYPE):
         """تسک تمیزکردن فایت‌های منقضی"""
@@ -793,6 +828,8 @@ def schedule_maintenance_jobs(job_queue, bot):
         job_queue.run_repeating(bot.custom_card_notifications_task,interval=15,first=15,name='custom-card-notifications')
     if hasattr(bot,'group_attacks_task'):
         job_queue.run_repeating(bot.group_attacks_task,interval=30,first=45,name='group-attacks')
+    if hasattr(bot, 'easter_egg_delivery_task'):
+        job_queue.run_repeating(bot.easter_egg_delivery_task, interval=20, first=20, name='easter-egg-delivery')
     job_queue.run_daily(
         bot.reset_lives_task,
         time=dt_time(hour=0, minute=5, tzinfo=MAINTENANCE_TIMEZONE),

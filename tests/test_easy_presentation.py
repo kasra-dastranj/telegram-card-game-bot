@@ -23,6 +23,61 @@ def readable(text):
     return text.translate(str.maketrans('', '', '\u2068\u2069'))
 
 
+def test_avatar_slots_profile_group_and_victory_use_uploaded_artwork(scene):
+    from systems import card_avatars
+    bot, update, context, events = scene
+    with sqlite3.connect(bot.db.db_path) as conn:
+        CardInventorySystem.grant_in(conn, 1, 'hero', 'legend')
+    raw = BytesIO()
+    Image.new('RGBA', (128, 128), 'yellow').save(raw, 'PNG')
+    card_avatars.save_upload(bot.db, 'hero', 'legend', raw.getvalue())
+    assert card_avatars.choices(bot.db, 1)[0]['rarity'] == 'legend'
+    assert card_avatars.choices(bot.db, 2) == []
+    for slot in ('profile', 'easy', 'deck'):
+        card_avatars.save_choice(bot.db, 1, slot, 'hero', 'legend')
+    card_avatars.clear_choice(bot.db, 1, 'deck')
+    assert card_avatars.selected(bot.db, 1, 'deck') is None
+    assert card_avatars.selected(bot.db, 1, 'profile') is not None
+    update.callback_query = None
+    update.effective_chat = SimpleNamespace(id=-100, type='group')
+    update.effective_message.reply_photo = AsyncMock()
+    asyncio.run(bot.profile_command(update, context))
+    args = update.effective_message.reply_photo.await_args.kwargs
+    assert args['reply_markup'] is None
+    assert 'رتبهٔ گروه' in args['caption'] and 'رتبهٔ جهانی' in args['caption'] and 'دک‌ها' in args['caption']
+    update.effective_chat = SimpleNamespace(id=1, type='private')
+    update.effective_message.reply_photo.reset_mock()
+    asyncio.run(bot.profile_command(update, context))
+    assert 'reply_markup' not in update.effective_message.reply_photo.await_args.kwargs
+    buttons = update.effective_message.reply_text.await_args.kwargs['reply_markup'].inline_keyboard
+    update.callback_query = SimpleNamespace(data=buttons[0][0].callback_data, from_user=update.effective_user,
+                                           answer=AsyncMock(), edit_message_text=AsyncMock())
+    from bot.handlers.customization import handle as customization_menu
+    asyncio.run(customization_menu(bot, update, context))
+    update.callback_query.data = 'avatar_page_profile_0'
+    from bot.handlers.avatar_profile import handle as avatar_menu
+    asyncio.run(avatar_menu(bot, update, context))
+    assert 'آواتار پروفایل' in update.callback_query.edit_message_text.await_args.args[0]
+    asyncio.run(easy_victory.announce(bot, context, {'origin_chat_id': -100}, {'winner_ids': [1]}))
+    assert events[-2][0] == 'sticker'
+    artwork = Image.open(BytesIO(events[-2][1])).convert('RGB')
+    assert artwork.getpixel((256, 256))[0] > 200 and artwork.getpixel((256, 256))[1] > 200
+    with sqlite3.connect(bot.db.db_path) as conn:
+        CardInventorySystem.consume_in(conn, 1, 'hero', 'legend')
+    assert card_avatars.selected(bot.db, 1, 'profile') is None
+
+
+def test_avatar_upload_restricts_rarity_and_invalid_images(scene):
+    from systems import card_avatars
+    bot, _, _, _ = scene
+    raw = BytesIO()
+    Image.new('RGB', (20, 20), 'red').save(raw, 'PNG')
+    with pytest.raises(ValueError):
+        card_avatars.save_upload(bot.db, 'hero', 'normal', raw.getvalue())
+    with pytest.raises(ValueError):
+        card_avatars.save_upload(bot.db, 'hero', 'legend', b'not an image')
+
+
 @pytest.fixture
 def scene(tmp_path):
     db = DatabaseManager(str(tmp_path / 'easy-ui.db'))
@@ -97,7 +152,7 @@ def test_profile_command_and_callback_offer_settings_without_changing_main_menu(
     update.callback_query = None
     asyncio.run(bot.profile_command(update, context))
     markup = update.message.reply_text.await_args.kwargs['reply_markup']
-    assert any(b.callback_data == 'easy_victory_menu' for row in markup.inline_keyboard for b in row)
+    assert any(b.callback_data == 'style_menu' for row in markup.inline_keyboard for b in row)
     assert 'MH\\_\\*' in update.message.reply_text.await_args.args[0]
     context.user_data['easy_victory_draft'] = {'expires_at': time.time() + 600}
     update.callback_query = SimpleNamespace(answer=AsyncMock(), edit_message_text=AsyncMock())
@@ -299,6 +354,9 @@ def test_real_easy_match_keeps_question_lifecycle_rewards_and_single_settlement(
     assert button.text == 'مشاهده جزئیات'
     assert button.callback_data == f'easy_details_{key}'
     report = bot.modes.get_state(key)['report']
+    from systems.group_ranking import rank as group_rank
+    assert group_rank(bot.db, -100, 2)[1] == (report['rewards']['2']['score'] or None)
+    assert group_rank(bot.db, -999, 2) == (None, None)
     assert (report['rewards']['1']['xp'], report['rewards']['2']['xp']) == ((0, 0) if v2 else (3, 10))
     with sqlite3.connect(bot.db.db_path) as conn:
         count = conn.execute('SELECT COUNT(*) FROM match_reward_events WHERE request_id=?', (key,)).fetchone()[0]

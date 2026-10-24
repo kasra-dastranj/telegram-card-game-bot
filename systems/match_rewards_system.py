@@ -70,9 +70,13 @@ class MatchRewardsSystem:
         """Run inside the match-completion transaction. Retry returns prior awards."""
         context = context_in(conn, request_id, mode)
         require_settlement_mode(context, mode)
+        has_events = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='match_reward_events'").fetchone()
+        previous_users = {row[0] for row in conn.execute('SELECT user_id FROM match_reward_events WHERE request_id=?', (request_id,))} if has_events else set()
         if context.policy_version == "future_v2":
             from systems.progression_match_rewards import award_in
             result=award_in(conn, request_id, mode, context, awards)
+            from systems.group_ranking import record_in as record_group_score_in
+            record_group_score_in(conn, request_id, {uid: item for uid, item in result.items() if int(uid) not in previous_users})
             from systems.group_attacks import record_activity_in
             record_activity_in(conn,request_id,mode,awards)
             return result
@@ -181,4 +185,6 @@ class MatchRewardsSystem:
             result[str(user_id)] = {"xp": xp, "score": score}
         from systems.group_attacks import record_activity_in
         record_activity_in(conn,request_id,mode,awards)
+        from systems.group_ranking import record_in as record_group_score_in
+        record_group_score_in(conn, request_id, {uid: item for uid, item in result.items() if int(uid) not in previous_users})
         return result

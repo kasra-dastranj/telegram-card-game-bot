@@ -18,6 +18,29 @@ def form(rarity='normal',users=None):
             'users':users or [1,2],'media_id':None,'review_confirmed':True}
 
 
+def test_custom_legend_avatar_requires_admin_and_active_ownership(custom):
+    from io import BytesIO
+    from PIL import Image
+    from systems import card_avatars
+    card = post(custom, 'fulfill', form('legend')).get_json()['card_id']
+    raw = BytesIO()
+    Image.new('RGBA', (64, 64), 'green').save(raw, 'PNG')
+    url = '/api/custom/avatar/' + card
+    assert custom[2].post(url, data={'image': (BytesIO(raw.getvalue()), 'avatar.png')}).status_code == 401
+    response = custom[2].post(url, data={'image': (BytesIO(raw.getvalue()), 'avatar.png')}, headers={'X-Admin-Token': 'synthetic-test-admin'})
+    assert response.status_code == 200
+    assert card_avatars.choices(custom[0], 1)[0]['card_id'] == card
+    card_avatars.save_choice(custom[0], 1, 'profile', card, 'legend')
+    assert card_avatars.selected(custom[0], 1, 'profile')
+    # Cosmetic ownership is available even while custom gameplay is disabled.
+    assert card_avatars.selected(custom[0], 1, 'profile')['card'].name == 'شخصیت MH'
+    assert any(item['card_id'] == card for item in card_avatars.owned_forms(custom[0], 1))
+    assert card_avatars.choices(custom[0], 3) == []
+    post(custom, 'revoke', {'card_id': card, 'users': [1]})
+    assert card_avatars.selected(custom[0], 1, 'profile') is None
+    assert card_avatars.choices(custom[0], 1) == []
+
+
 def count(custom,table):
     with sqlite3.connect(custom[0].db_path) as conn:return conn.execute('SELECT COUNT(*) FROM '+table).fetchone()[0]
 

@@ -48,6 +48,27 @@ def register_custom_admin(api):
         from pathlib import Path
         return send_from_directory(str(Path(__file__).parent),'custom_card_management.html')
 
+    @api.app.route('/api/custom/avatar/<card_id>', methods=['GET', 'POST'])
+    @auth
+    def custom_avatar(actor, card_id):
+        from systems.card_avatars import path_for, save_upload
+        with closing(sqlite3.connect(api.db.db_path)) as conn:
+            card = conn.execute("SELECT rarity FROM cards WHERE card_id=? AND origin='custom'", (card_id,)).fetchone()
+        if not card or card[0] != 'legend':
+            return jsonify(error='legend_custom_card_required'), 404
+        if request.method == 'GET':
+            path = path_for(api.db, card_id, 'legend')
+            if not path:
+                return jsonify(error='avatar_not_found'), 404
+            response = send_file(path, mimetype='image/png', max_age=0)
+            response.headers['Cache-Control'] = 'private, no-store'
+            return response
+        upload = request.files.get('image')
+        if not upload:
+            return jsonify(error='image_required'), 400
+        save_upload(api.db, card_id, 'legend', upload.read(8 * 1024 * 1024 + 1))
+        return jsonify(message='آواتار لجند ذخیره شد.'), 200
+
     @api.app.route('/api/custom/<action>',methods=['POST'])
     @auth
     def custom_action(actor,action):
