@@ -50,18 +50,26 @@ def reward_text(reward):
     return ' · '.join(parts) or 'بدون پاداش'
 
 
+def loss_text(loss):
+    parts=[]
+    if loss['coins']:parts.append('💰 '+signed(-loss['coins'],'سکه'))
+    if loss['hearts']:parts.append('❤️ '+signed(-loss['hearts'],'قلب'))
+    return ' · '.join(parts) or 'بدون جریمه'
+
+
 def rules(event):
     attack=event['attack'];loss=attack['loss']
-    text=('⚔️ '+isolate(attack['title'])+'\nQuick یک‌راوندی؛ امتیاز = جمع ویژگی تو و دشمن بعد از اثرها.\n\n'
-          '🏆 برد: '+reward_text(attack['win'])+'\n')
-    text+=('باخت: 💰 '+isolate(loss['coins'])+' سکه · ❤️ '+isolate(loss['hearts'])+' قلب' if loss['coins'] or loss['hearts'] else 'باخت: چیزی ازت کم نمی‌شه.')
-    if loss['coins'] or loss['hearts']:text+='\nاین مقدار با تأییدت رزرو می‌شه؛ فقط در باخت نهایی مصرف می‌شه.'
+    text=('⚔️ '+isolate(attack['title'])+'\n\n'
+          '🏆 برد هر نفر: '+reward_text(attack['win'])+'\n'
+          'باخت هر نفر: '+loss_text(loss))
+    if loss['coins'] or loss['hearts']:text+='\nجریمه با تأییدت رزرو می‌شه؛ فقط در باخت نهایی کم می‌شه.'
     if len(event['slots'])>1:
-        text+='\n\nسهم همهٔ شرکت‌کننده‌ها یکسانه. برد فقط با تکمیل همهٔ نبردها؛ باختِ قطعی حتی قبل از تکمیل حساب می‌شه. حملهٔ ناتمامِ نامشخص بدون پاداش و جریمه بسته می‌شه.'
+        text+='\n👥 حساب همه با نتیجهٔ تیمه؛ برد بعد از تکمیل نبردها، باختِ قطعی زودتر.'
+        text+='\nناتمامِ بدون باخت قطعی: بدون پاداش و جریمه.'
     if attack['death_after']:
-        text+='\n\n☠️ شکست‌های این دشمن در گروه: '+ratio(event['progress']['wins'],attack['death_after'])
-        text+='\nجایزهٔ شکست آخر: '+reward_text(attack['death_reward'])
-    text+='\n\nهر نفر یک نبرد؛ بعد از تأیید، بی‌پاسخ‌گذاشتن انتخاب‌ها باخت حساب می‌شه.'
+        text+='\n☠️ شکست‌های دشمن: '+ratio(event['progress']['wins'],attack['death_after'])
+        text+=' · جایزهٔ آخر: '+reward_text(attack['death_reward'])
+    text+='\n\n⏳ هر انتخاب '+isolate(event['settings']['choice_seconds'])+' ثانیه؛ بی‌پاسخ‌موندن باخته.'
     return text
 
 
@@ -83,7 +91,7 @@ async def offer(bot,update,context,event_id,index):
         return
     markup=Markup([[Button('⚔️ قبول، می‌جنگم',callback_data=f'ga_join:{event_id}:{index}')]])
     await context.bot.send_message(chat_id=user,text=rules(event),reply_markup=markup,parse_mode=None)
-    if query:await query.answer('قوانین و دکمهٔ ورود رو توی پیوی ربات فرستادم.')
+    if query:await query.answer('دعوت مبارزه رو توی پیوی فرستادم.')
 
 
 async def start(bot,update,context):
@@ -117,11 +125,10 @@ async def panel(bot,update,context,event,index,page=0):
     if slot.get('user')!=user:raise ValueError('attack_choice_locked')
     rows=[]
     if slot['status']!='playing' or event['status']!='open':
-        report=slot.get('report',{})
-        text=('🏁 نبردت تموم شد!\n'+('🏆 بردی' if slot['status']=='win' else '🤝 مساوی شد' if slot['status']=='tie' else 'حمله بسته شد؛ نتیجهٔ تیم رو ببین.' if slot['status']=='cancelled' else 'دشمن این دست رو برد'))
-        if report:text+='\nامتیاز تو: '+isolate(report['score'])+' · دشمن: '+isolate(report['npc_score'])
-        if event['status']=='open':text+='\nنتیجهٔ تیم هنوز مشخص نیست؛ پاداش و جریمه در پایان حمله حساب می‌شن.'
-        rows=[[Button('📋 نتیجه و حساب حمله',callback_data='ga_detail:'+event['id'])]]
+        text={'win':'🏆 نبردت رو بردی!','tie':'🤝 نبردت مساوی شد.',
+              'cancelled':'🏁 حمله بسته شد.'}.get(slot['status'],'دشمن این دست رو برد.')
+        if event['status']=='open':text+='\n⏳ منتظر نتیجهٔ تیم…'
+        rows=[[Button('📋 جزئیات حمله',callback_data='ga_detail:'+event['id'])]]
     elif slot['phase']=='card':
         page=max(0,min(page,(len(slot['cards'])-1)//8))
         for number,card_id in enumerate(slot['cards'][page*8:page*8+8],page*8):
@@ -136,16 +143,16 @@ async def panel(bot,update,context,event,index,page=0):
         for ability in bot.modes.list_player_abilities(user):
             rows.append([Button(ability['title']+' ×'+str(ability['quantity']),callback_data=f'ga_ability:{event["id"]}:{index}:{ability["ability_key"]}')])
         rows.append([Button('رد شو',callback_data=f'ga_ability:{event["id"]}:{index}:skip')])
-        text='از کدوم Ability card استفاده می‌کنی؟'
+        text='⚡ ابیلیتی انتخاب کن یا رد شو.'
     else:
         values=effective(slot['card'],event['attack']['enemies'][index],slot['arena'])
         for stat in STATS:
             if stat not in slot['arena'].get('disabled_stats',[]):
                 rows.append([Button(LABELS[stat]+' · '+str(values[stat]),callback_data=f'ga_stat:{event["id"]}:{index}:{stat}')])
-        text='یه ویژگی انتخاب کن ⏳\n(عددها با اثر زمین و Passive محاسبه شدن)'
+        text='🎯 ویژگی‌ات رو انتخاب کن.'
     if slot['status']=='playing' and event['status']=='open':
         remaining=max(0,int((date(slot['deadline'])-now_utc()).total_seconds()))
-        text+='\n⏳ '+isolate(remaining)+' ثانیه وقت داری!'
+        text+='\n⏳ '+isolate(remaining)+' ثانیه'
     await query.edit_message_text(text,reply_markup=Markup(rows),parse_mode=None)
 
 
@@ -155,6 +162,12 @@ def details_text(event,user):
     text+='وضعیت: '+{'open':'در جریان','win':'برد گروه','loss':'برد دشمن','tie':'مساوی','void':'ناتمام؛ بدون پاداش و جریمه'}.get(event['status'],event['status'])
     for enemy,slot in zip(event['attack']['enemies'],event['slots']):
         text+='\n'+isolate(enemy['name'])+': '+{'open':'منتظر مبارز','playing':'در حال نبرد','win':'شکست خورد','loss':'پیروز شد','tie':'مساوی','cancelled':'با پایان حمله بسته شد'}.get(slot['status'],'')
+        report=slot.get('report')
+        if slot.get('user')==user and report:
+            choices=report.get('stats',[])
+            if len(choices)==2:
+                text+='\nانتخاب تو: '+LABELS[choices[0]]+' · انتخاب دشمن: '+LABELS[choices[1]]
+            text+='\nامتیاز تو: '+isolate(report['score'])+' · دشمن: '+isolate(report['npc_score'])
     if receipt:
         text+='\n\nحساب تو: 💰 '+signed(receipt['attack_coins'],'سکه')+' · ⭐ '+signed(receipt.get('xp',0),'XP')
         if receipt['attack_hearts_lost']:text+=' · ❤️ '+signed(-receipt['attack_hearts_lost'],'قلب')
@@ -271,14 +284,14 @@ def group_panel(event, omit_dialogue=False):
     else:
         key='death' if event.get('killed') else 'loss' if event['status']=='win' else 'win' if event['status']=='loss' else 'tie' if event['status']=='tie' else 'expired'
         text=('' if omit_dialogue else choice['text']) if choice else random.choice(attack['dialogues'][key])
-        text+='\n\n'+{'win':'🏆 دفاع موفق بود!','loss':'دشمن این بار برد!','tie':'🤝 حمله مساوی تموم شد.','void':'حمله کامل نشد؛ پاداش و جریمه‌ای حساب نشد.'}[event['status']]
         if event.get('killed'):text+='\n☠️ این دشمن دیگه به این گروه برنمی‌گرده.'
         if event['status']=='win':
-            text+='\n🎁 سهم هر شرکت‌کننده: '+reward_text(attack['win'])
-            if event.get('killed'):text+='\n🎉 جایزهٔ شکست آخر برای هر نفر: '+reward_text(attack['death_reward'])
-        if event['status']=='loss':text+='\nسهم هر شرکت‌کننده: −'+isolate(attack['loss']['coins'])+' سکه · −'+isolate(attack['loss']['hearts'])+' قلب'
-        if event['status'] in ('tie','void'):text+='\nرزرو جریمهٔ شرکت‌کننده‌ها برگشت.'
-        rows=[[Button('📋 جزئیات و پاداش من',callback_data='ga_report:'+event['id'])]]
+            text+='\n🎁 سهم هر نفر: '+reward_text(attack['win'])
+            if event.get('killed'):text+='\n🎉 جایزهٔ آخر هر نفر: '+reward_text(attack['death_reward'])
+        if event['status']=='loss':text+='\nسهم هر نفر: '+loss_text(attack['loss'])
+        if event['status']=='tie':text+='\n🤝 بدون پاداش؛ رزرو جریمه برگشت.'
+        if event['status']=='void':text+='\n⏳ حمله ناتمام؛ رزرو جریمه برگشت.'
+        rows=[[Button('📋 جزئیات حمله',callback_data='ga_report:'+event['id'])]]
     return text.lstrip('\n'),Markup(rows)
 
 
