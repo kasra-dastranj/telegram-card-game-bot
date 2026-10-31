@@ -324,8 +324,9 @@ class WebAPI:
                 save_variant_traits(conn, card_id, rarity, item['metadata']['traits'])
                 for kind in ('photo', 'sticker'):
                     file_id = item['media'][kind]
-                    # A new image invalidates a Telegram photo id from the old image.
-                    if kind == 'photo' and old and old[1] != card.image_path and file_id:
+                    # Both Telegram media ids can refer to the previous artwork.
+                    # An explicitly different id remains an intentional override.
+                    if old and old[1] != card.image_path and file_id:
                         old_media = conn.execute(
                             'SELECT file_id FROM card_variant_media_cache WHERE variant_id=? AND media_kind=?',
                             (variant_id, kind)).fetchone()
@@ -920,6 +921,23 @@ class WebAPI:
                 return jsonify(error=str(error)), 400
             return jsonify(success=True, message='آواتار این فرم ذخیره شد.'), 200
             
+        def invalidate_upload_media(card_name, rarity, kinds):
+            """Replacing a file (even at the same path) expires that form's ids."""
+            with sqlite3.connect(self.db.db_path) as conn:
+                card_id = request.form.get('card_id', '').strip()
+                row = conn.execute('SELECT card_id,rarity FROM cards WHERE card_id=?', (card_id,)).fetchone() if card_id else conn.execute(
+                    'SELECT card_id,rarity FROM cards WHERE lower(name)=lower(?)', (card_name,)).fetchone()
+                if not row:
+                    return
+                card_id, base_rarity = row
+                target = rarity or base_rarity
+                for kind in kinds:
+                    conn.execute('''DELETE FROM card_variant_media_cache WHERE media_kind=?
+                        AND variant_id IN (SELECT variant_id FROM card_variants WHERE card_id=? AND rarity=?)''',
+                                 (kind, card_id, target))
+                    if target == base_rarity:
+                        conn.execute('DELETE FROM card_media_cache WHERE card_id=? AND media_kind=?', (card_id, kind))
+
         @self.app.route('/api/upload_image', methods=['POST'])
         def upload_image():
             """Upload PNG/JPG image for card preview"""
@@ -951,6 +969,7 @@ class WebAPI:
                 save_name = f"{card_slug}{ext}"
                 file_path = images_dir / save_name
                 file.save(file_path)
+                invalidate_upload_media(card_name, rarity, ('photo', 'sticker'))
 
                 return jsonify({
                     'success': True,
@@ -996,6 +1015,7 @@ class WebAPI:
                 filename = f'{card_stem}.webp'
                 save_path = stickers_dir / filename
                 file.save(save_path)
+                invalidate_upload_media(card_name, rarity, ('sticker',))
 
                 return jsonify({
                     'success': True,

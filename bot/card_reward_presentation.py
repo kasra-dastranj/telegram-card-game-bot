@@ -62,7 +62,13 @@ async def send_card_sticker(bot, context, card, send_sticker):
     except Exception:
         logger.warning('Card sticker cache delivery failed')
     try:
-        raw = await card_art(bot, context, card)
+        from core.card_media import sticker_path
+        from pathlib import Path
+        path = sticker_path(card, include_legacy=False)
+        raw = await work(context, Path(path).read_bytes) if path else await card_art(bot, context, card)
+        if not raw:
+            path = sticker_path(card)
+            raw = await work(context, Path(path).read_bytes) if path else None
         if raw:
             image = await work(context, sticker_bytes, raw)
             sticker = BytesIO(image)

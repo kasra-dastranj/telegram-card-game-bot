@@ -648,7 +648,7 @@ class DatabaseManager:
         conn = sqlite3.connect(self.db_path)
         try:
             current = conn.execute(
-                "SELECT variant_id FROM card_variants WHERE card_id=? AND rarity=?", (card_id, rarity)
+                "SELECT variant_id,image_path FROM card_variants WHERE card_id=? AND rarity=?", (card_id, rarity)
             ).fetchone()
             variant_id = current[0] if current else str(uuid.uuid4())
             now = datetime.now().isoformat()
@@ -677,6 +677,12 @@ class DatabaseManager:
                 save_variant_traits(conn, card_id, rarity, data['traits'])
             for media_kind in ("photo", "sticker"):
                 file_id = str(data.get(f"{media_kind}_file_id") or "").strip()
+                if current and current[1] != (data.get('image_path') or '') and file_id:
+                    previous = conn.execute(
+                        'SELECT file_id FROM card_variant_media_cache WHERE variant_id=? AND media_kind=?',
+                        (variant_id, media_kind)).fetchone()
+                    if previous and previous[0] == file_id:
+                        file_id = ''
                 if file_id:
                     conn.execute(
                         """INSERT INTO card_variant_media_cache(variant_id, media_kind, file_id, updated_at)
