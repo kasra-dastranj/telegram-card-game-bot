@@ -433,10 +433,12 @@
     function activateTab(name) { document.querySelectorAll('.tab').forEach(tab => tab.setAttribute('aria-selected', String(tab.dataset.tab === name))); document.querySelectorAll('.section').forEach(section => section.classList.toggle('active', section.dataset.section === name)); }
     function updatePreview() { const path = $('imagePath').value.trim(); const node = $('imagePreview'); if (!path) { node.textContent = 'هنوز تصویری ثبت نشده است.'; return; } const filename = path.split(/[\\/]/).pop(); node.innerHTML = `<img src="${apiPrefix}/card_images/${encodeURIComponent(filename)}" alt="پیش‌نمایش کارت ${escapeHtml($('name').value || '')}" onerror="this.parentElement.textContent='تصویر پیدا نشد'">`; }
     async function upload(kind) {
+      if (state.busy) return;
       const input = kind === 'image' ? $('imageFile') : $('stickerFile'); if (!input.files[0]) return toast('ابتدا فایل را انتخاب کنید', true); if (!$('name').value.trim()) return toast('قبل از آپلود، نام کارت را وارد کنید', true);
-      const form = new FormData(); form.append(kind, input.files[0]); form.append('card_name', $('name').value.trim()); form.append('rarity', $('rarity').value);
-      try { const data = await api(`/api/upload_${kind}`, {method:'POST', body:form}); if (data.image_path) { $('imagePath').value = data.image_path; updatePreview(); } toast(data.message); }
-      catch (error) { toast(error.message, true); }
+      const form = new FormData(); form.append(kind, input.files[0]); form.append('card_name', $('name').value.trim()); form.append('rarity', $('rarity').value); if (state.selectedId) form.append('card_id', state.selectedId);
+      const selectedId = state.selectedId, rarity = state.currentRarity; setBusy(true);
+      try { const data = await api(`/api/upload_${kind}`, {method:'POST', body:form}); if (state.selectedId === selectedId && state.currentRarity === rarity) { $('stickerFileId').value = ''; if (kind === 'image') $('photoFileId').value = ''; if (data.image_path) { $('imagePath').value = data.image_path; updatePreview(); } stashVariant(); } toast(data.message); }
+      catch (error) { toast(error.message, true); } finally { setBusy(false); }
     }
     $('cardList').addEventListener('click', event => { const button = event.target.closest('[data-card-id]'); if (button) selectCard(button.dataset.cardId); });
     $('newBtn').addEventListener('click', startNew); $('refreshBtn').addEventListener('click', async () => { await loadCards(); await loadOptions(); }); $('search').addEventListener('input', renderList); $('rarityFilter').addEventListener('change', renderList); $('rarity').addEventListener('change', () => { stashVariant(); state.currentRarity = $('rarity').value; fillVariant(state.drafts[state.currentRarity]); });
@@ -444,7 +446,7 @@
     $('avatarFile').addEventListener('change', () => { const file = $('avatarFile').files[0]; if (file) { if (file.size > 7 * 1024 * 1024 || !['image/png','image/jpeg','image/webp'].includes(file.type)) { $('avatarFile').value = ''; toast('تصویر PNG، JPG یا WebP تا ۷ مگابایت انتخاب کنید.', true); return; } state.avatarFiles[state.currentRarity] = file; updateAvatarPreview(); } });
     $('cardForm').addEventListener('submit', saveCard); $('deleteBtn').addEventListener('click', deleteCard); $('cancelBtn').addEventListener('click', () => state.selectedId ? selectCard(state.selectedId) : startNew(state.currentRarity === 'rare'));
     $('addTraitBtn').addEventListener('click', addTrait); $('newTrait').addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); addTrait(); } });
-    $('passiveEnabled').addEventListener('change', () => $('passiveFields').disabled = !$('passiveEnabled').checked); $('conditionType').addEventListener('change', () => refreshConditionChoices()); $('imagePath').addEventListener('input', () => { $('photoFileId').value = ''; updatePreview(); }); $('name').addEventListener('input', () => { if (!state.creating) $('editorTitle').textContent = $('name').value || 'بدون نام'; });
+    $('passiveEnabled').addEventListener('change', () => $('passiveFields').disabled = !$('passiveEnabled').checked); $('conditionType').addEventListener('change', () => refreshConditionChoices()); $('imagePath').addEventListener('input', () => { $('photoFileId').value = ''; $('stickerFileId').value = ''; updatePreview(); }); $('name').addEventListener('input', () => { if (!state.creating) $('editorTitle').textContent = $('name').value || 'بدون نام'; });
     $('uploadImageBtn').addEventListener('click', () => upload('image')); $('uploadStickerBtn').addEventListener('click', () => upload('sticker')); document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => activateTab(tab.dataset.tab)));
     Promise.all([loadCards(), loadOptions()]);
   </script>
