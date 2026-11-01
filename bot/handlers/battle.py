@@ -250,38 +250,8 @@ class BattleHandlersMixin:
 
     def _resolve_card_sticker_path(self, card) -> Optional[str]:
         """Find the Telegram sticker asset for a card before falling back to card art."""
-        if not card:
-            return None
-
-        card_name = str(getattr(card, 'name', '') or '').strip()
-        if not card_name:
-            return None
-
-        normalized = card_name.upper().replace('-', '_')
-        variants = []
-        rarity = str(getattr(getattr(card, 'rarity', ''), 'value', getattr(card, 'rarity', '')) or '').upper()
-        base_stems = (
-            normalized.replace(' ', '_'),
-            normalized,
-            normalized.replace(' ', ''),
-        )
-        # Form-specific stickers win over the old single shared asset.
-        for stem in [*(f"{value}_{rarity}" for value in base_stems if rarity), *base_stems]:
-            variants.extend([
-                f"{stem}.webp",
-                f"{stem} (2).webp",
-            ])
-
-        sticker_dirs = [
-            os.path.join(os.getcwd(), 'assets', 'stickers'),
-            os.path.join(os.getcwd(), 'stickers'),
-        ]
-        for sticker_dir in sticker_dirs:
-            for filename in variants:
-                path = os.path.join(sticker_dir, filename)
-                if os.path.exists(path):
-                    return path
-        return None
+        from core.card_media import sticker_path
+        return sticker_path(card)
 
     def _resolve_card_media_path(self, card) -> Optional[str]:
         """Prefer sticker assets, then DB image_path, then configured card image lookup."""
