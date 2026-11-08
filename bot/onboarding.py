@@ -110,8 +110,8 @@ async def receive(bot, update, context):
             if card_id in sent:
                 continue
             card = bot.db.get_card_by_id_for_rarity(card_id, 'normal')
-            async def send_sticker(sticker):
-                return await context.bot.send_sticker(chat_id=user.id, sticker=sticker)
+            async def send_sticker(sticker, **kwargs):
+                return await context.bot.send_sticker(chat_id=user.id, sticker=sticker, **kwargs)
             if not card or not await send_card_sticker(bot, context, card, send_sticker):
                 await query.edit_message_text('کارت‌هات توی موجودیت هستن؛ ارسال یکی از استیکرها نشد.\nدوباره بزن تا از همین‌جا ادامه بدیم.',
                                               reply_markup=buttons(retry=True))

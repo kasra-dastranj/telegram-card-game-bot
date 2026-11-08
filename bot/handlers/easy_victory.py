@@ -207,8 +207,8 @@ async def announce(bot, context, request, report):
         card = settings.owned_card(bot.db, user_id, value['card_id'], value['rarity']) if value.get('card_id') else None
         if card and not avatar_sent:
             from bot.card_reward_presentation import send_card_sticker
-            async def send_sticker(sticker):
-                return await context.bot.send_sticker(chat_id=request['origin_chat_id'], sticker=sticker)
+            async def send_sticker(sticker, **kwargs):
+                return await context.bot.send_sticker(chat_id=request['origin_chat_id'], sticker=sticker, **kwargs)
             await send_card_sticker(bot, context, card, send_sticker)
         name = bot.db.get_or_create_player(user_id).first_name
         text = '🏆 ' + isolate(name)

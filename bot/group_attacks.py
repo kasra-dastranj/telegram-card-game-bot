@@ -117,7 +117,8 @@ async def send_snapshot(bot,context,chat,snapshot):
     card=Card(snapshot.get('card_id') or 'attack-npc',snapshot['name'],CardRarity(snapshot['rarity']),
               *(snapshot['stats'][s] for s in STATS),[],image_path=snapshot.get('image_path',''),card_type=snapshot['card_type'])
     async def send(sticker):return await context.bot.send_sticker(chat_id=chat,sticker=sticker)
-    return await send_card_sticker(bot,context,card,send)
+    # NPC snapshots may have authored stats unlike the current catalog form.
+    return await send_card_sticker(bot,context,card,send,show_details=False)
 
 
 async def panel(bot,update,context,event,index,page=0):

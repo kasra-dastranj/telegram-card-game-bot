@@ -501,6 +501,10 @@ class TelegramCardBot(
         app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & filters.ChatType.GROUPS, group_navigation))
         
         # کالبک‌های اصلی
+        async def card_sticker_details_callback(update, context):
+            from bot.card_sticker_details import handle
+            return await handle(self, update, context)
+        app.add_handler(CallbackQueryHandler(card_sticker_details_callback, pattern='^card_stats:'))
         async def progression_callback(update, context):
             from bot.handlers.progression import handle
             return await handle(self, update, context)

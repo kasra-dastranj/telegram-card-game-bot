@@ -150,7 +150,9 @@ def test_card_detail_sends_exact_active_form_sticker(scene,entry):
     bot.db.set_card_variant_media_file_id('hero','epic','epic-sticker','sticker')
     update.callback_query.data=entry
     asyncio.run((bot.cardinfo_handler if entry.startswith('cardinfo') else bot.card_view_handler)(update,context))
-    update.effective_message.reply_sticker.assert_awaited_once_with('epic-sticker')
+    from bot.card_sticker_details import button
+    update.effective_message.reply_sticker.assert_awaited_once_with(
+        'epic-sticker', reply_markup=button(bot.db.get_card_by_id_for_rarity('hero', 'epic')))
     call=update.callback_query.edit_message_text.await_args
     assert 'Epic' in (call.kwargs['text'] if 'text' in call.kwargs else call.args[0])
 

@@ -1246,7 +1246,8 @@ class BasicHandlersMixin:
                     raw = await work(context, read_bitmap, owned.image_path)
                     sticker = BytesIO(await work(context, sticker_bytes, raw))
                     sticker.name = 'custom-card.webp'
-                    await sender(sticker)
+                    from bot.card_sticker_details import button
+                    await sender(sticker, reply_markup=button(owned))
                 except Exception:
                     logger.warning('Private collection artwork unavailable')
                 return

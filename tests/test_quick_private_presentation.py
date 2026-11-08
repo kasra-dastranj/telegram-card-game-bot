@@ -100,7 +100,10 @@ def test_manual_choice_sends_actual_form_immediately_and_duplicate_click_does_no
     handler.modes.start_quick_match(key)
     query = _query(f'gm_qcard_{key}_alpha')
     asyncio.run(handler.quick_card_handler(SimpleNamespace(callback_query=query), context))
-    context.bot.send_sticker.assert_awaited_once_with(chat_id=1, sticker='alpha-epic-sticker')
+    from bot.card_sticker_details import button
+    context.bot.send_sticker.assert_awaited_once_with(
+        chat_id=1, sticker='alpha-epic-sticker',
+        reply_markup=button(handler.db.get_card_by_id_for_rarity('alpha', 'epic')))
     assert handler.modes.get_state(key)['phase'] == 'card_selection'
     context.bot.send_message.assert_not_awaited()
     asyncio.run(handler.quick_card_handler(SimpleNamespace(callback_query=query), context))
@@ -108,7 +111,9 @@ def test_manual_choice_sends_actual_form_immediately_and_duplicate_click_does_no
     assert query.answer.await_args.kwargs['show_alert'] is True
     query = _query(f'gm_qcard_{key}_beta', 2)
     asyncio.run(handler.quick_card_handler(SimpleNamespace(callback_query=query), context))
-    assert context.bot.send_sticker.await_args.kwargs == {'chat_id': 2, 'sticker': 'beta-normal-sticker'}
+    assert context.bot.send_sticker.await_args.kwargs == {
+        'chat_id': 2, 'sticker': 'beta-normal-sticker',
+        'reply_markup': button(handler.db.get_card_by_id_for_rarity('beta', 'normal'))}
     assert handler.modes.get_state(key)['phase'] == 'ability_selection'
     sent = context.bot.send_message.await_args_list
     assert [c.kwargs['chat_id'] for c in context.bot.send_photo.await_args_list] == [1, 2]

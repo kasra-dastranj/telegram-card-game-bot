@@ -390,7 +390,8 @@ class BattleHandlersMixin:
         try:
             with open(media_path, 'rb') as media:
                 if media_path.lower().endswith('.webp'):
-                    await context.bot.send_sticker(chat_id=chat_id, sticker=media)
+                    from bot.card_sticker_details import button
+                    await context.bot.send_sticker(chat_id=chat_id, sticker=media, reply_markup=button(winner_card))
                 else:
                     await context.bot.send_photo(chat_id=chat_id, photo=media)
             return True
@@ -2367,7 +2368,8 @@ class BattleHandlersMixin:
             if media_path and os.path.exists(media_path):
                 with open(media_path, 'rb') as media:
                     if media_path.lower().endswith('.webp'):
-                        await context.bot.send_sticker(chat_id=fight.chat_id, sticker=media)
+                        from bot.card_sticker_details import button
+                        await context.bot.send_sticker(chat_id=fight.chat_id, sticker=media, reply_markup=button(card))
                         await context.bot.send_message(
                             chat_id=fight.chat_id,
                             text=f"🎴 {player_name}: {card.name}"

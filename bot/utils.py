@@ -191,6 +191,9 @@ def get_victory_dialog(card_name: str, card_dialogs=None) -> str:
 async def send_card_image_safely(message, card_name: str, config: Dict, caption: str = None, match_id: str = None, dialog_text: str = None, *, card=None, db=None, caption_parse_mode='Markdown', sticker_caption=False) -> bool:
     """ارسال امن تصویر کارت"""
     try:
+        from bot.card_sticker_details import button
+        markup = button(card)
+        sticker_kwargs = {'reply_markup': markup} if markup else {}
         if not config.get('image_settings', {}).get('enable_images', False):
             return False
         image_path = None
@@ -200,7 +203,7 @@ async def send_card_image_safely(message, card_name: str, config: Dict, caption:
                 cached = db.get_card_variant_media_file_id(card.card_id, rarity, kind)
                 if cached:
                     if kind == 'sticker':
-                        await message.reply_sticker(cached)
+                        await message.reply_sticker(cached, **sticker_kwargs)
                         if sticker_caption and caption:
                             await message.reply_text(caption, parse_mode=caption_parse_mode)
                     else:
@@ -217,7 +220,7 @@ async def send_card_image_safely(message, card_name: str, config: Dict, caption:
 
         if image_path.lower().endswith('.webp'):
             with open(image_path, 'rb') as sticker:
-                await message.reply_sticker(sticker)
+                await message.reply_sticker(sticker, **sticker_kwargs)
             if sticker_caption and caption:
                 await message.reply_text(caption, parse_mode=caption_parse_mode)
         else:

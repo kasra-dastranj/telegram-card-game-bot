@@ -51,13 +51,16 @@ def sticker_bytes(raw):
     return stream.getvalue()
 
 
-async def send_card_sticker(bot, context, card, send_sticker):
+async def send_card_sticker(bot, context, card, send_sticker, *, show_details=True):
     """Deliver one explicit form; never fall back to another form's artwork."""
     from bot.battle_visual_delivery import card_art, work
+    from bot.card_sticker_details import button
+    markup = button(card) if show_details else None
+    kwargs = {'reply_markup': markup} if markup else {}
     try:
         cached = bot.db.get_card_variant_media_file_id(card.card_id, card.rarity.value, 'sticker')
         if cached:
-            await send_sticker(cached)
+            await send_sticker(cached, **kwargs)
             return True
     except Exception:
         logger.warning('Card sticker cache delivery failed')
@@ -70,7 +73,7 @@ async def send_card_sticker(bot, context, card, send_sticker):
             image = await work(context, sticker_bytes, raw)
             sticker = BytesIO(image)
             sticker.name = 'card-' + card.rarity.value + '.webp'
-            await send_sticker(sticker)
+            await send_sticker(sticker, **kwargs)
             return True
     except Exception:
         logger.warning('Card sticker delivery failed')

@@ -704,12 +704,14 @@ class GameModeHandlersMixin:
         """Send the player's actual form privately, for manual and Random choices."""
         if not card:
             return
+        from bot.card_sticker_details import button
+        markup = button(card)
         rarity = getattr(getattr(card, "rarity", None), "value", getattr(card, "rarity", "normal"))
         if getattr(card, "origin", "official") != "custom":
             try:
                 cached = self.db.get_card_variant_media_file_id(card.card_id, rarity, "sticker")
                 if cached:
-                    await context.bot.send_sticker(chat_id=user_id, sticker=cached)
+                    await context.bot.send_sticker(chat_id=user_id, sticker=cached, reply_markup=markup)
                     return
             except Exception as exc:
                 logger.warning("Could not send cached Quick card sticker to %s: %s", user_id, exc)
@@ -720,7 +722,7 @@ class GameModeHandlersMixin:
             if media_path and os.path.exists(media_path):
                 with open(media_path, "rb") as media:
                     if media_path.lower().endswith(".webp"):
-                        await context.bot.send_sticker(chat_id=user_id, sticker=media)
+                        await context.bot.send_sticker(chat_id=user_id, sticker=media, reply_markup=markup)
                     else:
                         await context.bot.send_photo(chat_id=user_id, photo=media,
                                                      caption=f"🎴 {card.name} ({str(rarity).title()})")

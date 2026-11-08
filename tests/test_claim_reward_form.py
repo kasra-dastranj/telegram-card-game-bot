@@ -118,7 +118,9 @@ def test_claim_media_uses_normal_form_and_never_borrows_base_legend_image(tmp_pa
         card=db.get_card_by_id_for_rarity('tony','normal'),db=db))
     assert result == (media in ('cache','file'))
     if media=='cache':
-        message.reply_sticker.assert_awaited_once_with('normal-sticker')
+        from bot.card_sticker_details import button
+        message.reply_sticker.assert_awaited_once_with(
+            'normal-sticker', reply_markup=button(db.get_card_by_id_for_rarity('tony', 'normal')))
     elif media=='file':
         assert message.reply_sticker.await_args.args[0].name == str(image)
     else:
