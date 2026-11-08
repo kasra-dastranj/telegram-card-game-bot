@@ -38,7 +38,9 @@ def scene(tmp_path):
                              message=message, callback_query=None)
     events = []
 
-    async def sticker(*, chat_id, sticker):
+    async def sticker(*, chat_id, sticker, **kwargs):
+        markup = kwargs['reply_markup']
+        assert markup.inline_keyboard[0][0].callback_data == 'card_stats:normal:' + sticker.removesuffix('-normal')
         events.append(('sticker', sticker))
 
     async def text(*, chat_id, text, **kwargs):
@@ -147,10 +149,10 @@ def test_failed_media_resumes_remaining_stickers_after_reopen_without_regrant(sc
     click(update, query)
     original = context.bot.send_sticker.side_effect
 
-    async def failing(*, chat_id, sticker):
+    async def failing(*, chat_id, sticker, **kwargs):
         if sticker == 'heis-normal':
             raise RuntimeError('offline missing media')
-        return await original(chat_id=chat_id, sticker=sticker)
+        return await original(chat_id=chat_id, sticker=sticker, **kwargs)
 
     context.bot.send_sticker.side_effect = failing
     # No image fallback for the card whose Telegram delivery failed.
@@ -277,15 +279,16 @@ def test_concurrent_receive_delivers_one_sticker_sequence_and_releases_guard(sce
     async def scenario():
         entered, release = asyncio.Event(), asyncio.Event()
 
-        async def delayed(*, chat_id, sticker):
+        async def delayed(*, chat_id, sticker, **kwargs):
             if sticker == 'wick-normal':
                 entered.set()
                 await release.wait()
-            await original(chat_id=chat_id, sticker=sticker)
+            await original(chat_id=chat_id, sticker=sticker, **kwargs)
 
         context.bot.send_sticker.side_effect = delayed
         first = asyncio.create_task(bot.starter_receive_handler(update, context))
-        await entered.wait()
+        # Fail promptly if media delivery never reaches the simulated transport.
+        await asyncio.wait_for(entered.wait(), timeout=5)
         await bot.starter_receive_handler(update, context)
         release.set()
         await first
