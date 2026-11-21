@@ -284,3 +284,29 @@ def test_bad_source_is_rejected(tmp_path, mutation):
     file.write_text(json.dumps(source, ensure_ascii=False), encoding='utf-8')
     with pytest.raises(ValueError):
         load_catalog(file, None)
+
+
+@pytest.mark.parametrize('suffix', ['-wal', '-shm'])
+def test_backup_refuses_sqlite_sidecar_paths(game, suffix):
+    before = snapshot(game)
+    catalog = load_catalog()
+    plan = preview(game.db_path, catalog)
+    with pytest.raises(ValueError, match='Backup'):
+        apply(game.db_path, catalog, plan['plan_hash'], game.db_path + suffix, 'owner')
+    assert snapshot(game) == before
+
+
+@pytest.mark.parametrize('target', ['backup', 'db', 'wal', 'missing-parent'])
+def test_cli_rejects_report_path_conflicts_before_apply(game, tmp_path, monkeypatch, target):
+    import sys
+    from migrations.import_card_catalog import main
+    backup = tmp_path / 'before.db'
+    paths = {'backup': backup, 'db': game.db_path, 'wal': game.db_path + '-wal',
+             'missing-parent': tmp_path / 'missing' / 'report.json'}
+    before = snapshot(game)
+    monkeypatch.setattr(sys, 'argv', ['import', '--db', game.db_path, '--report', str(paths[target]),
+                                    '--apply-plan', 'not-a-plan', '--backup', str(backup), '--actor', 'owner'])
+    with pytest.raises(SystemExit):
+        main()
+    assert snapshot(game) == before
+    assert not backup.exists()

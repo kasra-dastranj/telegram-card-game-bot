@@ -20,8 +20,15 @@ def main():
     args = parser.parse_args()
     if args.apply_plan and not (args.backup and args.actor):
         parser.error('--apply-plan requires --backup and --actor')
-    if args.report.resolve() in {args.db.resolve(), args.source.resolve(), args.csv.resolve()}:
+    protected = {args.db.resolve(), args.source.resolve(), args.csv.resolve(),
+                 Path(str(args.db.resolve()) + '-wal'), Path(str(args.db.resolve()) + '-shm'),
+                 PACKAGE / 'identity_aliases.json', PACKAGE / 'trait_translations.json'}
+    if args.backup:
+        protected.add(args.backup.resolve())
+    if args.report.resolve() in protected:
         parser.error('Report path must not overwrite input or game data')
+    if not args.report.resolve().parent.is_dir() or args.report.is_dir():
+        parser.error('Report must be a file in an existing directory')
     catalog = load_catalog(args.source, args.csv)
     result = (apply(args.db, catalog, args.apply_plan, args.backup, args.actor) if args.apply_plan
               else preview(args.db, catalog))

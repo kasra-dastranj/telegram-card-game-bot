@@ -511,7 +511,7 @@ def apply(db_path, catalog, plan_hash, backup_path, actor):
     if not isinstance(actor, str) or not actor.strip():
         raise ValueError('Actor is required')
     path, backup = Path(db_path).resolve(strict=True), Path(backup_path).resolve()
-    if backup.exists() or backup == path or not backup.parent.is_dir():
+    if backup.exists() or backup in {path, Path(str(path) + '-wal'), Path(str(path) + '-shm')} or not backup.parent.is_dir():
         raise ValueError('Backup must be a new file in an existing directory')
     with closing(sqlite3.connect(str(path), timeout=30)) as conn:
         conn.row_factory = sqlite3.Row
