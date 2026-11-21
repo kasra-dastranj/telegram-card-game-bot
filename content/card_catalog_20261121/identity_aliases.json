@@ -1,0 +1,422 @@
+{
+  "char_001": {
+    "canonical_name": "Tyrion",
+    "aliases": [
+      "Tyrion",
+      "تیریون لنیستر"
+    ]
+  },
+  "char_002": {
+    "canonical_name": "Rick Grimes",
+    "aliases": [
+      "Rick Grimes",
+      "ریک گرایمز"
+    ]
+  },
+  "char_003": {
+    "canonical_name": "Negan",
+    "aliases": [
+      "Negan",
+      "نیگن"
+    ]
+  },
+  "char_004": {
+    "canonical_name": "Billie Butcher",
+    "aliases": [
+      "Billie Butcher",
+      "بوچر"
+    ]
+  },
+  "char_005": {
+    "canonical_name": "Homelander",
+    "aliases": [
+      "Homelander",
+      "هوملندر"
+    ]
+  },
+  "char_006": {
+    "canonical_name": "Michelangelo",
+    "aliases": [
+      "Michelangelo",
+      "لاک‌پشت‌های نینجا"
+    ]
+  },
+  "char_007": {
+    "canonical_name": "Patrick",
+    "aliases": [
+      "Patrick",
+      "پاتریک"
+    ]
+  },
+  "char_008": {
+    "canonical_name": "Pourya Vali",
+    "aliases": [
+      "Pourya Vali",
+      "پهلوان پوریا (پوریای ولی)"
+    ]
+  },
+  "char_009": {
+    "canonical_name": "John Wick",
+    "aliases": [
+      "John Wick",
+      "جان ویک"
+    ]
+  },
+  "char_010": {
+    "canonical_name": "Jack Sporrow",
+    "aliases": [
+      "Jack Sporrow",
+      "جک اسپارو"
+    ]
+  },
+  "char_011": {
+    "canonical_name": "Rostam",
+    "aliases": [
+      "Rostam",
+      "رستم"
+    ]
+  },
+  "char_012": {
+    "canonical_name": "Jackie Chan",
+    "aliases": [
+      "Jackie Chan",
+      "جکی چان"
+    ]
+  },
+  "char_013": {
+    "canonical_name": "Heisenberg",
+    "aliases": [
+      "Heisenberg",
+      "هایزنبرگ"
+    ]
+  },
+  "char_014": {
+    "canonical_name": "Mokhtar",
+    "aliases": [
+      "Mokhtar",
+      "مختار"
+    ]
+  },
+  "char_015": {
+    "canonical_name": "Jumong",
+    "aliases": [
+      "Jumong",
+      "جومونگ"
+    ]
+  },
+  "char_016": {
+    "canonical_name": "Leon Kennedy",
+    "aliases": [
+      "Leon Kennedy",
+      "لیان"
+    ]
+  },
+  "char_017": {
+    "canonical_name": "Ben10",
+    "aliases": [
+      "Ben10",
+      "بن تن"
+    ]
+  },
+  "char_018": {
+    "canonical_name": "Mr Bean",
+    "aliases": [
+      "Mr Bean",
+      "مستربین"
+    ]
+  },
+  "char_019": {
+    "canonical_name": "Cj",
+    "aliases": [
+      "Cj",
+      "سی‌جی"
+    ]
+  },
+  "char_020": {
+    "canonical_name": "Dr Stop",
+    "aliases": [
+      "Dr Stop",
+      "دکتر استاپ"
+    ]
+  },
+  "char_021": {
+    "canonical_name": "Master Shifu",
+    "aliases": [
+      "Master Shifu",
+      "استاد شیفو"
+    ]
+  },
+  "char_022": {
+    "canonical_name": "Putin",
+    "aliases": [
+      "Putin",
+      "پوتین"
+    ]
+  },
+  "char_023": {
+    "canonical_name": "Big Masoud",
+    "aliases": [
+      "Big Masoud",
+      "بیگ مسعود"
+    ]
+  },
+  "char_024": {
+    "canonical_name": "Mike Ehrmantraut",
+    "aliases": [
+      "Mike Ehrmantraut",
+      "مایک (بریکینگ بد)"
+    ]
+  },
+  "char_025": {
+    "canonical_name": "Saul Goodman",
+    "aliases": [
+      "Saul Goodman",
+      "ساول گودمن"
+    ]
+  },
+  "char_026": {
+    "canonical_name": "Subzero",
+    "aliases": [
+      "Subzero",
+      "سابزیرو"
+    ]
+  },
+  "char_027": {
+    "canonical_name": "Kratos",
+    "aliases": [
+      "Kratos",
+      "کریتوس"
+    ]
+  },
+  "char_028": {
+    "canonical_name": "Kangfu Panda",
+    "aliases": [
+      "Kangfu Panda",
+      "پو (پاندای کونگ‌فوکار)"
+    ]
+  },
+  "char_029": {
+    "canonical_name": "Shredder",
+    "aliases": [
+      "Shredder",
+      "شریدر"
+    ]
+  },
+  "char_030": {
+    "canonical_name": "Arthur Morgan",
+    "aliases": [
+      "Arthur Morgan",
+      "آرتور مورگان"
+    ]
+  },
+  "char_031": {
+    "canonical_name": "Darth Whither",
+    "aliases": [
+      "Darth Whither",
+      "دارث ویدر"
+    ]
+  },
+  "char_032": {
+    "canonical_name": "Michle Scofield",
+    "aliases": [
+      "Michle Scofield",
+      "مایکل اسکافیلد"
+    ]
+  },
+  "char_033": {
+    "canonical_name": "T Bag",
+    "aliases": [
+      "T Bag",
+      "تی‌بگ"
+    ]
+  },
+  "char_034": {
+    "canonical_name": "Shir Farhad",
+    "aliases": [
+      "Shir Farhad",
+      "شیرفرهاد"
+    ]
+  },
+  "char_035": {
+    "canonical_name": "Shrek",
+    "aliases": [
+      "Shrek",
+      "شرک"
+    ]
+  },
+  "char_036": {
+    "canonical_name": "Naghi Mamooli",
+    "aliases": [
+      "Naghi Mamooli",
+      "نقی معمولی"
+    ]
+  },
+  "char_037": {
+    "canonical_name": "Davood Zzz",
+    "aliases": [
+      "Davood Zzz",
+      "داوود ززز"
+    ]
+  },
+  "char_038": {
+    "canonical_name": "Tai Lung",
+    "aliases": [
+      "Tai Lung",
+      "تایلانگ"
+    ]
+  },
+  "char_039": {
+    "canonical_name": "Ezio",
+    "aliases": [
+      "Ezio",
+      "اتزیو"
+    ]
+  },
+  "char_040": {
+    "canonical_name": "Albert Wesker",
+    "aliases": [
+      "Albert Wesker",
+      "آلبرت وسکر"
+    ]
+  },
+  "char_041": {
+    "canonical_name": "Etabaki",
+    "aliases": [
+      "Etabaki",
+      "کامران اتابکی"
+    ]
+  },
+  "char_042": {
+    "canonical_name": "Terminator",
+    "aliases": [
+      "Terminator",
+      "ترمیناتور"
+    ]
+  },
+  "char_043": {
+    "canonical_name": "Joel",
+    "aliases": [
+      "Joel",
+      "جول"
+    ]
+  },
+  "char_044": {
+    "canonical_name": "Sherlock",
+    "aliases": [
+      "Sherlock",
+      "شرلوک هلمز"
+    ]
+  },
+  "char_045": {
+    "canonical_name": "Ghost",
+    "aliases": [
+      "Ghost",
+      "گوست"
+    ]
+  },
+  "char_046": {
+    "canonical_name": "Sponge Bob",
+    "aliases": [
+      "Sponge Bob",
+      "باب اسفنجی"
+    ]
+  },
+  "char_047": {
+    "canonical_name": "Mr Chief",
+    "aliases": [
+      "Mr Chief",
+      "مسترچیف"
+    ]
+  },
+  "char_048": {
+    "canonical_name": "Captain Price",
+    "aliases": [
+      "Captain Price",
+      "کاپیتان پرایس"
+    ]
+  },
+  "char_049": {
+    "canonical_name": "Ragnar",
+    "aliases": [
+      "Ragnar",
+      "رگنار"
+    ]
+  },
+  "char_050": {
+    "canonical_name": "Lord Shen",
+    "aliases": [
+      "Lord Shen",
+      "ارباب شن"
+    ]
+  },
+  "char_051": {
+    "canonical_name": "Nader Shah",
+    "aliases": [
+      "Nader Shah",
+      "نادرشاه"
+    ]
+  },
+  "char_052": {
+    "canonical_name": "Lalo Salamanca",
+    "aliases": [
+      "Lalo Salamanca",
+      "لالو سالامانکا"
+    ]
+  },
+  "char_053": {
+    "canonical_name": "Jon Snow",
+    "aliases": [
+      "Jon Snow",
+      "جان اسنو"
+    ]
+  },
+  "char_054": {
+    "canonical_name": "Zeus",
+    "aliases": [
+      "Zeus",
+      "زئوس"
+    ]
+  },
+  "char_055": {
+    "canonical_name": "Geralt",
+    "aliases": [
+      "Geralt",
+      "گرالت (ویچر)"
+    ]
+  },
+  "char_056": {
+    "canonical_name": "Koman",
+    "aliases": [
+      "Koman",
+      "کومان (کوروش و ایمان؛ یک کارت)"
+    ]
+  },
+  "char_057": {
+    "canonical_name": "Napoleon",
+    "aliases": [
+      "Napoleon",
+      "ناپلئون"
+    ]
+  },
+  "char_058": {
+    "canonical_name": "Soldier Boy",
+    "aliases": [
+      "Soldier Boy",
+      "سولجربوی"
+    ]
+  },
+  "char_059": {
+    "canonical_name": "Gus Fring",
+    "aliases": [
+      "Gus Fring",
+      "گاس فرینگ"
+    ]
+  },
+  "char_060": {
+    "canonical_name": "Scorpion",
+    "aliases": [
+      "Scorpion",
+      "اسکورپین"
+    ]
+  }
+}

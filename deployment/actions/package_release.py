@@ -15,6 +15,8 @@ MAX_ARCHIVE = 64 * 1024 * 1024
 MAX_EXPANDED = 128 * 1024 * 1024
 ROOT_FILES = {"telegram_bot.py", "game_core.py", "config_loader.py", "requirements.txt", "card_dialogs.json"}
 CODE_DIRS = {"bot", "core", "systems", "web", "migrations"}
+CATALOG_FILES = {'content/card_catalog_20261121/' + name for name in (
+    'telbattle_cards.json', 'telbattle_cards_flat.csv', 'identity_aliases.json', 'trait_translations.json')}
 
 
 def allowed_path(name):
@@ -23,7 +25,7 @@ def allowed_path(name):
         return False
     if any(part.startswith(".") or part == "__pycache__" for part in path.parts):
         return False
-    if name in ROOT_FILES or name in {"data/card_dialogs.json", "data/generated_card_content.json"}:
+    if name in ROOT_FILES or name in CATALOG_FILES or name in {"data/card_dialogs.json", "data/generated_card_content.json"}:
         return True
     if path.parts[0] in CODE_DIRS:
         return path.suffix == ".py" or (path.parts[0] == "web" and len(path.parts) == 2 and path.suffix == ".html")

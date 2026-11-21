@@ -72,7 +72,10 @@ def ensure_trait_registry_schema(conn):
         trait_key TEXT PRIMARY KEY,
         name TEXT NOT NULL
     )''')
-    remember_traits(conn, DEFAULT_TRAITS)
+    # A reviewed catalog replacement owns its vocabulary. Never restore old seeds.
+    replaced = conn.execute("SELECT 1 FROM sqlite_master WHERE name='catalog_import_runs'").fetchone()
+    if not replaced or not conn.execute('SELECT 1 FROM catalog_import_runs LIMIT 1').fetchone():
+        remember_traits(conn, DEFAULT_TRAITS)
     if conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='card_mode_metadata'").fetchone():
         for row in conn.execute('SELECT traits FROM card_mode_metadata').fetchall():
             remember_traits(conn, _stored_traits(row[0]))

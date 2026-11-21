@@ -128,7 +128,8 @@ def evaluate_card(modes, card, question):
     metadata = modes.metadata_for_card(card)
     trait, series = question.get('trait'), question.get('series')
     eligible = (not trait or trait.casefold() in {str(t).strip().casefold() for t in metadata.get('traits', [])})
-    eligible = eligible and (not series or series.casefold() == str(metadata.get('series') or '').strip().casefold())
+    from systems.card_collections import collection_names
+    eligible = eligible and (not series or series.casefold() in {name.casefold() for name in collection_names(metadata)})
     expression = question.get('formula', question.get('attribute', 'iq'))
     # Names were validated by the editor; legacy in-progress questions have one attribute.
     names = set(re.findall(KEY_PATTERN, expression))

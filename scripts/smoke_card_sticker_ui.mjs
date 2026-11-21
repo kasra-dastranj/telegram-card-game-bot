@@ -71,6 +71,17 @@ try {
     assert.equal((await response).status(), 200);
     await page.waitForFunction(() => !document.querySelector('#saveBtn').disabled);
   };
+  await page.locator('[data-tab="modes"]').click();
+  await page.locator('#series').fill('Breaking Bad\nOutlaws');
+  await save();
+  await page.locator('[data-tab="modes"]').click();
+  assert.equal(await page.locator('#series').inputValue(), 'Breaking Bad\nOutlaws');
+  await page.locator('#series').fill('');
+  await page.locator('#seriesOptions').selectOption('Breaking Bad');
+  await page.locator('#seriesOptions').selectOption('Outlaws');
+  await save();
+  assert.deepEqual((await (await fetch(base + '/api/cards')).json()).cards[0].collections, ['Breaking Bad', 'Outlaws']);
+  await selectForm('normal');
   await upload('image');
   assert.equal(await page.locator('#photoFileId').inputValue(), '');
   const imagePath = await page.locator('#imagePath').inputValue();
