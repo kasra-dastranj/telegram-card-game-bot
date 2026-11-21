@@ -1,0 +1,6651 @@
+{
+  "schema_version": "2.0",
+  "source": {
+    "filename": "TelBattle_Card_Balance_Master111 (version 1).xlsb",
+    "sha256": "36ae30fa149da4f4d894c53303d6d6674887928677db42c2cea5ba85d08246c8",
+    "format": "xlsb",
+    "sheet_names": [
+      "START",
+      "Characters",
+      "Cards",
+      "Win_Lines",
+      "Tags"
+    ]
+  },
+  "generated_at_utc": "2026-11-21T11:40:51+00:00",
+  "rules": {
+    "stats": [
+      "power",
+      "speed",
+      "iq",
+      "popularity"
+    ],
+    "stat_min": 1,
+    "stat_max": 10,
+    "total_min": 15,
+    "total_max": 33,
+    "rarities": [
+      "Normal",
+      "Epic",
+      "Legend"
+    ],
+    "total_strictly_increases_on_upgrade": true,
+    "fixed_card_type_across_rarities": true,
+    "future_override_must_not_be_applied": true,
+    "empty_victory_line_export_does_not_mean_delete_existing_lines": true,
+    "official_vs_custom_card_origin_must_be_preserved": true
+  },
+  "summary": {
+    "characters": 60,
+    "cards": 180,
+    "cards_by_rarity": {
+      "Normal": 60,
+      "Epic": 60,
+      "Legend": 60
+    },
+    "card_types": {
+      "هوشی": 12,
+      "سرعتی": 13,
+      "محبوبیتی": 19,
+      "قدرتی": 16
+    },
+    "collections": 47,
+    "traits_distinct_in_source": 29,
+    "traits_reference_count": 28,
+    "victory_lines": 0,
+    "stat_total_min": 16,
+    "stat_total_max": 31,
+    "validation_errors": 0,
+    "review_warnings": 3
+  },
+  "characters": [
+    {
+      "character_id": "char_001",
+      "roster_number": 1,
+      "name": "تیریون لنیستر",
+      "fixed_card_type_fa": "هوشی",
+      "traits": [
+        "استراتژیست",
+        "حیله‌گر",
+        "سیاستمدار"
+      ],
+      "collections": [
+        "بازی تاج‌وتخت",
+        "سریال خارجی",
+        "فانتزی",
+        "سیاست و قدرت",
+        "مغزهای متفکر"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_001_normal",
+          "character_id": "char_001",
+          "character_name": "تیریون لنیستر",
+          "rarity": "Normal",
+          "card_type_fa": "هوشی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 3,
+            "speed": 3,
+            "iq": 8,
+            "popularity": 5
+          },
+          "total": 19,
+          "traits": [
+            "استراتژیست",
+            "حیله‌گر",
+            "سیاستمدار"
+          ],
+          "collections": [
+            "بازی تاج‌وتخت",
+            "سریال خارجی",
+            "فانتزی",
+            "سیاست و قدرت",
+            "مغزهای متفکر"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_001_epic",
+          "character_id": "char_001",
+          "character_name": "تیریون لنیستر",
+          "rarity": "Epic",
+          "card_type_fa": "هوشی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 3,
+            "speed": 4,
+            "iq": 9,
+            "popularity": 8
+          },
+          "total": 24,
+          "traits": [
+            "استراتژیست",
+            "حیله‌گر",
+            "سیاستمدار"
+          ],
+          "collections": [
+            "بازی تاج‌وتخت",
+            "سریال خارجی",
+            "فانتزی",
+            "سیاست و قدرت",
+            "مغزهای متفکر"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_001_legend",
+          "character_id": "char_001",
+          "character_name": "تیریون لنیستر",
+          "rarity": "Legend",
+          "card_type_fa": "هوشی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 4,
+            "speed": 4,
+            "iq": 10,
+            "popularity": 10
+          },
+          "total": 28,
+          "traits": [
+            "استراتژیست",
+            "حیله‌گر",
+            "سیاستمدار"
+          ],
+          "collections": [
+            "بازی تاج‌وتخت",
+            "سریال خارجی",
+            "فانتزی",
+            "سیاست و قدرت",
+            "مغزهای متفکر"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_002",
+      "roster_number": 2,
+      "name": "ریک گرایمز",
+      "fixed_card_type_fa": "سرعتی",
+      "traits": [
+        "رهبر",
+        "تیرانداز",
+        "وفادار"
+      ],
+      "collections": [
+        "مردگان متحرک",
+        "سریال خارجی",
+        "آخرالزمانی",
+        "وحشت و بقا",
+        "مبارزان آخر دنیا"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_002_normal",
+          "character_id": "char_002",
+          "character_name": "ریک گرایمز",
+          "rarity": "Normal",
+          "card_type_fa": "سرعتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 4,
+            "speed": 5,
+            "iq": 5,
+            "popularity": 3
+          },
+          "total": 17,
+          "traits": [
+            "رهبر",
+            "تیرانداز",
+            "وفادار"
+          ],
+          "collections": [
+            "مردگان متحرک",
+            "سریال خارجی",
+            "آخرالزمانی",
+            "وحشت و بقا",
+            "مبارزان آخر دنیا"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_002_epic",
+          "character_id": "char_002",
+          "character_name": "ریک گرایمز",
+          "rarity": "Epic",
+          "card_type_fa": "سرعتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 6,
+            "iq": 6,
+            "popularity": 6
+          },
+          "total": 24,
+          "traits": [
+            "رهبر",
+            "تیرانداز",
+            "وفادار"
+          ],
+          "collections": [
+            "مردگان متحرک",
+            "سریال خارجی",
+            "آخرالزمانی",
+            "وحشت و بقا",
+            "مبارزان آخر دنیا"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_002_legend",
+          "character_id": "char_002",
+          "character_name": "ریک گرایمز",
+          "rarity": "Legend",
+          "card_type_fa": "سرعتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 7,
+            "iq": 7,
+            "popularity": 7
+          },
+          "total": 27,
+          "traits": [
+            "رهبر",
+            "تیرانداز",
+            "وفادار"
+          ],
+          "collections": [
+            "مردگان متحرک",
+            "سریال خارجی",
+            "آخرالزمانی",
+            "وحشت و بقا",
+            "مبارزان آخر دنیا"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_003",
+      "roster_number": 3,
+      "name": "نیگن",
+      "fixed_card_type_fa": "محبوبیتی",
+      "traits": [
+        "رهبر",
+        "کاریزماتیک",
+        "بی‌رحم"
+      ],
+      "collections": [
+        "مردگان متحرک",
+        "سریال خارجی",
+        "آخرالزمانی",
+        "جنایی و مافیا",
+        "وحشت و بقا",
+        "سلطان‌های خلافکاری",
+        "مبارزان آخر دنیا"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_003_normal",
+          "character_id": "char_003",
+          "character_name": "نیگن",
+          "rarity": "Normal",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 5,
+            "iq": 5,
+            "popularity": 4
+          },
+          "total": 20,
+          "traits": [
+            "رهبر",
+            "کاریزماتیک",
+            "بی‌رحم"
+          ],
+          "collections": [
+            "مردگان متحرک",
+            "سریال خارجی",
+            "آخرالزمانی",
+            "جنایی و مافیا",
+            "وحشت و بقا",
+            "سلطان‌های خلافکاری",
+            "مبارزان آخر دنیا"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_003_epic",
+          "character_id": "char_003",
+          "character_name": "نیگن",
+          "rarity": "Epic",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 6,
+            "iq": 6,
+            "popularity": 7
+          },
+          "total": 25,
+          "traits": [
+            "رهبر",
+            "کاریزماتیک",
+            "بی‌رحم"
+          ],
+          "collections": [
+            "مردگان متحرک",
+            "سریال خارجی",
+            "آخرالزمانی",
+            "جنایی و مافیا",
+            "وحشت و بقا",
+            "سلطان‌های خلافکاری",
+            "مبارزان آخر دنیا"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_003_legend",
+          "character_id": "char_003",
+          "character_name": "نیگن",
+          "rarity": "Legend",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 6,
+            "iq": 7,
+            "popularity": 9
+          },
+          "total": 28,
+          "traits": [
+            "رهبر",
+            "کاریزماتیک",
+            "بی‌رحم"
+          ],
+          "collections": [
+            "مردگان متحرک",
+            "سریال خارجی",
+            "آخرالزمانی",
+            "جنایی و مافیا",
+            "وحشت و بقا",
+            "سلطان‌های خلافکاری",
+            "مبارزان آخر دنیا"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_004",
+      "roster_number": 4,
+      "name": "بوچر",
+      "fixed_card_type_fa": "قدرتی",
+      "traits": [
+        "ضدقهرمان",
+        "انتقام‌جو",
+        "بی‌رحم"
+      ],
+      "collections": [
+        "پسرها (The Boys)",
+        "سریال خارجی",
+        "انتقام‌جویان"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_004_normal",
+          "character_id": "char_004",
+          "character_name": "بوچر",
+          "rarity": "Normal",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 4,
+            "iq": 5,
+            "popularity": 5
+          },
+          "total": 19,
+          "traits": [
+            "ضدقهرمان",
+            "انتقام‌جو",
+            "بی‌رحم"
+          ],
+          "collections": [
+            "پسرها (The Boys)",
+            "سریال خارجی",
+            "انتقام‌جویان"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_004_epic",
+          "character_id": "char_004",
+          "character_name": "بوچر",
+          "rarity": "Epic",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 8,
+            "speed": 6,
+            "iq": 6,
+            "popularity": 6
+          },
+          "total": 26,
+          "traits": [
+            "ضدقهرمان",
+            "انتقام‌جو",
+            "بی‌رحم"
+          ],
+          "collections": [
+            "پسرها (The Boys)",
+            "سریال خارجی",
+            "انتقام‌جویان"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_004_legend",
+          "character_id": "char_004",
+          "character_name": "بوچر",
+          "rarity": "Legend",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 8,
+            "speed": 7,
+            "iq": 6,
+            "popularity": 8
+          },
+          "total": 29,
+          "traits": [
+            "ضدقهرمان",
+            "انتقام‌جو",
+            "بی‌رحم"
+          ],
+          "collections": [
+            "پسرها (The Boys)",
+            "سریال خارجی",
+            "انتقام‌جویان"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_005",
+      "roster_number": 5,
+      "name": "هوملندر",
+      "fixed_card_type_fa": "قدرتی",
+      "traits": [
+        "شرور",
+        "فراانسانی",
+        "کاریزماتیک"
+      ],
+      "collections": [
+        "پسرها (The Boys)",
+        "سریال خارجی",
+        "علمی‌تخیلی",
+        "ابرقدرت‌ها",
+        "سیاست و قدرت"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_005_normal",
+          "character_id": "char_005",
+          "character_name": "هوملندر",
+          "rarity": "Normal",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 8,
+            "speed": 8,
+            "iq": 3,
+            "popularity": 3
+          },
+          "total": 22,
+          "traits": [
+            "شرور",
+            "فراانسانی",
+            "کاریزماتیک"
+          ],
+          "collections": [
+            "پسرها (The Boys)",
+            "سریال خارجی",
+            "علمی‌تخیلی",
+            "ابرقدرت‌ها",
+            "سیاست و قدرت"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_005_epic",
+          "character_id": "char_005",
+          "character_name": "هوملندر",
+          "rarity": "Epic",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 8,
+            "speed": 8,
+            "iq": 4,
+            "popularity": 5
+          },
+          "total": 25,
+          "traits": [
+            "شرور",
+            "فراانسانی",
+            "کاریزماتیک"
+          ],
+          "collections": [
+            "پسرها (The Boys)",
+            "سریال خارجی",
+            "علمی‌تخیلی",
+            "ابرقدرت‌ها",
+            "سیاست و قدرت"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_005_legend",
+          "character_id": "char_005",
+          "character_name": "هوملندر",
+          "rarity": "Legend",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 10,
+            "speed": 9,
+            "iq": 4,
+            "popularity": 7
+          },
+          "total": 30,
+          "traits": [
+            "شرور",
+            "فراانسانی",
+            "کاریزماتیک"
+          ],
+          "collections": [
+            "پسرها (The Boys)",
+            "سریال خارجی",
+            "علمی‌تخیلی",
+            "ابرقدرت‌ها",
+            "سیاست و قدرت"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_006",
+      "roster_number": 6,
+      "name": "لاک‌پشت‌های نینجا",
+      "fixed_card_type_fa": "سرعتی",
+      "traits": [
+        "رزمی‌کار",
+        "Shadow Warrior",
+        "Street Fighter"
+      ],
+      "collections": [
+        "لاک‌پشت‌های نینجا",
+        "انیمیشن",
+        "رزمی و مبارزه",
+        "حیوانات"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_006_normal",
+          "character_id": "char_006",
+          "character_name": "لاک‌پشت‌های نینجا",
+          "rarity": "Normal",
+          "card_type_fa": "سرعتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 6,
+            "iq": 4,
+            "popularity": 4
+          },
+          "total": 19,
+          "traits": [
+            "رزمی‌کار",
+            "Shadow Warrior",
+            "Street Fighter"
+          ],
+          "collections": [
+            "لاک‌پشت‌های نینجا",
+            "انیمیشن",
+            "رزمی و مبارزه",
+            "حیوانات"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_006_epic",
+          "character_id": "char_006",
+          "character_name": "لاک‌پشت‌های نینجا",
+          "rarity": "Epic",
+          "card_type_fa": "سرعتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 7,
+            "iq": 5,
+            "popularity": 5
+          },
+          "total": 23,
+          "traits": [
+            "رزمی‌کار",
+            "Shadow Warrior",
+            "Street Fighter"
+          ],
+          "collections": [
+            "لاک‌پشت‌های نینجا",
+            "انیمیشن",
+            "رزمی و مبارزه",
+            "حیوانات"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_006_legend",
+          "character_id": "char_006",
+          "character_name": "لاک‌پشت‌های نینجا",
+          "rarity": "Legend",
+          "card_type_fa": "سرعتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 8,
+            "speed": 8,
+            "iq": 6,
+            "popularity": 6
+          },
+          "total": 28,
+          "traits": [
+            "رزمی‌کار",
+            "Shadow Warrior",
+            "Street Fighter"
+          ],
+          "collections": [
+            "لاک‌پشت‌های نینجا",
+            "انیمیشن",
+            "رزمی و مبارزه",
+            "حیوانات"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_007",
+      "roster_number": 7,
+      "name": "پاتریک",
+      "fixed_card_type_fa": "محبوبیتی",
+      "traits": [
+        "طنز",
+        "Wildcard",
+        "Animal"
+      ],
+      "collections": [
+        "باب‌اسفنجی",
+        "انیمیشن",
+        "طنز و کمدی",
+        "حیوانات",
+        "میم جهانی"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_007_normal",
+          "character_id": "char_007",
+          "character_name": "پاتریک",
+          "rarity": "Normal",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 3,
+            "iq": 1,
+            "popularity": 10
+          },
+          "total": 19,
+          "traits": [
+            "طنز",
+            "Wildcard",
+            "Animal"
+          ],
+          "collections": [
+            "باب‌اسفنجی",
+            "انیمیشن",
+            "طنز و کمدی",
+            "حیوانات",
+            "میم جهانی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_007_epic",
+          "character_id": "char_007",
+          "character_name": "پاتریک",
+          "rarity": "Epic",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 4,
+            "iq": 2,
+            "popularity": 10
+          },
+          "total": 22,
+          "traits": [
+            "طنز",
+            "Wildcard",
+            "Animal"
+          ],
+          "collections": [
+            "باب‌اسفنجی",
+            "انیمیشن",
+            "طنز و کمدی",
+            "حیوانات",
+            "میم جهانی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_007_legend",
+          "character_id": "char_007",
+          "character_name": "پاتریک",
+          "rarity": "Legend",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 7,
+            "speed": 5,
+            "iq": 5,
+            "popularity": 10
+          },
+          "total": 27,
+          "traits": [
+            "طنز",
+            "Wildcard",
+            "Animal"
+          ],
+          "collections": [
+            "باب‌اسفنجی",
+            "انیمیشن",
+            "طنز و کمدی",
+            "حیوانات",
+            "میم جهانی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_008",
+      "roster_number": 8,
+      "name": "پهلوان پوریا (پوریای ولی)",
+      "fixed_card_type_fa": "محبوبیتی",
+      "traits": [
+        "قهرمان",
+        "رزمی‌کار",
+        "وفادار"
+      ],
+      "collections": [
+        "انیمیشن",
+        "ایرانی",
+        "آثار ایرانی",
+        "اشخاص واقعی و تاریخی",
+        "تاریخی",
+        "رزمی و مبارزه",
+        "حماسه و پهلوانی",
+        "جنگجویان افسانه‌ای"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_008_normal",
+          "character_id": "char_008",
+          "character_name": "پهلوان پوریا (پوریای ولی)",
+          "rarity": "Normal",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 7,
+            "speed": 4,
+            "iq": 5,
+            "popularity": 6
+          },
+          "total": 22,
+          "traits": [
+            "قهرمان",
+            "رزمی‌کار",
+            "وفادار"
+          ],
+          "collections": [
+            "انیمیشن",
+            "ایرانی",
+            "آثار ایرانی",
+            "اشخاص واقعی و تاریخی",
+            "تاریخی",
+            "رزمی و مبارزه",
+            "حماسه و پهلوانی",
+            "جنگجویان افسانه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_008_epic",
+          "character_id": "char_008",
+          "character_name": "پهلوان پوریا (پوریای ولی)",
+          "rarity": "Epic",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 8,
+            "speed": 4,
+            "iq": 6,
+            "popularity": 7
+          },
+          "total": 25,
+          "traits": [
+            "قهرمان",
+            "رزمی‌کار",
+            "وفادار"
+          ],
+          "collections": [
+            "انیمیشن",
+            "ایرانی",
+            "آثار ایرانی",
+            "اشخاص واقعی و تاریخی",
+            "تاریخی",
+            "رزمی و مبارزه",
+            "حماسه و پهلوانی",
+            "جنگجویان افسانه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_008_legend",
+          "character_id": "char_008",
+          "character_name": "پهلوان پوریا (پوریای ولی)",
+          "rarity": "Legend",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 8,
+            "speed": 5,
+            "iq": 7,
+            "popularity": 8
+          },
+          "total": 28,
+          "traits": [
+            "قهرمان",
+            "رزمی‌کار",
+            "وفادار"
+          ],
+          "collections": [
+            "انیمیشن",
+            "ایرانی",
+            "آثار ایرانی",
+            "اشخاص واقعی و تاریخی",
+            "تاریخی",
+            "رزمی و مبارزه",
+            "حماسه و پهلوانی",
+            "جنگجویان افسانه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_009",
+      "roster_number": 9,
+      "name": "جان ویک",
+      "fixed_card_type_fa": "سرعتی",
+      "traits": [
+        "تیرانداز",
+        "انتقام‌جو",
+        "خونسرد"
+      ],
+      "collections": [
+        "فیلم و سینما",
+        "جنایی و مافیا",
+        "رزمی و مبارزه",
+        "انتقام‌جویان",
+        "قاتلان حرفه‌ای"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_009_normal",
+          "character_id": "char_009",
+          "character_name": "جان ویک",
+          "rarity": "Normal",
+          "card_type_fa": "سرعتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 7,
+            "iq": 5,
+            "popularity": 4
+          },
+          "total": 21,
+          "traits": [
+            "تیرانداز",
+            "انتقام‌جو",
+            "خونسرد"
+          ],
+          "collections": [
+            "فیلم و سینما",
+            "جنایی و مافیا",
+            "رزمی و مبارزه",
+            "انتقام‌جویان",
+            "قاتلان حرفه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_009_epic",
+          "character_id": "char_009",
+          "character_name": "جان ویک",
+          "rarity": "Epic",
+          "card_type_fa": "سرعتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 8,
+            "iq": 5,
+            "popularity": 5
+          },
+          "total": 24,
+          "traits": [
+            "تیرانداز",
+            "انتقام‌جو",
+            "خونسرد"
+          ],
+          "collections": [
+            "فیلم و سینما",
+            "جنایی و مافیا",
+            "رزمی و مبارزه",
+            "انتقام‌جویان",
+            "قاتلان حرفه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_009_legend",
+          "character_id": "char_009",
+          "character_name": "جان ویک",
+          "rarity": "Legend",
+          "card_type_fa": "سرعتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 7,
+            "speed": 8,
+            "iq": 7,
+            "popularity": 7
+          },
+          "total": 29,
+          "traits": [
+            "تیرانداز",
+            "انتقام‌جو",
+            "خونسرد"
+          ],
+          "collections": [
+            "فیلم و سینما",
+            "جنایی و مافیا",
+            "رزمی و مبارزه",
+            "انتقام‌جویان",
+            "قاتلان حرفه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_010",
+      "roster_number": 10,
+      "name": "جک اسپارو",
+      "fixed_card_type_fa": "محبوبیتی",
+      "traits": [
+        "شمشیرزن",
+        "حیله‌گر",
+        "کاریزماتیک"
+      ],
+      "collections": [
+        "فیلم و سینما",
+        "طنز و کمدی",
+        "جنایی و مافیا",
+        "میم جهانی",
+        "ماجراجویی",
+        "بچه‌های خلاف"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_010_normal",
+          "character_id": "char_010",
+          "character_name": "جک اسپارو",
+          "rarity": "Normal",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 4,
+            "speed": 5,
+            "iq": 6,
+            "popularity": 7
+          },
+          "total": 22,
+          "traits": [
+            "شمشیرزن",
+            "حیله‌گر",
+            "کاریزماتیک"
+          ],
+          "collections": [
+            "فیلم و سینما",
+            "طنز و کمدی",
+            "جنایی و مافیا",
+            "میم جهانی",
+            "ماجراجویی",
+            "بچه‌های خلاف"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_010_epic",
+          "character_id": "char_010",
+          "character_name": "جک اسپارو",
+          "rarity": "Epic",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 6,
+            "iq": 7,
+            "popularity": 8
+          },
+          "total": 26,
+          "traits": [
+            "شمشیرزن",
+            "حیله‌گر",
+            "کاریزماتیک"
+          ],
+          "collections": [
+            "فیلم و سینما",
+            "طنز و کمدی",
+            "جنایی و مافیا",
+            "میم جهانی",
+            "ماجراجویی",
+            "بچه‌های خلاف"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_010_legend",
+          "character_id": "char_010",
+          "character_name": "جک اسپارو",
+          "rarity": "Legend",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 7,
+            "iq": 6,
+            "popularity": 10
+          },
+          "total": 28,
+          "traits": [
+            "شمشیرزن",
+            "حیله‌گر",
+            "کاریزماتیک"
+          ],
+          "collections": [
+            "فیلم و سینما",
+            "طنز و کمدی",
+            "جنایی و مافیا",
+            "میم جهانی",
+            "ماجراجویی",
+            "بچه‌های خلاف"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_011",
+      "roster_number": 11,
+      "name": "رستم",
+      "fixed_card_type_fa": "قدرتی",
+      "traits": [
+        "قهرمان",
+        "شمشیرزن",
+        "جان‌سخت"
+      ],
+      "collections": [
+        "ایرانی",
+        "آثار ایرانی",
+        "اسطوره و افسانه",
+        "فانتزی",
+        "رزمی و مبارزه",
+        "حماسه و پهلوانی",
+        "جنگجویان افسانه‌ای"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_011_normal",
+          "character_id": "char_011",
+          "character_name": "رستم",
+          "rarity": "Normal",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 8,
+            "speed": 4,
+            "iq": 5,
+            "popularity": 5
+          },
+          "total": 22,
+          "traits": [
+            "قهرمان",
+            "شمشیرزن",
+            "جان‌سخت"
+          ],
+          "collections": [
+            "ایرانی",
+            "آثار ایرانی",
+            "اسطوره و افسانه",
+            "فانتزی",
+            "رزمی و مبارزه",
+            "حماسه و پهلوانی",
+            "جنگجویان افسانه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_011_epic",
+          "character_id": "char_011",
+          "character_name": "رستم",
+          "rarity": "Epic",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 9,
+            "speed": 5,
+            "iq": 6,
+            "popularity": 6
+          },
+          "total": 26,
+          "traits": [
+            "قهرمان",
+            "شمشیرزن",
+            "جان‌سخت"
+          ],
+          "collections": [
+            "ایرانی",
+            "آثار ایرانی",
+            "اسطوره و افسانه",
+            "فانتزی",
+            "رزمی و مبارزه",
+            "حماسه و پهلوانی",
+            "جنگجویان افسانه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_011_legend",
+          "character_id": "char_011",
+          "character_name": "رستم",
+          "rarity": "Legend",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 10,
+            "speed": 6,
+            "iq": 7,
+            "popularity": 7
+          },
+          "total": 30,
+          "traits": [
+            "قهرمان",
+            "شمشیرزن",
+            "جان‌سخت"
+          ],
+          "collections": [
+            "ایرانی",
+            "آثار ایرانی",
+            "اسطوره و افسانه",
+            "فانتزی",
+            "رزمی و مبارزه",
+            "حماسه و پهلوانی",
+            "جنگجویان افسانه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_012",
+      "roster_number": 12,
+      "name": "جکی چان",
+      "fixed_card_type_fa": "سرعتی",
+      "traits": [
+        "رزمی‌کار",
+        "Street Fighter",
+        "طنز"
+      ],
+      "collections": [
+        "فیلم و سینما",
+        "طنز و کمدی",
+        "اشخاص واقعی و تاریخی",
+        "رزمی و مبارزه",
+        "میم جهانی"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_012_normal",
+          "character_id": "char_012",
+          "character_name": "جکی چان",
+          "rarity": "Normal",
+          "card_type_fa": "سرعتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 6,
+            "iq": 5,
+            "popularity": 6
+          },
+          "total": 22,
+          "traits": [
+            "رزمی‌کار",
+            "Street Fighter",
+            "طنز"
+          ],
+          "collections": [
+            "فیلم و سینما",
+            "طنز و کمدی",
+            "اشخاص واقعی و تاریخی",
+            "رزمی و مبارزه",
+            "میم جهانی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_012_epic",
+          "character_id": "char_012",
+          "character_name": "جکی چان",
+          "rarity": "Epic",
+          "card_type_fa": "سرعتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 7,
+            "iq": 7,
+            "popularity": 7
+          },
+          "total": 27,
+          "traits": [
+            "رزمی‌کار",
+            "Street Fighter",
+            "طنز"
+          ],
+          "collections": [
+            "فیلم و سینما",
+            "طنز و کمدی",
+            "اشخاص واقعی و تاریخی",
+            "رزمی و مبارزه",
+            "میم جهانی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_012_legend",
+          "character_id": "char_012",
+          "character_name": "جکی چان",
+          "rarity": "Legend",
+          "card_type_fa": "سرعتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 7,
+            "speed": 8,
+            "iq": 7,
+            "popularity": 7
+          },
+          "total": 29,
+          "traits": [
+            "رزمی‌کار",
+            "Street Fighter",
+            "طنز"
+          ],
+          "collections": [
+            "فیلم و سینما",
+            "طنز و کمدی",
+            "اشخاص واقعی و تاریخی",
+            "رزمی و مبارزه",
+            "میم جهانی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_013",
+      "roster_number": 13,
+      "name": "هایزنبرگ",
+      "fixed_card_type_fa": "هوشی",
+      "traits": [
+        "نابغه",
+        "خلافکار",
+        "کاریزماتیک"
+      ],
+      "collections": [
+        "دنیای بریکینگ بد",
+        "بریکینگ بد",
+        "سریال خارجی",
+        "جنایی و مافیا",
+        "میم جهانی",
+        "سلطان‌های خلافکاری",
+        "مغزهای متفکر"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_013_normal",
+          "character_id": "char_013",
+          "character_name": "هایزنبرگ",
+          "rarity": "Normal",
+          "card_type_fa": "هوشی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 4,
+            "speed": 4,
+            "iq": 7,
+            "popularity": 3
+          },
+          "total": 18,
+          "traits": [
+            "نابغه",
+            "خلافکار",
+            "کاریزماتیک"
+          ],
+          "collections": [
+            "دنیای بریکینگ بد",
+            "بریکینگ بد",
+            "سریال خارجی",
+            "جنایی و مافیا",
+            "میم جهانی",
+            "سلطان‌های خلافکاری",
+            "مغزهای متفکر"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_013_epic",
+          "character_id": "char_013",
+          "character_name": "هایزنبرگ",
+          "rarity": "Epic",
+          "card_type_fa": "هوشی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 4,
+            "speed": 4,
+            "iq": 8,
+            "popularity": 8
+          },
+          "total": 24,
+          "traits": [
+            "نابغه",
+            "خلافکار",
+            "کاریزماتیک"
+          ],
+          "collections": [
+            "دنیای بریکینگ بد",
+            "بریکینگ بد",
+            "سریال خارجی",
+            "جنایی و مافیا",
+            "میم جهانی",
+            "سلطان‌های خلافکاری",
+            "مغزهای متفکر"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_013_legend",
+          "character_id": "char_013",
+          "character_name": "هایزنبرگ",
+          "rarity": "Legend",
+          "card_type_fa": "هوشی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 4,
+            "iq": 9,
+            "popularity": 9
+          },
+          "total": 28,
+          "traits": [
+            "نابغه",
+            "خلافکار",
+            "کاریزماتیک"
+          ],
+          "collections": [
+            "دنیای بریکینگ بد",
+            "بریکینگ بد",
+            "سریال خارجی",
+            "جنایی و مافیا",
+            "میم جهانی",
+            "سلطان‌های خلافکاری",
+            "مغزهای متفکر"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_014",
+      "roster_number": 14,
+      "name": "مختار",
+      "fixed_card_type_fa": "هوشی",
+      "traits": [
+        "انتقام‌جو",
+        "رهبر",
+        "سیاستمدار"
+      ],
+      "collections": [
+        "سریال ایرانی",
+        "آثار ایرانی",
+        "اشخاص واقعی و تاریخی",
+        "تاریخی",
+        "نظامی و جنگی",
+        "حماسه و پهلوانی",
+        "سیاست و قدرت",
+        "انتقام‌جویان"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_014_normal",
+          "character_id": "char_014",
+          "character_name": "مختار",
+          "rarity": "Normal",
+          "card_type_fa": "هوشی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 5,
+            "iq": 5,
+            "popularity": 5
+          },
+          "total": 20,
+          "traits": [
+            "انتقام‌جو",
+            "رهبر",
+            "سیاستمدار"
+          ],
+          "collections": [
+            "سریال ایرانی",
+            "آثار ایرانی",
+            "اشخاص واقعی و تاریخی",
+            "تاریخی",
+            "نظامی و جنگی",
+            "حماسه و پهلوانی",
+            "سیاست و قدرت",
+            "انتقام‌جویان"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_014_epic",
+          "character_id": "char_014",
+          "character_name": "مختار",
+          "rarity": "Epic",
+          "card_type_fa": "هوشی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 5,
+            "iq": 7,
+            "popularity": 7
+          },
+          "total": 25,
+          "traits": [
+            "انتقام‌جو",
+            "رهبر",
+            "سیاستمدار"
+          ],
+          "collections": [
+            "سریال ایرانی",
+            "آثار ایرانی",
+            "اشخاص واقعی و تاریخی",
+            "تاریخی",
+            "نظامی و جنگی",
+            "حماسه و پهلوانی",
+            "سیاست و قدرت",
+            "انتقام‌جویان"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_014_legend",
+          "character_id": "char_014",
+          "character_name": "مختار",
+          "rarity": "Legend",
+          "card_type_fa": "هوشی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 7,
+            "speed": 4,
+            "iq": 8,
+            "popularity": 8
+          },
+          "total": 27,
+          "traits": [
+            "انتقام‌جو",
+            "رهبر",
+            "سیاستمدار"
+          ],
+          "collections": [
+            "سریال ایرانی",
+            "آثار ایرانی",
+            "اشخاص واقعی و تاریخی",
+            "تاریخی",
+            "نظامی و جنگی",
+            "حماسه و پهلوانی",
+            "سیاست و قدرت",
+            "انتقام‌جویان"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_015",
+      "roster_number": 15,
+      "name": "جومونگ",
+      "fixed_card_type_fa": "محبوبیتی",
+      "traits": [
+        "فرمانروا",
+        "رهبر",
+        "سیاستمدار"
+      ],
+      "collections": [
+        "سریال خارجی",
+        "اشخاص واقعی و تاریخی",
+        "تاریخی",
+        "نظامی و جنگی",
+        "حماسه و پهلوانی",
+        "سیاست و قدرت",
+        "پادشاهان و فرمانروایان",
+        "جنگجویان افسانه‌ای"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_015_normal",
+          "character_id": "char_015",
+          "character_name": "جومونگ",
+          "rarity": "Normal",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 4,
+            "iq": 4,
+            "popularity": 4
+          },
+          "total": 17,
+          "traits": [
+            "فرمانروا",
+            "رهبر",
+            "سیاستمدار"
+          ],
+          "collections": [
+            "سریال خارجی",
+            "اشخاص واقعی و تاریخی",
+            "تاریخی",
+            "نظامی و جنگی",
+            "حماسه و پهلوانی",
+            "سیاست و قدرت",
+            "پادشاهان و فرمانروایان",
+            "جنگجویان افسانه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_015_epic",
+          "character_id": "char_015",
+          "character_name": "جومونگ",
+          "rarity": "Epic",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 5,
+            "iq": 6,
+            "popularity": 6
+          },
+          "total": 23,
+          "traits": [
+            "فرمانروا",
+            "رهبر",
+            "سیاستمدار"
+          ],
+          "collections": [
+            "سریال خارجی",
+            "اشخاص واقعی و تاریخی",
+            "تاریخی",
+            "نظامی و جنگی",
+            "حماسه و پهلوانی",
+            "سیاست و قدرت",
+            "پادشاهان و فرمانروایان",
+            "جنگجویان افسانه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_015_legend",
+          "character_id": "char_015",
+          "character_name": "جومونگ",
+          "rarity": "Legend",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 7,
+            "speed": 6,
+            "iq": 7,
+            "popularity": 8
+          },
+          "total": 28,
+          "traits": [
+            "فرمانروا",
+            "رهبر",
+            "سیاستمدار"
+          ],
+          "collections": [
+            "سریال خارجی",
+            "اشخاص واقعی و تاریخی",
+            "تاریخی",
+            "نظامی و جنگی",
+            "حماسه و پهلوانی",
+            "سیاست و قدرت",
+            "پادشاهان و فرمانروایان",
+            "جنگجویان افسانه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_016",
+      "roster_number": 16,
+      "name": "لیان",
+      "fixed_card_type_fa": "سرعتی",
+      "traits": [
+        "قهرمان",
+        "تیرانداز",
+        "Street Fighter"
+      ],
+      "collections": [
+        "رزیدنت ایول",
+        "گیم",
+        "علمی‌تخیلی",
+        "وحشت و بقا",
+        "ماجراجویی"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_016_normal",
+          "character_id": "char_016",
+          "character_name": "لیان",
+          "rarity": "Normal",
+          "card_type_fa": "سرعتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 4,
+            "speed": 5,
+            "iq": 5,
+            "popularity": 4
+          },
+          "total": 18,
+          "traits": [
+            "قهرمان",
+            "تیرانداز",
+            "Street Fighter"
+          ],
+          "collections": [
+            "رزیدنت ایول",
+            "گیم",
+            "علمی‌تخیلی",
+            "وحشت و بقا",
+            "ماجراجویی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_016_epic",
+          "character_id": "char_016",
+          "character_name": "لیان",
+          "rarity": "Epic",
+          "card_type_fa": "سرعتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 7,
+            "iq": 7,
+            "popularity": 7
+          },
+          "total": 27,
+          "traits": [
+            "قهرمان",
+            "تیرانداز",
+            "Street Fighter"
+          ],
+          "collections": [
+            "رزیدنت ایول",
+            "گیم",
+            "علمی‌تخیلی",
+            "وحشت و بقا",
+            "ماجراجویی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_016_legend",
+          "character_id": "char_016",
+          "character_name": "لیان",
+          "rarity": "Legend",
+          "card_type_fa": "سرعتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 7,
+            "iq": 8,
+            "popularity": 8
+          },
+          "total": 29,
+          "traits": [
+            "قهرمان",
+            "تیرانداز",
+            "Street Fighter"
+          ],
+          "collections": [
+            "رزیدنت ایول",
+            "گیم",
+            "علمی‌تخیلی",
+            "وحشت و بقا",
+            "ماجراجویی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_017",
+      "roster_number": 17,
+      "name": "بن تن",
+      "fixed_card_type_fa": "قدرتی",
+      "traits": [
+        "قهرمان",
+        "فراانسانی",
+        "وفادار"
+      ],
+      "collections": [
+        "انیمیشن",
+        "علمی‌تخیلی",
+        "ابرقدرت‌ها",
+        "ماجراجویی"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_017_normal",
+          "character_id": "char_017",
+          "character_name": "بن تن",
+          "rarity": "Normal",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 7,
+            "speed": 4,
+            "iq": 3,
+            "popularity": 5
+          },
+          "total": 19,
+          "traits": [
+            "قهرمان",
+            "فراانسانی",
+            "وفادار"
+          ],
+          "collections": [
+            "انیمیشن",
+            "علمی‌تخیلی",
+            "ابرقدرت‌ها",
+            "ماجراجویی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_017_epic",
+          "character_id": "char_017",
+          "character_name": "بن تن",
+          "rarity": "Epic",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 8,
+            "speed": 6,
+            "iq": 4,
+            "popularity": 6
+          },
+          "total": 24,
+          "traits": [
+            "قهرمان",
+            "فراانسانی",
+            "وفادار"
+          ],
+          "collections": [
+            "انیمیشن",
+            "علمی‌تخیلی",
+            "ابرقدرت‌ها",
+            "ماجراجویی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_017_legend",
+          "character_id": "char_017",
+          "character_name": "بن تن",
+          "rarity": "Legend",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 9,
+            "speed": 7,
+            "iq": 5,
+            "popularity": 7
+          },
+          "total": 28,
+          "traits": [
+            "قهرمان",
+            "فراانسانی",
+            "وفادار"
+          ],
+          "collections": [
+            "انیمیشن",
+            "علمی‌تخیلی",
+            "ابرقدرت‌ها",
+            "ماجراجویی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_018",
+      "roster_number": 18,
+      "name": "مستربین",
+      "fixed_card_type_fa": "محبوبیتی",
+      "traits": [
+        "طنز",
+        "میمی",
+        "Wildcard"
+      ],
+      "collections": [
+        "سریال خارجی",
+        "طنز و کمدی",
+        "میم جهانی"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_018_normal",
+          "character_id": "char_018",
+          "character_name": "مستربین",
+          "rarity": "Normal",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 3,
+            "speed": 4,
+            "iq": 6,
+            "popularity": 8
+          },
+          "total": 21,
+          "traits": [
+            "طنز",
+            "میمی",
+            "Wildcard"
+          ],
+          "collections": [
+            "سریال خارجی",
+            "طنز و کمدی",
+            "میم جهانی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_018_epic",
+          "character_id": "char_018",
+          "character_name": "مستربین",
+          "rarity": "Epic",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 3,
+            "speed": 4,
+            "iq": 7,
+            "popularity": 10
+          },
+          "total": 24,
+          "traits": [
+            "طنز",
+            "میمی",
+            "Wildcard"
+          ],
+          "collections": [
+            "سریال خارجی",
+            "طنز و کمدی",
+            "میم جهانی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_018_legend",
+          "character_id": "char_018",
+          "character_name": "مستربین",
+          "rarity": "Legend",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 4,
+            "speed": 5,
+            "iq": 8,
+            "popularity": 10
+          },
+          "total": 27,
+          "traits": [
+            "طنز",
+            "میمی",
+            "Wildcard"
+          ],
+          "collections": [
+            "سریال خارجی",
+            "طنز و کمدی",
+            "میم جهانی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_019",
+      "roster_number": 19,
+      "name": "سی‌جی",
+      "fixed_card_type_fa": "محبوبیتی",
+      "traits": [
+        "خلافکار",
+        "تیرانداز",
+        "Street Fighter"
+      ],
+      "collections": [
+        "گیم",
+        "جنایی و مافیا",
+        "سلطان‌های خلافکاری",
+        "بچه‌های خلاف"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_019_normal",
+          "character_id": "char_019",
+          "character_name": "سی‌جی",
+          "rarity": "Normal",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 5,
+            "iq": 4,
+            "popularity": 6
+          },
+          "total": 20,
+          "traits": [
+            "خلافکار",
+            "تیرانداز",
+            "Street Fighter"
+          ],
+          "collections": [
+            "گیم",
+            "جنایی و مافیا",
+            "سلطان‌های خلافکاری",
+            "بچه‌های خلاف"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_019_epic",
+          "character_id": "char_019",
+          "character_name": "سی‌جی",
+          "rarity": "Epic",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 6,
+            "iq": 5,
+            "popularity": 7
+          },
+          "total": 24,
+          "traits": [
+            "خلافکار",
+            "تیرانداز",
+            "Street Fighter"
+          ],
+          "collections": [
+            "گیم",
+            "جنایی و مافیا",
+            "سلطان‌های خلافکاری",
+            "بچه‌های خلاف"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_019_legend",
+          "character_id": "char_019",
+          "character_name": "سی‌جی",
+          "rarity": "Legend",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 6,
+            "iq": 7,
+            "popularity": 9
+          },
+          "total": 28,
+          "traits": [
+            "خلافکار",
+            "تیرانداز",
+            "Street Fighter"
+          ],
+          "collections": [
+            "گیم",
+            "جنایی و مافیا",
+            "سلطان‌های خلافکاری",
+            "بچه‌های خلاف"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_020",
+      "roster_number": 20,
+      "name": "دکتر استاپ",
+      "fixed_card_type_fa": "محبوبیتی",
+      "traits": [
+        "میمی",
+        "طنز",
+        "کاریزماتیک"
+      ],
+      "collections": [
+        "ایرانی",
+        "میم فارسی",
+        "چهره‌های فضای مجازی",
+        "طنز و کمدی",
+        "اشخاص واقعی و تاریخی"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_020_normal",
+          "character_id": "char_020",
+          "character_name": "دکتر استاپ",
+          "rarity": "Normal",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 5,
+            "iq": 4,
+            "popularity": 6
+          },
+          "total": 20,
+          "traits": [
+            "میمی",
+            "طنز",
+            "کاریزماتیک"
+          ],
+          "collections": [
+            "ایرانی",
+            "میم فارسی",
+            "چهره‌های فضای مجازی",
+            "طنز و کمدی",
+            "اشخاص واقعی و تاریخی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_020_epic",
+          "character_id": "char_020",
+          "character_name": "دکتر استاپ",
+          "rarity": "Epic",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 6,
+            "iq": 4,
+            "popularity": 8
+          },
+          "total": 24,
+          "traits": [
+            "میمی",
+            "طنز",
+            "کاریزماتیک"
+          ],
+          "collections": [
+            "ایرانی",
+            "میم فارسی",
+            "چهره‌های فضای مجازی",
+            "طنز و کمدی",
+            "اشخاص واقعی و تاریخی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_020_legend",
+          "character_id": "char_020",
+          "character_name": "دکتر استاپ",
+          "rarity": "Legend",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 6,
+            "iq": 5,
+            "popularity": 9
+          },
+          "total": 26,
+          "traits": [
+            "میمی",
+            "طنز",
+            "کاریزماتیک"
+          ],
+          "collections": [
+            "ایرانی",
+            "میم فارسی",
+            "چهره‌های فضای مجازی",
+            "طنز و کمدی",
+            "اشخاص واقعی و تاریخی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_021",
+      "roster_number": 21,
+      "name": "استاد شیفو",
+      "fixed_card_type_fa": "سرعتی",
+      "traits": [
+        "رزمی‌کار",
+        "Animal",
+        "استراتژیست"
+      ],
+      "collections": [
+        "کونگ‌فو پاندا",
+        "فیلم و سینما",
+        "انیمیشن",
+        "رزمی و مبارزه",
+        "حیوانات"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_021_normal",
+          "character_id": "char_021",
+          "character_name": "استاد شیفو",
+          "rarity": "Normal",
+          "card_type_fa": "سرعتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 7,
+            "iq": 7,
+            "popularity": 4
+          },
+          "total": 23,
+          "traits": [
+            "رزمی‌کار",
+            "Animal",
+            "استراتژیست"
+          ],
+          "collections": [
+            "کونگ‌فو پاندا",
+            "فیلم و سینما",
+            "انیمیشن",
+            "رزمی و مبارزه",
+            "حیوانات"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_021_epic",
+          "character_id": "char_021",
+          "character_name": "استاد شیفو",
+          "rarity": "Epic",
+          "card_type_fa": "سرعتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 7,
+            "speed": 8,
+            "iq": 8,
+            "popularity": 5
+          },
+          "total": 28,
+          "traits": [
+            "رزمی‌کار",
+            "Animal",
+            "استراتژیست"
+          ],
+          "collections": [
+            "کونگ‌فو پاندا",
+            "فیلم و سینما",
+            "انیمیشن",
+            "رزمی و مبارزه",
+            "حیوانات"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_021_legend",
+          "character_id": "char_021",
+          "character_name": "استاد شیفو",
+          "rarity": "Legend",
+          "card_type_fa": "سرعتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 7,
+            "speed": 8,
+            "iq": 9,
+            "popularity": 6
+          },
+          "total": 30,
+          "traits": [
+            "رزمی‌کار",
+            "Animal",
+            "استراتژیست"
+          ],
+          "collections": [
+            "کونگ‌فو پاندا",
+            "فیلم و سینما",
+            "انیمیشن",
+            "رزمی و مبارزه",
+            "حیوانات"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_022",
+      "roster_number": 22,
+      "name": "پوتین",
+      "fixed_card_type_fa": "قدرتی",
+      "traits": [
+        "سیاستمدار",
+        "رهبر",
+        "استراتژیست"
+      ],
+      "collections": [
+        "اشخاص واقعی و تاریخی",
+        "سیاست و قدرت"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_022_normal",
+          "character_id": "char_022",
+          "character_name": "پوتین",
+          "rarity": "Normal",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 7,
+            "speed": 4,
+            "iq": 7,
+            "popularity": 4
+          },
+          "total": 22,
+          "traits": [
+            "سیاستمدار",
+            "رهبر",
+            "استراتژیست"
+          ],
+          "collections": [
+            "اشخاص واقعی و تاریخی",
+            "سیاست و قدرت"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_022_epic",
+          "character_id": "char_022",
+          "character_name": "پوتین",
+          "rarity": "Epic",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 8,
+            "speed": 4,
+            "iq": 8,
+            "popularity": 7
+          },
+          "total": 27,
+          "traits": [
+            "سیاستمدار",
+            "رهبر",
+            "استراتژیست"
+          ],
+          "collections": [
+            "اشخاص واقعی و تاریخی",
+            "سیاست و قدرت"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_022_legend",
+          "character_id": "char_022",
+          "character_name": "پوتین",
+          "rarity": "Legend",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 9,
+            "speed": 4,
+            "iq": 8,
+            "popularity": 8
+          },
+          "total": 29,
+          "traits": [
+            "سیاستمدار",
+            "رهبر",
+            "استراتژیست"
+          ],
+          "collections": [
+            "اشخاص واقعی و تاریخی",
+            "سیاست و قدرت"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_023",
+      "roster_number": 23,
+      "name": "بیگ مسعود",
+      "fixed_card_type_fa": "محبوبیتی",
+      "traits": [
+        "میمی",
+        "طنز",
+        "کاریزماتیک"
+      ],
+      "collections": [
+        "ایرانی",
+        "میم فارسی",
+        "چهره‌های فضای مجازی",
+        "طنز و کمدی",
+        "اشخاص واقعی و تاریخی"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_023_normal",
+          "character_id": "char_023",
+          "character_name": "بیگ مسعود",
+          "rarity": "Normal",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 3,
+            "iq": 5,
+            "popularity": 7
+          },
+          "total": 20,
+          "traits": [
+            "میمی",
+            "طنز",
+            "کاریزماتیک"
+          ],
+          "collections": [
+            "ایرانی",
+            "میم فارسی",
+            "چهره‌های فضای مجازی",
+            "طنز و کمدی",
+            "اشخاص واقعی و تاریخی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_023_epic",
+          "character_id": "char_023",
+          "character_name": "بیگ مسعود",
+          "rarity": "Epic",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 3,
+            "iq": 6,
+            "popularity": 8
+          },
+          "total": 23,
+          "traits": [
+            "میمی",
+            "طنز",
+            "کاریزماتیک"
+          ],
+          "collections": [
+            "ایرانی",
+            "میم فارسی",
+            "چهره‌های فضای مجازی",
+            "طنز و کمدی",
+            "اشخاص واقعی و تاریخی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_023_legend",
+          "character_id": "char_023",
+          "character_name": "بیگ مسعود",
+          "rarity": "Legend",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 7,
+            "speed": 4,
+            "iq": 7,
+            "popularity": 9
+          },
+          "total": 27,
+          "traits": [
+            "میمی",
+            "طنز",
+            "کاریزماتیک"
+          ],
+          "collections": [
+            "ایرانی",
+            "میم فارسی",
+            "چهره‌های فضای مجازی",
+            "طنز و کمدی",
+            "اشخاص واقعی و تاریخی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_024",
+      "roster_number": 24,
+      "name": "مایک (بریکینگ بد)",
+      "fixed_card_type_fa": "محبوبیتی",
+      "traits": [
+        "خونسرد",
+        "تیرانداز",
+        "مخفی‌کار"
+      ],
+      "collections": [
+        "دنیای بریکینگ بد",
+        "بریکینگ بد",
+        "بهتره با ساول تماس بگیری",
+        "سریال خارجی",
+        "جنایی و مافیا",
+        "سلطان‌های خلافکاری",
+        "مغزهای متفکر",
+        "قاتلان حرفه‌ای"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_024_normal",
+          "character_id": "char_024",
+          "character_name": "مایک (بریکینگ بد)",
+          "rarity": "Normal",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 4,
+            "iq": 6,
+            "popularity": 5
+          },
+          "total": 20,
+          "traits": [
+            "خونسرد",
+            "تیرانداز",
+            "مخفی‌کار"
+          ],
+          "collections": [
+            "دنیای بریکینگ بد",
+            "بریکینگ بد",
+            "بهتره با ساول تماس بگیری",
+            "سریال خارجی",
+            "جنایی و مافیا",
+            "سلطان‌های خلافکاری",
+            "مغزهای متفکر",
+            "قاتلان حرفه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_024_epic",
+          "character_id": "char_024",
+          "character_name": "مایک (بریکینگ بد)",
+          "rarity": "Epic",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 4,
+            "iq": 7,
+            "popularity": 7
+          },
+          "total": 24,
+          "traits": [
+            "خونسرد",
+            "تیرانداز",
+            "مخفی‌کار"
+          ],
+          "collections": [
+            "دنیای بریکینگ بد",
+            "بریکینگ بد",
+            "بهتره با ساول تماس بگیری",
+            "سریال خارجی",
+            "جنایی و مافیا",
+            "سلطان‌های خلافکاری",
+            "مغزهای متفکر",
+            "قاتلان حرفه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_024_legend",
+          "character_id": "char_024",
+          "character_name": "مایک (بریکینگ بد)",
+          "rarity": "Legend",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 4,
+            "iq": 8,
+            "popularity": 9
+          },
+          "total": 27,
+          "traits": [
+            "خونسرد",
+            "تیرانداز",
+            "مخفی‌کار"
+          ],
+          "collections": [
+            "دنیای بریکینگ بد",
+            "بریکینگ بد",
+            "بهتره با ساول تماس بگیری",
+            "سریال خارجی",
+            "جنایی و مافیا",
+            "سلطان‌های خلافکاری",
+            "مغزهای متفکر",
+            "قاتلان حرفه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_025",
+      "roster_number": 25,
+      "name": "ساول گودمن",
+      "fixed_card_type_fa": "هوشی",
+      "traits": [
+        "حیله‌گر",
+        "طنز",
+        "خلافکار"
+      ],
+      "collections": [
+        "دنیای بریکینگ بد",
+        "بریکینگ بد",
+        "بهتره با ساول تماس بگیری",
+        "سریال خارجی",
+        "طنز و کمدی",
+        "جنایی و مافیا",
+        "سلطان‌های خلافکاری",
+        "مغزهای متفکر",
+        "بچه‌های خلاف"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_025_normal",
+          "character_id": "char_025",
+          "character_name": "ساول گودمن",
+          "rarity": "Normal",
+          "card_type_fa": "هوشی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 4,
+            "speed": 4,
+            "iq": 7,
+            "popularity": 5
+          },
+          "total": 20,
+          "traits": [
+            "حیله‌گر",
+            "طنز",
+            "خلافکار"
+          ],
+          "collections": [
+            "دنیای بریکینگ بد",
+            "بریکینگ بد",
+            "بهتره با ساول تماس بگیری",
+            "سریال خارجی",
+            "طنز و کمدی",
+            "جنایی و مافیا",
+            "سلطان‌های خلافکاری",
+            "مغزهای متفکر",
+            "بچه‌های خلاف"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_025_epic",
+          "character_id": "char_025",
+          "character_name": "ساول گودمن",
+          "rarity": "Epic",
+          "card_type_fa": "هوشی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 4,
+            "speed": 4,
+            "iq": 9,
+            "popularity": 8
+          },
+          "total": 25,
+          "traits": [
+            "حیله‌گر",
+            "طنز",
+            "خلافکار"
+          ],
+          "collections": [
+            "دنیای بریکینگ بد",
+            "بریکینگ بد",
+            "بهتره با ساول تماس بگیری",
+            "سریال خارجی",
+            "طنز و کمدی",
+            "جنایی و مافیا",
+            "سلطان‌های خلافکاری",
+            "مغزهای متفکر",
+            "بچه‌های خلاف"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_025_legend",
+          "character_id": "char_025",
+          "character_name": "ساول گودمن",
+          "rarity": "Legend",
+          "card_type_fa": "هوشی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 4,
+            "iq": 10,
+            "popularity": 9
+          },
+          "total": 28,
+          "traits": [
+            "حیله‌گر",
+            "طنز",
+            "خلافکار"
+          ],
+          "collections": [
+            "دنیای بریکینگ بد",
+            "بریکینگ بد",
+            "بهتره با ساول تماس بگیری",
+            "سریال خارجی",
+            "طنز و کمدی",
+            "جنایی و مافیا",
+            "سلطان‌های خلافکاری",
+            "مغزهای متفکر",
+            "بچه‌های خلاف"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_026",
+      "roster_number": 26,
+      "name": "سابزیرو",
+      "fixed_card_type_fa": "سرعتی",
+      "traits": [
+        "مخفی‌کار",
+        "فراانسانی",
+        "Shadow Warrior"
+      ],
+      "collections": [
+        "مورتال کامبت",
+        "گیم",
+        "فانتزی",
+        "رزمی و مبارزه",
+        "ابرقدرت‌ها"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_026_normal",
+          "character_id": "char_026",
+          "character_name": "سابزیرو",
+          "rarity": "Normal",
+          "card_type_fa": "سرعتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 6,
+            "iq": 5,
+            "popularity": 5
+          },
+          "total": 22,
+          "traits": [
+            "مخفی‌کار",
+            "فراانسانی",
+            "Shadow Warrior"
+          ],
+          "collections": [
+            "مورتال کامبت",
+            "گیم",
+            "فانتزی",
+            "رزمی و مبارزه",
+            "ابرقدرت‌ها"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_026_epic",
+          "character_id": "char_026",
+          "character_name": "سابزیرو",
+          "rarity": "Epic",
+          "card_type_fa": "سرعتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 7,
+            "speed": 7,
+            "iq": 6,
+            "popularity": 6
+          },
+          "total": 26,
+          "traits": [
+            "مخفی‌کار",
+            "فراانسانی",
+            "Shadow Warrior"
+          ],
+          "collections": [
+            "مورتال کامبت",
+            "گیم",
+            "فانتزی",
+            "رزمی و مبارزه",
+            "ابرقدرت‌ها"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_026_legend",
+          "character_id": "char_026",
+          "character_name": "سابزیرو",
+          "rarity": "Legend",
+          "card_type_fa": "سرعتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 8,
+            "speed": 8,
+            "iq": 7,
+            "popularity": 7
+          },
+          "total": 30,
+          "traits": [
+            "مخفی‌کار",
+            "فراانسانی",
+            "Shadow Warrior"
+          ],
+          "collections": [
+            "مورتال کامبت",
+            "گیم",
+            "فانتزی",
+            "رزمی و مبارزه",
+            "ابرقدرت‌ها"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_027",
+      "roster_number": 27,
+      "name": "کریتوس",
+      "fixed_card_type_fa": "قدرتی",
+      "traits": [
+        "ضدقهرمان",
+        "فراانسانی",
+        "جان‌سخت"
+      ],
+      "collections": [
+        "گیم",
+        "اسطوره و افسانه",
+        "فانتزی",
+        "نظامی و جنگی",
+        "رزمی و مبارزه",
+        "ابرقدرت‌ها",
+        "حماسه و پهلوانی",
+        "ماجراجویی",
+        "انتقام‌جویان",
+        "جنگجویان افسانه‌ای"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_027_normal",
+          "character_id": "char_027",
+          "character_name": "کریتوس",
+          "rarity": "Normal",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 6,
+            "iq": 6,
+            "popularity": 4
+          },
+          "total": 22,
+          "traits": [
+            "ضدقهرمان",
+            "فراانسانی",
+            "جان‌سخت"
+          ],
+          "collections": [
+            "گیم",
+            "اسطوره و افسانه",
+            "فانتزی",
+            "نظامی و جنگی",
+            "رزمی و مبارزه",
+            "ابرقدرت‌ها",
+            "حماسه و پهلوانی",
+            "ماجراجویی",
+            "انتقام‌جویان",
+            "جنگجویان افسانه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_027_epic",
+          "character_id": "char_027",
+          "character_name": "کریتوس",
+          "rarity": "Epic",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 7,
+            "speed": 7,
+            "iq": 7,
+            "popularity": 6
+          },
+          "total": 27,
+          "traits": [
+            "ضدقهرمان",
+            "فراانسانی",
+            "جان‌سخت"
+          ],
+          "collections": [
+            "گیم",
+            "اسطوره و افسانه",
+            "فانتزی",
+            "نظامی و جنگی",
+            "رزمی و مبارزه",
+            "ابرقدرت‌ها",
+            "حماسه و پهلوانی",
+            "ماجراجویی",
+            "انتقام‌جویان",
+            "جنگجویان افسانه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_027_legend",
+          "character_id": "char_027",
+          "character_name": "کریتوس",
+          "rarity": "Legend",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 9,
+            "speed": 8,
+            "iq": 7,
+            "popularity": 7
+          },
+          "total": 31,
+          "traits": [
+            "ضدقهرمان",
+            "فراانسانی",
+            "جان‌سخت"
+          ],
+          "collections": [
+            "گیم",
+            "اسطوره و افسانه",
+            "فانتزی",
+            "نظامی و جنگی",
+            "رزمی و مبارزه",
+            "ابرقدرت‌ها",
+            "حماسه و پهلوانی",
+            "ماجراجویی",
+            "انتقام‌جویان",
+            "جنگجویان افسانه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_028",
+      "roster_number": 28,
+      "name": "پو (پاندای کونگ‌فوکار)",
+      "fixed_card_type_fa": "قدرتی",
+      "traits": [
+        "رزمی‌کار",
+        "Animal",
+        "Wildcard"
+      ],
+      "collections": [
+        "کونگ‌فو پاندا",
+        "فیلم و سینما",
+        "انیمیشن",
+        "طنز و کمدی",
+        "رزمی و مبارزه",
+        "حیوانات",
+        "میم جهانی"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_028_normal",
+          "character_id": "char_028",
+          "character_name": "پو (پاندای کونگ‌فوکار)",
+          "rarity": "Normal",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 3,
+            "iq": 4,
+            "popularity": 4
+          },
+          "total": 16,
+          "traits": [
+            "رزمی‌کار",
+            "Animal",
+            "Wildcard"
+          ],
+          "collections": [
+            "کونگ‌فو پاندا",
+            "فیلم و سینما",
+            "انیمیشن",
+            "طنز و کمدی",
+            "رزمی و مبارزه",
+            "حیوانات",
+            "میم جهانی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_028_epic",
+          "character_id": "char_028",
+          "character_name": "پو (پاندای کونگ‌فوکار)",
+          "rarity": "Epic",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 4,
+            "iq": 5,
+            "popularity": 7
+          },
+          "total": 22,
+          "traits": [
+            "رزمی‌کار",
+            "Animal",
+            "Wildcard"
+          ],
+          "collections": [
+            "کونگ‌فو پاندا",
+            "فیلم و سینما",
+            "انیمیشن",
+            "طنز و کمدی",
+            "رزمی و مبارزه",
+            "حیوانات",
+            "میم جهانی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_028_legend",
+          "character_id": "char_028",
+          "character_name": "پو (پاندای کونگ‌فوکار)",
+          "rarity": "Legend",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 8,
+            "speed": 6,
+            "iq": 6,
+            "popularity": 8
+          },
+          "total": 28,
+          "traits": [
+            "رزمی‌کار",
+            "Animal",
+            "Wildcard"
+          ],
+          "collections": [
+            "کونگ‌فو پاندا",
+            "فیلم و سینما",
+            "انیمیشن",
+            "طنز و کمدی",
+            "رزمی و مبارزه",
+            "حیوانات",
+            "میم جهانی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_029",
+      "roster_number": 29,
+      "name": "شریدر",
+      "fixed_card_type_fa": "قدرتی",
+      "traits": [
+        "شرور",
+        "مخفی‌کار",
+        "Street Fighter"
+      ],
+      "collections": [
+        "لاک‌پشت‌های نینجا",
+        "انیمیشن",
+        "رزمی و مبارزه",
+        "قاتلان حرفه‌ای"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_029_normal",
+          "character_id": "char_029",
+          "character_name": "شریدر",
+          "rarity": "Normal",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 6,
+            "iq": 5,
+            "popularity": 5
+          },
+          "total": 22,
+          "traits": [
+            "شرور",
+            "مخفی‌کار",
+            "Street Fighter"
+          ],
+          "collections": [
+            "لاک‌پشت‌های نینجا",
+            "انیمیشن",
+            "رزمی و مبارزه",
+            "قاتلان حرفه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_029_epic",
+          "character_id": "char_029",
+          "character_name": "شریدر",
+          "rarity": "Epic",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 7,
+            "speed": 7,
+            "iq": 6,
+            "popularity": 5
+          },
+          "total": 25,
+          "traits": [
+            "شرور",
+            "مخفی‌کار",
+            "Street Fighter"
+          ],
+          "collections": [
+            "لاک‌پشت‌های نینجا",
+            "انیمیشن",
+            "رزمی و مبارزه",
+            "قاتلان حرفه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_029_legend",
+          "character_id": "char_029",
+          "character_name": "شریدر",
+          "rarity": "Legend",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 8,
+            "speed": 8,
+            "iq": 6,
+            "popularity": 7
+          },
+          "total": 29,
+          "traits": [
+            "شرور",
+            "مخفی‌کار",
+            "Street Fighter"
+          ],
+          "collections": [
+            "لاک‌پشت‌های نینجا",
+            "انیمیشن",
+            "رزمی و مبارزه",
+            "قاتلان حرفه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_030",
+      "roster_number": 30,
+      "name": "آرتور مورگان",
+      "fixed_card_type_fa": "محبوبیتی",
+      "traits": [
+        "ضدقهرمان",
+        "تیرانداز",
+        "وفادار"
+      ],
+      "collections": [
+        "گیم",
+        "جنایی و مافیا",
+        "ماجراجویی",
+        "بچه‌های خلاف"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_030_normal",
+          "character_id": "char_030",
+          "character_name": "آرتور مورگان",
+          "rarity": "Normal",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 4,
+            "speed": 5,
+            "iq": 5,
+            "popularity": 4
+          },
+          "total": 18,
+          "traits": [
+            "ضدقهرمان",
+            "تیرانداز",
+            "وفادار"
+          ],
+          "collections": [
+            "گیم",
+            "جنایی و مافیا",
+            "ماجراجویی",
+            "بچه‌های خلاف"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_030_epic",
+          "character_id": "char_030",
+          "character_name": "آرتور مورگان",
+          "rarity": "Epic",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 6,
+            "iq": 6,
+            "popularity": 6
+          },
+          "total": 23,
+          "traits": [
+            "ضدقهرمان",
+            "تیرانداز",
+            "وفادار"
+          ],
+          "collections": [
+            "گیم",
+            "جنایی و مافیا",
+            "ماجراجویی",
+            "بچه‌های خلاف"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_030_legend",
+          "character_id": "char_030",
+          "character_name": "آرتور مورگان",
+          "rarity": "Legend",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 6,
+            "iq": 7,
+            "popularity": 8
+          },
+          "total": 27,
+          "traits": [
+            "ضدقهرمان",
+            "تیرانداز",
+            "وفادار"
+          ],
+          "collections": [
+            "گیم",
+            "جنایی و مافیا",
+            "ماجراجویی",
+            "بچه‌های خلاف"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_031",
+      "roster_number": 31,
+      "name": "دارث ویدر",
+      "fixed_card_type_fa": "قدرتی",
+      "traits": [
+        "شرور",
+        "فراانسانی",
+        "Shadow Warrior"
+      ],
+      "collections": [
+        "فیلم و سینما",
+        "علمی‌تخیلی",
+        "نظامی و جنگی",
+        "ابرقدرت‌ها",
+        "ماجراجویی"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_031_normal",
+          "character_id": "char_031",
+          "character_name": "دارث ویدر",
+          "rarity": "Normal",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 5,
+            "iq": 5,
+            "popularity": 4
+          },
+          "total": 19,
+          "traits": [
+            "شرور",
+            "فراانسانی",
+            "Shadow Warrior"
+          ],
+          "collections": [
+            "فیلم و سینما",
+            "علمی‌تخیلی",
+            "نظامی و جنگی",
+            "ابرقدرت‌ها",
+            "ماجراجویی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_031_epic",
+          "character_id": "char_031",
+          "character_name": "دارث ویدر",
+          "rarity": "Epic",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 6,
+            "iq": 6,
+            "popularity": 5
+          },
+          "total": 23,
+          "traits": [
+            "شرور",
+            "فراانسانی",
+            "Shadow Warrior"
+          ],
+          "collections": [
+            "فیلم و سینما",
+            "علمی‌تخیلی",
+            "نظامی و جنگی",
+            "ابرقدرت‌ها",
+            "ماجراجویی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_031_legend",
+          "character_id": "char_031",
+          "character_name": "دارث ویدر",
+          "rarity": "Legend",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 7,
+            "speed": 8,
+            "iq": 7,
+            "popularity": 6
+          },
+          "total": 28,
+          "traits": [
+            "شرور",
+            "فراانسانی",
+            "Shadow Warrior"
+          ],
+          "collections": [
+            "فیلم و سینما",
+            "علمی‌تخیلی",
+            "نظامی و جنگی",
+            "ابرقدرت‌ها",
+            "ماجراجویی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_032",
+      "roster_number": 32,
+      "name": "مایکل اسکافیلد",
+      "fixed_card_type_fa": "هوشی",
+      "traits": [
+        "نابغه",
+        "استراتژیست",
+        "وفادار"
+      ],
+      "collections": [
+        "فرار از زندان",
+        "سریال خارجی",
+        "جنایی و مافیا",
+        "مغزهای متفکر"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_032_normal",
+          "character_id": "char_032",
+          "character_name": "مایکل اسکافیلد",
+          "rarity": "Normal",
+          "card_type_fa": "هوشی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 4,
+            "speed": 4,
+            "iq": 8,
+            "popularity": 5
+          },
+          "total": 21,
+          "traits": [
+            "نابغه",
+            "استراتژیست",
+            "وفادار"
+          ],
+          "collections": [
+            "فرار از زندان",
+            "سریال خارجی",
+            "جنایی و مافیا",
+            "مغزهای متفکر"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_032_epic",
+          "character_id": "char_032",
+          "character_name": "مایکل اسکافیلد",
+          "rarity": "Epic",
+          "card_type_fa": "هوشی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 4,
+            "iq": 9,
+            "popularity": 6
+          },
+          "total": 24,
+          "traits": [
+            "نابغه",
+            "استراتژیست",
+            "وفادار"
+          ],
+          "collections": [
+            "فرار از زندان",
+            "سریال خارجی",
+            "جنایی و مافیا",
+            "مغزهای متفکر"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_032_legend",
+          "character_id": "char_032",
+          "character_name": "مایکل اسکافیلد",
+          "rarity": "Legend",
+          "card_type_fa": "هوشی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 4,
+            "iq": 10,
+            "popularity": 8
+          },
+          "total": 27,
+          "traits": [
+            "نابغه",
+            "استراتژیست",
+            "وفادار"
+          ],
+          "collections": [
+            "فرار از زندان",
+            "سریال خارجی",
+            "جنایی و مافیا",
+            "مغزهای متفکر"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_033",
+      "roster_number": 33,
+      "name": "تی‌بگ",
+      "fixed_card_type_fa": "هوشی",
+      "traits": [
+        "شرور",
+        "خلافکار",
+        "بی‌رحم"
+      ],
+      "collections": [
+        "فرار از زندان",
+        "سریال خارجی",
+        "جنایی و مافیا",
+        "بچه‌های خلاف"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_033_normal",
+          "character_id": "char_033",
+          "character_name": "تی‌بگ",
+          "rarity": "Normal",
+          "card_type_fa": "هوشی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 4,
+            "iq": 7,
+            "popularity": 5
+          },
+          "total": 21,
+          "traits": [
+            "شرور",
+            "خلافکار",
+            "بی‌رحم"
+          ],
+          "collections": [
+            "فرار از زندان",
+            "سریال خارجی",
+            "جنایی و مافیا",
+            "بچه‌های خلاف"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_033_epic",
+          "character_id": "char_033",
+          "character_name": "تی‌بگ",
+          "rarity": "Epic",
+          "card_type_fa": "هوشی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 4,
+            "iq": 8,
+            "popularity": 7
+          },
+          "total": 24,
+          "traits": [
+            "شرور",
+            "خلافکار",
+            "بی‌رحم"
+          ],
+          "collections": [
+            "فرار از زندان",
+            "سریال خارجی",
+            "جنایی و مافیا",
+            "بچه‌های خلاف"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_033_legend",
+          "character_id": "char_033",
+          "character_name": "تی‌بگ",
+          "rarity": "Legend",
+          "card_type_fa": "هوشی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 4,
+            "iq": 9,
+            "popularity": 9
+          },
+          "total": 27,
+          "traits": [
+            "شرور",
+            "خلافکار",
+            "بی‌رحم"
+          ],
+          "collections": [
+            "فرار از زندان",
+            "سریال خارجی",
+            "جنایی و مافیا",
+            "بچه‌های خلاف"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_034",
+      "roster_number": 34,
+      "name": "شیرفرهاد",
+      "fixed_card_type_fa": "محبوبیتی",
+      "traits": [
+        "میمی",
+        "طنز",
+        "Wildcard"
+      ],
+      "collections": [
+        "سریال ایرانی",
+        "ایرانی",
+        "آثار ایرانی",
+        "میم فارسی",
+        "طنز و کمدی"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_034_normal",
+          "character_id": "char_034",
+          "character_name": "شیرفرهاد",
+          "rarity": "Normal",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 7,
+            "speed": 3,
+            "iq": 3,
+            "popularity": 7
+          },
+          "total": 20,
+          "traits": [
+            "میمی",
+            "طنز",
+            "Wildcard"
+          ],
+          "collections": [
+            "سریال ایرانی",
+            "ایرانی",
+            "آثار ایرانی",
+            "میم فارسی",
+            "طنز و کمدی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_034_epic",
+          "character_id": "char_034",
+          "character_name": "شیرفرهاد",
+          "rarity": "Epic",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 8,
+            "speed": 3,
+            "iq": 4,
+            "popularity": 8
+          },
+          "total": 23,
+          "traits": [
+            "میمی",
+            "طنز",
+            "Wildcard"
+          ],
+          "collections": [
+            "سریال ایرانی",
+            "ایرانی",
+            "آثار ایرانی",
+            "میم فارسی",
+            "طنز و کمدی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_034_legend",
+          "character_id": "char_034",
+          "character_name": "شیرفرهاد",
+          "rarity": "Legend",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 8,
+            "speed": 4,
+            "iq": 5,
+            "popularity": 10
+          },
+          "total": 27,
+          "traits": [
+            "میمی",
+            "طنز",
+            "Wildcard"
+          ],
+          "collections": [
+            "سریال ایرانی",
+            "ایرانی",
+            "آثار ایرانی",
+            "میم فارسی",
+            "طنز و کمدی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_035",
+      "roster_number": 35,
+      "name": "شرک",
+      "fixed_card_type_fa": "قدرتی",
+      "traits": [
+        "جان‌سخت",
+        "طنز",
+        "قهرمان"
+      ],
+      "collections": [
+        "فیلم و سینما",
+        "انیمیشن",
+        "طنز و کمدی",
+        "فانتزی",
+        "میم جهانی"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_035_normal",
+          "character_id": "char_035",
+          "character_name": "شرک",
+          "rarity": "Normal",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 7,
+            "speed": 3,
+            "iq": 4,
+            "popularity": 4
+          },
+          "total": 18,
+          "traits": [
+            "جان‌سخت",
+            "طنز",
+            "قهرمان"
+          ],
+          "collections": [
+            "فیلم و سینما",
+            "انیمیشن",
+            "طنز و کمدی",
+            "فانتزی",
+            "میم جهانی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_035_epic",
+          "character_id": "char_035",
+          "character_name": "شرک",
+          "rarity": "Epic",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 8,
+            "speed": 4,
+            "iq": 5,
+            "popularity": 7
+          },
+          "total": 24,
+          "traits": [
+            "جان‌سخت",
+            "طنز",
+            "قهرمان"
+          ],
+          "collections": [
+            "فیلم و سینما",
+            "انیمیشن",
+            "طنز و کمدی",
+            "فانتزی",
+            "میم جهانی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_035_legend",
+          "character_id": "char_035",
+          "character_name": "شرک",
+          "rarity": "Legend",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 9,
+            "speed": 5,
+            "iq": 6,
+            "popularity": 8
+          },
+          "total": 28,
+          "traits": [
+            "جان‌سخت",
+            "طنز",
+            "قهرمان"
+          ],
+          "collections": [
+            "فیلم و سینما",
+            "انیمیشن",
+            "طنز و کمدی",
+            "فانتزی",
+            "میم جهانی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_036",
+      "roster_number": 36,
+      "name": "نقی معمولی",
+      "fixed_card_type_fa": "محبوبیتی",
+      "traits": [
+        "میمی",
+        "طنز",
+        "وفادار"
+      ],
+      "collections": [
+        "سریال ایرانی",
+        "ایرانی",
+        "آثار ایرانی",
+        "میم فارسی",
+        "طنز و کمدی"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_036_normal",
+          "character_id": "char_036",
+          "character_name": "نقی معمولی",
+          "rarity": "Normal",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 4,
+            "speed": 4,
+            "iq": 4,
+            "popularity": 6
+          },
+          "total": 18,
+          "traits": [
+            "میمی",
+            "طنز",
+            "وفادار"
+          ],
+          "collections": [
+            "سریال ایرانی",
+            "ایرانی",
+            "آثار ایرانی",
+            "میم فارسی",
+            "طنز و کمدی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_036_epic",
+          "character_id": "char_036",
+          "character_name": "نقی معمولی",
+          "rarity": "Epic",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 5,
+            "iq": 4,
+            "popularity": 8
+          },
+          "total": 22,
+          "traits": [
+            "میمی",
+            "طنز",
+            "وفادار"
+          ],
+          "collections": [
+            "سریال ایرانی",
+            "ایرانی",
+            "آثار ایرانی",
+            "میم فارسی",
+            "طنز و کمدی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_036_legend",
+          "character_id": "char_036",
+          "character_name": "نقی معمولی",
+          "rarity": "Legend",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 5,
+            "iq": 5,
+            "popularity": 9
+          },
+          "total": 25,
+          "traits": [
+            "میمی",
+            "طنز",
+            "وفادار"
+          ],
+          "collections": [
+            "سریال ایرانی",
+            "ایرانی",
+            "آثار ایرانی",
+            "میم فارسی",
+            "طنز و کمدی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_037",
+      "roster_number": 37,
+      "name": "داوود ززز",
+      "fixed_card_type_fa": "محبوبیتی",
+      "traits": [
+        "میمی",
+        "طنز",
+        "خلافکار"
+      ],
+      "collections": [
+        "سریال ایرانی",
+        "ایرانی",
+        "آثار ایرانی",
+        "میم فارسی",
+        "طنز و کمدی"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_037_normal",
+          "character_id": "char_037",
+          "character_name": "داوود ززز",
+          "rarity": "Normal",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 4,
+            "speed": 3,
+            "iq": 3,
+            "popularity": 8
+          },
+          "total": 18,
+          "traits": [
+            "میمی",
+            "طنز",
+            "خلافکار"
+          ],
+          "collections": [
+            "سریال ایرانی",
+            "ایرانی",
+            "آثار ایرانی",
+            "میم فارسی",
+            "طنز و کمدی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_037_epic",
+          "character_id": "char_037",
+          "character_name": "داوود ززز",
+          "rarity": "Epic",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 4,
+            "iq": 4,
+            "popularity": 9
+          },
+          "total": 22,
+          "traits": [
+            "میمی",
+            "طنز",
+            "خلافکار"
+          ],
+          "collections": [
+            "سریال ایرانی",
+            "ایرانی",
+            "آثار ایرانی",
+            "میم فارسی",
+            "طنز و کمدی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_037_legend",
+          "character_id": "char_037",
+          "character_name": "داوود ززز",
+          "rarity": "Legend",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 5,
+            "iq": 4,
+            "popularity": 10
+          },
+          "total": 25,
+          "traits": [
+            "میمی",
+            "طنز",
+            "خلافکار"
+          ],
+          "collections": [
+            "سریال ایرانی",
+            "ایرانی",
+            "آثار ایرانی",
+            "میم فارسی",
+            "طنز و کمدی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_038",
+      "roster_number": 38,
+      "name": "تایلانگ",
+      "fixed_card_type_fa": "قدرتی",
+      "traits": [
+        "بی‌رحم",
+        "رزمی‌کار",
+        "Animal"
+      ],
+      "collections": [
+        "کونگ‌فو پاندا",
+        "فیلم و سینما",
+        "انیمیشن",
+        "رزمی و مبارزه",
+        "حیوانات"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_038_normal",
+          "character_id": "char_038",
+          "character_name": "تایلانگ",
+          "rarity": "Normal",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 6,
+            "iq": 5,
+            "popularity": 4
+          },
+          "total": 21,
+          "traits": [
+            "بی‌رحم",
+            "رزمی‌کار",
+            "Animal"
+          ],
+          "collections": [
+            "کونگ‌فو پاندا",
+            "فیلم و سینما",
+            "انیمیشن",
+            "رزمی و مبارزه",
+            "حیوانات"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_038_epic",
+          "character_id": "char_038",
+          "character_name": "تایلانگ",
+          "rarity": "Epic",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 7,
+            "speed": 7,
+            "iq": 6,
+            "popularity": 6
+          },
+          "total": 26,
+          "traits": [
+            "بی‌رحم",
+            "رزمی‌کار",
+            "Animal"
+          ],
+          "collections": [
+            "کونگ‌فو پاندا",
+            "فیلم و سینما",
+            "انیمیشن",
+            "رزمی و مبارزه",
+            "حیوانات"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_038_legend",
+          "character_id": "char_038",
+          "character_name": "تایلانگ",
+          "rarity": "Legend",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 8,
+            "speed": 9,
+            "iq": 6,
+            "popularity": 7
+          },
+          "total": 30,
+          "traits": [
+            "بی‌رحم",
+            "رزمی‌کار",
+            "Animal"
+          ],
+          "collections": [
+            "کونگ‌فو پاندا",
+            "فیلم و سینما",
+            "انیمیشن",
+            "رزمی و مبارزه",
+            "حیوانات"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_039",
+      "roster_number": 39,
+      "name": "اتزیو",
+      "fixed_card_type_fa": "سرعتی",
+      "traits": [
+        "مخفی‌کار",
+        "شمشیرزن",
+        "انتقام‌جو"
+      ],
+      "collections": [
+        "گیم",
+        "رزمی و مبارزه",
+        "ماجراجویی",
+        "انتقام‌جویان",
+        "قاتلان حرفه‌ای"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_039_normal",
+          "character_id": "char_039",
+          "character_name": "اتزیو",
+          "rarity": "Normal",
+          "card_type_fa": "سرعتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 6,
+            "iq": 6,
+            "popularity": 5
+          },
+          "total": 22,
+          "traits": [
+            "مخفی‌کار",
+            "شمشیرزن",
+            "انتقام‌جو"
+          ],
+          "collections": [
+            "گیم",
+            "رزمی و مبارزه",
+            "ماجراجویی",
+            "انتقام‌جویان",
+            "قاتلان حرفه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_039_epic",
+          "character_id": "char_039",
+          "character_name": "اتزیو",
+          "rarity": "Epic",
+          "card_type_fa": "سرعتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 7,
+            "iq": 6,
+            "popularity": 5
+          },
+          "total": 24,
+          "traits": [
+            "مخفی‌کار",
+            "شمشیرزن",
+            "انتقام‌جو"
+          ],
+          "collections": [
+            "گیم",
+            "رزمی و مبارزه",
+            "ماجراجویی",
+            "انتقام‌جویان",
+            "قاتلان حرفه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_039_legend",
+          "character_id": "char_039",
+          "character_name": "اتزیو",
+          "rarity": "Legend",
+          "card_type_fa": "سرعتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 7,
+            "speed": 8,
+            "iq": 7,
+            "popularity": 7
+          },
+          "total": 29,
+          "traits": [
+            "مخفی‌کار",
+            "شمشیرزن",
+            "انتقام‌جو"
+          ],
+          "collections": [
+            "گیم",
+            "رزمی و مبارزه",
+            "ماجراجویی",
+            "انتقام‌جویان",
+            "قاتلان حرفه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_040",
+      "roster_number": 40,
+      "name": "آلبرت وسکر",
+      "fixed_card_type_fa": "سرعتی",
+      "traits": [
+        "شرور",
+        "نابغه",
+        "فراانسانی"
+      ],
+      "collections": [
+        "رزیدنت ایول",
+        "گیم",
+        "علمی‌تخیلی",
+        "وحشت و بقا",
+        "ابرقدرت‌ها"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_040_normal",
+          "character_id": "char_040",
+          "character_name": "آلبرت وسکر",
+          "rarity": "Normal",
+          "card_type_fa": "سرعتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 5,
+            "iq": 5,
+            "popularity": 3
+          },
+          "total": 18,
+          "traits": [
+            "شرور",
+            "نابغه",
+            "فراانسانی"
+          ],
+          "collections": [
+            "رزیدنت ایول",
+            "گیم",
+            "علمی‌تخیلی",
+            "وحشت و بقا",
+            "ابرقدرت‌ها"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_040_epic",
+          "character_id": "char_040",
+          "character_name": "آلبرت وسکر",
+          "rarity": "Epic",
+          "card_type_fa": "سرعتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 8,
+            "speed": 8,
+            "iq": 6,
+            "popularity": 5
+          },
+          "total": 27,
+          "traits": [
+            "شرور",
+            "نابغه",
+            "فراانسانی"
+          ],
+          "collections": [
+            "رزیدنت ایول",
+            "گیم",
+            "علمی‌تخیلی",
+            "وحشت و بقا",
+            "ابرقدرت‌ها"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_040_legend",
+          "character_id": "char_040",
+          "character_name": "آلبرت وسکر",
+          "rarity": "Legend",
+          "card_type_fa": "سرعتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 9,
+            "speed": 9,
+            "iq": 7,
+            "popularity": 6
+          },
+          "total": 31,
+          "traits": [
+            "شرور",
+            "نابغه",
+            "فراانسانی"
+          ],
+          "collections": [
+            "رزیدنت ایول",
+            "گیم",
+            "علمی‌تخیلی",
+            "وحشت و بقا",
+            "ابرقدرت‌ها"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_041",
+      "roster_number": 41,
+      "name": "کامران اتابکی",
+      "fixed_card_type_fa": "محبوبیتی",
+      "traits": [
+        "میمی",
+        "طنز",
+        "کاریزماتیک"
+      ],
+      "collections": [
+        "ایرانی",
+        "میم فارسی",
+        "چهره‌های فضای مجازی",
+        "طنز و کمدی",
+        "اشخاص واقعی و تاریخی"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_041_normal",
+          "character_id": "char_041",
+          "character_name": "کامران اتابکی",
+          "rarity": "Normal",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 3,
+            "speed": 3,
+            "iq": 6,
+            "popularity": 6
+          },
+          "total": 18,
+          "traits": [
+            "میمی",
+            "طنز",
+            "کاریزماتیک"
+          ],
+          "collections": [
+            "ایرانی",
+            "میم فارسی",
+            "چهره‌های فضای مجازی",
+            "طنز و کمدی",
+            "اشخاص واقعی و تاریخی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_041_epic",
+          "character_id": "char_041",
+          "character_name": "کامران اتابکی",
+          "rarity": "Epic",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 4,
+            "speed": 3,
+            "iq": 7,
+            "popularity": 8
+          },
+          "total": 22,
+          "traits": [
+            "میمی",
+            "طنز",
+            "کاریزماتیک"
+          ],
+          "collections": [
+            "ایرانی",
+            "میم فارسی",
+            "چهره‌های فضای مجازی",
+            "طنز و کمدی",
+            "اشخاص واقعی و تاریخی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_041_legend",
+          "character_id": "char_041",
+          "character_name": "کامران اتابکی",
+          "rarity": "Legend",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 4,
+            "iq": 7,
+            "popularity": 9
+          },
+          "total": 26,
+          "traits": [
+            "میمی",
+            "طنز",
+            "کاریزماتیک"
+          ],
+          "collections": [
+            "ایرانی",
+            "میم فارسی",
+            "چهره‌های فضای مجازی",
+            "طنز و کمدی",
+            "اشخاص واقعی و تاریخی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_042",
+      "roster_number": 42,
+      "name": "ترمیناتور",
+      "fixed_card_type_fa": "قدرتی",
+      "traits": [
+        "جان‌سخت",
+        "تیرانداز",
+        "بی‌رحم"
+      ],
+      "collections": [
+        "فیلم و سینما",
+        "علمی‌تخیلی",
+        "آخرالزمانی",
+        "وحشت و بقا",
+        "مبارزان آخر دنیا"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_042_normal",
+          "character_id": "char_042",
+          "character_name": "ترمیناتور",
+          "rarity": "Normal",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 8,
+            "speed": 6,
+            "iq": 5,
+            "popularity": 2
+          },
+          "total": 21,
+          "traits": [
+            "جان‌سخت",
+            "تیرانداز",
+            "بی‌رحم"
+          ],
+          "collections": [
+            "فیلم و سینما",
+            "علمی‌تخیلی",
+            "آخرالزمانی",
+            "وحشت و بقا",
+            "مبارزان آخر دنیا"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_042_epic",
+          "character_id": "char_042",
+          "character_name": "ترمیناتور",
+          "rarity": "Epic",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 9,
+            "speed": 7,
+            "iq": 6,
+            "popularity": 3
+          },
+          "total": 25,
+          "traits": [
+            "جان‌سخت",
+            "تیرانداز",
+            "بی‌رحم"
+          ],
+          "collections": [
+            "فیلم و سینما",
+            "علمی‌تخیلی",
+            "آخرالزمانی",
+            "وحشت و بقا",
+            "مبارزان آخر دنیا"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_042_legend",
+          "character_id": "char_042",
+          "character_name": "ترمیناتور",
+          "rarity": "Legend",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 9,
+            "speed": 8,
+            "iq": 6,
+            "popularity": 4
+          },
+          "total": 27,
+          "traits": [
+            "جان‌سخت",
+            "تیرانداز",
+            "بی‌رحم"
+          ],
+          "collections": [
+            "فیلم و سینما",
+            "علمی‌تخیلی",
+            "آخرالزمانی",
+            "وحشت و بقا",
+            "مبارزان آخر دنیا"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_043",
+      "roster_number": 43,
+      "name": "جول",
+      "fixed_card_type_fa": "محبوبیتی",
+      "traits": [
+        "ضدقهرمان",
+        "تیرانداز",
+        "خونسرد"
+      ],
+      "collections": [
+        "گیم",
+        "آخرالزمانی",
+        "وحشت و بقا",
+        "ماجراجویی",
+        "مبارزان آخر دنیا"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_043_normal",
+          "character_id": "char_043",
+          "character_name": "جول",
+          "rarity": "Normal",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 4,
+            "speed": 4,
+            "iq": 5,
+            "popularity": 5
+          },
+          "total": 18,
+          "traits": [
+            "ضدقهرمان",
+            "تیرانداز",
+            "خونسرد"
+          ],
+          "collections": [
+            "گیم",
+            "آخرالزمانی",
+            "وحشت و بقا",
+            "ماجراجویی",
+            "مبارزان آخر دنیا"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_043_epic",
+          "character_id": "char_043",
+          "character_name": "جول",
+          "rarity": "Epic",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 5,
+            "iq": 6,
+            "popularity": 7
+          },
+          "total": 23,
+          "traits": [
+            "ضدقهرمان",
+            "تیرانداز",
+            "خونسرد"
+          ],
+          "collections": [
+            "گیم",
+            "آخرالزمانی",
+            "وحشت و بقا",
+            "ماجراجویی",
+            "مبارزان آخر دنیا"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_043_legend",
+          "character_id": "char_043",
+          "character_name": "جول",
+          "rarity": "Legend",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 5,
+            "iq": 7,
+            "popularity": 9
+          },
+          "total": 27,
+          "traits": [
+            "ضدقهرمان",
+            "تیرانداز",
+            "خونسرد"
+          ],
+          "collections": [
+            "گیم",
+            "آخرالزمانی",
+            "وحشت و بقا",
+            "ماجراجویی",
+            "مبارزان آخر دنیا"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_044",
+      "roster_number": 44,
+      "name": "شرلوک هلمز",
+      "fixed_card_type_fa": "هوشی",
+      "traits": [
+        "نابغه",
+        "استراتژیست",
+        "خونسرد"
+      ],
+      "collections": [
+        "جنایی و مافیا",
+        "مغزهای متفکر"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_044_normal",
+          "character_id": "char_044",
+          "character_name": "شرلوک هلمز",
+          "rarity": "Normal",
+          "card_type_fa": "هوشی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 3,
+            "speed": 4,
+            "iq": 8,
+            "popularity": 4
+          },
+          "total": 19,
+          "traits": [
+            "نابغه",
+            "استراتژیست",
+            "خونسرد"
+          ],
+          "collections": [
+            "جنایی و مافیا",
+            "مغزهای متفکر"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_044_epic",
+          "character_id": "char_044",
+          "character_name": "شرلوک هلمز",
+          "rarity": "Epic",
+          "card_type_fa": "هوشی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 4,
+            "speed": 4,
+            "iq": 9,
+            "popularity": 5
+          },
+          "total": 22,
+          "traits": [
+            "نابغه",
+            "استراتژیست",
+            "خونسرد"
+          ],
+          "collections": [
+            "جنایی و مافیا",
+            "مغزهای متفکر"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_044_legend",
+          "character_id": "char_044",
+          "character_name": "شرلوک هلمز",
+          "rarity": "Legend",
+          "card_type_fa": "هوشی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 5,
+            "iq": 10,
+            "popularity": 8
+          },
+          "total": 28,
+          "traits": [
+            "نابغه",
+            "استراتژیست",
+            "خونسرد"
+          ],
+          "collections": [
+            "جنایی و مافیا",
+            "مغزهای متفکر"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_045",
+      "roster_number": 45,
+      "name": "گوست",
+      "fixed_card_type_fa": "سرعتی",
+      "traits": [
+        "نظامی",
+        "مخفی‌کار",
+        "Shadow Warrior"
+      ],
+      "collections": [
+        "کال آو دیوتی",
+        "گیم",
+        "نظامی و جنگی",
+        "قاتلان حرفه‌ای"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_045_normal",
+          "character_id": "char_045",
+          "character_name": "گوست",
+          "rarity": "Normal",
+          "card_type_fa": "سرعتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 5,
+            "iq": 6,
+            "popularity": 4
+          },
+          "total": 20,
+          "traits": [
+            "نظامی",
+            "مخفی‌کار",
+            "Shadow Warrior"
+          ],
+          "collections": [
+            "کال آو دیوتی",
+            "گیم",
+            "نظامی و جنگی",
+            "قاتلان حرفه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_045_epic",
+          "character_id": "char_045",
+          "character_name": "گوست",
+          "rarity": "Epic",
+          "card_type_fa": "سرعتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 6,
+            "iq": 6,
+            "popularity": 5
+          },
+          "total": 23,
+          "traits": [
+            "نظامی",
+            "مخفی‌کار",
+            "Shadow Warrior"
+          ],
+          "collections": [
+            "کال آو دیوتی",
+            "گیم",
+            "نظامی و جنگی",
+            "قاتلان حرفه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_045_legend",
+          "character_id": "char_045",
+          "character_name": "گوست",
+          "rarity": "Legend",
+          "card_type_fa": "سرعتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 7,
+            "speed": 8,
+            "iq": 7,
+            "popularity": 6
+          },
+          "total": 28,
+          "traits": [
+            "نظامی",
+            "مخفی‌کار",
+            "Shadow Warrior"
+          ],
+          "collections": [
+            "کال آو دیوتی",
+            "گیم",
+            "نظامی و جنگی",
+            "قاتلان حرفه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_046",
+      "roster_number": 46,
+      "name": "باب اسفنجی",
+      "fixed_card_type_fa": "محبوبیتی",
+      "traits": [
+        "طنز",
+        "میمی",
+        "Wildcard"
+      ],
+      "collections": [
+        "باب‌اسفنجی",
+        "انیمیشن",
+        "طنز و کمدی",
+        "حیوانات",
+        "میم جهانی"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_046_normal",
+          "character_id": "char_046",
+          "character_name": "باب اسفنجی",
+          "rarity": "Normal",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 3,
+            "speed": 4,
+            "iq": 2,
+            "popularity": 8
+          },
+          "total": 17,
+          "traits": [
+            "طنز",
+            "میمی",
+            "Wildcard"
+          ],
+          "collections": [
+            "باب‌اسفنجی",
+            "انیمیشن",
+            "طنز و کمدی",
+            "حیوانات",
+            "میم جهانی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_046_epic",
+          "character_id": "char_046",
+          "character_name": "باب اسفنجی",
+          "rarity": "Epic",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 4,
+            "speed": 5,
+            "iq": 3,
+            "popularity": 9
+          },
+          "total": 21,
+          "traits": [
+            "طنز",
+            "میمی",
+            "Wildcard"
+          ],
+          "collections": [
+            "باب‌اسفنجی",
+            "انیمیشن",
+            "طنز و کمدی",
+            "حیوانات",
+            "میم جهانی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_046_legend",
+          "character_id": "char_046",
+          "character_name": "باب اسفنجی",
+          "rarity": "Legend",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 6,
+            "iq": 4,
+            "popularity": 10
+          },
+          "total": 25,
+          "traits": [
+            "طنز",
+            "میمی",
+            "Wildcard"
+          ],
+          "collections": [
+            "باب‌اسفنجی",
+            "انیمیشن",
+            "طنز و کمدی",
+            "حیوانات",
+            "میم جهانی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_047",
+      "roster_number": 47,
+      "name": "مسترچیف",
+      "fixed_card_type_fa": "قدرتی",
+      "traits": [
+        "نظامی",
+        "جان‌سخت",
+        "تیرانداز"
+      ],
+      "collections": [
+        "گیم",
+        "علمی‌تخیلی",
+        "نظامی و جنگی",
+        "ابرقدرت‌ها"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_047_normal",
+          "character_id": "char_047",
+          "character_name": "مسترچیف",
+          "rarity": "Normal",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 5,
+            "iq": 5,
+            "popularity": 4
+          },
+          "total": 20,
+          "traits": [
+            "نظامی",
+            "جان‌سخت",
+            "تیرانداز"
+          ],
+          "collections": [
+            "گیم",
+            "علمی‌تخیلی",
+            "نظامی و جنگی",
+            "ابرقدرت‌ها"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_047_epic",
+          "character_id": "char_047",
+          "character_name": "مسترچیف",
+          "rarity": "Epic",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 7,
+            "speed": 7,
+            "iq": 6,
+            "popularity": 5
+          },
+          "total": 25,
+          "traits": [
+            "نظامی",
+            "جان‌سخت",
+            "تیرانداز"
+          ],
+          "collections": [
+            "گیم",
+            "علمی‌تخیلی",
+            "نظامی و جنگی",
+            "ابرقدرت‌ها"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_047_legend",
+          "character_id": "char_047",
+          "character_name": "مسترچیف",
+          "rarity": "Legend",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 8,
+            "speed": 8,
+            "iq": 7,
+            "popularity": 6
+          },
+          "total": 29,
+          "traits": [
+            "نظامی",
+            "جان‌سخت",
+            "تیرانداز"
+          ],
+          "collections": [
+            "گیم",
+            "علمی‌تخیلی",
+            "نظامی و جنگی",
+            "ابرقدرت‌ها"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_048",
+      "roster_number": 48,
+      "name": "کاپیتان پرایس",
+      "fixed_card_type_fa": "هوشی",
+      "traits": [
+        "نظامی",
+        "رهبر",
+        "تیرانداز"
+      ],
+      "collections": [
+        "کال آو دیوتی",
+        "گیم",
+        "نظامی و جنگی"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_048_normal",
+          "character_id": "char_048",
+          "character_name": "کاپیتان پرایس",
+          "rarity": "Normal",
+          "card_type_fa": "هوشی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 5,
+            "iq": 6,
+            "popularity": 3
+          },
+          "total": 19,
+          "traits": [
+            "نظامی",
+            "رهبر",
+            "تیرانداز"
+          ],
+          "collections": [
+            "کال آو دیوتی",
+            "گیم",
+            "نظامی و جنگی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_048_epic",
+          "character_id": "char_048",
+          "character_name": "کاپیتان پرایس",
+          "rarity": "Epic",
+          "card_type_fa": "هوشی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 5,
+            "iq": 7,
+            "popularity": 4
+          },
+          "total": 22,
+          "traits": [
+            "نظامی",
+            "رهبر",
+            "تیرانداز"
+          ],
+          "collections": [
+            "کال آو دیوتی",
+            "گیم",
+            "نظامی و جنگی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_048_legend",
+          "character_id": "char_048",
+          "character_name": "کاپیتان پرایس",
+          "rarity": "Legend",
+          "card_type_fa": "هوشی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 7,
+            "speed": 7,
+            "iq": 8,
+            "popularity": 4
+          },
+          "total": 26,
+          "traits": [
+            "نظامی",
+            "رهبر",
+            "تیرانداز"
+          ],
+          "collections": [
+            "کال آو دیوتی",
+            "گیم",
+            "نظامی و جنگی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_049",
+      "roster_number": 49,
+      "name": "رگنار",
+      "fixed_card_type_fa": "محبوبیتی",
+      "traits": [
+        "فرمانروا",
+        "نظامی",
+        "کاریزماتیک"
+      ],
+      "collections": [
+        "تاریخی",
+        "اسطوره و افسانه",
+        "نظامی و جنگی",
+        "حماسه و پهلوانی",
+        "سیاست و قدرت",
+        "پادشاهان و فرمانروایان",
+        "جنگجویان افسانه‌ای"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_049_normal",
+          "character_id": "char_049",
+          "character_name": "رگنار",
+          "rarity": "Normal",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 4,
+            "iq": 5,
+            "popularity": 4
+          },
+          "total": 19,
+          "traits": [
+            "فرمانروا",
+            "نظامی",
+            "کاریزماتیک"
+          ],
+          "collections": [
+            "تاریخی",
+            "اسطوره و افسانه",
+            "نظامی و جنگی",
+            "حماسه و پهلوانی",
+            "سیاست و قدرت",
+            "پادشاهان و فرمانروایان",
+            "جنگجویان افسانه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_049_epic",
+          "character_id": "char_049",
+          "character_name": "رگنار",
+          "rarity": "Epic",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 7,
+            "speed": 5,
+            "iq": 5,
+            "popularity": 6
+          },
+          "total": 23,
+          "traits": [
+            "فرمانروا",
+            "نظامی",
+            "کاریزماتیک"
+          ],
+          "collections": [
+            "تاریخی",
+            "اسطوره و افسانه",
+            "نظامی و جنگی",
+            "حماسه و پهلوانی",
+            "سیاست و قدرت",
+            "پادشاهان و فرمانروایان",
+            "جنگجویان افسانه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_049_legend",
+          "character_id": "char_049",
+          "character_name": "رگنار",
+          "rarity": "Legend",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 7,
+            "speed": 6,
+            "iq": 6,
+            "popularity": 8
+          },
+          "total": 27,
+          "traits": [
+            "فرمانروا",
+            "نظامی",
+            "کاریزماتیک"
+          ],
+          "collections": [
+            "تاریخی",
+            "اسطوره و افسانه",
+            "نظامی و جنگی",
+            "حماسه و پهلوانی",
+            "سیاست و قدرت",
+            "پادشاهان و فرمانروایان",
+            "جنگجویان افسانه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_050",
+      "roster_number": 50,
+      "name": "ارباب شن",
+      "fixed_card_type_fa": "سرعتی",
+      "traits": [
+        "شرور",
+        "Aniimal",
+        "حیله‌گر"
+      ],
+      "collections": [
+        "کونگ‌فو پاندا",
+        "فیلم و سینما",
+        "انیمیشن",
+        "حیوانات",
+        "مغزهای متفکر"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_050_normal",
+          "character_id": "char_050",
+          "character_name": "ارباب شن",
+          "rarity": "Normal",
+          "card_type_fa": "سرعتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 6,
+            "iq": 6,
+            "popularity": 4
+          },
+          "total": 21,
+          "traits": [
+            "شرور",
+            "Aniimal",
+            "حیله‌گر"
+          ],
+          "collections": [
+            "کونگ‌فو پاندا",
+            "فیلم و سینما",
+            "انیمیشن",
+            "حیوانات",
+            "مغزهای متفکر"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_050_epic",
+          "character_id": "char_050",
+          "character_name": "ارباب شن",
+          "rarity": "Epic",
+          "card_type_fa": "سرعتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 7,
+            "iq": 7,
+            "popularity": 5
+          },
+          "total": 25,
+          "traits": [
+            "شرور",
+            "Aniimal",
+            "حیله‌گر"
+          ],
+          "collections": [
+            "کونگ‌فو پاندا",
+            "فیلم و سینما",
+            "انیمیشن",
+            "حیوانات",
+            "مغزهای متفکر"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_050_legend",
+          "character_id": "char_050",
+          "character_name": "ارباب شن",
+          "rarity": "Legend",
+          "card_type_fa": "سرعتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 7,
+            "speed": 8,
+            "iq": 7,
+            "popularity": 6
+          },
+          "total": 28,
+          "traits": [
+            "شرور",
+            "Aniimal",
+            "حیله‌گر"
+          ],
+          "collections": [
+            "کونگ‌فو پاندا",
+            "فیلم و سینما",
+            "انیمیشن",
+            "حیوانات",
+            "مغزهای متفکر"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_051",
+      "roster_number": 51,
+      "name": "نادرشاه",
+      "fixed_card_type_fa": "هوشی",
+      "traits": [
+        "فرمانروا",
+        "نظامی",
+        "استراتژیست"
+      ],
+      "collections": [
+        "ایرانی",
+        "اشخاص واقعی و تاریخی",
+        "تاریخی",
+        "نظامی و جنگی",
+        "حماسه و پهلوانی",
+        "سیاست و قدرت",
+        "پادشاهان و فرمانروایان"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_051_normal",
+          "character_id": "char_051",
+          "character_name": "نادرشاه",
+          "rarity": "Normal",
+          "card_type_fa": "هوشی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 4,
+            "speed": 4,
+            "iq": 7,
+            "popularity": 4
+          },
+          "total": 19,
+          "traits": [
+            "فرمانروا",
+            "نظامی",
+            "استراتژیست"
+          ],
+          "collections": [
+            "ایرانی",
+            "اشخاص واقعی و تاریخی",
+            "تاریخی",
+            "نظامی و جنگی",
+            "حماسه و پهلوانی",
+            "سیاست و قدرت",
+            "پادشاهان و فرمانروایان"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_051_epic",
+          "character_id": "char_051",
+          "character_name": "نادرشاه",
+          "rarity": "Epic",
+          "card_type_fa": "هوشی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 4,
+            "iq": 8,
+            "popularity": 5
+          },
+          "total": 22,
+          "traits": [
+            "فرمانروا",
+            "نظامی",
+            "استراتژیست"
+          ],
+          "collections": [
+            "ایرانی",
+            "اشخاص واقعی و تاریخی",
+            "تاریخی",
+            "نظامی و جنگی",
+            "حماسه و پهلوانی",
+            "سیاست و قدرت",
+            "پادشاهان و فرمانروایان"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_051_legend",
+          "character_id": "char_051",
+          "character_name": "نادرشاه",
+          "rarity": "Legend",
+          "card_type_fa": "هوشی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 7,
+            "speed": 4,
+            "iq": 8,
+            "popularity": 7
+          },
+          "total": 26,
+          "traits": [
+            "فرمانروا",
+            "نظامی",
+            "استراتژیست"
+          ],
+          "collections": [
+            "ایرانی",
+            "اشخاص واقعی و تاریخی",
+            "تاریخی",
+            "نظامی و جنگی",
+            "حماسه و پهلوانی",
+            "سیاست و قدرت",
+            "پادشاهان و فرمانروایان"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_052",
+      "roster_number": 52,
+      "name": "لالو سالامانکا",
+      "fixed_card_type_fa": "هوشی",
+      "traits": [
+        "شرور",
+        "خلافکار",
+        "حیله‌گر"
+      ],
+      "collections": [
+        "دنیای بریکینگ بد",
+        "بهتره با ساول تماس بگیری",
+        "سریال خارجی",
+        "جنایی و مافیا",
+        "سلطان‌های خلافکاری"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_052_normal",
+          "character_id": "char_052",
+          "character_name": "لالو سالامانکا",
+          "rarity": "Normal",
+          "card_type_fa": "هوشی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 4,
+            "speed": 4,
+            "iq": 7,
+            "popularity": 6
+          },
+          "total": 21,
+          "traits": [
+            "شرور",
+            "خلافکار",
+            "حیله‌گر"
+          ],
+          "collections": [
+            "دنیای بریکینگ بد",
+            "بهتره با ساول تماس بگیری",
+            "سریال خارجی",
+            "جنایی و مافیا",
+            "سلطان‌های خلافکاری"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_052_epic",
+          "character_id": "char_052",
+          "character_name": "لالو سالامانکا",
+          "rarity": "Epic",
+          "card_type_fa": "هوشی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 4,
+            "iq": 8,
+            "popularity": 7
+          },
+          "total": 24,
+          "traits": [
+            "شرور",
+            "خلافکار",
+            "حیله‌گر"
+          ],
+          "collections": [
+            "دنیای بریکینگ بد",
+            "بهتره با ساول تماس بگیری",
+            "سریال خارجی",
+            "جنایی و مافیا",
+            "سلطان‌های خلافکاری"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_052_legend",
+          "character_id": "char_052",
+          "character_name": "لالو سالامانکا",
+          "rarity": "Legend",
+          "card_type_fa": "هوشی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 4,
+            "iq": 9,
+            "popularity": 9
+          },
+          "total": 27,
+          "traits": [
+            "شرور",
+            "خلافکار",
+            "حیله‌گر"
+          ],
+          "collections": [
+            "دنیای بریکینگ بد",
+            "بهتره با ساول تماس بگیری",
+            "سریال خارجی",
+            "جنایی و مافیا",
+            "سلطان‌های خلافکاری"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_053",
+      "roster_number": 53,
+      "name": "جان اسنو",
+      "fixed_card_type_fa": "سرعتی",
+      "traits": [
+        "فرمانروا",
+        "شمشیرزن",
+        "سیاستمدار"
+      ],
+      "collections": [
+        "بازی تاج‌وتخت",
+        "سریال خارجی",
+        "فانتزی",
+        "نظامی و جنگی",
+        "حماسه و پهلوانی",
+        "ماجراجویی",
+        "سیاست و قدرت",
+        "پادشاهان و فرمانروایان",
+        "جنگجویان افسانه‌ای"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_053_normal",
+          "character_id": "char_053",
+          "character_name": "جان اسنو",
+          "rarity": "Normal",
+          "card_type_fa": "سرعتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 4,
+            "speed": 5,
+            "iq": 5,
+            "popularity": 4
+          },
+          "total": 18,
+          "traits": [
+            "فرمانروا",
+            "شمشیرزن",
+            "سیاستمدار"
+          ],
+          "collections": [
+            "بازی تاج‌وتخت",
+            "سریال خارجی",
+            "فانتزی",
+            "نظامی و جنگی",
+            "حماسه و پهلوانی",
+            "ماجراجویی",
+            "سیاست و قدرت",
+            "پادشاهان و فرمانروایان",
+            "جنگجویان افسانه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_053_epic",
+          "character_id": "char_053",
+          "character_name": "جان اسنو",
+          "rarity": "Epic",
+          "card_type_fa": "سرعتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 6,
+            "iq": 5,
+            "popularity": 6
+          },
+          "total": 22,
+          "traits": [
+            "فرمانروا",
+            "شمشیرزن",
+            "سیاستمدار"
+          ],
+          "collections": [
+            "بازی تاج‌وتخت",
+            "سریال خارجی",
+            "فانتزی",
+            "نظامی و جنگی",
+            "حماسه و پهلوانی",
+            "ماجراجویی",
+            "سیاست و قدرت",
+            "پادشاهان و فرمانروایان",
+            "جنگجویان افسانه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_053_legend",
+          "character_id": "char_053",
+          "character_name": "جان اسنو",
+          "rarity": "Legend",
+          "card_type_fa": "سرعتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 7,
+            "speed": 7,
+            "iq": 6,
+            "popularity": 7
+          },
+          "total": 27,
+          "traits": [
+            "فرمانروا",
+            "شمشیرزن",
+            "سیاستمدار"
+          ],
+          "collections": [
+            "بازی تاج‌وتخت",
+            "سریال خارجی",
+            "فانتزی",
+            "نظامی و جنگی",
+            "حماسه و پهلوانی",
+            "ماجراجویی",
+            "سیاست و قدرت",
+            "پادشاهان و فرمانروایان",
+            "جنگجویان افسانه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_054",
+      "roster_number": 54,
+      "name": "زئوس",
+      "fixed_card_type_fa": "قدرتی",
+      "traits": [
+        "فرمانروا",
+        "فراانسانی",
+        "جان‌سخت"
+      ],
+      "collections": [
+        "اسطوره و افسانه",
+        "فانتزی",
+        "ابرقدرت‌ها",
+        "حماسه و پهلوانی",
+        "سیاست و قدرت",
+        "پادشاهان و فرمانروایان",
+        "جنگجویان افسانه‌ای"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_054_normal",
+          "character_id": "char_054",
+          "character_name": "زئوس",
+          "rarity": "Normal",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 8,
+            "speed": 6,
+            "iq": 5,
+            "popularity": 3
+          },
+          "total": 22,
+          "traits": [
+            "فرمانروا",
+            "فراانسانی",
+            "جان‌سخت"
+          ],
+          "collections": [
+            "اسطوره و افسانه",
+            "فانتزی",
+            "ابرقدرت‌ها",
+            "حماسه و پهلوانی",
+            "سیاست و قدرت",
+            "پادشاهان و فرمانروایان",
+            "جنگجویان افسانه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_054_epic",
+          "character_id": "char_054",
+          "character_name": "زئوس",
+          "rarity": "Epic",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 9,
+            "speed": 6,
+            "iq": 6,
+            "popularity": 4
+          },
+          "total": 25,
+          "traits": [
+            "فرمانروا",
+            "فراانسانی",
+            "جان‌سخت"
+          ],
+          "collections": [
+            "اسطوره و افسانه",
+            "فانتزی",
+            "ابرقدرت‌ها",
+            "حماسه و پهلوانی",
+            "سیاست و قدرت",
+            "پادشاهان و فرمانروایان",
+            "جنگجویان افسانه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_054_legend",
+          "character_id": "char_054",
+          "character_name": "زئوس",
+          "rarity": "Legend",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 10,
+            "speed": 8,
+            "iq": 8,
+            "popularity": 4
+          },
+          "total": 30,
+          "traits": [
+            "فرمانروا",
+            "فراانسانی",
+            "جان‌سخت"
+          ],
+          "collections": [
+            "اسطوره و افسانه",
+            "فانتزی",
+            "ابرقدرت‌ها",
+            "حماسه و پهلوانی",
+            "سیاست و قدرت",
+            "پادشاهان و فرمانروایان",
+            "جنگجویان افسانه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_055",
+      "roster_number": 55,
+      "name": "گرالت (ویچر)",
+      "fixed_card_type_fa": "قدرتی",
+      "traits": [
+        "ضدقهرمان",
+        "شمشیرزن",
+        "فراانسانی"
+      ],
+      "collections": [
+        "گیم",
+        "اسطوره و افسانه",
+        "فانتزی",
+        "رزمی و مبارزه",
+        "ابرقدرت‌ها",
+        "ماجراجویی",
+        "جنگجویان افسانه‌ای"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_055_normal",
+          "character_id": "char_055",
+          "character_name": "گرالت (ویچر)",
+          "rarity": "Normal",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 6,
+            "iq": 6,
+            "popularity": 4
+          },
+          "total": 22,
+          "traits": [
+            "ضدقهرمان",
+            "شمشیرزن",
+            "فراانسانی"
+          ],
+          "collections": [
+            "گیم",
+            "اسطوره و افسانه",
+            "فانتزی",
+            "رزمی و مبارزه",
+            "ابرقدرت‌ها",
+            "ماجراجویی",
+            "جنگجویان افسانه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_055_epic",
+          "character_id": "char_055",
+          "character_name": "گرالت (ویچر)",
+          "rarity": "Epic",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 7,
+            "speed": 7,
+            "iq": 6,
+            "popularity": 5
+          },
+          "total": 25,
+          "traits": [
+            "ضدقهرمان",
+            "شمشیرزن",
+            "فراانسانی"
+          ],
+          "collections": [
+            "گیم",
+            "اسطوره و افسانه",
+            "فانتزی",
+            "رزمی و مبارزه",
+            "ابرقدرت‌ها",
+            "ماجراجویی",
+            "جنگجویان افسانه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_055_legend",
+          "character_id": "char_055",
+          "character_name": "گرالت (ویچر)",
+          "rarity": "Legend",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 8,
+            "speed": 8,
+            "iq": 7,
+            "popularity": 6
+          },
+          "total": 29,
+          "traits": [
+            "ضدقهرمان",
+            "شمشیرزن",
+            "فراانسانی"
+          ],
+          "collections": [
+            "گیم",
+            "اسطوره و افسانه",
+            "فانتزی",
+            "رزمی و مبارزه",
+            "ابرقدرت‌ها",
+            "ماجراجویی",
+            "جنگجویان افسانه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_056",
+      "roster_number": 56,
+      "name": "کومان (کوروش و ایمان؛ یک کارت)",
+      "fixed_card_type_fa": "محبوبیتی",
+      "traits": [
+        "میمی",
+        "طنز",
+        "وفادار"
+      ],
+      "collections": [
+        "ایرانی",
+        "میم فارسی",
+        "چهره‌های فضای مجازی",
+        "طنز و کمدی",
+        "اشخاص واقعی و تاریخی"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_056_normal",
+          "character_id": "char_056",
+          "character_name": "کومان (کوروش و ایمان؛ یک کارت)",
+          "rarity": "Normal",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 4,
+            "iq": 5,
+            "popularity": 8
+          },
+          "total": 22,
+          "traits": [
+            "میمی",
+            "طنز",
+            "وفادار"
+          ],
+          "collections": [
+            "ایرانی",
+            "میم فارسی",
+            "چهره‌های فضای مجازی",
+            "طنز و کمدی",
+            "اشخاص واقعی و تاریخی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_056_epic",
+          "character_id": "char_056",
+          "character_name": "کومان (کوروش و ایمان؛ یک کارت)",
+          "rarity": "Epic",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 4,
+            "iq": 6,
+            "popularity": 9
+          },
+          "total": 24,
+          "traits": [
+            "میمی",
+            "طنز",
+            "وفادار"
+          ],
+          "collections": [
+            "ایرانی",
+            "میم فارسی",
+            "چهره‌های فضای مجازی",
+            "طنز و کمدی",
+            "اشخاص واقعی و تاریخی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_056_legend",
+          "character_id": "char_056",
+          "character_name": "کومان (کوروش و ایمان؛ یک کارت)",
+          "rarity": "Legend",
+          "card_type_fa": "محبوبیتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 5,
+            "iq": 6,
+            "popularity": 10
+          },
+          "total": 27,
+          "traits": [
+            "میمی",
+            "طنز",
+            "وفادار"
+          ],
+          "collections": [
+            "ایرانی",
+            "میم فارسی",
+            "چهره‌های فضای مجازی",
+            "طنز و کمدی",
+            "اشخاص واقعی و تاریخی"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_057",
+      "roster_number": 57,
+      "name": "ناپلئون",
+      "fixed_card_type_fa": "هوشی",
+      "traits": [
+        "فرمانروا",
+        "سیاستمدار",
+        "استراتژیست"
+      ],
+      "collections": [
+        "اشخاص واقعی و تاریخی",
+        "تاریخی",
+        "نظامی و جنگی",
+        "حماسه و پهلوانی",
+        "سیاست و قدرت",
+        "پادشاهان و فرمانروایان"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_057_normal",
+          "character_id": "char_057",
+          "character_name": "ناپلئون",
+          "rarity": "Normal",
+          "card_type_fa": "هوشی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 3,
+            "iq": 7,
+            "popularity": 5
+          },
+          "total": 20,
+          "traits": [
+            "فرمانروا",
+            "سیاستمدار",
+            "استراتژیست"
+          ],
+          "collections": [
+            "اشخاص واقعی و تاریخی",
+            "تاریخی",
+            "نظامی و جنگی",
+            "حماسه و پهلوانی",
+            "سیاست و قدرت",
+            "پادشاهان و فرمانروایان"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_057_epic",
+          "character_id": "char_057",
+          "character_name": "ناپلئون",
+          "rarity": "Epic",
+          "card_type_fa": "هوشی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 7,
+            "speed": 3,
+            "iq": 8,
+            "popularity": 6
+          },
+          "total": 24,
+          "traits": [
+            "فرمانروا",
+            "سیاستمدار",
+            "استراتژیست"
+          ],
+          "collections": [
+            "اشخاص واقعی و تاریخی",
+            "تاریخی",
+            "نظامی و جنگی",
+            "حماسه و پهلوانی",
+            "سیاست و قدرت",
+            "پادشاهان و فرمانروایان"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_057_legend",
+          "character_id": "char_057",
+          "character_name": "ناپلئون",
+          "rarity": "Legend",
+          "card_type_fa": "هوشی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 8,
+            "speed": 4,
+            "iq": 9,
+            "popularity": 6
+          },
+          "total": 27,
+          "traits": [
+            "فرمانروا",
+            "سیاستمدار",
+            "استراتژیست"
+          ],
+          "collections": [
+            "اشخاص واقعی و تاریخی",
+            "تاریخی",
+            "نظامی و جنگی",
+            "حماسه و پهلوانی",
+            "سیاست و قدرت",
+            "پادشاهان و فرمانروایان"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_058",
+      "roster_number": 58,
+      "name": "سولجربوی",
+      "fixed_card_type_fa": "قدرتی",
+      "traits": [
+        "شرور",
+        "فراانسانی",
+        "نظامی"
+      ],
+      "collections": [
+        "پسرها (The Boys)",
+        "سریال خارجی",
+        "علمی‌تخیلی",
+        "نظامی و جنگی",
+        "ابرقدرت‌ها"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_058_normal",
+          "character_id": "char_058",
+          "character_name": "سولجربوی",
+          "rarity": "Normal",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 8,
+            "speed": 6,
+            "iq": 3,
+            "popularity": 4
+          },
+          "total": 21,
+          "traits": [
+            "شرور",
+            "فراانسانی",
+            "نظامی"
+          ],
+          "collections": [
+            "پسرها (The Boys)",
+            "سریال خارجی",
+            "علمی‌تخیلی",
+            "نظامی و جنگی",
+            "ابرقدرت‌ها"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_058_epic",
+          "character_id": "char_058",
+          "character_name": "سولجربوی",
+          "rarity": "Epic",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 9,
+            "speed": 7,
+            "iq": 4,
+            "popularity": 5
+          },
+          "total": 25,
+          "traits": [
+            "شرور",
+            "فراانسانی",
+            "نظامی"
+          ],
+          "collections": [
+            "پسرها (The Boys)",
+            "سریال خارجی",
+            "علمی‌تخیلی",
+            "نظامی و جنگی",
+            "ابرقدرت‌ها"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_058_legend",
+          "character_id": "char_058",
+          "character_name": "سولجربوی",
+          "rarity": "Legend",
+          "card_type_fa": "قدرتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 10,
+            "speed": 8,
+            "iq": 4,
+            "popularity": 7
+          },
+          "total": 29,
+          "traits": [
+            "شرور",
+            "فراانسانی",
+            "نظامی"
+          ],
+          "collections": [
+            "پسرها (The Boys)",
+            "سریال خارجی",
+            "علمی‌تخیلی",
+            "نظامی و جنگی",
+            "ابرقدرت‌ها"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_059",
+      "roster_number": 59,
+      "name": "گاس فرینگ",
+      "fixed_card_type_fa": "هوشی",
+      "traits": [
+        "نابغه",
+        "خلافکار",
+        "خونسرد"
+      ],
+      "collections": [
+        "دنیای بریکینگ بد",
+        "بریکینگ بد",
+        "بهتره با ساول تماس بگیری",
+        "سریال خارجی",
+        "جنایی و مافیا",
+        "سلطان‌های خلافکاری",
+        "مغزهای متفکر"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_059_normal",
+          "character_id": "char_059",
+          "character_name": "گاس فرینگ",
+          "rarity": "Normal",
+          "card_type_fa": "هوشی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 4,
+            "speed": 3,
+            "iq": 7,
+            "popularity": 5
+          },
+          "total": 19,
+          "traits": [
+            "نابغه",
+            "خلافکار",
+            "خونسرد"
+          ],
+          "collections": [
+            "دنیای بریکینگ بد",
+            "بریکینگ بد",
+            "بهتره با ساول تماس بگیری",
+            "سریال خارجی",
+            "جنایی و مافیا",
+            "سلطان‌های خلافکاری",
+            "مغزهای متفکر"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_059_epic",
+          "character_id": "char_059",
+          "character_name": "گاس فرینگ",
+          "rarity": "Epic",
+          "card_type_fa": "هوشی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 5,
+            "speed": 3,
+            "iq": 8,
+            "popularity": 7
+          },
+          "total": 23,
+          "traits": [
+            "نابغه",
+            "خلافکار",
+            "خونسرد"
+          ],
+          "collections": [
+            "دنیای بریکینگ بد",
+            "بریکینگ بد",
+            "بهتره با ساول تماس بگیری",
+            "سریال خارجی",
+            "جنایی و مافیا",
+            "سلطان‌های خلافکاری",
+            "مغزهای متفکر"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_059_legend",
+          "character_id": "char_059",
+          "character_name": "گاس فرینگ",
+          "rarity": "Legend",
+          "card_type_fa": "هوشی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 7,
+            "speed": 3,
+            "iq": 9,
+            "popularity": 7
+          },
+          "total": 26,
+          "traits": [
+            "نابغه",
+            "خلافکار",
+            "خونسرد"
+          ],
+          "collections": [
+            "دنیای بریکینگ بد",
+            "بریکینگ بد",
+            "بهتره با ساول تماس بگیری",
+            "سریال خارجی",
+            "جنایی و مافیا",
+            "سلطان‌های خلافکاری",
+            "مغزهای متفکر"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    },
+    {
+      "character_id": "char_060",
+      "roster_number": 60,
+      "name": "اسکورپین",
+      "fixed_card_type_fa": "سرعتی",
+      "traits": [
+        "انتقام‌جو",
+        "مخفی‌کار",
+        "Shadow Warrior"
+      ],
+      "collections": [
+        "مورتال کامبت",
+        "گیم",
+        "فانتزی",
+        "رزمی و مبارزه",
+        "ابرقدرت‌ها",
+        "ماجراجویی",
+        "انتقام‌جویان",
+        "قاتلان حرفه‌ای"
+      ],
+      "notes": null,
+      "cards": [
+        {
+          "card_id": "char_060_normal",
+          "character_id": "char_060",
+          "character_name": "اسکورپین",
+          "rarity": "Normal",
+          "card_type_fa": "سرعتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 6,
+            "speed": 7,
+            "iq": 5,
+            "popularity": 5
+          },
+          "total": 23,
+          "traits": [
+            "انتقام‌جو",
+            "مخفی‌کار",
+            "Shadow Warrior"
+          ],
+          "collections": [
+            "مورتال کامبت",
+            "گیم",
+            "فانتزی",
+            "رزمی و مبارزه",
+            "ابرقدرت‌ها",
+            "ماجراجویی",
+            "انتقام‌جویان",
+            "قاتلان حرفه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_060_epic",
+          "character_id": "char_060",
+          "character_name": "اسکورپین",
+          "rarity": "Epic",
+          "card_type_fa": "سرعتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 7,
+            "speed": 8,
+            "iq": 5,
+            "popularity": 7
+          },
+          "total": 27,
+          "traits": [
+            "انتقام‌جو",
+            "مخفی‌کار",
+            "Shadow Warrior"
+          ],
+          "collections": [
+            "مورتال کامبت",
+            "گیم",
+            "فانتزی",
+            "رزمی و مبارزه",
+            "ابرقدرت‌ها",
+            "ماجراجویی",
+            "انتقام‌جویان",
+            "قاتلان حرفه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        },
+        {
+          "card_id": "char_060_legend",
+          "character_id": "char_060",
+          "character_name": "اسکورپین",
+          "rarity": "Legend",
+          "card_type_fa": "سرعتی",
+          "future_card_type_override_fa": null,
+          "stats": {
+            "power": 8,
+            "speed": 9,
+            "iq": 6,
+            "popularity": 8
+          },
+          "total": 31,
+          "traits": [
+            "انتقام‌جو",
+            "مخفی‌کار",
+            "Shadow Warrior"
+          ],
+          "collections": [
+            "مورتال کامبت",
+            "گیم",
+            "فانتزی",
+            "رزمی و مبارزه",
+            "ابرقدرت‌ها",
+            "ماجراجویی",
+            "انتقام‌جویان",
+            "قاتلان حرفه‌ای"
+          ],
+          "victory_lines": [],
+          "notes": null
+        }
+      ]
+    }
+  ]
+}

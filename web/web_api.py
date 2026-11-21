@@ -32,6 +32,7 @@ from game_core import DatabaseManager, Card, CardRarity, CardManager, GameLogic
 from systems.game_mode_system import CORE_STATS, GameModeSystem
 from systems.arena_registry import ArenaRegistry, ArenaValidationError, MODE_KEYS, PLATFORMS
 from systems.card_trait_registry import CardTraitRegistry, remember_card_traits, save_variant_traits
+from systems.card_collections import collection_names, stored_collections, remember_collections, list_collections
 
 class WebAPI:
     def __init__(self, db_manager: DatabaseManager):
@@ -206,7 +207,7 @@ class WebAPI:
             ),
             'metadata': {
                 'traits': self._string_list(data.get('traits'), 'traits'),
-                'series': str(data.get('series') or '').strip() or None,
+                'series': stored_collections(data.get('collections') if 'collections' in data else data.get('series')),
                 'hidden_stats': clean_hidden,
                 'passive': passive,
             },
@@ -239,7 +240,7 @@ class WebAPI:
         rarities = ('normal', 'epic', 'legend')
         if set(data['variants']) != set(rarities):
             raise ValueError('فرم‌های Normal، Epic و Legend باید کامل باشند')
-        shared_keys = {'name', 'biography', 'dialogs', 'series', 'hidden_stats'}
+        shared_keys = {'name', 'biography', 'dialogs', 'series', 'collections', 'hidden_stats'}
         form_keys = {'power', 'speed', 'iq', 'popularity', 'card_type', 'abilities',
                      'card_effects', 'passive', 'traits', 'image_path', 'photo_file_id', 'sticker_file_id'}
         validated = {}
@@ -249,7 +250,7 @@ class WebAPI:
                 raise ValueError(f'فیلد نامعتبر در فرم {rarity}')
             if any(form.get(stat) in (None, '') for stat in CORE_STATS):
                 raise ValueError(f'چهار Stat فرم {rarity} باید پر شوند')
-            merged = {key: data.get(key) for key in shared_keys}
+            merged = {key: data.get(key) for key in shared_keys if key != 'collections' or key in data}
             # Accept old family clients, while each form can override even with [].
             if 'traits' in data:
                 merged['traits'] = data['traits']
@@ -275,6 +276,7 @@ class WebAPI:
         try:
             conn.execute('BEGIN IMMEDIATE')
             remember_card_traits(conn, card_id, shared['traits'])
+            remember_collections(conn, shared['series'])
             conn.execute(
                 """INSERT INTO cards(card_id,name,rarity,power,speed,iq,popularity,abilities,
                    card_effects,dialogs,biography,image_path,card_type,created_at)
@@ -353,6 +355,8 @@ class WebAPI:
                         else:
                             conn.execute('DELETE FROM card_media_cache WHERE card_id=? AND media_kind=?',
                                          (card_id, kind))
+            if conn.execute("SELECT 1 FROM sqlite_master WHERE name='catalog_import_runs'").fetchone():
+                conn.execute("INSERT OR IGNORE INTO economy_character_rules(card_id,legend_recipe_tier) VALUES(?,'A')", (card_id,))
             conn.commit()
         except Exception:
             conn.rollback()
@@ -398,6 +402,7 @@ class WebAPI:
             'image_path': card.image_path,
             'traits': metadata['traits'],
             'series': metadata['series'] or '',
+            'collections': metadata['collections'],
             'hidden_stats': metadata['hidden_stats'],
             'passive': metadata['passive'],
             'legacy_passive': legacy_passive,
@@ -454,6 +459,7 @@ class WebAPI:
             from systems.easy_questions import catalog_in
             with sqlite3.connect(self.db.db_path) as conn:
                 easy_stats = catalog_in(conn)['stats']
+                collections = list_collections(conn)
             cards = [card for card in self.db.get_all_cards() if card.origin=="official"]
             metadata = [self.modes.get_card_metadata(card.card_id) for card in cards]
             images_dir = PROJECT_ROOT / 'assets' / 'card_images'
@@ -467,7 +473,7 @@ class WebAPI:
                                                  item['arena_id'], 'quick', include_draft=True)),
                             'traits': sorted(set(self.trait_registry.list_traits()) |
                                              {str(value) for item in metadata for value in item['traits']}),
-                            'series': sorted({item['series'] for item in metadata if item['series']}),
+                            'series': collections, 'collections': collections,
                             'names': sorted({card.name for card in cards}), 'images': images,
                             'easy_stats': easy_stats})
         

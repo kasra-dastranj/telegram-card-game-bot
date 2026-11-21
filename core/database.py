@@ -761,6 +761,10 @@ class DatabaseManager:
                 card_data['image_path'], card_data['card_type'], card_data['created_at']
             ))
             self._ensure_card_variants(conn)
+            # New characters also need the existing Legend sale rule. Catalog v2
+            # upgrades use the shared recipe, independently of this legacy tier.
+            if conn.execute("SELECT 1 FROM sqlite_master WHERE name='catalog_import_runs'").fetchone():
+                conn.execute("INSERT OR IGNORE INTO economy_character_rules(card_id,legend_recipe_tier) VALUES(?,'A')", (card.card_id,))
             conn.commit()
             conn.close()
             self.card_cache.invalidate(f"card_{card.card_id}")

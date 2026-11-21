@@ -69,6 +69,8 @@ class ProgressionEconomy:
     def recipe(conn,config,card,target):
         if target=='epic': return 'normal',config['upgrade']['epic']
         if target!='legend': raise ValueError('invalid_target')
+        if 'legend' in config['upgrade']:
+            return 'epic',config['upgrade']['legend']
         tier=conn.execute('SELECT legend_recipe_tier FROM economy_character_rules WHERE card_id=?',(card,)).fetchone()
         if not tier: raise ValueError('legend_recipe_unset')
         return 'epic',config['upgrade']['legend_'+tier[0]]

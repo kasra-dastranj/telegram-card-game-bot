@@ -1094,6 +1094,7 @@ class GameModeSystem:
         series: Optional[str] = None,
         hidden_stats: Optional[Dict[str, int]] = None,
         passive: Optional[Dict[str, Any]] = None,
+        collections: Optional[Iterable[str]] = None,
     ) -> None:
         passive_value = passive or {}
         condition = passive_value.get("condition") or {} if isinstance(passive_value, dict) else {}
@@ -1102,6 +1103,9 @@ class GameModeSystem:
             raise ValueError("passive_arena_not_found")
         trait_values = list(traits or [])
         with closing(self._connect()) as conn, conn:
+            from systems.card_collections import stored_collections, remember_collections
+            series = stored_collections(collections if collections is not None else series)
+            remember_collections(conn, series)
             remember_card_traits(conn, card_id, trait_values)
             conn.execute(
                 """
@@ -1145,6 +1149,9 @@ class GameModeSystem:
                 metadata['traits'] = variant['traits']
             if variant and variant.get("passive"):
                 metadata["passive"] = variant["passive"]
+        from systems.card_collections import collection_names
+        metadata['collections'] = collection_names(metadata['series'])
+        metadata['series'] = next(iter(metadata['collections']), None)
         return metadata
 
     def metadata_for_card(self, card):
@@ -1168,8 +1175,8 @@ class GameModeSystem:
 
         series_counts: Dict[str, int] = {}
         for item in metadata:
-            series = (item.get("series") or "").strip()
-            if series:
+            from systems.card_collections import collection_names
+            for series in collection_names(item):
                 series_counts[series] = series_counts.get(series, 0) + 1
         for series, count in series_counts.items():
             if count >= 3:
@@ -1535,8 +1542,8 @@ class GameModeSystem:
                     if key:
                         traits.add(key)
                         display_traits.setdefault(key, str(trait).strip())
-                series = str(metadata.get("series") or "").strip()
-                if series:
+                from systems.card_collections import collection_names
+                for series in collection_names(metadata):
                     key = series.casefold()
                     series_values.add(key)
                     display_series.setdefault(key, series)

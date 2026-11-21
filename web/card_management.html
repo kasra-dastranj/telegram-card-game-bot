@@ -171,7 +171,7 @@
           <div class="section" data-section="modes">
             <div class="grid">
               <div class="field"><label for="traits">Traitها</label><select id="traits" class="input" multiple></select><div class="inline-add"><input id="newTrait" class="input" type="text" maxlength="100" placeholder="Trait جدید را بنویسید" aria-label="Trait جدید"><button id="addTraitBtn" class="btn" type="button">افزودن Trait</button></div><span class="hint">با افزودن، Trait در فهرست دائمی ذخیره و خودکار انتخاب می‌شود؛ حتی اگر از همهٔ کارت‌ها برداشته شود، در فهرست می‌ماند. برای ثبت انتخاب‌ها روی کارت، کارت را ذخیره کنید.</span></div>
-              <div class="field"><label for="series">Series / مجموعه</label><input id="series" class="input" list="seriesOptions" placeholder="Game of Thrones"><datalist id="seriesOptions"></datalist><span class="hint">از مجموعه‌های قبلی انتخاب کنید یا نام تازه بنویسید.</span></div>
+              <div class="field"><label for="series">مجموعه‌ها</label><textarea id="series" class="input" rows="4" placeholder="هر مجموعه در یک خط"></textarea><label for="seriesOptions">افزودن از مجموعه‌های ثبت‌شده</label><select id="seriesOptions" class="input"><option value="">انتخاب مجموعه…</option></select><span class="hint">نام هر مجموعه را در یک خط بنویسید؛ چند مجموعه و نام تازه مجاز است.</span></div>
               <div class="group-title">Hidden Stats برای Easy (اختیاری)</div>
               <div id="easyStats" class="grid grid-4 field full"></div>
               <span class="hint field full">ویژگی تازه را در «سؤال‌های ایزی‌مود» تعریف کن؛ عدد هر کارت را اینجا بده. مقدار خالی ویژگی تازه، صفر است. این عددها بین فرم‌های همین شخصیت مشترک‌اند.</span>
@@ -265,6 +265,7 @@
         state.options = await api('/api/card-editor/options');
         renderEasyStats(readEasyStats());
         setChoices('seriesOptions', state.options.series);
+        $('seriesOptions').insertBefore(new Option('انتخاب مجموعه…', ''), $('seriesOptions').firstChild); $('seriesOptions').value = '';
         setChoices('imageOptions', state.options.images);
         setChoices('traits', state.options.traits, selectedValues('traits'));
         refreshConditionChoices($('conditionValue').value);
@@ -299,7 +300,7 @@
     function renderList() {
       const term = $('search').value.trim().toLowerCase(); const rarity = $('rarityFilter').value;
       const cards = state.cards.filter(card => {
-        const haystack = [card.name, card.series, ...(card.traits || [])].join(' ').toLowerCase();
+        const haystack = [card.name, ...(card.collections || [card.series]), ...(card.traits || [])].join(' ').toLowerCase();
         return (!term || haystack.includes(term)) && (!rarity || card.rarity === rarity);
       });
       $('cardList').innerHTML = cards.length ? cards.map(card => `
@@ -385,7 +386,7 @@
       state.avatarFiles = {}; $('avatarFile').value = '';
       $('rarity').replaceChildren(...editableRarities().map(rarity => new Option(rarityLabel[rarity],rarity)));
       $('rarity').value = state.currentRarity; $('biography').value = card.biography || ''; $('dialogs').value = (card.dialogs || []).join('\n');
-      $('newTrait').value = ''; $('series').value = card.series || '';
+      $('newTrait').value = ''; $('series').value = (card.collections || (card.series ? [card.series] : [])).join('\n');
       renderEasyStats(card.hidden_stats || {});
       state.drafts = Object.fromEntries(editableRarities().map(rarity => {
         const source = (card.variants || []).find(item => item.rarity === rarity) || (card.rarity === rarity ? card : blankVariant());
@@ -415,7 +416,7 @@
       for (const rarity of editableRarities()) if (state.drafts[rarity].passive?.condition && !Object.values(state.drafts[rarity].passive.condition)[0])
         throw new Error(`فرم ${rarityLabel[rarity]}: مقدار شرط Passive را انتخاب کنید`);
       const shared = { name, biography:$('biography').value.trim(), dialogs:splitList($('dialogs').value),
-        series:$('series').value.trim(), hidden_stats:hidden,
+        collections:splitList($('series').value), hidden_stats:hidden,
       };
       return state.currentRarity === 'rare' ? {...shared,...state.drafts.rare,rarity:'rare'} :
         {...shared,variants:Object.fromEntries(rarities.map(rarity => [rarity, state.drafts[rarity]]))};
@@ -446,6 +447,7 @@
     $('avatarFile').addEventListener('change', () => { const file = $('avatarFile').files[0]; if (file) { if (file.size > 7 * 1024 * 1024 || !['image/png','image/jpeg','image/webp'].includes(file.type)) { $('avatarFile').value = ''; toast('تصویر PNG، JPG یا WebP تا ۷ مگابایت انتخاب کنید.', true); return; } state.avatarFiles[state.currentRarity] = file; updateAvatarPreview(); } });
     $('cardForm').addEventListener('submit', saveCard); $('deleteBtn').addEventListener('click', deleteCard); $('cancelBtn').addEventListener('click', () => state.selectedId ? selectCard(state.selectedId) : startNew(state.currentRarity === 'rare'));
     $('addTraitBtn').addEventListener('click', addTrait); $('newTrait').addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); addTrait(); } });
+    $('seriesOptions').addEventListener('change', () => { const value = $('seriesOptions').value; if (value) { const names = splitList($('series').value); if (!names.includes(value)) names.push(value); $('series').value = names.join('\n'); $('seriesOptions').value = ''; } });
     $('passiveEnabled').addEventListener('change', () => $('passiveFields').disabled = !$('passiveEnabled').checked); $('conditionType').addEventListener('change', () => refreshConditionChoices()); $('imagePath').addEventListener('input', () => { $('photoFileId').value = ''; $('stickerFileId').value = ''; updatePreview(); }); $('name').addEventListener('input', () => { if (!state.creating) $('editorTitle').textContent = $('name').value || 'بدون نام'; });
     $('uploadImageBtn').addEventListener('click', () => upload('image')); $('uploadStickerBtn').addEventListener('click', () => upload('sticker')); document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => activateTab(tab.dataset.tab)));
     Promise.all([loadCards(), loadOptions()]);

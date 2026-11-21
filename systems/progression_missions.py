@@ -57,10 +57,17 @@ class ProgressionMissions:
         level=conn.execute('SELECT level FROM player_progression WHERE user_id=?',(user,)).fetchone()
         if eligibility.get('min_level',1)>(level[0] if level else 1):visible=False
         progress=0
-        rows=conn.execute('SELECT source,event_type,payload_json,score FROM reward_ledger WHERE user_id=? AND created_at>=? AND created_at<?',(user,start.isoformat(),end.isoformat())).fetchall()
-        for source,event_type,encoded,score in rows:
+        prior=conn.execute('SELECT value_json FROM foundation_settings WHERE key=?', ('catalog_mission_history:'+mission['mission_id'],)).fetchone()
+        history=json.loads(prior[0]) if prior else None
+        if history and (history['filters_after']!=mission['filters'] or history['type']!=mission['type']):history=None
+        rows=conn.execute('SELECT source,event_type,payload_json,score,created_at FROM reward_ledger WHERE user_id=? AND created_at>=? AND created_at<?',(user,start.isoformat(),end.isoformat())).fetchall()
+        for source,event_type,encoded,score,event_at in rows:
             payload=json.loads(encoded)
             filters=mission['filters'];mode=payload.get('mode')
+            if history:
+                moment=datetime.fromisoformat(event_at)
+                if moment.tzinfo is None:moment=moment.replace(tzinfo=timezone.utc)
+                if moment<datetime.fromisoformat(history['cutover_at']):filters=history['filters_before']
             if filters.get('modes') and mode not in filters['modes']:continue
             if filters.get('card_id') and payload.get('card_id')!=filters['card_id']:continue
             if filters.get('trait'):

@@ -67,6 +67,11 @@ def validate_config(value):
     """Reject unknown keys, bool numbers, negative amounts and malformed recipes."""
     value = effective_config(value)
     defaults = seed_config()
+    # Catalog v2 has one editable Legend recipe. Old immutable economy snapshots
+    # keep their original A/B recipes for historical reward reconciliation.
+    if isinstance(value, dict) and 'legend' in value.get('upgrade', {}):
+        defaults['upgrade'] = {'epic': defaults['upgrade']['epic'],
+                               'legend': defaults['upgrade']['legend_A']}
     def shape(item, template, path):
         if isinstance(template, dict):
             if not isinstance(item, dict): raise ValueError("invalid_config:"+path)

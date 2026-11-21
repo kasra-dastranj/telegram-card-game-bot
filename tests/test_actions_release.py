@@ -24,7 +24,8 @@ def bundle(tmp_path):
     root = tmp_path / "source"
     root.mkdir()
     names = ["telegram_bot.py", "game_core.py", "requirements.txt", "core/database.py",
-             "bot/main.py", "web/admin_wsgi.py", "web/miniapp_api.py", "web/card_management.html", "data/card_dialogs.json"]
+             "bot/main.py", "web/admin_wsgi.py", "web/miniapp_api.py", "web/card_management.html", "data/card_dialogs.json",
+             "migrations/import_card_catalog.py", *sorted(package.CATALOG_FILES)]
     for name in names:
         path = root / name
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -62,6 +63,9 @@ def test_bundle_is_exact_and_excludes_data_and_settings(bundle):
     manifest = package.verify(archive, sha, "42")
     assert manifest["source_sha"] == sha
     assert "frontend/game/dist/assets/app.js" in manifest["files"]
+    assert package.CATALOG_FILES <= set(manifest['files'])
+    assert 'migrations/import_card_catalog.py' in manifest['files']
+    assert not package.allowed_path('content/unreviewed.json')
     assert not any("NEVER_SHIP" in name or name.endswith(".db") or name.startswith(".env") for name in manifest["files"])
     assert "frontend/game/dist/onboarding/private.webp" not in manifest["files"]
     with pytest.raises(ValueError, match="identity"):
