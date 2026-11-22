@@ -1,0 +1,1217 @@
+{
+  "profile_id": "easy-hidden-stats-20261122-v1",
+  "schema_version": 1,
+  "shared_across_forms": true,
+  "stat_keys": [
+    "funny",
+    "scary",
+    "charisma",
+    "cute",
+    "evil",
+    "leadership",
+    "survival",
+    "management"
+  ],
+  "scoring_basis": "امتیازهای تألیفی طراحی بازی؛ منابع فقط هویت و تصویر شخصیت را پشتیبانی می‌کنند و هیچ منبعی این عددها را اندازه‌گیری یا تأیید نکرده است. بدون تصادف، jitter یا استنتاج مکانیکی از تریت.",
+  "sources": {
+    "owner": {
+      "kind": "owner_description",
+      "description": "توضیح مستقیم مالک در گفتگوی ۲۲ نوامبر: دکتر استاپ، بیگ مسعود، داوود ززز، کامران اتابکی و تأیید هویت کومان."
+    },
+    "got": {
+      "kind": "official_reference",
+      "url": "https://www.hbomax.com/show/4f6b4985-2dc9-4ab6-ac79-d60f0860b0ac/cast-and-crew"
+    },
+    "boys": {
+      "kind": "official_reference",
+      "url": "https://www.aboutamazon.com/news/entertainment/the-boys-season-4-cast-guide-prime-video"
+    },
+    "bb": {
+      "kind": "official_reference",
+      "url": "https://www.sonypictures.com/tv/breakingbad"
+    },
+    "mike": {
+      "kind": "official_reference",
+      "url": "https://www.amc.com/blogs/watch-five-full-episodes-of-breaking-bad-featuring-the-best-of-mike--1008898"
+    },
+    "saul": {
+      "kind": "official_reference",
+      "url": "https://www.amc.com/blogs/relive-sauls-early-meetings-with-walter-white-with-breaking-bad-full-episodes--1008872?amp=true"
+    },
+    "patrick": {
+      "kind": "official_reference",
+      "url": "https://www.nick.com/info-page/8hz5p5/patrick-star"
+    },
+    "spongebob": {
+      "kind": "official_reference",
+      "url": "https://www.nick.com/info-page/xe31fl/spongebob-squarepants"
+    },
+    "kratos": {
+      "kind": "official_reference",
+      "url": "https://blog.playstation.com/2022/08/15/story-details-you-need-to-know-before-playing-god-of-war-ragnarok/"
+    },
+    "vader": {
+      "kind": "official_reference",
+      "url": "https://www.starwars.com/databank/darth-vader"
+    },
+    "re": {
+      "kind": "official_reference",
+      "url": "https://game.capcom.com/residentevil/uk/re-history.html"
+    },
+    "geralt": {
+      "kind": "official_reference",
+      "url": "https://www.thewitcher.com/us/en/witcher3"
+    },
+    "kouman": {
+      "kind": "creator_reference",
+      "url": "https://www.youtube.com/watch?v=qctnAVvts34"
+    },
+    "familiar": {
+      "kind": "editorial_interpretation",
+      "description": "برداشت طراحی از تصویر شناخته‌شدهٔ شخصیت و نقش او در اثر؛ این مرجع، اندازه‌گیری علمی یا ادعای تأیید رسمی امتیازها نیست."
+    }
+  },
+  "characters": [
+    {
+      "source_character_id": "char_001",
+      "name_fa": "تیریون لنیستر",
+      "values": {
+        "funny": 70,
+        "scary": 25,
+        "charisma": 95,
+        "cute": 40,
+        "evil": 25,
+        "leadership": 85,
+        "survival": 85,
+        "management": 95
+      },
+      "portrayal_fa": "تیریونِ سیاست‌ورز در Game of Thrones",
+      "rationale_fa": "زبان تیز، نفوذ کلام و ادارهٔ امور قوی؛ تهدید جسمی و خشونت شخصی پایین‌تر از جنگجوهاست.",
+      "source_ids": [
+        "got"
+      ]
+    },
+    {
+      "source_character_id": "char_002",
+      "name_fa": "ریک گرایمز",
+      "values": {
+        "funny": 20,
+        "scary": 85,
+        "charisma": 88,
+        "cute": 35,
+        "evil": 35,
+        "leadership": 95,
+        "survival": 95,
+        "management": 78
+      },
+      "portrayal_fa": "ریک گرایمزِ The Walking Dead",
+      "rationale_fa": "رهبر بازمانده‌ها و سازگار با بحران؛ برای حفاظت از گروه خشن می‌شود، اما مدیر سازمانی بی‌نقص نیست.",
+      "source_ids": [
+        "familiar"
+      ]
+    },
+    {
+      "source_character_id": "char_003",
+      "name_fa": "نیگن",
+      "values": {
+        "funny": 65,
+        "scary": 95,
+        "charisma": 93,
+        "cute": 10,
+        "evil": 85,
+        "leadership": 88,
+        "survival": 90,
+        "management": 82
+      },
+      "portrayal_fa": "نیگن، با وزن بیشتر دورهٔ ریاست ناجی‌ها",
+      "rationale_fa": "شوخی تلخ و سخنوری با ارعاب و بی‌رحمی همراه است؛ توان ادارهٔ گروه دارد ولی معصوم و نرم نیست.",
+      "source_ids": [
+        "familiar"
+      ]
+    },
+    {
+      "source_character_id": "char_004",
+      "name_fa": "بوچر",
+      "values": {
+        "funny": 65,
+        "scary": 88,
+        "charisma": 85,
+        "cute": 10,
+        "evil": 65,
+        "leadership": 82,
+        "survival": 90,
+        "management": 60
+      },
+      "portrayal_fa": "بیلی بوچرِ The Boys",
+      "rationale_fa": "زبان گزنده، انتقام‌جویی و رهبری عملیاتی؛ خشونت و بی‌ثباتی تصمیم‌ها مدیریت بلندمدت را پایین می‌آورد.",
+      "source_ids": [
+        "boys"
+      ]
+    },
+    {
+      "source_character_id": "char_005",
+      "name_fa": "هوملندر",
+      "values": {
+        "funny": 15,
+        "scary": 99,
+        "charisma": 90,
+        "cute": 5,
+        "evil": 99,
+        "leadership": 55,
+        "survival": 97,
+        "management": 25
+      },
+      "portrayal_fa": "هوملندرِ The Boys",
+      "rationale_fa": "حضور رسانه‌ای و ترس‌آفرینی بسیار بالا؛ خودخواهی و ناپایداری با مدیریت و رهبری سالم اشتباه نشده است.",
+      "source_ids": [
+        "boys"
+      ]
+    },
+    {
+      "source_character_id": "char_006",
+      "name_fa": "لاک‌پشت‌های نینجا",
+      "values": {
+        "funny": 85,
+        "scary": 65,
+        "charisma": 85,
+        "cute": 80,
+        "evil": 5,
+        "leadership": 78,
+        "survival": 90,
+        "management": 65
+      },
+      "portrayal_fa": "کارت گروهی چهار لاک‌پشت نینجا",
+      "rationale_fa": "شوخی و همکاری تیمی در کنار مهارت رزمی؛ هویت کارت گروه است، نه فقط لئوناردو یا مایکل‌آنجلو.",
+      "source_ids": [
+        "familiar"
+      ]
+    },
+    {
+      "source_character_id": "char_007",
+      "name_fa": "پاتریک",
+      "values": {
+        "funny": 97,
+        "scary": 5,
+        "charisma": 70,
+        "cute": 95,
+        "evil": 8,
+        "leadership": 15,
+        "survival": 65,
+        "management": 8
+      },
+      "portrayal_fa": "پاتریک استارِ انیمیشن",
+      "rationale_fa": "دوست‌داشتنی و بسیار خنده‌دار، ولی حواس‌پرت و نامناسب برای ادارهٔ کار یا هدایت گروه.",
+      "source_ids": [
+        "patrick"
+      ]
+    },
+    {
+      "source_character_id": "char_008",
+      "name_fa": "پهلوان پوریا (پوریای ولی)",
+      "values": {
+        "funny": 25,
+        "scary": 60,
+        "charisma": 88,
+        "cute": 55,
+        "evil": 3,
+        "leadership": 90,
+        "survival": 88,
+        "management": 75
+      },
+      "portrayal_fa": "پوریای ولی با پرسونای پهلوانِ اخلاقی و مربی",
+      "rationale_fa": "اقتدار از منش و راهنمایی می‌آید؛ زور و مهارت او به معنی شرارت یا ترساندن مردم نیست.",
+      "source_ids": [
+        "familiar"
+      ]
+    },
+    {
+      "source_character_id": "char_009",
+      "name_fa": "جان ویک",
+      "values": {
+        "funny": 10,
+        "scary": 94,
+        "charisma": 80,
+        "cute": 20,
+        "evil": 45,
+        "leadership": 45,
+        "survival": 98,
+        "management": 50
+      },
+      "portrayal_fa": "جان ویکِ فیلم‌ها",
+      "rationale_fa": "تهدید و جان‌سختی بسیار بالا؛ بیشتر جنگجوی تک‌رو است تا رهبر جمع یا مدیر سازمان.",
+      "source_ids": [
+        "familiar"
+      ]
+    },
+    {
+      "source_character_id": "char_010",
+      "name_fa": "جک اسپارو",
+      "values": {
+        "funny": 92,
+        "scary": 45,
+        "charisma": 95,
+        "cute": 45,
+        "evil": 40,
+        "leadership": 62,
+        "survival": 96,
+        "management": 28
+      },
+      "portrayal_fa": "جک اسپاروِ فیلم‌ها",
+      "rationale_fa": "بقا با زیرکی و خوش‌شانسی و نفوذ کلام؛ بی‌نظمی و وفاداری ناپایدار خدمه مدیریت را محدود می‌کند.",
+      "source_ids": [
+        "familiar"
+      ]
+    },
+    {
+      "source_character_id": "char_011",
+      "name_fa": "رستم",
+      "values": {
+        "funny": 15,
+        "scary": 95,
+        "charisma": 90,
+        "cute": 20,
+        "evil": 20,
+        "leadership": 88,
+        "survival": 98,
+        "management": 65
+      },
+      "portrayal_fa": "رستمِ روایت حماسی شاهنامه",
+      "rationale_fa": "ابهت، قهرمانی و دوام در خطر بالا؛ توان پهلوانی با مهارت اداری یا شرارت یکسان فرض نشده است.",
+      "source_ids": [
+        "familiar"
+      ]
+    },
+    {
+      "source_character_id": "char_012",
+      "name_fa": "جکی چان",
+      "values": {
+        "funny": 92,
+        "scary": 45,
+        "charisma": 90,
+        "cute": 65,
+        "evil": 5,
+        "leadership": 68,
+        "survival": 90,
+        "management": 60
+      },
+      "portrayal_fa": "پرسونای قهرمان کمدی‌اکشن جکی چان",
+      "rationale_fa": "مهارت بدنی و نجات از موقعیت سخت همراه با شوخی و گرمی؛ امتیاز مربوط به پرسونای سینمایی است.",
+      "source_ids": [
+        "familiar"
+      ]
+    },
+    {
+      "source_character_id": "char_013",
+      "name_fa": "هایزنبرگ",
+      "values": {
+        "funny": 25,
+        "scary": 88,
+        "charisma": 82,
+        "cute": 10,
+        "evil": 85,
+        "leadership": 65,
+        "survival": 85,
+        "management": 70
+      },
+      "portrayal_fa": "والتر وایت در پرسونای هایزنبرگ",
+      "rationale_fa": "تهدید روانی و عبور از مرز اخلاقی بالا؛ نبوغ علمی به مدیریت بی‌نقص یا رهبری پایدار تبدیل نشده است.",
+      "source_ids": [
+        "bb"
+      ]
+    },
+    {
+      "source_character_id": "char_014",
+      "name_fa": "مختار",
+      "values": {
+        "funny": 15,
+        "scary": 78,
+        "charisma": 88,
+        "cute": 20,
+        "evil": 35,
+        "leadership": 92,
+        "survival": 85,
+        "management": 85
+      },
+      "portrayal_fa": "مختارِ تصویر سریالی مختارنامه",
+      "rationale_fa": "فرماندهی و بسیج نیرو و سازمان‌دهی قوی؛ جدیت و خشونت انتقام از معصومیت و شوخی بیشتر است.",
+      "source_ids": [
+        "familiar"
+      ]
+    },
+    {
+      "source_character_id": "char_015",
+      "name_fa": "جومونگ",
+      "values": {
+        "funny": 20,
+        "scary": 75,
+        "charisma": 90,
+        "cute": 45,
+        "evil": 10,
+        "leadership": 96,
+        "survival": 93,
+        "management": 90
+      },
+      "portrayal_fa": "جومونگِ سریال تاریخی",
+      "rationale_fa": "رهبر و بنیان‌گذار با توان ادارهٔ نیرو؛ قهرمانی و پایداری بالا و شرارت پایین در روایت سریال.",
+      "source_ids": [
+        "familiar"
+      ]
+    },
+    {
+      "source_character_id": "char_016",
+      "name_fa": "لیان",
+      "values": {
+        "funny": 35,
+        "scary": 75,
+        "charisma": 85,
+        "cute": 50,
+        "evil": 8,
+        "leadership": 72,
+        "survival": 97,
+        "management": 65
+      },
+      "portrayal_fa": "لیان/Leon Kennedy در Resident Evil",
+      "rationale_fa": "بازمانده و مأمور ماهر با شوخی‌های کوتاه؛ در کار میدانی از ادارهٔ یک سازمان بزرگ قوی‌تر است.",
+      "source_ids": [
+        "re"
+      ]
+    },
+    {
+      "source_character_id": "char_017",
+      "name_fa": "بن تن",
+      "values": {
+        "funny": 75,
+        "scary": 68,
+        "charisma": 85,
+        "cute": 78,
+        "evil": 5,
+        "leadership": 65,
+        "survival": 92,
+        "management": 35
+      },
+      "portrayal_fa": "بن تنِ پرسونای نوجوان قهرمان",
+      "rationale_fa": "شوخی و انرژی و بقا با توان تبدیل‌شدن بالا؛ کم‌تجربگی و بی‌نظمی مدیریت را پایین نگه می‌دارد.",
+      "source_ids": [
+        "familiar"
+      ]
+    },
+    {
+      "source_character_id": "char_018",
+      "name_fa": "مستربین",
+      "values": {
+        "funny": 100,
+        "scary": 5,
+        "charisma": 78,
+        "cute": 90,
+        "evil": 12,
+        "leadership": 8,
+        "survival": 70,
+        "management": 5
+      },
+      "portrayal_fa": "مستربینِ کمدی",
+      "rationale_fa": "بالاترین لنگر بامزگی این بسته؛ خوش‌اقبالی به بقا کمک می‌کند ولی ادارهٔ کار و رهبری بسیار ضعیف است.",
+      "source_ids": [
+        "familiar"
+      ]
+    },
+    {
+      "source_character_id": "char_019",
+      "name_fa": "سی‌جی",
+      "values": {
+        "funny": 65,
+        "scary": 78,
+        "charisma": 85,
+        "cute": 35,
+        "evil": 60,
+        "leadership": 85,
+        "survival": 93,
+        "management": 75
+      },
+      "portrayal_fa": "کارل جانسون/CJ در San Andreas",
+      "rationale_fa": "شوخی، نفوذ خیابانی و دوام بالا؛ خشونت خلافکارانه دارد و می‌تواند گروه و کسب‌وکار را اداره کند.",
+      "source_ids": [
+        "familiar"
+      ]
+    },
+    {
+      "source_character_id": "char_020",
+      "name_fa": "دکتر استاپ",
+      "values": {
+        "funny": 92,
+        "scary": 40,
+        "charisma": 78,
+        "cute": 35,
+        "evil": 30,
+        "leadership": 25,
+        "survival": 45,
+        "management": 50
+      },
+      "portrayal_fa": "دکتر استاپ طبق توصیف مالک",
+      "rationale_fa": "پیرمرد عصبی و پرادعا اما سرگرم‌کننده؛ ثروت و فحاشی به‌تنهایی به معنی مدیریت عالی یا شرارت شدید نیست.",
+      "source_ids": [
+        "owner"
+      ]
+    },
+    {
+      "source_character_id": "char_021",
+      "name_fa": "استاد شیفو",
+      "values": {
+        "funny": 55,
+        "scary": 62,
+        "charisma": 88,
+        "cute": 85,
+        "evil": 5,
+        "leadership": 95,
+        "survival": 90,
+        "management": 92
+      },
+      "portrayal_fa": "استاد شیفوِ Kung Fu Panda",
+      "rationale_fa": "مربی مقتدر، منظم و مسئول تربیت شاگردان؛ کوچکی و طراحی کارتونی با مهارت و جدیت او جمع می‌شود.",
+      "source_ids": [
+        "familiar"
+      ]
+    },
+    {
+      "source_character_id": "char_022",
+      "name_fa": "پوتین",
+      "values": {
+        "funny": 15,
+        "scary": 78,
+        "charisma": 78,
+        "cute": 10,
+        "evil": 65,
+        "leadership": 88,
+        "survival": 82,
+        "management": 90
+      },
+      "portrayal_fa": "پرسونای سیاسیِ سختگیر پوتین در کارت بازی",
+      "rationale_fa": "اقتدار و ادارهٔ ساختار سیاسی محورند؛ عدد شرارت تعبیر طراحی از پرسونای قدرت‌محور بازی است، نه اندازه‌گیری شخصیت واقعی.",
+      "source_ids": [
+        "familiar"
+      ]
+    },
+    {
+      "source_character_id": "char_023",
+      "name_fa": "بیگ مسعود",
+      "values": {
+        "funny": 88,
+        "scary": 72,
+        "charisma": 95,
+        "cute": 80,
+        "evil": 45,
+        "leadership": 90,
+        "survival": 78,
+        "management": 85
+      },
+      "portrayal_fa": "بیگ مسعود با پرسونای ترکیبی موردنظر مالک",
+      "rationale_fa": "گرمی مجری کودک با اقتدار رئیس مافیاییِ میمی ترکیب شده؛ نسبت خلافکاری مربوط به نقش خیالی کارت است.",
+      "source_ids": [
+        "owner"
+      ]
+    },
+    {
+      "source_character_id": "char_024",
+      "name_fa": "مایک (بریکینگ بد)",
+      "values": {
+        "funny": 22,
+        "scary": 85,
+        "charisma": 78,
+        "cute": 20,
+        "evil": 55,
+        "leadership": 68,
+        "survival": 95,
+        "management": 95
+      },
+      "portrayal_fa": "مایک ارمنتراوت در Breaking Bad/Better Call Saul",
+      "rationale_fa": "حرفه‌ای، کم‌حرف و دقیق در امنیت و تدارکات؛ مهارت اجرایی و بقا از سخنوری و رهبری عمومی بیشتر است.",
+      "source_ids": [
+        "mike"
+      ]
+    },
+    {
+      "source_character_id": "char_025",
+      "name_fa": "ساول گودمن",
+      "values": {
+        "funny": 95,
+        "scary": 20,
+        "charisma": 96,
+        "cute": 45,
+        "evil": 60,
+        "leadership": 55,
+        "survival": 88,
+        "management": 90
+      },
+      "portrayal_fa": "ساول گودمن/Jimmy McGill",
+      "rationale_fa": "شوخی و متقاعدسازی و ادارهٔ پرونده و شبکه قوی؛ خطر جسمی پایین و اخلاق منفعت‌طلبانه است.",
+      "source_ids": [
+        "saul"
+      ]
+    },
+    {
+      "source_character_id": "char_026",
+      "name_fa": "سابزیرو",
+      "values": {
+        "funny": 8,
+        "scary": 92,
+        "charisma": 75,
+        "cute": 15,
+        "evil": 25,
+        "leadership": 85,
+        "survival": 96,
+        "management": 80
+      },
+      "portrayal_fa": "ساب‌زیروی کلاسیک/کوای‌لیانگ؛ نه بی‌هان شرور",
+      "rationale_fa": "جنگجوی سرد و استاد منظم با توان ادارهٔ گروه؛ نسخهٔ انتخاب‌شده باعث شرارت کمتر از شریدر و اسکورپین می‌شود.",
+      "source_ids": [
+        "familiar"
+      ]
+    },
+    {
+      "source_character_id": "char_027",
+      "name_fa": "کریتوس",
+      "values": {
+        "funny": 15,
+        "scary": 98,
+        "charisma": 82,
+        "cute": 15,
+        "evil": 45,
+        "leadership": 75,
+        "survival": 100,
+        "management": 45
+      },
+      "portrayal_fa": "کریتوس بالغ، با وزن بیشتر دورهٔ نورس",
+      "rationale_fa": "دوام افسانه‌ای و ابهت شدید با تلاش برای مهار خشم؛ در هدایت و حفاظت فردی از کار اداری قوی‌تر است.",
+      "source_ids": [
+        "kratos"
+      ]
+    },
+    {
+      "source_character_id": "char_028",
+      "name_fa": "پو (پاندای کونگ‌فوکار)",
+      "values": {
+        "funny": 90,
+        "scary": 55,
+        "charisma": 88,
+        "cute": 98,
+        "evil": 3,
+        "leadership": 82,
+        "survival": 96,
+        "management": 50
+      },
+      "portrayal_fa": "پوِ Kung Fu Panda در مقام جنگجوی اژدها",
+      "rationale_fa": "بامزه، بسیار دوست‌داشتنی و جان‌سخت؛ رشد قهرمانی و الهام‌بخشی بالا اما نظم اداری متوسط است.",
+      "source_ids": [
+        "familiar"
+      ]
+    },
+    {
+      "source_character_id": "char_029",
+      "name_fa": "شریدر",
+      "values": {
+        "funny": 8,
+        "scary": 94,
+        "charisma": 80,
+        "cute": 5,
+        "evil": 95,
+        "leadership": 88,
+        "survival": 92,
+        "management": 88
+      },
+      "portrayal_fa": "شریدر، رهبر دشمن لاک‌پشت‌ها",
+      "rationale_fa": "رهبر سازمان‌یافته و ترسناک با خشونت و خصومت شدید؛ طراحی حیوانی یا نقاب با کیوتی اشتباه نشده است.",
+      "source_ids": [
+        "familiar"
+      ]
+    },
+    {
+      "source_character_id": "char_030",
+      "name_fa": "آرتور مورگان",
+      "values": {
+        "funny": 48,
+        "scary": 82,
+        "charisma": 90,
+        "cute": 30,
+        "evil": 45,
+        "leadership": 75,
+        "survival": 90,
+        "management": 60
+      },
+      "portrayal_fa": "آرتور مورگانِ Red Dead Redemption 2",
+      "rationale_fa": "جذابیت و شوخی خشک و دوام میدانی؛ ضدقهرمان وفادار با خشونت، نه مدیر اصلی باند.",
+      "source_ids": [
+        "familiar"
+      ]
+    },
+    {
+      "source_character_id": "char_031",
+      "name_fa": "دارث ویدر",
+      "values": {
+        "funny": 8,
+        "scary": 99,
+        "charisma": 88,
+        "cute": 5,
+        "evil": 88,
+        "leadership": 92,
+        "survival": 97,
+        "management": 78
+      },
+      "portrayal_fa": "دارت ویدرِ زره‌پوش امپراتوری",
+      "rationale_fa": "ارعاب و فرماندهی و بقا بسیار بالا؛ ظرفیت بازگشت انسانی مانع هم‌ردیف‌کردن شرارتش با شرورترین‌هاست.",
+      "source_ids": [
+        "vader"
+      ]
+    },
+    {
+      "source_character_id": "char_032",
+      "name_fa": "مایکل اسکافیلد",
+      "values": {
+        "funny": 15,
+        "scary": 35,
+        "charisma": 82,
+        "cute": 45,
+        "evil": 25,
+        "leadership": 88,
+        "survival": 96,
+        "management": 96
+      },
+      "portrayal_fa": "مایکل اسکافیلدِ Prison Break",
+      "rationale_fa": "طراحی عملیات، هماهنگی نفرات و بقا با نقشه‌ریزی بسیار قوی؛ ترس‌آفرینی جسمی نقش اصلی او نیست.",
+      "source_ids": [
+        "familiar"
+      ]
+    },
+    {
+      "source_character_id": "char_033",
+      "name_fa": "تی‌بگ",
+      "values": {
+        "funny": 45,
+        "scary": 92,
+        "charisma": 72,
+        "cute": 5,
+        "evil": 98,
+        "leadership": 40,
+        "survival": 88,
+        "management": 25
+      },
+      "portrayal_fa": "تی‌بگِ Prison Break",
+      "rationale_fa": "تهدید و سوءاستفاده و فرصت‌طلبی شدید؛ دوام از فریب می‌آید و با مدیریت یا رهبری قابل‌اتکا یکی نیست.",
+      "source_ids": [
+        "familiar"
+      ]
+    },
+    {
+      "source_character_id": "char_034",
+      "name_fa": "شیرفرهاد",
+      "values": {
+        "funny": 95,
+        "scary": 15,
+        "charisma": 85,
+        "cute": 65,
+        "evil": 20,
+        "leadership": 48,
+        "survival": 55,
+        "management": 35
+      },
+      "portrayal_fa": "شیرفرهادِ شب‌های برره",
+      "rationale_fa": "کمدی و گرمی و رفتار روستاییِ نمایشی؛ تصمیم‌گیری و ادارهٔ امور از محبوبیت کم‌ثبات‌تر است.",
+      "source_ids": [
+        "familiar"
+      ]
+    },
+    {
+      "source_character_id": "char_035",
+      "name_fa": "شرک",
+      "values": {
+        "funny": 82,
+        "scary": 75,
+        "charisma": 80,
+        "cute": 75,
+        "evil": 12,
+        "leadership": 55,
+        "survival": 93,
+        "management": 35
+      },
+      "portrayal_fa": "شرکِ انیمیشن",
+      "rationale_fa": "ظاهر ترسناک و شوخی تند با قلب مهربان و دوام بالا؛ بیشتر منزوی است تا مدیر جمع.",
+      "source_ids": [
+        "familiar"
+      ]
+    },
+    {
+      "source_character_id": "char_036",
+      "name_fa": "نقی معمولی",
+      "values": {
+        "funny": 95,
+        "scary": 20,
+        "charisma": 85,
+        "cute": 55,
+        "evil": 22,
+        "leadership": 58,
+        "survival": 72,
+        "management": 40
+      },
+      "portrayal_fa": "نقی معمولیِ پایتخت",
+      "rationale_fa": "بامزگی و نفوذ خانوادگی بالا؛ خودرأیی و تصمیم‌های عجولانه رهبری و مدیریت را محدود می‌کند.",
+      "source_ids": [
+        "familiar"
+      ]
+    },
+    {
+      "source_character_id": "char_037",
+      "name_fa": "داوود ززز",
+      "values": {
+        "funny": 97,
+        "scary": 5,
+        "charisma": 62,
+        "cute": 78,
+        "evil": 8,
+        "leadership": 12,
+        "survival": 75,
+        "management": 8
+      },
+      "portrayal_fa": "داوود ززز طبق توصیف مالک",
+      "rationale_fa": "خنده‌دار و دست‌وپاچلفتی با خوش‌شانسی؛ بقا با شانس بالا می‌رود ولی مدیریت و رهبری پایین می‌ماند.",
+      "source_ids": [
+        "owner"
+      ]
+    },
+    {
+      "source_character_id": "char_038",
+      "name_fa": "تایلانگ",
+      "values": {
+        "funny": 15,
+        "scary": 95,
+        "charisma": 78,
+        "cute": 25,
+        "evil": 82,
+        "leadership": 55,
+        "survival": 96,
+        "management": 40
+      },
+      "portrayal_fa": "تای‌لانگِ Kung Fu Panda",
+      "rationale_fa": "مبارز بسیار خطرناک و خشمگین؛ توان رزمی و دوام به مهارت رهبری یا ادارهٔ جمع تبدیل نشده است.",
+      "source_ids": [
+        "familiar"
+      ]
+    },
+    {
+      "source_character_id": "char_039",
+      "name_fa": "اتزیو",
+      "values": {
+        "funny": 45,
+        "scary": 82,
+        "charisma": 95,
+        "cute": 45,
+        "evil": 30,
+        "leadership": 95,
+        "survival": 96,
+        "management": 90
+      },
+      "portrayal_fa": "اتزیوی بالغ در نقش Mentor",
+      "rationale_fa": "نفوذ کلام، تجربهٔ میدانی و رهبری برادری قوی؛ خشونت هدفمند او با شرارت افراطی یکسان نیست.",
+      "source_ids": [
+        "familiar"
+      ]
+    },
+    {
+      "source_character_id": "char_040",
+      "name_fa": "آلبرت وسکر",
+      "values": {
+        "funny": 10,
+        "scary": 97,
+        "charisma": 80,
+        "cute": 5,
+        "evil": 99,
+        "leadership": 82,
+        "survival": 97,
+        "management": 92
+      },
+      "portrayal_fa": "آلبرت وسکرِ Resident Evil",
+      "rationale_fa": "تهدید، نقشه‌ریزی و خشونت افراطی با ظرفیت سازمان‌دهی بالا؛ اعتمادپذیری یا معصومیت ندارد.",
+      "source_ids": [
+        "re"
+      ]
+    },
+    {
+      "source_character_id": "char_041",
+      "name_fa": "کامران اتابکی",
+      "values": {
+        "funny": 55,
+        "scary": 20,
+        "charisma": 65,
+        "cute": 30,
+        "evil": 20,
+        "leadership": 50,
+        "survival": 50,
+        "management": 70
+      },
+      "portrayal_fa": "کامران اتابکی طبق توصیف مالک",
+      "rationale_fa": "پیرمرد با ذهن سیاسی و مدیریت نسبتاً خوب؛ توان بدنی پایین است و صرف سیاست‌فهمی شرارت بالا محسوب نمی‌شود.",
+      "source_ids": [
+        "owner"
+      ]
+    },
+    {
+      "source_character_id": "char_042",
+      "name_fa": "ترمیناتور",
+      "values": {
+        "funny": 3,
+        "scary": 98,
+        "charisma": 35,
+        "cute": 3,
+        "evil": 90,
+        "leadership": 15,
+        "survival": 99,
+        "management": 25
+      },
+      "portrayal_fa": "T-800 شکارچی در نسخهٔ اول Terminator",
+      "rationale_fa": "ماشین تعقیب و حذف با دوام بسیار بالا؛ پرسونای هدف‌گیرنده است، نه نسخهٔ محافظ و شوخ‌تر فیلم دوم.",
+      "source_ids": [
+        "familiar"
+      ]
+    },
+    {
+      "source_character_id": "char_043",
+      "name_fa": "جول",
+      "values": {
+        "funny": 20,
+        "scary": 88,
+        "charisma": 78,
+        "cute": 35,
+        "evil": 55,
+        "leadership": 65,
+        "survival": 97,
+        "management": 65
+      },
+      "portrayal_fa": "جوئلِ The Last of Us",
+      "rationale_fa": "بقای عملی، خشونت و محافظت از نزدیکان بالا؛ مهارت گروه کوچک از رهبری جامعه و مدیریت کلان قوی‌تر است.",
+      "source_ids": [
+        "familiar"
+      ]
+    },
+    {
+      "source_character_id": "char_044",
+      "name_fa": "شرلوک هلمز",
+      "values": {
+        "funny": 45,
+        "scary": 30,
+        "charisma": 78,
+        "cute": 40,
+        "evil": 20,
+        "leadership": 60,
+        "survival": 82,
+        "management": 65
+      },
+      "portrayal_fa": "شرلوک هلمزِ کارآگاه",
+      "rationale_fa": "شوخی خشک و نفوذ ذهنی و حل خطر؛ نبوغ استنتاج با مدیریت سازمانی بی‌نقص یکسان فرض نشده است.",
+      "source_ids": [
+        "familiar"
+      ]
+    },
+    {
+      "source_character_id": "char_045",
+      "name_fa": "گوست",
+      "values": {
+        "funny": 18,
+        "scary": 92,
+        "charisma": 80,
+        "cute": 15,
+        "evil": 25,
+        "leadership": 82,
+        "survival": 96,
+        "management": 78
+      },
+      "portrayal_fa": "گوستِ Call of Duty",
+      "rationale_fa": "حضور نقاب‌دار ترسناک و انضباط میدانی؛ نقش نظامی و مهارت بقا به معنی شرارت افراطی نیست.",
+      "source_ids": [
+        "familiar"
+      ]
+    },
+    {
+      "source_character_id": "char_046",
+      "name_fa": "باب اسفنجی",
+      "values": {
+        "funny": 99,
+        "scary": 5,
+        "charisma": 85,
+        "cute": 98,
+        "evil": 2,
+        "leadership": 35,
+        "survival": 75,
+        "management": 55
+      },
+      "portrayal_fa": "باب اسفنجیِ انیمیشن",
+      "rationale_fa": "شوخ و مهربان و بسیار دوست‌داشتنی؛ پشتکار کاری بالا است اما آشفتگی تصمیم‌ها رهبری را پایین نگه می‌دارد.",
+      "source_ids": [
+        "spongebob"
+      ]
+    },
+    {
+      "source_character_id": "char_047",
+      "name_fa": "مسترچیف",
+      "values": {
+        "funny": 8,
+        "scary": 88,
+        "charisma": 82,
+        "cute": 15,
+        "evil": 5,
+        "leadership": 92,
+        "survival": 99,
+        "management": 80
+      },
+      "portrayal_fa": "مسترچیفِ Halo",
+      "rationale_fa": "سرباز فداکار و بسیار جان‌سخت با هدایت میدانی قوی؛ کم‌حرفی و جدیت از بامزگی و کیوتی بیشتر است.",
+      "source_ids": [
+        "familiar"
+      ]
+    },
+    {
+      "source_character_id": "char_048",
+      "name_fa": "کاپیتان پرایس",
+      "values": {
+        "funny": 30,
+        "scary": 85,
+        "charisma": 92,
+        "cute": 25,
+        "evil": 30,
+        "leadership": 98,
+        "survival": 96,
+        "management": 95
+      },
+      "portrayal_fa": "کاپیتان پرایسِ Modern Warfare",
+      "rationale_fa": "لنگر رهبری عملیاتی و سازمان‌دهی مأموریت؛ خشونت وظیفه‌محور با شرارت مطلق یکی نیست.",
+      "source_ids": [
+        "familiar"
+      ]
+    },
+    {
+      "source_character_id": "char_049",
+      "name_fa": "رگنار",
+      "values": {
+        "funny": 45,
+        "scary": 88,
+        "charisma": 96,
+        "cute": 30,
+        "evil": 60,
+        "leadership": 96,
+        "survival": 92,
+        "management": 75
+      },
+      "portrayal_fa": "رگنار لاثبروکِ Vikings",
+      "rationale_fa": "نفوذ و جاه‌طلبی و رهبری جنگی بسیار بالا؛ تصمیم‌های پرریسک و نوسان رفتاری مدیریت را محدود می‌کنند.",
+      "source_ids": [
+        "familiar"
+      ]
+    },
+    {
+      "source_character_id": "char_050",
+      "name_fa": "ارباب شن",
+      "values": {
+        "funny": 15,
+        "scary": 95,
+        "charisma": 85,
+        "cute": 20,
+        "evil": 99,
+        "leadership": 90,
+        "survival": 88,
+        "management": 95
+      },
+      "portrayal_fa": "ارباب شنِ Kung Fu Panda 2",
+      "rationale_fa": "فرمانروای وسواسی و بی‌رحم با صنعت و ارتش سازمان‌یافته؛ زیبایی پرها به معصومیت تعبیر نشده است.",
+      "source_ids": [
+        "familiar"
+      ]
+    },
+    {
+      "source_character_id": "char_051",
+      "name_fa": "نادرشاه",
+      "values": {
+        "funny": 15,
+        "scary": 88,
+        "charisma": 88,
+        "cute": 15,
+        "evil": 65,
+        "leadership": 96,
+        "survival": 90,
+        "management": 82
+      },
+      "portrayal_fa": "پرسونای نادرشاهِ فرمانده تاریخی در بازی",
+      "rationale_fa": "فرماندهی و ابهت و دوام نظامی بالا؛ اقتدار سختگیرانه از نرمی و شوخی بیشتر است.",
+      "source_ids": [
+        "familiar"
+      ]
+    },
+    {
+      "source_character_id": "char_052",
+      "name_fa": "لالو سالامانکا",
+      "values": {
+        "funny": 55,
+        "scary": 92,
+        "charisma": 93,
+        "cute": 15,
+        "evil": 95,
+        "leadership": 82,
+        "survival": 95,
+        "management": 85
+      },
+      "portrayal_fa": "لالو سالامانکاِ Better Call Saul",
+      "rationale_fa": "لبخند و جذابیت پوشش تهدید و بی‌رحمی است؛ هم بقا و هم سازمان‌دهیِ عملیاتی بالاست.",
+      "source_ids": [
+        "familiar"
+      ]
+    },
+    {
+      "source_character_id": "char_053",
+      "name_fa": "جان اسنو",
+      "values": {
+        "funny": 20,
+        "scary": 78,
+        "charisma": 92,
+        "cute": 45,
+        "evil": 8,
+        "leadership": 96,
+        "survival": 93,
+        "management": 60
+      },
+      "portrayal_fa": "جان اسنوِ Game of Thrones",
+      "rationale_fa": "الهام‌بخشی و فداکاری و دوام بالا؛ دشواری بازی سیاسی و ادارهٔ ائتلاف از رهبری اخلاقی جداست.",
+      "source_ids": [
+        "got"
+      ]
+    },
+    {
+      "source_character_id": "char_054",
+      "name_fa": "زئوس",
+      "values": {
+        "funny": 15,
+        "scary": 98,
+        "charisma": 92,
+        "cute": 10,
+        "evil": 65,
+        "leadership": 96,
+        "survival": 99,
+        "management": 85
+      },
+      "portrayal_fa": "زئوسِ اساطیر یونان؛ نه فقط باس God of War",
+      "rationale_fa": "ابهت و اقتدار و دوام فراانسانی بالا؛ خودکامگی و خلق متغیر در پرسونای اسطوره‌ای مانع معصومیت است.",
+      "source_ids": [
+        "familiar"
+      ]
+    },
+    {
+      "source_character_id": "char_055",
+      "name_fa": "گرالت (ویچر)",
+      "values": {
+        "funny": 42,
+        "scary": 92,
+        "charisma": 85,
+        "cute": 30,
+        "evil": 20,
+        "leadership": 60,
+        "survival": 99,
+        "management": 60
+      },
+      "portrayal_fa": "گرالتِ ویچرِ بازی‌ها",
+      "rationale_fa": "شکارچی هیولا و بسیار باتجربه با طنز خشک؛ تک‌روی و کار قراردادی از مدیریت جمع قوی‌تر است.",
+      "source_ids": [
+        "geralt"
+      ]
+    },
+    {
+      "source_character_id": "char_056",
+      "name_fa": "کومان (کوروش و ایمان؛ یک کارت)",
+      "values": {
+        "funny": 97,
+        "scary": 5,
+        "charisma": 92,
+        "cute": 82,
+        "evil": 3,
+        "leadership": 68,
+        "survival": 50,
+        "management": 82
+      },
+      "portrayal_fa": "کومان، کوروش و ایمان به‌صورت یک کارت",
+      "rationale_fa": "کمدی و ارتباط با مخاطب و کار تیم تولید قوی؛ مهارت رسانه‌ای به بقای جنگی یا ترس‌آفرینی تعمیم داده نشده است.",
+      "source_ids": [
+        "owner",
+        "kouman"
+      ]
+    },
+    {
+      "source_character_id": "char_057",
+      "name_fa": "ناپلئون",
+      "values": {
+        "funny": 20,
+        "scary": 78,
+        "charisma": 93,
+        "cute": 15,
+        "evil": 50,
+        "leadership": 98,
+        "survival": 82,
+        "management": 97
+      },
+      "portrayal_fa": "پرسونای ناپلئونِ فرمانده و سازمان‌دهنده در بازی",
+      "rationale_fa": "لنگر فرماندهی و مدیریت کلان؛ بلندپروازی نظامی با کیوتی یا بی‌خطر بودن یکی نیست.",
+      "source_ids": [
+        "familiar"
+      ]
+    },
+    {
+      "source_character_id": "char_058",
+      "name_fa": "سولجربوی",
+      "values": {
+        "funny": 40,
+        "scary": 97,
+        "charisma": 82,
+        "cute": 10,
+        "evil": 92,
+        "leadership": 55,
+        "survival": 99,
+        "management": 35
+      },
+      "portrayal_fa": "سولجربویِ The Boys",
+      "rationale_fa": "شوخی زمخت و دوام و ارعاب بسیار بالا؛ ریاست سابق یک تیم با رهبری سالم و مدیریت پایدار برابر نیست.",
+      "source_ids": [
+        "boys"
+      ]
+    },
+    {
+      "source_character_id": "char_059",
+      "name_fa": "گاس فرینگ",
+      "values": {
+        "funny": 15,
+        "scary": 92,
+        "charisma": 88,
+        "cute": 5,
+        "evil": 95,
+        "leadership": 92,
+        "survival": 88,
+        "management": 100
+      },
+      "portrayal_fa": "گاس فرینگِ Breaking Bad/Better Call Saul",
+      "rationale_fa": "لنگر مدیریت دقیق، پوشش منظم و سازمان‌دهی؛ خونسردی با بی‌خطر بودن یا اخلاق خوب اشتباه نشده است.",
+      "source_ids": [
+        "mike"
+      ]
+    },
+    {
+      "source_character_id": "char_060",
+      "name_fa": "اسکورپین",
+      "values": {
+        "funny": 10,
+        "scary": 98,
+        "charisma": 80,
+        "cute": 10,
+        "evil": 45,
+        "leadership": 85,
+        "survival": 99,
+        "management": 75
+      },
+      "portrayal_fa": "اسکورپینِ کلاسیک/هانزو هاساشی",
+      "rationale_fa": "انتقام و تصویر جهنمی ترسناک با دوام فراانسانی؛ انسانیت و نقش استاد گروه شرارت را از شرورترین‌ها جدا می‌کند.",
+      "source_ids": [
+        "familiar"
+      ]
+    }
+  ]
+}

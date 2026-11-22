@@ -1243,7 +1243,7 @@ class BasicHandlersMixin:
                 from bot.battle_visual_delivery import work, read_bitmap
                 from bot.card_reward_presentation import sticker_bytes
                 try:
-                    raw = await work(context, read_bitmap, owned.image_path)
+                    raw = await work(context, read_bitmap, owned.image_path, True)
                     sticker = BytesIO(await work(context, sticker_bytes, raw))
                     sticker.name = 'custom-card.webp'
                     from bot.card_sticker_details import button

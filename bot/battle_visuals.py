@@ -73,13 +73,13 @@ def wrapped(text, width, size):
     return lines
 
 
-def safe_bitmap(raw):
+def safe_bitmap(raw, *, preserve_alpha=False):
     if not raw or len(raw) > 8 * 1024 * 1024:
         raise ValueError('bitmap_size_limit')
     with Image.open(BytesIO(raw)) as original:
         if original.width * original.height > 16_000_000:
             raise ValueError('bitmap_pixel_limit')
-        return ImageOps.exif_transpose(original).convert('RGB')
+        return ImageOps.exif_transpose(original).convert('RGBA' if preserve_alpha else 'RGB')
 
 
 def background(arena_id):
@@ -100,9 +100,12 @@ def panel(image, box, outline='#41546e'):
     image.paste(layer, mask=layer.getchannel('A'))
 
 
-def encode(image):
+def encode(image, *, preserve_alpha=False):
     stream = BytesIO()
-    image.save(stream, 'JPEG', quality=87, optimize=True)
+    if preserve_alpha:
+        image.save(stream, 'PNG')
+    else:
+        image.save(stream, 'JPEG', quality=87, optimize=True)
     return stream.getvalue()
 
 
