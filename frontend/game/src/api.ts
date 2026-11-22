@@ -65,12 +65,30 @@ export interface SkinData {
   price: number; description?: string; unlocked: number | boolean;
 }
 export interface SkinCollection { ok: boolean; active_skin_id: string | null; skins: SkinData[]; }
+export interface AvatarFace {
+  card_id: string | null; rarity: string | null; name: string; image_url: string;
+  kind: 'portrait' | 'legacy'; scale: number; offset_x: number; offset_y: number;
+}
+export interface AvatarItem {
+  item_id: string; kind: 'frame' | 'background'; title: string; price: number;
+  free: boolean; enabled: boolean; for_sale: boolean; owned: boolean; ready: boolean;
+  image_url: string; mask?: {image_url: string}; color?: string;
+}
+export interface AvatarAppearance {
+  slot: 'profile' | 'easy' | 'deck'; inherit_profile: boolean;
+  face: AvatarFace; frame: AvatarItem; background: AvatarItem;
+}
+export interface AvatarCatalog {
+  items: AvatarItem[]; faces: AvatarFace[];
+  selections: Record<AvatarAppearance['slot'], AvatarAppearance>;
+}
 export interface FusionPreview {
   ok: boolean; target_rarity: "epic" | "legend"; source_rarity: "normal" | "epic";
   retained_card_id: string; consumed_card_ids: string[]; cards: CardData[]; xp: number;
 }
 
 export interface ProfileData {
+  avatar?: { image_url: string };
   progression_v2_enabled?: boolean;
   economy?: { items: Record<string, number>; capacity: { slots: number; max_hearts: number }; shop: Record<string, { enabled: boolean }>; daily_ticket_percent: number; silver_claim_tickets: number };
   user_id?: number;
@@ -355,9 +373,26 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return data as T;
 }
 
+const avatarImages = new Map<string, Promise<string>>();
+window.addEventListener('beforeunload', () => { for (const image of avatarImages.values()) void image.then(URL.revokeObjectURL); });
+
 async function resolvePrivateImages(value: unknown): Promise<void> {
   if (!value || typeof value !== "object") return;
   const item = value as Record<string, unknown>;
+  if (typeof item.image_url === 'string' && item.image_url.startsWith('/api/v1/avatar/')) {
+    const src = item.image_url;
+    const key = JSON.stringify(authHeaders()) + src;
+    const dynamic = src.includes('/render?');
+    const load = async () => {
+      const response = await fetch(src, {headers: authHeaders(), cache: 'no-store'});
+      if (!response.ok) return '';
+      return URL.createObjectURL(await response.blob());
+    };
+    if (!dynamic && !avatarImages.has(key)) avatarImages.set(key, load().catch(() => ''));
+    try { item.image_url = await (dynamic ? load() : avatarImages.get(key)!); } catch { item.image_url = ''; }
+    if (!item.image_url) avatarImages.delete(key);
+    if (dynamic && item.image_url) window.setTimeout(() => URL.revokeObjectURL(String(item.image_url)), 120_000);
+  }
   if (typeof item.image_url === "string" && item.image_url.startsWith("/api/v1/custom/cards/")) {
     try { const response = await fetch(item.image_url, { headers: authHeaders(), cache:"no-store" }); if (!response.ok) throw Error(); const url = URL.createObjectURL(await response.blob()); item.image_url=url; window.setTimeout(()=>URL.revokeObjectURL(url),60_000); } catch { item.image_url=""; }
   }
@@ -387,6 +422,12 @@ async function requestCardAction<T>(path: string, body: Record<string, unknown>)
 }
 
 export const api = {
+  async avatars(): Promise<AvatarCatalog> { return request('GET', '/avatar'); },
+  async saveAvatar(value: AvatarAppearance): Promise<AvatarCatalog> {
+    return request('PUT', '/avatar', {slot:value.slot,inherit_profile:value.inherit_profile,
+      card_id:value.face.card_id,rarity:value.face.rarity,frame_id:value.frame.item_id,
+      background_id:value.background.item_id});
+  },
   async customSettings(): Promise<{ quick_friendly_enabled: boolean; order_contact?: string | null }> { return request("GET","/custom/settings"); },
   async economyQuote(item: string): Promise<{ quote_id: string; price: number; config_version: number }> {
     return request('POST', '/economy/quote', { item });

@@ -16,12 +16,12 @@ async def handle(bot, update, context):
         slot = data.removeprefix('style_preview_')
         if slot not in card_avatars.SLOTS:
             return
+        from systems.avatar_cosmetics import render
         choice = card_avatars.selected(bot.db, query.from_user.id, slot)
-        if choice:
-            if slot == 'profile':
-                await query.message.reply_photo(photo=BytesIO(choice['path'].read_bytes()), caption='👤 پیش‌نمایش آواتار پروفایل')
-            else:
-                await card_avatars.send_sticker(bot, context, query.from_user.id, query.from_user.id, slot)
+        if slot == 'profile':
+            await query.message.reply_photo(photo=BytesIO(render(bot.db,query.from_user.id,slot)), caption='👤 پیش‌نمایش آواتار پروفایل')
+        else:
+            await card_avatars.send_sticker(bot, context, query.from_user.id, query.from_user.id, slot)
         if slot == 'profile':
             message = 'هنوز آواتار پروفایل انتخاب نکرده‌ای.' if not choice else 'آمار و رتبه‌ها هنگام نمایش پروفایل زیر عکس می‌آیند.'
         elif slot == 'easy':
@@ -62,6 +62,9 @@ async def handle(bot, update, context):
     context.user_data.pop('easy_victory_draft', None)
     context.user_data.pop('deck_victory_draft', None)
     rows = []
+    from bot.avatar_links import button as avatar_button
+    entry = avatar_button(bot)
+    if entry: rows.append([entry])
     for slot, name in (('profile', 'پروفایل'), ('easy', 'برد ایزی'), ('deck', 'برد دک')):
         choice = card_avatars.selected(bot.db, query.from_user.id, slot)
         title = choice['card'].name if choice else 'انتخاب نشده'
@@ -70,5 +73,5 @@ async def handle(bot, update, context):
     rows.extend([[Button('💬 شعار برد ایزی', callback_data='easy_victory_menu'), Button('💬 شعار برد دک', callback_data='deck_victory_menu')],
                  [Button('🎙 ویس / متن شعار کارت', callback_data='style_voices')],
                  [Button('🔙 پروفایل', callback_data='easy_profile')]])
-    await query.edit_message_text('🎭 ظاهر و برد\n\nآواتار پروفایل، برد ایزی و برد دک مستقل‌اند. '
+    await query.edit_message_text('🎭 ظاهر و برد\n\nآواتار برد ایزی و دک می‌تواند از پروفایل پیروی کند یا جدا انتخاب شود. '
                                  'انتخاب‌ها و پیش‌نمایش‌ها فقط برای خودت در پیوی‌اند.', reply_markup=Markup(rows))

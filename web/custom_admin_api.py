@@ -66,7 +66,7 @@ def register_custom_admin(api):
         upload = request.files.get('image')
         if not upload:
             return jsonify(error='image_required'), 400
-        save_upload(api.db, card_id, 'legend', upload.read(8 * 1024 * 1024 + 1))
+        save_upload(api.db, card_id, 'legend', upload.read(8 * 1024 * 1024 + 1), request.form.get('kind','legacy'))
         return jsonify(message='آواتار لجند ذخیره شد.'), 200
 
     @api.app.route('/api/custom/<action>',methods=['POST'])

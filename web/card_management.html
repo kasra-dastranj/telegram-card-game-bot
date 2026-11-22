@@ -109,7 +109,7 @@
         </div>
         <div><h1>مدیریت کارت‌های TelBattle</h1><p>ویرایش داده‌های پایه و مودهای Quick، Deck و Easy</p></div>
       </div>
-      <div class="actions"><a class="btn" href="easter-eggs">🥚 ایستراگ‌ها</a><a class="btn" href="rare-cards">🌟 تحویل Rare</a><a class="btn" href="victory-voices">🎙 ویس کارت‌های Legend</a><a class="btn" href="custom-cards">کارت‌های سفارشی</a><a class="btn" href="group-attacks">حمله‌های گروهی</a><a class="btn" href="easy-questions">سؤال‌های ایزی‌مود</a><a class="btn" href="arenas">مدیریت زمین‌ها</a><button id="refreshBtn" class="btn" type="button" aria-label="بارگذاری دوباره کارت‌ها">
+      <div class="actions"><a class="btn" href="avatar-items">🎨 قاب و پس‌زمینه</a><a class="btn" href="easter-eggs">🥚 ایستراگ‌ها</a><a class="btn" href="rare-cards">🌟 تحویل Rare</a><a class="btn" href="victory-voices">🎙 ویس کارت‌های Legend</a><a class="btn" href="custom-cards">کارت‌های سفارشی</a><a class="btn" href="group-attacks">حمله‌های گروهی</a><a class="btn" href="easy-questions">سؤال‌های ایزی‌مود</a><a class="btn" href="arenas">مدیریت زمین‌ها</a><button id="refreshBtn" class="btn" type="button" aria-label="بارگذاری دوباره کارت‌ها">
         <svg class="icon" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg> بروزرسانی
       </button></div>
     </header>
@@ -202,7 +202,7 @@
               </div>
               <div class="field full"><label for="photoFileId">Telegram Photo file_id</label><input id="photoFileId" class="input" dir="ltr"><span class="hint">اختیاری؛ برای Inline Picker بدون آپلود دوباره.</span></div>
               <div class="field full"><label for="stickerFileId">Telegram Sticker file_id</label><input id="stickerFileId" class="input" dir="ltr"><span class="hint">اگر وارد شود، Easy و Deck مستقیماً از Sticker تلگرام استفاده می‌کنند.</span></div>
-              <div id="avatarUpload" class="field full upload" hidden><label for="avatarFile">آواتار شخصیت برای فرم Legend یا Rare</label><input id="avatarFile" class="input" type="file" accept="image/png,image/jpeg,image/webp"><div id="avatarPreview" class="preview" style="margin-top:8px">هنوز آواتاری ثبت نشده است.</div><span class="hint">تصویر نهایی را خودت آماده کن. پس از ذخیرهٔ کارت، آواتار جدا از تصویر کارت بارگذاری می‌شود و برای پروفایل و استیکر برد در دسترس مالکان قرار می‌گیرد.</span></div>
+              <div id="avatarUpload" class="field full upload" hidden><label for="avatarFile">سر شخصیت برای فرم Legend یا Rare</label><input id="avatarFile" class="input" type="file" accept="image/png,image/jpeg,image/webp"><label for="avatarKind">نوع تصویر</label><select id="avatarKind" class="input"><option value="portrait">سر شفاف بدون قاب و پس‌زمینه</option><option value="legacy">تصویر کامل قدیمی</option></select><div id="avatarPreview" class="preview" style="margin-top:8px">هنوز آواتاری ثبت نشده است.</div><span class="hint">سرِ شفاف را اینجا آپلود کن؛ قاب و پس‌زمینه جداگانه از بخش «قاب و پس‌زمینه» مدیریت می‌شوند. آپلود فقط برای مالکان همین Legend یا Rare قابل استفاده است. تصویر کامل قدیمی هم پشتیبانی می‌شود.</span></div>
             </div>
           </div>
 
@@ -423,7 +423,7 @@
     }
     async function saveCard(event) {
       event.preventDefault(); if (state.busy) return;
-      try { const payload = collectPayload(); setBusy(true); const suffix = state.currentRarity === 'rare' ? '' : '/family'; const url = state.creating ? '/api/cards'+suffix : `/api/cards/${encodeURIComponent(state.selectedId)}`+suffix; const method = state.creating ? 'POST' : 'PUT'; const data = await api(url, {method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)}); state.selectedId = data.card.id; state.creating = false; for (const [rarity, file] of Object.entries(state.avatarFiles)) { const form = new FormData(); form.append('image', file); await api(`/api/cards/${encodeURIComponent(state.selectedId)}/avatar/${rarity}`, {method:'POST', body:form}); } state.avatarFiles = {}; toast(data.message); await loadCards(state.selectedId); await loadOptions(); }
+      try { const payload = collectPayload(); setBusy(true); const suffix = state.currentRarity === 'rare' ? '' : '/family'; const url = state.creating ? '/api/cards'+suffix : `/api/cards/${encodeURIComponent(state.selectedId)}`+suffix; const method = state.creating ? 'POST' : 'PUT'; const data = await api(url, {method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)}); state.selectedId = data.card.id; state.creating = false; for (const [rarity, file] of Object.entries(state.avatarFiles)) { const form = new FormData(); form.append('image', file); form.append('kind', $('avatarKind').value); await api(`/api/cards/${encodeURIComponent(state.selectedId)}/avatar/${rarity}`, {method:'POST', body:form}); } state.avatarFiles = {}; toast(data.message); await loadCards(state.selectedId); await loadOptions(); }
       catch (error) { toast(error.message, true); } finally { setBusy(false); }
     }
     async function deleteCard() {

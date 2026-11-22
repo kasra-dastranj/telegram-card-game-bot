@@ -203,7 +203,7 @@ async def announce(bot, context, request, report):
     try:
         from systems import card_avatars
         value = settings.read(bot.db, user_id)
-        avatar_sent = await card_avatars.send_sticker(bot, context, request['origin_chat_id'], user_id, 'easy')
+        avatar_sent = await card_avatars.send_sticker(bot, context, request['origin_chat_id'], user_id, 'easy', allow_default=not value.get('card_id'))
         card = settings.owned_card(bot.db, user_id, value['card_id'], value['rarity']) if value.get('card_id') else None
         if card and not avatar_sent:
             from bot.card_reward_presentation import send_card_sticker

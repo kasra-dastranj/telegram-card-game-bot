@@ -302,8 +302,11 @@ class BasicHandlersMixin:
             if points is not None:
                 text += f' · اسکور گروه: {points}'
         markup = None if is_group or subject is not None else InlineKeyboardMarkup(keyboard)
-        from systems.card_avatars import selected
-        avatar = selected(self.db, user.id, 'profile')
+        from systems.avatar_cosmetics import render as render_avatar
+        try:
+            avatar = render_avatar(self.db, user.id, 'profile')
+        except Exception:
+            avatar = None
         if avatar:
             from io import BytesIO
             from bot.card_reward_presentation import text_chunks
@@ -312,10 +315,10 @@ class BasicHandlersMixin:
                 if not is_group:
                     # Keep menu buttons on a text message: Telegram cannot edit
                     # a photo into the text menus opened by these callbacks.
-                    await update.effective_message.reply_photo(photo=BytesIO(avatar['path'].read_bytes()))
+                    await update.effective_message.reply_photo(photo=BytesIO(avatar))
                     await update.effective_message.reply_text(text, reply_markup=markup, parse_mode='Markdown')
                     return
-                await update.effective_message.reply_photo(photo=BytesIO(avatar['path'].read_bytes()),
+                await update.effective_message.reply_photo(photo=BytesIO(avatar),
                     caption=parts[0], reply_markup=markup if len(parts) == 1 else None, parse_mode='Markdown')
                 for index, part in enumerate(parts[1:]):
                     await update.effective_message.reply_text(part, parse_mode='Markdown',

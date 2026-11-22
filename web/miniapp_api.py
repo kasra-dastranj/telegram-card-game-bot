@@ -1749,6 +1749,8 @@ def get_leaderboard():
 
 
 # ==================== اجرا ====================
+from web.avatar_api import register_player_avatars
+register_player_avatars(app, lambda: db, require_auth)
 
 def run_miniapp_server(host="0.0.0.0", port=5001, debug=False):
     debug_mode = debug or os.environ.get("FLASK_DEBUG", "0") == "1"

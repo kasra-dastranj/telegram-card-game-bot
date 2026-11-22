@@ -495,6 +495,8 @@ class DatabaseManager:
         ensure_progression_schema(conn)
         from systems.custom_cards import ensure_custom_schema
         ensure_custom_schema(conn)
+        from systems.avatar_cosmetics import ensure_in as ensure_avatar_cosmetics
+        ensure_avatar_cosmetics(conn)
         conn.commit()
         conn.close()
         logger.info("Database initialized successfully")
@@ -1023,6 +1025,8 @@ class DatabaseManager:
                 _, economy_config = config_in(conn)
                 new_account_in(conn, user_id, economy_config)
                 player.hearts = player.max_hearts = economy_config['hearts']['base']
+            from systems.avatar_cosmetics import grant_free_in as grant_avatar_defaults
+            grant_avatar_defaults(conn, user_id)
             conn.commit()
             
             # ایجاد رکورد progression برای بازیکن جدید
