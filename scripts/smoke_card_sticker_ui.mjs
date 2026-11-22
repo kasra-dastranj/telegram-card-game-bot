@@ -81,6 +81,22 @@ try {
   await page.locator('#seriesOptions').selectOption('Outlaws');
   await save();
   assert.deepEqual((await (await fetch(base + '/api/cards')).json()).cards[0].collections, ['Breaking Bad', 'Outlaws']);
+  await page.locator('[data-tab="modes"]').click();
+  await page.locator('#easy_funny').fill('73');
+  await page.locator('#easy_survival').fill('88');
+  await page.locator('#easy_management').fill('66');
+  for (const rarity of ['epic', 'legend', 'normal']) {
+    await selectForm(rarity);
+    await page.locator('[data-tab="modes"]').click();
+    assert.equal(await page.locator('#easy_funny').inputValue(), '73');
+    assert.equal(await page.locator('#easy_survival').inputValue(), '88');
+  }
+  await save();
+  await page.locator('[data-tab="modes"]').click();
+  assert.equal(await page.locator('#easy_management').inputValue(), '66');
+  assert.deepEqual((await (await fetch(base + '/api/cards')).json()).cards[0].hidden_stats,
+    { funny: 73, survival: 88, management: 66 });
+  await page.screenshot({ path: path.join(root, 'hidden-stats-shared.png'), fullPage: true });
   await selectForm('normal');
   await upload('image');
   assert.equal(await page.locator('#photoFileId').inputValue(), '');

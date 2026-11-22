@@ -16,7 +16,7 @@ MAX_EXPANDED = 128 * 1024 * 1024
 ROOT_FILES = {"telegram_bot.py", "game_core.py", "config_loader.py", "requirements.txt", "card_dialogs.json"}
 CODE_DIRS = {"bot", "core", "systems", "web", "migrations"}
 CATALOG_FILES = {'content/card_catalog_20261121/' + name for name in (
-    'telbattle_cards.json', 'telbattle_cards_flat.csv', 'identity_aliases.json', 'trait_translations.json')}
+    'telbattle_cards.json', 'telbattle_cards_flat.csv', 'identity_aliases.json', 'trait_translations.json', 'easy_hidden_stats_v1.json')}
 
 
 def allowed_path(name):
