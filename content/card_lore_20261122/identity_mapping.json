@@ -1,0 +1,433 @@
+{
+  "bundle_id": "character-lore-20261122-v1",
+  "source_hash": "83403a37a9e35698880a1829a7643cb1acfc7f13bb7d3f006626d32dbba77807",
+  "roster_hash": "72945cf547e7ba59bbcfe315abb178827571cbfe8cc71920be65ad6bd9a308c8",
+  "mappings": [
+    {
+      "temporary_id": "tb_char_01",
+      "name_fa": "تیریون لنیستر",
+      "source_character_id": "char_001",
+      "canonical_name": "Tyrion",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_02",
+      "name_fa": "ریک گرایمز",
+      "source_character_id": "char_002",
+      "canonical_name": "Rick Grimes",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_03",
+      "name_fa": "نیگن",
+      "source_character_id": "char_003",
+      "canonical_name": "Negan",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_04",
+      "name_fa": "بوچر",
+      "source_character_id": "char_004",
+      "canonical_name": "Billie Butcher",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_05",
+      "name_fa": "هوملندر",
+      "source_character_id": "char_005",
+      "canonical_name": "Homelander",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_06",
+      "name_fa": "لاک‌پشت‌های نینجا",
+      "source_character_id": "char_006",
+      "canonical_name": "Michelangelo",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_07",
+      "name_fa": "پاتریک",
+      "source_character_id": "char_007",
+      "canonical_name": "Patrick",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_08",
+      "name_fa": "پهلوان پوریا (پوریای ولی)",
+      "source_character_id": "char_008",
+      "canonical_name": "Pourya Vali",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_09",
+      "name_fa": "جان ویک",
+      "source_character_id": "char_009",
+      "canonical_name": "John Wick",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_10",
+      "name_fa": "جک اسپارو",
+      "source_character_id": "char_010",
+      "canonical_name": "Jack Sporrow",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_11",
+      "name_fa": "رستم",
+      "source_character_id": "char_011",
+      "canonical_name": "Rostam",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_12",
+      "name_fa": "جکی چان",
+      "source_character_id": "char_012",
+      "canonical_name": "Jackie Chan",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_13",
+      "name_fa": "هایزنبرگ",
+      "source_character_id": "char_013",
+      "canonical_name": "Heisenberg",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_14",
+      "name_fa": "مختار",
+      "source_character_id": "char_014",
+      "canonical_name": "Mokhtar",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_15",
+      "name_fa": "جومونگ",
+      "source_character_id": "char_015",
+      "canonical_name": "Jumong",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_16",
+      "name_fa": "لیان",
+      "source_character_id": "char_016",
+      "canonical_name": "Leon Kennedy",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_17",
+      "name_fa": "بن تن",
+      "source_character_id": "char_017",
+      "canonical_name": "Ben10",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_18",
+      "name_fa": "مستربین",
+      "source_character_id": "char_018",
+      "canonical_name": "Mr Bean",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_19",
+      "name_fa": "سی‌جی",
+      "source_character_id": "char_019",
+      "canonical_name": "Cj",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_20",
+      "name_fa": "دکتر استاپ",
+      "source_character_id": "char_020",
+      "canonical_name": "Dr Stop",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_21",
+      "name_fa": "استاد شیفو",
+      "source_character_id": "char_021",
+      "canonical_name": "Master Shifu",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_22",
+      "name_fa": "پوتین",
+      "source_character_id": "char_022",
+      "canonical_name": "Putin",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_23",
+      "name_fa": "بیگ مسعود",
+      "source_character_id": "char_023",
+      "canonical_name": "Big Masoud",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_24",
+      "name_fa": "مایک ارمانترات",
+      "source_character_id": "char_024",
+      "canonical_name": "Mike Ehrmantraut",
+      "basis": "مایک ارمانترات، همان Mike Ehrmantraut در Breaking Bad / Better Call Saul؛ تطبیق صریح بر اساس اثر و بیو، نه شباهت مبهم اسم."
+    },
+    {
+      "temporary_id": "tb_char_25",
+      "name_fa": "ساول گودمن",
+      "source_character_id": "char_025",
+      "canonical_name": "Saul Goodman",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_26",
+      "name_fa": "سابزیرو",
+      "source_character_id": "char_026",
+      "canonical_name": "Subzero",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_27",
+      "name_fa": "کریتوس",
+      "source_character_id": "char_027",
+      "canonical_name": "Kratos",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_28",
+      "name_fa": "پو (پاندای کونگ‌فوکار)",
+      "source_character_id": "char_028",
+      "canonical_name": "Kangfu Panda",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_29",
+      "name_fa": "شریدر",
+      "source_character_id": "char_029",
+      "canonical_name": "Shredder",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_30",
+      "name_fa": "آرتور مورگان",
+      "source_character_id": "char_030",
+      "canonical_name": "Arthur Morgan",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_31",
+      "name_fa": "دارث ویدر",
+      "source_character_id": "char_031",
+      "canonical_name": "Darth Whither",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_32",
+      "name_fa": "مایکل اسکافیلد",
+      "source_character_id": "char_032",
+      "canonical_name": "Michle Scofield",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_33",
+      "name_fa": "تی‌بگ",
+      "source_character_id": "char_033",
+      "canonical_name": "T Bag",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_34",
+      "name_fa": "شیرفرهاد",
+      "source_character_id": "char_034",
+      "canonical_name": "Shir Farhad",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_35",
+      "name_fa": "شرک",
+      "source_character_id": "char_035",
+      "canonical_name": "Shrek",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_36",
+      "name_fa": "نقی معمولی",
+      "source_character_id": "char_036",
+      "canonical_name": "Naghi Mamooli",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_37",
+      "name_fa": "داوود ززز",
+      "source_character_id": "char_037",
+      "canonical_name": "Davood Zzz",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_38",
+      "name_fa": "تایلانگ",
+      "source_character_id": "char_038",
+      "canonical_name": "Tai Lung",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_39",
+      "name_fa": "اتزیو",
+      "source_character_id": "char_039",
+      "canonical_name": "Ezio",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_40",
+      "name_fa": "آلبرت وسکر",
+      "source_character_id": "char_040",
+      "canonical_name": "Albert Wesker",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_41",
+      "name_fa": "کامران اتابکی",
+      "source_character_id": "char_041",
+      "canonical_name": "Etabaki",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_42",
+      "name_fa": "ترمیناتور",
+      "source_character_id": "char_042",
+      "canonical_name": "Terminator",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_43",
+      "name_fa": "جول",
+      "source_character_id": "char_043",
+      "canonical_name": "Joel",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_44",
+      "name_fa": "شرلوک هلمز",
+      "source_character_id": "char_044",
+      "canonical_name": "Sherlock",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_45",
+      "name_fa": "گوست",
+      "source_character_id": "char_045",
+      "canonical_name": "Ghost",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_46",
+      "name_fa": "باب اسفنجی",
+      "source_character_id": "char_046",
+      "canonical_name": "Sponge Bob",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_47",
+      "name_fa": "مسترچیف",
+      "source_character_id": "char_047",
+      "canonical_name": "Mr Chief",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_48",
+      "name_fa": "کاپیتان پرایس",
+      "source_character_id": "char_048",
+      "canonical_name": "Captain Price",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_49",
+      "name_fa": "رگنار",
+      "source_character_id": "char_049",
+      "canonical_name": "Ragnar",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_50",
+      "name_fa": "ارباب شن",
+      "source_character_id": "char_050",
+      "canonical_name": "Lord Shen",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_51",
+      "name_fa": "نادرشاه",
+      "source_character_id": "char_051",
+      "canonical_name": "Nader Shah",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_52",
+      "name_fa": "لالو سالامانکا",
+      "source_character_id": "char_052",
+      "canonical_name": "Lalo Salamanca",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_53",
+      "name_fa": "جان اسنو",
+      "source_character_id": "char_053",
+      "canonical_name": "Jon Snow",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_54",
+      "name_fa": "زئوس",
+      "source_character_id": "char_054",
+      "canonical_name": "Zeus",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_55",
+      "name_fa": "گرالت (ویچر)",
+      "source_character_id": "char_055",
+      "canonical_name": "Geralt",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_56",
+      "name_fa": "کومان (کوروش و ایمان)",
+      "source_character_id": "char_056",
+      "canonical_name": "Koman",
+      "basis": "کومانِ کوروش و ایمان؛ یک کارت مشترک، طبق تأیید قبلی مالک."
+    },
+    {
+      "temporary_id": "tb_char_57",
+      "name_fa": "ناپلئون",
+      "source_character_id": "char_057",
+      "canonical_name": "Napoleon",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_58",
+      "name_fa": "سولجربوی",
+      "source_character_id": "char_058",
+      "canonical_name": "Soldier Boy",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_59",
+      "name_fa": "گاس فرینگ",
+      "source_character_id": "char_059",
+      "canonical_name": "Gus Fring",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    },
+    {
+      "temporary_id": "tb_char_60",
+      "name_fa": "اسکورپین",
+      "source_character_id": "char_060",
+      "canonical_name": "Scorpion",
+      "basis": "نام دقیق در نگاشت بازبینی‌شدهٔ کاتالوگ."
+    }
+  ],
+  "owner_decisions": {
+    "davood_is_dozd_o_polis": true,
+    "activate_verified_short_quotes": true,
+    "keep_easy_deck_player_slogans": true,
+    "approval_note_fa": "مالک تأیید کرد داوود همان شخصیت دزد و پلیس است و همهٔ ۳۱۴ شعار فعال شوند. وضعیت مجوز منبع تغییر داده نمی‌شود."
+  }
+}

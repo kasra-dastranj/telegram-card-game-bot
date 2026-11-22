@@ -1,0 +1,3432 @@
+{
+  "schema_version": "1.0.0",
+  "project": "TelBattle",
+  "data_kind": "character_biographies_and_victory_lines",
+  "created_on": "2026-11-22",
+  "language": "fa",
+  "character_count": 60,
+  "victory_line_count": 314,
+  "notes": [
+    "Bio is exactly three independent Persian lines.",
+    "Character ids are TEMPORARY and must be mapped to the existing database by Codex before import.",
+    "Victory lines of kind original_game_line are newly written game copy; NEVER present as actual character quotes.",
+    "Lines of kind verified_short_quote were located in public sources and include URLs. Attribution is not licensing: review IP and permissions before commercial publication.",
+    "Do not synthesize, clone or reuse actor voices without appropriate rights/consent.",
+    "Do not alter or delete existing game-card ownership, prices, stats, missions, XP, etc.",
+    "Only import after dry run, review and explicit owner approval."
+  ],
+  "characters": [
+    {
+      "order": 1,
+      "temporary_id": "tb_char_01",
+      "name_fa": "تیریون لنیستر",
+      "origin": "Game of Thrones",
+      "bio_lines": [
+        "تیریون، جوان‌ترین پسر خاندان لنیستر، در سیاست وستروس باهوش و زبان‌تیز است.",
+        "او به‌جای قدرت جسمی از مذاکره، شناخت آدم‌ها و نقشه‌های غیرمنتظره بهره می‌برد.",
+        "در میانه جنگ قدرت، زنده‌ماندنش بیشتر حاصل فکر و شوخ‌طبعی اوست."
+      ],
+      "bio_text": "تیریون، جوان‌ترین پسر خاندان لنیستر، در سیاست وستروس باهوش و زبان‌تیز است.\nاو به‌جای قدرت جسمی از مذاکره، شناخت آدم‌ها و نقشه‌های غیرمنتظره بهره می‌برد.\nدر میانه جنگ قدرت، زنده‌ماندنش بیشتر حاصل فکر و شوخ‌طبعی اوست.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_01_01",
+          "text": "I drink and I know things.",
+          "language": "en",
+          "kind": "verified_short_quote",
+          "reference_url": "https://quotegeek.com/tv/game-of-thrones/that-s-what-i-do-i-drink-and-i/",
+          "usage_permission": "not_verified"
+        },
+        {
+          "temporary_id": "tb_victory_01_02",
+          "text": "قد کوتاه، نقشه بلند!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_01_03",
+          "text": "شمشیرت را نگه دار؛ جواب من تیزتر است.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_01_04",
+          "text": "این پیروزی را با مغز به دست آوردم.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_01_05",
+          "text": "باز هم کوچک‌ترین نفر، بزرگ‌ترین دردسر شد!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_01_06",
+          "text": "به افتخار تصمیم اشتباه حریفت!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 2,
+      "temporary_id": "tb_char_02",
+      "name_fa": "ریک گرایمز",
+      "origin": "The Walking Dead",
+      "bio_lines": [
+        "ریک گرایمز، کلانتر سابقی است که در دنیای پر از مردگان متحرک بیدار می‌شود.",
+        "او گروهی از بازماندگان را در برابر زامبی‌ها و انسان‌های خطرناک هدایت می‌کند.",
+        "برای محافظت از خانواده و همراهانش گاهی تصمیم‌های بسیار سخت می‌گیرد."
+      ],
+      "bio_text": "ریک گرایمز، کلانتر سابقی است که در دنیای پر از مردگان متحرک بیدار می‌شود.\nاو گروهی از بازماندگان را در برابر زامبی‌ها و انسان‌های خطرناک هدایت می‌کند.\nبرای محافظت از خانواده و همراهانش گاهی تصمیم‌های بسیار سخت می‌گیرد.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_02_01",
+          "text": "تا وقتی کنار همیم، تسلیم نمی‌شیم.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_02_02",
+          "text": "امروز هم زنده موندیم.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_02_03",
+          "text": "این دنیا رحم نداره؛ من هم عقب نمی‌رم.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_02_04",
+          "text": "راه رو باز کنید؛ گروه من عبور می‌کنه.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_02_05",
+          "text": "یک روز دیگه، یک پیروزی دیگه.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 3,
+      "temporary_id": "tb_char_03",
+      "name_fa": "نیگن",
+      "origin": "The Walking Dead",
+      "bio_lines": [
+        "نیگن رهبر کاریزماتیک و بی‌رحم گروه نجات‌دهندگان در مردگان متحرک است.",
+        "او با تهدید، نمایش قدرت و چوب بیسبال معروفش لوسیل بر دیگران سلطه پیدا می‌کند.",
+        "داستانش به‌تدریج ابعاد پیچیده‌تری از شخصیت او را آشکار می‌کند."
+      ],
+      "bio_text": "نیگن رهبر کاریزماتیک و بی‌رحم گروه نجات‌دهندگان در مردگان متحرک است.\nاو با تهدید، نمایش قدرت و چوب بیسبال معروفش لوسیل بر دیگران سلطه پیدا می‌کند.\nداستانش به‌تدریج ابعاد پیچیده‌تری از شخصیت او را آشکار می‌کند.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_03_01",
+          "text": "لوسیل هم از این نتیجه راضیه!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_03_02",
+          "text": "حالا کی رئیسه؟",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_03_03",
+          "text": "فکر کردی این بازی بدون من تموم می‌شه؟",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_03_04",
+          "text": "قانون‌ها رو من با صدای بلند می‌گم.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_03_05",
+          "text": "این لبخند یعنی خبر خوبی برای تو ندارم.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 4,
+      "temporary_id": "tb_char_04",
+      "name_fa": "بوچر",
+      "origin": "The Boys",
+      "bio_lines": [
+        "بیلی بوچر رهبر سرسخت گروه The Boys است که با ابرانسان‌های فاسد درگیر می‌شود.",
+        "او با خشم، نقشه‌های پرخطر و لحن طعنه‌آمیزش به دشمنان نزدیک می‌شود.",
+        "انتقام‌جویی برایش گاهی از مرزهای اخلاقی هم عبور می‌کند."
+      ],
+      "bio_text": "بیلی بوچر رهبر سرسخت گروه The Boys است که با ابرانسان‌های فاسد درگیر می‌شود.\nاو با خشم، نقشه‌های پرخطر و لحن طعنه‌آمیزش به دشمنان نزدیک می‌شود.\nانتقام‌جویی برایش گاهی از مرزهای اخلاقی هم عبور می‌کند.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_04_01",
+          "text": "قهرمان‌بازی تموم شد، رفیق!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_04_02",
+          "text": "اگه شنل داری، دلیل نمی‌شه برنده باشی.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_04_03",
+          "text": "این یکی رو با دست خالی تموم کردم.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_04_04",
+          "text": "لبخند بزن؛ بدترین قسمت تازه شروع شده.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_04_05",
+          "text": "سوپرقدرت نمی‌خوام، فقط یه نقشه خوب.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 5,
+      "temporary_id": "tb_char_05",
+      "name_fa": "هوملندر",
+      "origin": "The Boys",
+      "bio_lines": [
+        "هوملندر چهره مشهور گروه هفت و قدرتمندترین ابرانسان شرکت وات است.",
+        "پشت ظاهر قهرمانانه‌اش شخصیتی خودشیفته، خطرناک و تشنه تحسین پنهان شده است.",
+        "پرواز، قدرت عظیم و پرتوهای چشمی او را به تهدیدی ترسناک تبدیل می‌کند."
+      ],
+      "bio_text": "هوملندر چهره مشهور گروه هفت و قدرتمندترین ابرانسان شرکت وات است.\nپشت ظاهر قهرمانانه‌اش شخصیتی خودشیفته، خطرناک و تشنه تحسین پنهان شده است.\nپرواز، قدرت عظیم و پرتوهای چشمی او را به تهدیدی ترسناک تبدیل می‌کند.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_05_01",
+          "text": "لبخند بزنید؛ قهرمان محبوبتان برد!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_05_02",
+          "text": "دوربین‌ها روشنن؟ این قسمت مال منه.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_05_03",
+          "text": "به آسمون نگاه کن؛ جواب اونجاست.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_05_04",
+          "text": "تشویق رو بلندتر نمی‌شنوم!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_05_05",
+          "text": "من نیازی به مسابقه برابر ندارم.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 6,
+      "temporary_id": "tb_char_06",
+      "name_fa": "لاک‌پشت‌های نینجا",
+      "origin": "Teenage Mutant Ninja Turtles",
+      "bio_lines": [
+        "چهار برادر لاک‌پشت جهش‌یافته در فاضلاب نیویورک زیر نظر استاد اسپلینتر آموزش می‌بینند.",
+        "لئوناردو، رافائل، دوناتلو و مایکل‌آنجلو سبک‌ها و شخصیت‌های متفاوتی دارند.",
+        "آن‌ها با همکاری، نینجوتسو و شوخ‌طبعی از شهرشان دفاع می‌کنند."
+      ],
+      "bio_text": "چهار برادر لاک‌پشت جهش‌یافته در فاضلاب نیویورک زیر نظر استاد اسپلینتر آموزش می‌بینند.\nلئوناردو، رافائل، دوناتلو و مایکل‌آنجلو سبک‌ها و شخصیت‌های متفاوتی دارند.\nآن‌ها با همکاری، نینجوتسو و شوخ‌طبعی از شهرشان دفاع می‌کنند.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_06_01",
+          "text": "چهار لاک‌پشت، یک پیروزی!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_06_02",
+          "text": "پیتزا بعد از مبارزه می‌چسبه.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_06_03",
+          "text": "گروهی اومدیم؛ گروهی بردیم!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_06_04",
+          "text": "از فاضلاب تا سکوی قهرمانی!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_06_05",
+          "text": "نینجاها همیشه یه راه پیدا می‌کنن.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": "این یک کارت گروهی شامل چهار برادر است، نه چهار کاراکتر مستقل."
+    },
+    {
+      "order": 7,
+      "temporary_id": "tb_char_07",
+      "name_fa": "پاتریک",
+      "origin": "SpongeBob SquarePants",
+      "bio_lines": [
+        "پاتریک ستاره دریایی صورتی و بهترین دوست باب‌اسفنجی در بیکینی باتم است.",
+        "او معمولاً ساده و بی‌خیال رفتار می‌کند و ناخواسته ماجراهای بامزه می‌سازد.",
+        "گاهی ایده‌های عجیبش او را به برنده‌ای کاملاً غیرمنتظره تبدیل می‌کند."
+      ],
+      "bio_text": "پاتریک ستاره دریایی صورتی و بهترین دوست باب‌اسفنجی در بیکینی باتم است.\nاو معمولاً ساده و بی‌خیال رفتار می‌کند و ناخواسته ماجراهای بامزه می‌سازد.\nگاهی ایده‌های عجیبش او را به برنده‌ای کاملاً غیرمنتظره تبدیل می‌کند.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_07_01",
+          "text": "ها؟ من بردم؟!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_07_02",
+          "text": "به مغزم نگید؛ غافلگیر می‌شه!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_07_03",
+          "text": "وقتشه زیر سنگم جشن بگیرم.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_07_04",
+          "text": "فکر کنم اشتباهی خیلی خوب بازی کردم.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_07_05",
+          "text": "این پیروزی مال منه یا مال باب؟",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 8,
+      "temporary_id": "tb_char_08",
+      "name_fa": "پهلوان پوریا (پوریای ولی)",
+      "origin": "Pahlevanan / Iranian folklore",
+      "bio_lines": [
+        "پوریای ولی پهلوان نامدار ایرانی و شخصیت محوری انیمیشن «پهلوانان» است.",
+        "او در خوارزم زورخانه‌داری می‌کند و جوانمردی و کشتی را به شاگردانش می‌آموزد.",
+        "در قصه‌های انیمیشن، با تیزهوشی و یاری شاگردانش در برابر ستم می‌ایستد."
+      ],
+      "bio_text": "پوریای ولی پهلوان نامدار ایرانی و شخصیت محوری انیمیشن «پهلوانان» است.\nاو در خوارزم زورخانه‌داری می‌کند و جوانمردی و کشتی را به شاگردانش می‌آموزد.\nدر قصه‌های انیمیشن، با تیزهوشی و یاری شاگردانش در برابر ستم می‌ایستد.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_08_01",
+          "text": "پهلوانی به زور بازو نیست، به مرامه.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_08_02",
+          "text": "حق که باشه، قدم سست نمی‌شه.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_08_03",
+          "text": "این میدان جای جوانمردیه!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_08_04",
+          "text": "دل قوی، بازوی قوی‌تر.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_08_05",
+          "text": "پیروزی بی‌انصافانه به کار پهلوان نمیاد.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": "بیو با تمرکز بر نسخه انیمیشن پهلوانان تدوین شده است."
+    },
+    {
+      "order": 9,
+      "temporary_id": "tb_char_09",
+      "name_fa": "جان ویک",
+      "origin": "John Wick",
+      "bio_lines": [
+        "جان ویک آدمکشی افسانه‌ای است که می‌خواهد از دنیای جنایت فاصله بگیرد.",
+        "یک اتفاق تلخ او را دوباره به شبکه خطرناک آدمکش‌ها بازمی‌گرداند.",
+        "دقت در تیراندازی، مبارزه نزدیک و اراده سرسختش شهرتی هراس‌انگیز ساخته است."
+      ],
+      "bio_text": "جان ویک آدمکشی افسانه‌ای است که می‌خواهد از دنیای جنایت فاصله بگیرد.\nیک اتفاق تلخ او را دوباره به شبکه خطرناک آدمکش‌ها بازمی‌گرداند.\nدقت در تیراندازی، مبارزه نزدیک و اراده سرسختش شهرتی هراس‌انگیز ساخته است.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_09_01",
+          "text": "Yeah, I’m thinking I’m back.",
+          "language": "en",
+          "kind": "verified_short_quote",
+          "reference_url": "https://en.wikiquote.org/wiki/John_Wick_(film)",
+          "usage_permission": "not_verified"
+        },
+        {
+          "temporary_id": "tb_victory_09_02",
+          "text": "بازنشستگی دوباره عقب افتاد.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_09_03",
+          "text": "هیچ‌کس قرار نبود بیدارم کنه.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_09_04",
+          "text": "یک گلوله، یک تصمیم.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_09_05",
+          "text": "حرف کمتر؛ نتیجه بیشتر.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_09_06",
+          "text": "این بار بهتر بود سر راه من نباشی.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 10,
+      "temporary_id": "tb_char_10",
+      "name_fa": "جک اسپارو",
+      "origin": "Pirates of the Caribbean",
+      "bio_lines": [
+        "کاپیتان جک اسپارو دزد دریایی غیرقابل‌پیش‌بینیِ ماجراهای کارائیب است.",
+        "با حیله، شانس و مذاکره از خطرهایی فرار می‌کند که دیگران را گرفتار می‌سازد.",
+        "علاقه‌اش به کشتی مروارید سیاه و آزادی دریا از او چهره‌ای خاص ساخته است."
+      ],
+      "bio_text": "کاپیتان جک اسپارو دزد دریایی غیرقابل‌پیش‌بینیِ ماجراهای کارائیب است.\nبا حیله، شانس و مذاکره از خطرهایی فرار می‌کند که دیگران را گرفتار می‌سازد.\nعلاقه‌اش به کشتی مروارید سیاه و آزادی دریا از او چهره‌ای خاص ساخته است.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_10_01",
+          "text": "Why is the rum gone?",
+          "language": "en",
+          "kind": "verified_short_quote",
+          "reference_url": "https://en.wikiquote.org/wiki/Pirates_of_the_Caribbean:_The_Curse_of_the_Black_Pearl",
+          "usage_permission": "not_verified"
+        },
+        {
+          "temporary_id": "tb_victory_10_02",
+          "text": "این پیروزی کارِ کاپیتان جک اسپارو بود!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_10_03",
+          "text": "قطب‌نما گاهی درست‌تر از نقشه کار می‌کنه.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_10_04",
+          "text": "دزدی نبود؛ فقط قهرمانی رو قرض گرفتم!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_10_05",
+          "text": "مهم نیست چطور بردم؛ مهم اینه که بردم.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_10_06",
+          "text": "حالا یک کشتی و کمی آزادی می‌خوام.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 11,
+      "temporary_id": "tb_char_11",
+      "name_fa": "رستم",
+      "origin": "شاهنامه / اساطیر ایران",
+      "bio_lines": [
+        "رستم پهلوان بزرگ شاهنامه و از نامدارترین قهرمانان حماسه ایرانی است.",
+        "او با گرز، شمشیر و اسب وفادارش رخش، نبردهای دشواری را پشت سر می‌گذارد.",
+        "هفت‌خان رستم نماد قدرت، دلاوری و عبور از آزمون‌های سهمگین است."
+      ],
+      "bio_text": "رستم پهلوان بزرگ شاهنامه و از نامدارترین قهرمانان حماسه ایرانی است.\nاو با گرز، شمشیر و اسب وفادارش رخش، نبردهای دشواری را پشت سر می‌گذارد.\nهفت‌خان رستم نماد قدرت، دلاوری و عبور از آزمون‌های سهمگین است.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_11_01",
+          "text": "به نام یزدان، میدان از آنِ ماست!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_11_02",
+          "text": "رخش، امروز هم سربلند شدیم.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_11_03",
+          "text": "این تازه یکی از خان‌ها بود.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_11_04",
+          "text": "گرز من با باخت آشنا نیست.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_11_05",
+          "text": "حریف آمد؛ افسانه برگشت.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 12,
+      "temporary_id": "tb_char_12",
+      "name_fa": "جکی چان",
+      "origin": "Real person / action cinema",
+      "bio_lines": [
+        "جکی چان بازیگر و بدلکار رزمی‌کار شناخته‌شده هنگ‌کنگی است.",
+        "او در فیلم‌هایش هنرهای رزمی را با طنز، حرکت‌های پرخطر و استفاده از محیط ترکیب می‌کند.",
+        "سبک مبارزه خلاقانه و واکنش‌های بامزه‌اش او را جهانی کرده است."
+      ],
+      "bio_text": "جکی چان بازیگر و بدلکار رزمی‌کار شناخته‌شده هنگ‌کنگی است.\nاو در فیلم‌هایش هنرهای رزمی را با طنز، حرکت‌های پرخطر و استفاده از محیط ترکیب می‌کند.\nسبک مبارزه خلاقانه و واکنش‌های بامزه‌اش او را جهانی کرده است.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_12_01",
+          "text": "هرچی دوروبرمه می‌تونه وسیله مبارزه باشه!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_12_02",
+          "text": "این حرکت توی فیلمنامه نبود!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_12_03",
+          "text": "میز و صندلی هم تیم منن.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_12_04",
+          "text": "برنده شدم؛ فقط امیدوارم چیزی نشکسته باشه.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_12_05",
+          "text": "اول جاخالی، بعد لبخند!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": "شخص واقعی؛ شعارهای جدید نقل‌قول حقیقی از جکی چان نیستند."
+    },
+    {
+      "order": 13,
+      "temporary_id": "tb_char_13",
+      "name_fa": "هایزنبرگ",
+      "origin": "Breaking Bad",
+      "bio_lines": [
+        "والتر وایت معلم شیمی است که با نام هایزنبرگ وارد تجارت مواد مخدر می‌شود.",
+        "نبوغ علمی او در کنار غرور و جاه‌طلبی، قلمرو خطرناکی می‌سازد.",
+        "مسیرش از تأمین خانواده به نبردی برای قدرت و کنترل تغییر می‌کند."
+      ],
+      "bio_text": "والتر وایت معلم شیمی است که با نام هایزنبرگ وارد تجارت مواد مخدر می‌شود.\nنبوغ علمی او در کنار غرور و جاه‌طلبی، قلمرو خطرناکی می‌سازد.\nمسیرش از تأمین خانواده به نبردی برای قدرت و کنترل تغییر می‌کند.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_13_01",
+          "text": "Say my name.",
+          "language": "en",
+          "kind": "verified_short_quote",
+          "reference_url": "https://www.imdb.com/title/tt0903747/quotes/",
+          "usage_permission": "not_verified"
+        },
+        {
+          "temporary_id": "tb_victory_13_02",
+          "text": "نتیجه آزمایش: پیروزی کامل.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_13_03",
+          "text": "این واکنش از کنترل تو خارجه.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_13_04",
+          "text": "به فرمول من شک نکن.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_13_05",
+          "text": "درس امروز: حریف رو دست‌کم نگیر.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_13_06",
+          "text": "هنوز اسم واقعی برنده رو نمی‌دونی؟",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 14,
+      "temporary_id": "tb_char_14",
+      "name_fa": "مختار",
+      "origin": "مختارنامه / تاریخ اسلامی",
+      "bio_lines": [
+        "مختار ثقفی شخصیت تاریخی و قهرمان مرکزی سریال ایرانی «مختارنامه» است.",
+        "او در کوفه برای خون‌خواهی امام حسین و یارانش جنبشی سیاسی و نظامی برپا می‌کند.",
+        "داستانش آمیزه‌ای از تدبیر، اتحاد، نبرد و رویارویی با قدرت‌های زمانه است."
+      ],
+      "bio_text": "مختار ثقفی شخصیت تاریخی و قهرمان مرکزی سریال ایرانی «مختارنامه» است.\nاو در کوفه برای خون‌خواهی امام حسین و یارانش جنبشی سیاسی و نظامی برپا می‌کند.\nداستانش آمیزه‌ای از تدبیر، اتحاد، نبرد و رویارویی با قدرت‌های زمانه است.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_14_01",
+          "text": "شمشیر برای حق از نیام کشیده شد.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_14_02",
+          "text": "دادخواهی هنوز پایان نگرفته.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_14_03",
+          "text": "این میدان شاهد پیمان ماست.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_14_04",
+          "text": "امروز نوبت پاسخ‌دادن ستمگران است.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_14_05",
+          "text": "با تدبیر آمدیم، با پیروزی می‌رویم.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 15,
+      "temporary_id": "tb_char_15",
+      "name_fa": "جومونگ",
+      "origin": "Jumong",
+      "bio_lines": [
+        "جومونگ قهرمان سریال تاریخی کره‌ای است که سرنوشتش به شکل‌گیری گوگوریو گره می‌خورد.",
+        "او کمانداری ماهر و فرمانده‌ای است که میان دشمنان و رقابت‌های درباری رشد می‌کند.",
+        "پشتکار، وفاداری و رویای ساخت سرزمینی نو، مسیر او را تعیین می‌کند."
+      ],
+      "bio_text": "جومونگ قهرمان سریال تاریخی کره‌ای است که سرنوشتش به شکل‌گیری گوگوریو گره می‌خورد.\nاو کمانداری ماهر و فرمانده‌ای است که میان دشمنان و رقابت‌های درباری رشد می‌کند.\nپشتکار، وفاداری و رویای ساخت سرزمینی نو، مسیر او را تعیین می‌کند.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_15_01",
+          "text": "تیر من راهش رو پیدا می‌کنه.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_15_02",
+          "text": "گوگوریو با شکست ساخته نمی‌شه.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_15_03",
+          "text": "کمان رو پایین بیار؛ نبرد تمومه.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_15_04",
+          "text": "برای آینده‌ای بزرگ‌تر جنگیدم.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_15_05",
+          "text": "از یک تیر، یک سرنوشت ساخته می‌شه.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 16,
+      "temporary_id": "tb_char_16",
+      "name_fa": "لیان",
+      "origin": "Resident Evil",
+      "bio_lines": [
+        "لیان اس. کندی پلیس تازه‌کار راکون‌سیتی بود که در فاجعه زامبی‌ها گرفتار شد.",
+        "پس از آن به مأمور ویژه‌ای تبدیل شد و با تهدیدهای زیستی پیچیده روبه‌رو شد.",
+        "مهارت تیراندازی و شوخی‌های کوتاهش حتی وسط بحران هم همراه اوست."
+      ],
+      "bio_text": "لیان اس. کندی پلیس تازه‌کار راکون‌سیتی بود که در فاجعه زامبی‌ها گرفتار شد.\nپس از آن به مأمور ویژه‌ای تبدیل شد و با تهدیدهای زیستی پیچیده روبه‌رو شد.\nمهارت تیراندازی و شوخی‌های کوتاهش حتی وسط بحران هم همراه اوست.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_16_01",
+          "text": "Where's everyone going? Bingo?",
+          "language": "en",
+          "kind": "verified_short_quote",
+          "reference_url": "https://residentevil.fandom.com/wiki/Resident_Evil_4/Transcript",
+          "usage_permission": "not_verified"
+        },
+        {
+          "temporary_id": "tb_victory_16_02",
+          "text": "این عملیات هم تموم شد؛ فعلاً.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_16_03",
+          "text": "تیر آخر رو برای همین لحظه نگه داشتم.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_16_04",
+          "text": "زامبی یا حریف؟ فرقش توی نتیجه نیست.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_16_05",
+          "text": "یه روز عادیِ دیگه در مأموریت!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_16_06",
+          "text": "وقت برگشتن به پایگاهه.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 17,
+      "temporary_id": "tb_char_17",
+      "name_fa": "بن تن",
+      "origin": "Ben 10",
+      "bio_lines": [
+        "بن تنیسون نوجوانی است که با ساعت بیگانه اومنیتریکس به موجودات مختلف تبدیل می‌شود.",
+        "هر فرم توانایی ویژه‌ای دارد و او باید یاد بگیرد چه زمانی از آن استفاده کند.",
+        "ماجراجویی‌هایش میان مسئولیت قهرمانی و شیطنت‌های نوجوانانه جریان دارند."
+      ],
+      "bio_text": "بن تنیسون نوجوانی است که با ساعت بیگانه اومنیتریکس به موجودات مختلف تبدیل می‌شود.\nهر فرم توانایی ویژه‌ای دارد و او باید یاد بگیرد چه زمانی از آن استفاده کند.\nماجراجویی‌هایش میان مسئولیت قهرمانی و شیطنت‌های نوجوانانه جریان دارند.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_17_01",
+          "text": "یه فرم دیگه، یه برد دیگه!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_17_02",
+          "text": "اومنیتریکس امروز رو مود برد بود.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_17_03",
+          "text": "وقتی ده تا انتخاب دارم، باخت کجاست؟",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_17_04",
+          "text": "قهرمان بودن گاهی فقط یه دکمه فاصله داره.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_17_05",
+          "text": "نوبت بعدی هم غافلگیرت می‌کنم!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 18,
+      "temporary_id": "tb_char_18",
+      "name_fa": "مستربین",
+      "origin": "Mr. Bean",
+      "bio_lines": [
+        "مستربین مردی کم‌حرف و عجیب است که مشکلات روزمره را به ماجراهای خنده‌دار تبدیل می‌کند.",
+        "او با راه‌حل‌های غیرمتعارف و گاه خرابکارانه از موقعیت‌ها بیرون می‌آید.",
+        "چهره و حرکات بدنی‌اش بدون نیاز به دیالوگ، شخصیت را تعریف می‌کنند."
+      ],
+      "bio_text": "مستربین مردی کم‌حرف و عجیب است که مشکلات روزمره را به ماجراهای خنده‌دار تبدیل می‌کند.\nاو با راه‌حل‌های غیرمتعارف و گاه خرابکارانه از موقعیت‌ها بیرون می‌آید.\nچهره و حرکات بدنی‌اش بدون نیاز به دیالوگ، شخصیت را تعریف می‌کنند.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_18_01",
+          "text": "اوه... این که خوب شد!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_18_02",
+          "text": "طبق نقشه بود؛ احتمالاً!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_18_03",
+          "text": "ها؟ من برنده شدم؟",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_18_04",
+          "text": "خرس کوچولو هم تأیید می‌کنه.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_18_05",
+          "text": "شانس نیست؛ نبوغ بی‌سروصداست!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 19,
+      "temporary_id": "tb_char_19",
+      "name_fa": "سی‌جی",
+      "origin": "GTA: San Andreas",
+      "bio_lines": [
+        "کارل جانسون، معروف به سی‌جی، پس از سال‌ها به لس‌سانتوس برمی‌گردد.",
+        "او در کشمکش خانواده، گروه‌های خیابانی و فساد شهری گیر می‌افتد.",
+        "مسیرش از خیابان‌های گروو استریت به مأموریت‌های بزرگ‌تر کشیده می‌شود."
+      ],
+      "bio_text": "کارل جانسون، معروف به سی‌جی، پس از سال‌ها به لس‌سانتوس برمی‌گردد.\nاو در کشمکش خانواده، گروه‌های خیابانی و فساد شهری گیر می‌افتد.\nمسیرش از خیابان‌های گروو استریت به مأموریت‌های بزرگ‌تر کشیده می‌شود.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_19_01",
+          "text": "گروو استریت برگشته!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_19_02",
+          "text": "این شهر قانون خودش رو داره.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_19_03",
+          "text": "مأموریت کامل؛ حالا بریم خونه.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_19_04",
+          "text": "خیابون درس سختی می‌ده.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_19_05",
+          "text": "این بار نقشه از همون اول جواب داد.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 20,
+      "temporary_id": "tb_char_20",
+      "name_fa": "دکتر استاپ",
+      "origin": "Iranian internet meme",
+      "bio_lines": [
+        "دکتر استاپ لقبی شناخته‌شده در فضای میم‌ها و فایل‌های صوتی فارسی است.",
+        "لحن پرهیجان و واکنش‌های غیرمنتظره در بازنشر صداهای منسوب به او برجسته‌اند.",
+        "در TelBattle به‌عنوان چهره‌ای میمی و طنزآمیز حضور پیدا می‌کند."
+      ],
+      "bio_text": "دکتر استاپ لقبی شناخته‌شده در فضای میم‌ها و فایل‌های صوتی فارسی است.\nلحن پرهیجان و واکنش‌های غیرمنتظره در بازنشر صداهای منسوب به او برجسته‌اند.\nدر TelBattle به‌عنوان چهره‌ای میمی و طنزآمیز حضور پیدا می‌کند.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_20_01",
+          "text": "استاپ! همین‌جا بازی تمومه!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_20_02",
+          "text": "نسخه برد رو نوشتم، برو بگیر.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_20_03",
+          "text": "تشخیص قطعی: حریف کم آورد!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_20_04",
+          "text": "این نتیجه نیاز به آزمایش دوباره نداره!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_20_05",
+          "text": "مطب تعطیل؛ جشن پیروزی برپاست.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": "هویت و دیالوگ‌های اختصاصی این چهره پیش از انتشار با مرجع موردنظر سازنده تأیید شوند؛ متن‌ها ساختگی برای بازی‌اند."
+    },
+    {
+      "order": 21,
+      "temporary_id": "tb_char_21",
+      "name_fa": "استاد شیفو",
+      "origin": "Kung Fu Panda",
+      "bio_lines": [
+        "استاد شیفو مربی سخت‌گیر کونگ‌فو در کاخ یشم است.",
+        "او پنج جنگجوی خشمگین و سپس پو را برای رویارویی با تهدیدها آموزش می‌دهد.",
+        "در پس جدیتش، خرد و تجربه‌ای قرار دارد که مسیر شاگردان را تغییر می‌دهد."
+      ],
+      "bio_text": "استاد شیفو مربی سخت‌گیر کونگ‌فو در کاخ یشم است.\nاو پنج جنگجوی خشمگین و سپس پو را برای رویارویی با تهدیدها آموزش می‌دهد.\nدر پس جدیتش، خرد و تجربه‌ای قرار دارد که مسیر شاگردان را تغییر می‌دهد.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_21_01",
+          "text": "تمرین امروز نتیجه داد.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_21_02",
+          "text": "پیروزی از آرامش شروع می‌شه.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_21_03",
+          "text": "قدرت بدون تمرکز راه به جایی نمی‌بره.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_21_04",
+          "text": "دانش‌آموز خوب، استاد صبور می‌خواد.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_21_05",
+          "text": "این حرکت رو بارها تمرین کرده بودیم.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 22,
+      "temporary_id": "tb_char_22",
+      "name_fa": "پوتین",
+      "origin": "Real person / Russian politics",
+      "bio_lines": [
+        "ولادیمیر پوتین سیاستمدار روس است که سال‌ها در رأس ساختار قدرت این کشور بوده است.",
+        "پیش از ورود به بالاترین مناصب سیاسی، در نهادهای امنیتی شوروی فعالیت داشت.",
+        "حضور طولانی او در سیاست روسیه بر روابط منطقه‌ای و جهانی اثر گذاشته است."
+      ],
+      "bio_text": "ولادیمیر پوتین سیاستمدار روس است که سال‌ها در رأس ساختار قدرت این کشور بوده است.\nپیش از ورود به بالاترین مناصب سیاسی، در نهادهای امنیتی شوروی فعالیت داشت.\nحضور طولانی او در سیاست روسیه بر روابط منطقه‌ای و جهانی اثر گذاشته است.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_22_01",
+          "text": "این دور با یک حرکت حساب‌شده تمام شد.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_22_02",
+          "text": "در سیاست هم زمان‌بندی مهمه.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_22_03",
+          "text": "میز مذاکره یا میدان رقابت؛ نتیجه معلوم شد.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_22_04",
+          "text": "نقشه بدون صبر ارزشی نداره.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_22_05",
+          "text": "بازیگر صبور آخرین حرکت رو می‌زنه.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": "شخص حقیقی و سیاسی؛ تمام شعارها تخیلی و غیرمنتسب به گفتار واقعی او هستند."
+    },
+    {
+      "order": 23,
+      "temporary_id": "tb_char_23",
+      "name_fa": "بیگ مسعود",
+      "origin": "Iranian internet meme",
+      "bio_lines": [
+        "بیگ مسعود از چهره‌هایی است که در فضای میم و محتوای طنز فارسی شناخته می‌شود.",
+        "بازنشر کلیپ‌ها و واکنش‌های طنزآمیز به شکل‌گیری شخصیت اینترنتی او کمک کرده است.",
+        "در این بازی حضورش بر پایه همان هویت میمی تعریف شده، نه یک شخصیت داستانی مستقل."
+      ],
+      "bio_text": "بیگ مسعود از چهره‌هایی است که در فضای میم و محتوای طنز فارسی شناخته می‌شود.\nبازنشر کلیپ‌ها و واکنش‌های طنزآمیز به شکل‌گیری شخصیت اینترنتی او کمک کرده است.\nدر این بازی حضورش بر پایه همان هویت میمی تعریف شده، نه یک شخصیت داستانی مستقل.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_23_01",
+          "text": "بیگ اومد، بازی جمع شد!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_23_02",
+          "text": "این برد رو باید قاب گرفت.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_23_03",
+          "text": "حریف فکر کرد شوخی داریم!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_23_04",
+          "text": "امروز نوبت مسعود بود.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_23_05",
+          "text": "مگه می‌شه بیگ دست خالی برگرده؟",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": "جزئیات بیو و لحن با ویدیوهای مرجع موردنظر کاربر تطبیق داده شود؛ هیچ شعار به‌عنوان نقل‌قول رسمی ارائه نشده است."
+    },
+    {
+      "order": 24,
+      "temporary_id": "tb_char_24",
+      "name_fa": "مایک ارمانترات",
+      "origin": "Breaking Bad / Better Call Saul",
+      "bio_lines": [
+        "مایک ارمانترات مأمور پلیس بازنشسته‌ای است که به کارهای امنیتی و خلافکاری کشیده می‌شود.",
+        "خونسردی، دقت و تجربه او را به یکی از قابل‌اعتمادترین نیروهای عملیاتی بدل کرده است.",
+        "او معمولاً ترجیح می‌دهد پیش از درگیری، همه راه‌ها را حساب کند."
+      ],
+      "bio_text": "مایک ارمانترات مأمور پلیس بازنشسته‌ای است که به کارهای امنیتی و خلافکاری کشیده می‌شود.\nخونسردی، دقت و تجربه او را به یکی از قابل‌اعتمادترین نیروهای عملیاتی بدل کرده است.\nاو معمولاً ترجیح می‌دهد پیش از درگیری، همه راه‌ها را حساب کند.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_24_01",
+          "text": "زیادی حرف زدی؛ کار تموم شد.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_24_02",
+          "text": "من برای غافلگیری برنامه دارم.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_24_03",
+          "text": "بی‌سروصدا انجامش دادم.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_24_04",
+          "text": "اشتباه اولت، نادیده‌گرفتن جزئیات بود.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_24_05",
+          "text": "تمیز، دقیق، بدون دردسر اضافه.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 25,
+      "temporary_id": "tb_char_25",
+      "name_fa": "ساول گودمن",
+      "origin": "Breaking Bad / Better Call Saul",
+      "bio_lines": [
+        "جیمی مک‌گیل با نام ساول گودمن به وکیلی خوش‌زبان و دردسرساز تبدیل می‌شود.",
+        "او با تبلیغات عجیب، راه‌های قانونی خاکستری و سخنوری از موکلانش دفاع می‌کند.",
+        "بازی با کلمات برای ساول اغلب از هر اسلحه‌ای کارآمدتر است."
+      ],
+      "bio_text": "جیمی مک‌گیل با نام ساول گودمن به وکیلی خوش‌زبان و دردسرساز تبدیل می‌شود.\nاو با تبلیغات عجیب، راه‌های قانونی خاکستری و سخنوری از موکلانش دفاع می‌کند.\nبازی با کلمات برای ساول اغلب از هر اسلحه‌ای کارآمدتر است.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_25_01",
+          "text": "Better call Saul!",
+          "language": "en",
+          "kind": "verified_short_quote",
+          "reference_url": "https://www.sonypictures.com/tv/bettercallsaul",
+          "usage_permission": "not_verified"
+        },
+        {
+          "temporary_id": "tb_victory_25_02",
+          "text": "اعتراض وارد نیست؛ من بردم!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_25_03",
+          "text": "قرارداد رو بخون؛ پیروزی توی بند آخره.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_25_04",
+          "text": "وکیل خودت رو دیر خبر کردی.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_25_05",
+          "text": "این پرونده از اول به نفع من بود.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_25_06",
+          "text": "هزینه مشاوره رو بعداً حساب می‌کنیم.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 26,
+      "temporary_id": "tb_char_26",
+      "name_fa": "سابزیرو",
+      "origin": "Mortal Kombat",
+      "bio_lines": [
+        "سابزیرو یکی از جنگجویان نامدار لین کوئی در دنیای مورتال کامبت است.",
+        "او با مهار نیروی یخ، دشمن را کند و میدان نبرد را به قلمرو خود تبدیل می‌کند.",
+        "پشت نقاب آبی‌اش جنگجویی منضبط و خطرناک پنهان است."
+      ],
+      "bio_text": "سابزیرو یکی از جنگجویان نامدار لین کوئی در دنیای مورتال کامبت است.\nاو با مهار نیروی یخ، دشمن را کند و میدان نبرد را به قلمرو خود تبدیل می‌کند.\nپشت نقاب آبی‌اش جنگجویی منضبط و خطرناک پنهان است.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_26_01",
+          "text": "You will know the chill of death.",
+          "language": "en",
+          "kind": "verified_short_quote",
+          "reference_url": "https://www.mortalkombatwarehouse.com/mkx/dialogue/",
+          "usage_permission": "not_verified"
+        },
+        {
+          "temporary_id": "tb_victory_26_02",
+          "text": "این نبرد همین‌جا یخ زد.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_26_03",
+          "text": "حرکت بعدیت رو از قبل منجمد کردم.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_26_04",
+          "text": "سردتر از این هم می‌تونه بشه.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_26_05",
+          "text": "نفس بکش؛ اگه تونستی!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_26_06",
+          "text": "قانون یخ: یک اشتباه، یک شکست.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 27,
+      "temporary_id": "tb_char_27",
+      "name_fa": "کریتوس",
+      "origin": "God of War",
+      "bio_lines": [
+        "کریتوس جنگجوی اسپارتی و قهرمان خشمگین مجموعه خدای جنگ است.",
+        "گذشته پرخشونتش او را به رویارویی با خدایان و سرنوشت خود می‌کشاند.",
+        "در فصل‌های بعدی، مسئولیت پدری و مهار خشم معنای تازه‌ای برایش پیدا می‌کند."
+      ],
+      "bio_text": "کریتوس جنگجوی اسپارتی و قهرمان خشمگین مجموعه خدای جنگ است.\nگذشته پرخشونتش او را به رویارویی با خدایان و سرنوشت خود می‌کشاند.\nدر فصل‌های بعدی، مسئولیت پدری و مهار خشم معنای تازه‌ای برایش پیدا می‌کند.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_27_01",
+          "text": "Boy!",
+          "language": "en",
+          "kind": "verified_short_quote",
+          "reference_url": "https://www.imdb.com/title/tt5838588/characters/nm0431895",
+          "usage_permission": "not_verified"
+        },
+        {
+          "temporary_id": "tb_victory_27_02",
+          "text": "خشم را مهار کن؛ ضربه را نه.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_27_03",
+          "text": "این نبرد ارزش یک کلمه هم نداشت.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_27_04",
+          "text": "خدایان هم شکست‌ناپذیر نیستند.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_27_05",
+          "text": "قدرت بی‌اراده فقط سروصداست.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_27_06",
+          "text": "راه را انتخاب کردم؛ حالا کنار برو.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 28,
+      "temporary_id": "tb_char_28",
+      "name_fa": "پو (پاندای کونگ‌فوکار)",
+      "origin": "Kung Fu Panda",
+      "bio_lines": [
+        "پو پاندا عاشق غذا و کونگ‌فو است که برخلاف انتظار، جنگجوی اژدها انتخاب می‌شود.",
+        "او زیر نظر شیفو با دشواری‌های آموزش و تردیدهای خودش روبه‌رو می‌شود.",
+        "روحیه شاد و اراده‌اش نشان می‌دهد قهرمان الزاماً از اول کامل نیست."
+      ],
+      "bio_text": "پو پاندا عاشق غذا و کونگ‌فو است که برخلاف انتظار، جنگجوی اژدها انتخاب می‌شود.\nاو زیر نظر شیفو با دشواری‌های آموزش و تردیدهای خودش روبه‌رو می‌شود.\nروحیه شاد و اراده‌اش نشان می‌دهد قهرمان الزاماً از اول کامل نیست.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_28_01",
+          "text": "با شکم خالی هم می‌شه قهرمان شد!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_28_02",
+          "text": "این حرکت رو خودمم باورم نشد.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_28_03",
+          "text": "پاندای اژدها وارد می‌شود!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_28_04",
+          "text": "بعد از این مبارزه نودل مهمون من.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_28_05",
+          "text": "هرکی گفت نمی‌تونی، اشتباه می‌کرد!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 29,
+      "temporary_id": "tb_char_29",
+      "name_fa": "شریدر",
+      "origin": "Teenage Mutant Ninja Turtles",
+      "bio_lines": [
+        "شریدر رهبر نقاب‌دار و خطرناک گروه فوت کلن است.",
+        "او با فنون رزمی، زره تیغه‌دار و برنامه‌ریزی به دشمن لاک‌پشت‌های نینجا بدل می‌شود.",
+        "جاه‌طلبی و کینه‌اش او را بارها به نبرد با قهرمانان نیویورک می‌کشاند."
+      ],
+      "bio_text": "شریدر رهبر نقاب‌دار و خطرناک گروه فوت کلن است.\nاو با فنون رزمی، زره تیغه‌دار و برنامه‌ریزی به دشمن لاک‌پشت‌های نینجا بدل می‌شود.\nجاه‌طلبی و کینه‌اش او را بارها به نبرد با قهرمانان نیویورک می‌کشاند.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_29_01",
+          "text": "تیغه‌ها جواب نهایی رو دادن.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_29_02",
+          "text": "سایه‌های شهر از من فرمان می‌برن.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_29_03",
+          "text": "یک ضربه؛ پایان تمرین.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_29_04",
+          "text": "لا‌ک‌پشت‌ها امروز پناهی ندارن.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_29_05",
+          "text": "اسم فوت کلن رو به خاطر بسپار.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 30,
+      "temporary_id": "tb_char_30",
+      "name_fa": "آرتور مورگان",
+      "origin": "Red Dead Redemption 2",
+      "bio_lines": [
+        "آرتور مورگان عضو باتجربه گروه ون‌درلیند در غرب وحشی است.",
+        "او میان وفاداری به گروه، بقای روزانه و وجدان شخصی خود گرفتار می‌شود.",
+        "سرگذشتش روایت پیچیده‌ای از رفاقت، خطا و فرصت جبران است."
+      ],
+      "bio_text": "آرتور مورگان عضو باتجربه گروه ون‌درلیند در غرب وحشی است.\nاو میان وفاداری به گروه، بقای روزانه و وجدان شخصی خود گرفتار می‌شود.\nسرگذشتش روایت پیچیده‌ای از رفاقت، خطا و فرصت جبران است.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_30_01",
+          "text": "این شهر هنوز اسم منو یاد می‌گیره.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_30_02",
+          "text": "اسب رو آماده کن؛ کار تموم شد.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_30_03",
+          "text": "یه روز سخت دیگه توی غرب وحشی.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_30_04",
+          "text": "گلوله‌ها دروغ نمی‌گن.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_30_05",
+          "text": "این بار راه درست رو انتخاب کردم.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 31,
+      "temporary_id": "tb_char_31",
+      "name_fa": "دارث ویدر",
+      "origin": "Star Wars",
+      "bio_lines": [
+        "دارث ویدر جنگجوی زره‌پوش و فرمانده ترسناک امپراتوری کهکشانی است.",
+        "او با قدرت نیروی تاریک و شمشیر نوری سرخ، دشمنان را مرعوب می‌کند.",
+        "گذشته‌اش به آناکین اسکای‌واکر و تراژدی انتخاب‌هایش پیوند خورده است."
+      ],
+      "bio_text": "دارث ویدر جنگجوی زره‌پوش و فرمانده ترسناک امپراتوری کهکشانی است.\nاو با قدرت نیروی تاریک و شمشیر نوری سرخ، دشمنان را مرعوب می‌کند.\nگذشته‌اش به آناکین اسکای‌واکر و تراژدی انتخاب‌هایش پیوند خورده است.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_31_01",
+          "text": "قدرت تاریک امروز حرف آخر رو زد.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_31_02",
+          "text": "صدای نفسم یعنی وقت عقب‌نشینیه.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_31_03",
+          "text": "در برابر نیرو مقاومت نکن.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_31_04",
+          "text": "این سرنوشت از پیش حس می‌شد.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_31_05",
+          "text": "شمشیر خاموش شد؛ نبرد تمام است.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 32,
+      "temporary_id": "tb_char_32",
+      "name_fa": "مایکل اسکافیلد",
+      "origin": "Prison Break",
+      "bio_lines": [
+        "مایکل اسکافیلد مهندسی نابغه است که برای نجات برادرش نقشه فرار از زندان می‌کشد.",
+        "او جزئیات مسیر و خطرها را با دقتی استثنایی محاسبه می‌کند.",
+        "در دنیای پر از خیانت و تعقیب، هوش و وفاداری بزرگ‌ترین ابزار اوست."
+      ],
+      "bio_text": "مایکل اسکافیلد مهندسی نابغه است که برای نجات برادرش نقشه فرار از زندان می‌کشد.\nاو جزئیات مسیر و خطرها را با دقتی استثنایی محاسبه می‌کند.\nدر دنیای پر از خیانت و تعقیب، هوش و وفاداری بزرگ‌ترین ابزار اوست.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_32_01",
+          "text": "خروج اضطراری رو از قبل طراحی کرده بودم.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_32_02",
+          "text": "هیچ دیواری بدون راه خروج نیست.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_32_03",
+          "text": "این هم مرحله آخر نقشه بود.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_32_04",
+          "text": "تو تازه فهمیدی؛ من از اول می‌دونستم.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_32_05",
+          "text": "فرار موفقیت‌آمیز؛ پرونده بسته شد.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 33,
+      "temporary_id": "tb_char_33",
+      "name_fa": "تی‌بگ",
+      "origin": "Prison Break",
+      "bio_lines": [
+        "تئودور بگول، معروف به تی‌بگ، یکی از زندانیان خطرناک و حیله‌گر فرار از زندان است.",
+        "او با زبان چرب، تهدید و فرصت‌طلبی از موقعیت‌های دشوار جان سالم می‌برد.",
+        "حضور غیرقابل‌پیش‌بینی‌اش اغلب برنامه دیگران را به هم می‌ریزد."
+      ],
+      "bio_text": "تئودور بگول، معروف به تی‌بگ، یکی از زندانیان خطرناک و حیله‌گر فرار از زندان است.\nاو با زبان چرب، تهدید و فرصت‌طلبی از موقعیت‌های دشوار جان سالم می‌برد.\nحضور غیرقابل‌پیش‌بینی‌اش اغلب برنامه دیگران را به هم می‌ریزد.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_33_01",
+          "text": "فکر کردی من به همین راحتی حذف می‌شم؟",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_33_02",
+          "text": "بدترین هم‌بازی رو انتخاب کردی.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_33_03",
+          "text": "برای من همیشه یه راه پشتی هست.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_33_04",
+          "text": "لبخند من رو دست‌کم نگیر.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_33_05",
+          "text": "آخر قصه معمولاً من هنوز اینجام.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 34,
+      "temporary_id": "tb_char_34",
+      "name_fa": "شیرفرهاد",
+      "origin": "شب‌های برره",
+      "bio_lines": [
+        "شیرفرهاد از شخصیت‌های معروف سریال طنز ایرانی «شب‌های برره» است.",
+        "او پسر سالارخانِ پایین‌برره و یکی از چهره‌های پرشیطنت داستان است.",
+        "لحن برره‌ای و رفتارهای بامزه‌اش به میم‌ها و تکیه‌کلام‌های ماندگار تبدیل شده‌اند."
+      ],
+      "bio_text": "شیرفرهاد از شخصیت‌های معروف سریال طنز ایرانی «شب‌های برره» است.\nاو پسر سالارخانِ پایین‌برره و یکی از چهره‌های پرشیطنت داستان است.\nلحن برره‌ای و رفتارهای بامزه‌اش به میم‌ها و تکیه‌کلام‌های ماندگار تبدیل شده‌اند.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_34_01",
+          "text": "ها ای که وگفتی یعنی چه؟",
+          "language": "fa",
+          "kind": "verified_short_quote",
+          "reference_url": "https://fa.wikiquote.org/wiki/شب‌های_برره",
+          "usage_permission": "not_verified"
+        },
+        {
+          "temporary_id": "tb_victory_34_02",
+          "text": "برره امروز یک پهلوان تازه شناخت!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_34_03",
+          "text": "ای که وگفتی یعنی شکست حریف!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_34_04",
+          "text": "حالا بفرمایید حساب این برد رو برسید.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_34_05",
+          "text": "به شیرفرهاد نگید نمی‌تونی!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_34_06",
+          "text": "این مسابقه از اول برره‌ای بید!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 35,
+      "temporary_id": "tb_char_35",
+      "name_fa": "شرک",
+      "origin": "Shrek",
+      "bio_lines": [
+        "شرک غول سبز و گوشه‌گیری است که ترجیح می‌دهد تنها در مردابش زندگی کند.",
+        "ماجراجویی‌ها او را به دوستی با الاغ سخنگو و آشنایی با فیونا می‌رسانند.",
+        "زیر ظاهر ترسناکش قلبی مهربان و طنزی تند پنهان است."
+      ],
+      "bio_text": "شرک غول سبز و گوشه‌گیری است که ترجیح می‌دهد تنها در مردابش زندگی کند.\nماجراجویی‌ها او را به دوستی با الاغ سخنگو و آشنایی با فیونا می‌رسانند.\nزیر ظاهر ترسناکش قلبی مهربان و طنزی تند پنهان است.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_35_01",
+          "text": "مرداب من، قانون من!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_35_02",
+          "text": "گفتم از مردابم دور بمون!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_35_03",
+          "text": "غول‌ها همیشه حرف آخر رو می‌زنن.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_35_04",
+          "text": "این همه دردسر برای یک برد؟!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_35_05",
+          "text": "الاغ! دیدی گفتم می‌برم؟",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 36,
+      "temporary_id": "tb_char_36",
+      "name_fa": "نقی معمولی",
+      "origin": "پایتخت",
+      "bio_lines": [
+        "نقی معمولی شخصیت محوری سریال طنز ایرانی «پایتخت» است.",
+        "او مردی خانواده‌دوست، پرادعا و زودجوش است که درگیر دردسرهای پی‌درپی می‌شود.",
+        "کل‌کل‌های خانوادگی و تصمیم‌های عجولانه‌اش موقعیت‌های طنز می‌سازند."
+      ],
+      "bio_text": "نقی معمولی شخصیت محوری سریال طنز ایرانی «پایتخت» است.\nاو مردی خانواده‌دوست، پرادعا و زودجوش است که درگیر دردسرهای پی‌درپی می‌شود.\nکل‌کل‌های خانوادگی و تصمیم‌های عجولانه‌اش موقعیت‌های طنز می‌سازند.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_36_01",
+          "text": "این برد حقِ نقی معمولی بود!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_36_02",
+          "text": "ارسطو! دیدی چی شد؟",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_36_03",
+          "text": "من گفتم نتیجه همین می‌شه.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_36_04",
+          "text": "خانواده معمولی همیشه برنده می‌شه!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_36_05",
+          "text": "حالا یه کف مرتب برای قهرمان!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 37,
+      "temporary_id": "tb_char_37",
+      "name_fa": "داوود ززز",
+      "origin": "دزد و پلیس / میم فارسی",
+      "bio_lines": [
+        "داوود یکی از خلافکاران خرده‌پای سریال طنز ایرانی «دزد و پلیس» است.",
+        "او همراه ناصر درگیر ماجراهای پررفت‌وآمد گروه‌های خلافکاری می‌شود.",
+        "در فضای میم فارسی، با لقب «داوود ززز» نیز به او اشاره می‌شود."
+      ],
+      "bio_text": "داوود یکی از خلافکاران خرده‌پای سریال طنز ایرانی «دزد و پلیس» است.\nاو همراه ناصر درگیر ماجراهای پررفت‌وآمد گروه‌های خلافکاری می‌شود.\nدر فضای میم فارسی، با لقب «داوود ززز» نیز به او اشاره می‌شود.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_37_01",
+          "text": "ززز... خوابِ باختت رو دیدم!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_37_02",
+          "text": "این بار نقشه گرفت، ناصر!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_37_03",
+          "text": "حالا به کی می‌گی آماتور؟",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_37_04",
+          "text": "کار تمومه؛ بریم قبل از دردسر بعدی.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_37_05",
+          "text": "یک برد بی‌سروصدا، به سبک داوود.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": "لقب «ززز» و لحنش باید با کلیپ مرجع موردنظر کاربر تطبیق داده شود؛ متن‌های برد نقل‌قول رسمی نیستند."
+    },
+    {
+      "order": 38,
+      "temporary_id": "tb_char_38",
+      "name_fa": "تایلانگ",
+      "origin": "Kung Fu Panda",
+      "bio_lines": [
+        "تایلانگ پلنگ برفی و شاگرد سابق شیفو در کونگ‌فو پاندا است.",
+        "او جنگجویی بسیار ماهر است که از نرسیدن به عنوان جنگجوی اژدها خشمگین می‌شود.",
+        "غرور و عطش اثبات قدرت، او را به رویارویی با استاد و پو می‌کشاند."
+      ],
+      "bio_text": "تایلانگ پلنگ برفی و شاگرد سابق شیفو در کونگ‌فو پاندا است.\nاو جنگجویی بسیار ماهر است که از نرسیدن به عنوان جنگجوی اژدها خشمگین می‌شود.\nغرور و عطش اثبات قدرت، او را به رویارویی با استاد و پو می‌کشاند.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_38_01",
+          "text": "حالا فهمیدی قدرت واقعی یعنی چی؟",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_38_02",
+          "text": "این عنوان از اول باید مال من می‌بود.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_38_03",
+          "text": "تمرین سال‌ها امروز جواب داد.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_38_04",
+          "text": "سرعت من فرصتی برای فکرکردنت نگذاشت.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_38_05",
+          "text": "هیچ قفلی جلودار من نیست.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 39,
+      "temporary_id": "tb_char_39",
+      "name_fa": "اتزیو",
+      "origin": "Assassin’s Creed",
+      "bio_lines": [
+        "اتزیو آئودیتوره از مشهورترین آدمکش‌های انجمن اساسین در رنسانس ایتالیاست.",
+        "مسیرش از یک جوان اشرافی به رهبر باتجربه‌ای در نبرد با تمپلارها می‌رسد.",
+        "او با شمشیر پنهان، مخفی‌کاری و هوش تاکتیکی دشمنان را غافلگیر می‌کند."
+      ],
+      "bio_text": "اتزیو آئودیتوره از مشهورترین آدمکش‌های انجمن اساسین در رنسانس ایتالیاست.\nمسیرش از یک جوان اشرافی به رهبر باتجربه‌ای در نبرد با تمپلارها می‌رسد.\nاو با شمشیر پنهان، مخفی‌کاری و هوش تاکتیکی دشمنان را غافلگیر می‌کند.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_39_01",
+          "text": "سایه بودم؛ نتیجه را دیدی.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_39_02",
+          "text": "تیغه پنهان، ضربه آشکار.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_39_03",
+          "text": "آزادی را نمی‌توان زنجیر کرد.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_39_04",
+          "text": "روی بام‌ها جای من امن‌تر است.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_39_05",
+          "text": "یک قدم جلوتر از نگاهت بودم.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 40,
+      "temporary_id": "tb_char_40",
+      "name_fa": "آلبرت وسکر",
+      "origin": "Resident Evil",
+      "bio_lines": [
+        "آلبرت وسکر از چهره‌های اصلی توطئه‌های زیستی دنیای رزیدنت ایول است.",
+        "او با جاه‌طلبی علمی و توانایی‌های فراانسانی به دشمنی خطرناک تبدیل می‌شود.",
+        "سرعت، هوش و میل به تسلط در نقشه‌هایش نقش محوری دارند."
+      ],
+      "bio_text": "آلبرت وسکر از چهره‌های اصلی توطئه‌های زیستی دنیای رزیدنت ایول است.\nاو با جاه‌طلبی علمی و توانایی‌های فراانسانی به دشمنی خطرناک تبدیل می‌شود.\nسرعت، هوش و میل به تسلط در نقشه‌هایش نقش محوری دارند.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_40_01",
+          "text": "این نتیجه از نظر علمی قابل پیش‌بینی بود.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_40_02",
+          "text": "سرعت من برای چشم تو زیادیه.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_40_03",
+          "text": "تکامل به برنده‌ها تعلق داره.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_40_04",
+          "text": "همه چیز طبق برنامه پیش رفت.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_40_05",
+          "text": "تو فقط داده‌ای از آزمایش من بودی.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 41,
+      "temporary_id": "tb_char_41",
+      "name_fa": "کامران اتابکی",
+      "origin": "ایران / میم اینترنتی",
+      "bio_lines": [
+        "کامران اتابکی چهره‌ای است که ویدیوها و بازنشرهای طنز فارسی با نام او شناخته می‌شوند.",
+        "هویت میمی او در واکنش‌ها و فضای شوخی کاربران اینترنت شکل گرفته است.",
+        "در TelBattle به‌عنوان شخصیت مرتبط با فرهنگ طنز آنلاین حضور دارد."
+      ],
+      "bio_text": "کامران اتابکی چهره‌ای است که ویدیوها و بازنشرهای طنز فارسی با نام او شناخته می‌شوند.\nهویت میمی او در واکنش‌ها و فضای شوخی کاربران اینترنت شکل گرفته است.\nدر TelBattle به‌عنوان شخصیت مرتبط با فرهنگ طنز آنلاین حضور دارد.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_41_01",
+          "text": "این برد رو هم بذارید توی کلیپ‌ها!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_41_02",
+          "text": "بازم من سوژه شدم، این بار از نوع برنده.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_41_03",
+          "text": "اتابکی وارد شد، نتیجه مشخص شد.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_41_04",
+          "text": "حریف هنوز داره ماجرا رو هضم می‌کنه.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_41_05",
+          "text": "کار تموم شد؛ دوربین رو خاموش کنید.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": "جزئیات زندگی، شخصیت و دیالوگ‌های واقعی کامران اتابکی تأیید نشده؛ متن‌ها بی‌ادعای انتساب، صرفاً برای بازی نوشته شده‌اند."
+    },
+    {
+      "order": 42,
+      "temporary_id": "tb_char_42",
+      "name_fa": "ترمیناتور",
+      "origin": "The Terminator",
+      "bio_lines": [
+        "ترمیناتور یک ماشین انسان‌نمای مرگبار از آینده‌ای تحت سلطه ماشین‌هاست.",
+        "بدن مقاوم، تحلیل ماشینی و تعقیب بی‌وقفه از ویژگی‌های اصلی او هستند.",
+        "مأموریتش معمولاً با هدفی مشخص تعریف می‌شود و احساسات مانعش نیستند."
+      ],
+      "bio_text": "ترمیناتور یک ماشین انسان‌نمای مرگبار از آینده‌ای تحت سلطه ماشین‌هاست.\nبدن مقاوم، تحلیل ماشینی و تعقیب بی‌وقفه از ویژگی‌های اصلی او هستند.\nمأموریتش معمولاً با هدفی مشخص تعریف می‌شود و احساسات مانعش نیستند.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_42_01",
+          "text": "I'll be back.",
+          "language": "en",
+          "kind": "verified_short_quote",
+          "reference_url": "https://content.time.com/time/specials/packages/article/0,28804,1900025_1900019_1899988,00.html",
+          "usage_permission": "not_verified"
+        },
+        {
+          "temporary_id": "tb_victory_42_02",
+          "text": "هدف شناسایی شد؛ مأموریت کامل.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_42_03",
+          "text": "احتمال شکست تو محاسبه شده بود.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_42_04",
+          "text": "سیستم خطا نداشت؛ تو داشتی.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_42_05",
+          "text": "فرار ممکن نبود.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_42_06",
+          "text": "نتیجه ثبت شد: پیروزی ماشین.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 43,
+      "temporary_id": "tb_char_43",
+      "name_fa": "جول",
+      "origin": "The Last of Us",
+      "bio_lines": [
+        "جول بازمانده‌ای زخم‌خورده در دنیای آخرالزمانی The Last of Us است.",
+        "او مأمور می‌شود الی را از میان مناطق خطرناک عبور دهد.",
+        "رابطه تدریجی آن‌ها و انتخاب‌های سخت، شخصیت محافظه‌کار و خاکستری او را شکل می‌دهد."
+      ],
+      "bio_text": "جول بازمانده‌ای زخم‌خورده در دنیای آخرالزمانی The Last of Us است.\nاو مأمور می‌شود الی را از میان مناطق خطرناک عبور دهد.\nرابطه تدریجی آن‌ها و انتخاب‌های سخت، شخصیت محافظه‌کار و خاکستری او را شکل می‌دهد.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_43_01",
+          "text": "امروز از اینجا سالم رد شدیم.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_43_02",
+          "text": "برای زنده‌موندن اجازه نمی‌گیرم.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_43_03",
+          "text": "این مسیر آخرین اشتباهت بود.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_43_04",
+          "text": "اگه پای آدم‌هام وسط باشه، عقب نمی‌رم.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_43_05",
+          "text": "ساکت باش؛ همه چیز تموم شد.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 44,
+      "temporary_id": "tb_char_44",
+      "name_fa": "شرلوک هلمز",
+      "origin": "Sherlock Holmes / Arthur Conan Doyle",
+      "bio_lines": [
+        "شرلوک هلمز کارآگاه نابغه خیابان بیکر لندن در داستان‌های آرتور کانن دویل است.",
+        "او با مشاهده جزئیات، استدلال و کنارهم‌گذاشتن نشانه‌ها پرونده‌ها را حل می‌کند.",
+        "واتسون همراه نزدیک اوست و اغلب شاهد مسیر شگفت‌انگیز نتیجه‌گیری‌اش می‌شود."
+      ],
+      "bio_text": "شرلوک هلمز کارآگاه نابغه خیابان بیکر لندن در داستان‌های آرتور کانن دویل است.\nاو با مشاهده جزئیات، استدلال و کنارهم‌گذاشتن نشانه‌ها پرونده‌ها را حل می‌کند.\nواتسون همراه نزدیک اوست و اغلب شاهد مسیر شگفت‌انگیز نتیجه‌گیری‌اش می‌شود.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_44_01",
+          "text": "نتیجه ابتدایی بود، واتسون.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_44_02",
+          "text": "ردپاها بیشتر از حرف‌ها می‌گن.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_44_03",
+          "text": "من فقط چیزی رو دیدم که تو ندیدی.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_44_04",
+          "text": "راز حل شد؛ پرونده بسته.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_44_05",
+          "text": "وقتی شواهد روشنن، پایان معلومه.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 45,
+      "temporary_id": "tb_char_45",
+      "name_fa": "گوست",
+      "origin": "Call of Duty: Modern Warfare",
+      "bio_lines": [
+        "سایمون رایلی، معروف به گوست، سرباز ویژه نقاب‌دار مجموعه کال آو دیوتی است.",
+        "او در مأموریت‌های خطرناک با استتار، عملیات مخفی و مهارت رزمی شناخته می‌شود.",
+        "ماسک طرح جمجمه و رفتار کم‌حرفش به هویت نمادین او تبدیل شده‌اند."
+      ],
+      "bio_text": "سایمون رایلی، معروف به گوست، سرباز ویژه نقاب‌دار مجموعه کال آو دیوتی است.\nاو در مأموریت‌های خطرناک با استتار، عملیات مخفی و مهارت رزمی شناخته می‌شود.\nماسک طرح جمجمه و رفتار کم‌حرفش به هویت نمادین او تبدیل شده‌اند.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_45_01",
+          "text": "سایه اومد؛ مأموریت تموم شد.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_45_02",
+          "text": "چیزی ندیدی، چون باید همین‌طور می‌شد.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_45_03",
+          "text": "هدف از دست رفت؛ برای تو.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_45_04",
+          "text": "بی‌صدا وارد شدم، با برد برگشتم.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_45_05",
+          "text": "اسمم رو نمی‌دونی؛ نتیجه رو چرا.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 46,
+      "temporary_id": "tb_char_46",
+      "name_fa": "باب اسفنجی",
+      "origin": "SpongeBob SquarePants",
+      "bio_lines": [
+        "باب‌اسفنجی شخصیت خوش‌بین و پرانرژیِ شهر زیرآبی بیکینی باتم است.",
+        "او در رستوران خرچنگ کار می‌کند و با دوستانش ماجراهای طنز می‌سازد.",
+        "خنده، پشتکار و علاقه عجیبش به کار و بازی از ویژگی‌های همیشگی اوست."
+      ],
+      "bio_text": "باب‌اسفنجی شخصیت خوش‌بین و پرانرژیِ شهر زیرآبی بیکینی باتم است.\nاو در رستوران خرچنگ کار می‌کند و با دوستانش ماجراهای طنز می‌سازد.\nخنده، پشتکار و علاقه عجیبش به کار و بازی از ویژگی‌های همیشگی اوست.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_46_01",
+          "text": "I'm ready!",
+          "language": "en",
+          "kind": "verified_short_quote",
+          "reference_url": "https://www.youtube.com/watch?v=AGTH7rOEbxE",
+          "usage_permission": "not_verified"
+        },
+        {
+          "temporary_id": "tb_victory_46_02",
+          "text": "حتی این برد هم بوی همبرگر می‌ده!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_46_03",
+          "text": "پاتریک! دیدی من بردم؟",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_46_04",
+          "text": "از شادی حباب درست می‌کنم!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_46_05",
+          "text": "این بهترین روز زیر دریاست!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_46_06",
+          "text": "سفارش ویژه: یک پیروزی ترد و طلایی!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 47,
+      "temporary_id": "tb_char_47",
+      "name_fa": "مسترچیف",
+      "origin": "Halo",
+      "bio_lines": [
+        "مسترچیف ابرسرباز زره‌پوش برنامه اسپارتان در دنیای هیلو است.",
+        "او در نبردهای بزرگ فضایی به مهارت، استقامت و آرامش شهرت دارد.",
+        "همکاری او با هوش مصنوعی کورتانا نقشی مهم در مأموریت‌هایش ایفا می‌کند."
+      ],
+      "bio_text": "مسترچیف ابرسرباز زره‌پوش برنامه اسپارتان در دنیای هیلو است.\nاو در نبردهای بزرگ فضایی به مهارت، استقامت و آرامش شهرت دارد.\nهمکاری او با هوش مصنوعی کورتانا نقشی مهم در مأموریت‌هایش ایفا می‌کند.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_47_01",
+          "text": "مأموریت انجام شد؛ اسپارتان آماده است.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_47_02",
+          "text": "این زره برای عقب‌نشینی ساخته نشده.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_47_03",
+          "text": "هدف بعدی رو مشخص کن.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_47_04",
+          "text": "تهدید خنثی شد.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_47_05",
+          "text": "تا وقتی ایستاده‌ام، میدان خالی نیست.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 48,
+      "temporary_id": "tb_char_48",
+      "name_fa": "کاپیتان پرایس",
+      "origin": "Call of Duty: Modern Warfare",
+      "bio_lines": [
+        "جان پرایس فرمانده باتجربه واحدهای ویژه در مجموعه Modern Warfare است.",
+        "او با تصمیم‌های دشوار، رهبری عملیاتی و تجربه جنگی شناخته می‌شود.",
+        "در مأموریت‌های حساس تلاش می‌کند تیمش را با کمترین تلفات به هدف برساند."
+      ],
+      "bio_text": "جان پرایس فرمانده باتجربه واحدهای ویژه در مجموعه Modern Warfare است.\nاو با تصمیم‌های دشوار، رهبری عملیاتی و تجربه جنگی شناخته می‌شود.\nدر مأموریت‌های حساس تلاش می‌کند تیمش را با کمترین تلفات به هدف برساند.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_48_01",
+          "text": "We get dirty, and the world stays clean.",
+          "language": "en",
+          "kind": "verified_short_quote",
+          "reference_url": "https://blog.activision.com/call-of-duty/2019-09/Modern-Warfare-Campaign-Biographies-of-the-Storys-Major-Players-Part-1.html",
+          "usage_permission": "not_verified"
+        },
+        {
+          "temporary_id": "tb_victory_48_02",
+          "text": "عملیات تموم شد؛ گروه جمع بشه.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_48_03",
+          "text": "هدف تأیید شد، ادامه مسیر با ماست.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_48_04",
+          "text": "بازی رو با شانس نمی‌برن، سرباز.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_48_05",
+          "text": "یک کار تمیز؛ بدون تلفات.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_48_06",
+          "text": "نقشه زمانی خوبه که اجرا بشه.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 49,
+      "temporary_id": "tb_char_49",
+      "name_fa": "رگنار",
+      "origin": "Vikings",
+      "bio_lines": [
+        "رگنار لاثبروک قهرمان وایکینگی سریال Vikings با الهام از افسانه‌های اسکاندیناوی است.",
+        "او جنگجو، دریانورد و رهبری جاه‌طلب است که به فراتر از سرزمین خود چشم دارد.",
+        "جست‌وجوی قدرت و شهرت، سرنوشت او و خانواده‌اش را دگرگون می‌کند."
+      ],
+      "bio_text": "رگنار لاثبروک قهرمان وایکینگی سریال Vikings با الهام از افسانه‌های اسکاندیناوی است.\nاو جنگجو، دریانورد و رهبری جاه‌طلب است که به فراتر از سرزمین خود چشم دارد.\nجست‌وجوی قدرت و شهرت، سرنوشت او و خانواده‌اش را دگرگون می‌کند.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_49_01",
+          "text": "امروز خدایان دریا با ما بودن.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_49_02",
+          "text": "کشتی‌ها رو آماده کنید؛ فتح بعدی در راهه.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_49_03",
+          "text": "اسم وایکینگ رو به خاطر بسپار.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_49_04",
+          "text": "ترس رو به ساحل جا گذاشتم.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_49_05",
+          "text": "این داستان رو اسکالدها تعریف خواهند کرد.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 50,
+      "temporary_id": "tb_char_50",
+      "name_fa": "ارباب شن",
+      "origin": "Kung Fu Panda 2",
+      "bio_lines": [
+        "ارباب شن طاووس سفید و دشمن اصلی پو در دومین فیلم کونگ‌فو پاندا است.",
+        "او با هوش، جاه‌طلبی و سلاح‌های پیشرفته برای تصرف چین تلاش می‌کند.",
+        "ظاهر اشرافی و رفتار سردش تضادی تماشایی با خشونت نقشه‌های او دارد."
+      ],
+      "bio_text": "ارباب شن طاووس سفید و دشمن اصلی پو در دومین فیلم کونگ‌فو پاندا است.\nاو با هوش، جاه‌طلبی و سلاح‌های پیشرفته برای تصرف چین تلاش می‌کند.\nظاهر اشرافی و رفتار سردش تضادی تماشایی با خشونت نقشه‌های او دارد.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_50_01",
+          "text": "زیباییِ قدرت را تماشا کن.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_50_02",
+          "text": "همه چیز دقیقاً طبق نقشه پیش رفت.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_50_03",
+          "text": "چرخ سرنوشت امروز به نفع من چرخید.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_50_04",
+          "text": "این فقط یک نمایش نبود؛ یک فتح بود.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_50_05",
+          "text": "قدرت واقعی به بال و پر نیست، به اراده است.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 51,
+      "temporary_id": "tb_char_51",
+      "name_fa": "نادرشاه",
+      "origin": "Iranian history",
+      "bio_lines": [
+        "نادرشاه افشار بنیان‌گذار سلسله افشاریه و یکی از فرماندهان مشهور تاریخ ایران است.",
+        "او با لشکرکشی‌ها و پیروزی‌های بزرگ، قدرت نظامی ایران را گسترش داد.",
+        "دورانش با فتوحات چشمگیر و همچنین سختگیری‌های سیاسی شناخته می‌شود."
+      ],
+      "bio_text": "نادرشاه افشار بنیان‌گذار سلسله افشاریه و یکی از فرماندهان مشهور تاریخ ایران است.\nاو با لشکرکشی‌ها و پیروزی‌های بزرگ، قدرت نظامی ایران را گسترش داد.\nدورانش با فتوحات چشمگیر و همچنین سختگیری‌های سیاسی شناخته می‌شود.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_51_01",
+          "text": "میدان با شمشیر و تدبیر فتح شد.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_51_02",
+          "text": "سپاه آماده؛ پیروزی ثبت شد.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_51_03",
+          "text": "قدرت از نظم لشکر آغاز می‌شود.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_51_04",
+          "text": "این خاک شاهد بازگشت پیروزی است.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_51_05",
+          "text": "فرمان آخر را تاریخ خواهد نوشت.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 52,
+      "temporary_id": "tb_char_52",
+      "name_fa": "لالو سالامانکا",
+      "origin": "Better Call Saul",
+      "bio_lines": [
+        "لالو سالامانکا عضو باهوش و خطرناک خاندان سالامانکا در Better Call Saul است.",
+        "او پشت لبخند و رفتار خوش‌مشربش ذهنی حسابگر و بی‌رحم پنهان می‌کند.",
+        "کنجکاوی و پیگیری سرنخ‌ها او را به دشمنی جدی برای گاس فرینگ بدل می‌سازد."
+      ],
+      "bio_text": "لالو سالامانکا عضو باهوش و خطرناک خاندان سالامانکا در Better Call Saul است.\nاو پشت لبخند و رفتار خوش‌مشربش ذهنی حسابگر و بی‌رحم پنهان می‌کند.\nکنجکاوی و پیگیری سرنخ‌ها او را به دشمنی جدی برای گاس فرینگ بدل می‌سازد.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_52_01",
+          "text": "لبخند بزن؛ همه چیز تحت کنترله.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_52_02",
+          "text": "سؤالم ساده بود، جواب تو اشتباه.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_52_03",
+          "text": "فکر کردی از چشمم دور می‌مونه؟",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_52_04",
+          "text": "وقتی می‌خندم، باید بیشتر بترسی.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_52_05",
+          "text": "امروز بازی به سبک سالامانکا تموم شد.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 53,
+      "temporary_id": "tb_char_53",
+      "name_fa": "جان اسنو",
+      "origin": "Game of Thrones",
+      "bio_lines": [
+        "جان اسنو در نگهبانان شب خدمت می‌کند و با تهدیدهای شمال وستروس روبه‌رو می‌شود.",
+        "او میان وظیفه، خانواده و وفاداری به مردم تصمیم‌های سنگینی می‌گیرد.",
+        "شمشیرزنی و توان رهبری، جایگاهش را در نبرد برای بقا پررنگ می‌کنند."
+      ],
+      "bio_text": "جان اسنو در نگهبانان شب خدمت می‌کند و با تهدیدهای شمال وستروس روبه‌رو می‌شود.\nاو میان وظیفه، خانواده و وفاداری به مردم تصمیم‌های سنگینی می‌گیرد.\nشمشیرزنی و توان رهبری، جایگاهش را در نبرد برای بقا پررنگ می‌کنند.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_53_01",
+          "text": "شمال هنوز ایستاده است.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_53_02",
+          "text": "سوگندم از شمشیرم سنگین‌تره.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_53_03",
+          "text": "دیوار فقط از سنگ نیست؛ از اراده‌ست.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_53_04",
+          "text": "در سرما هم عقب نمی‌کشیم.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_53_05",
+          "text": "برای زنده‌ها جنگیدم.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 54,
+      "temporary_id": "tb_char_54",
+      "name_fa": "زئوس",
+      "origin": "اساطیر یونان",
+      "bio_lines": [
+        "زئوس فرمانروای خدایان المپ در اساطیر یونان است.",
+        "او با آذرخش، آسمان و اقتدار خدایی شناخته می‌شود.",
+        "در داستان‌های اسطوره‌ای، تصمیم‌هایش سرنوشت خدایان و انسان‌ها را تغییر می‌دهند."
+      ],
+      "bio_text": "زئوس فرمانروای خدایان المپ در اساطیر یونان است.\nاو با آذرخش، آسمان و اقتدار خدایی شناخته می‌شود.\nدر داستان‌های اسطوره‌ای، تصمیم‌هایش سرنوشت خدایان و انسان‌ها را تغییر می‌دهند.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_54_01",
+          "text": "آسمان جواب این نبرد را داد.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_54_02",
+          "text": "وقتی رعد غرش می‌کند، میدان ساکت می‌شود.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_54_03",
+          "text": "حکم المپ صادر شد.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_54_04",
+          "text": "یک آذرخش برای پایان ماجرا کافی بود.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_54_05",
+          "text": "قدرت خدایان امروز بیدار شد.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 55,
+      "temporary_id": "tb_char_55",
+      "name_fa": "گرالت (ویچر)",
+      "origin": "The Witcher",
+      "bio_lines": [
+        "گرالت اهل ریویا یک ویچر است که برای شکار هیولاها آموزش دیده و تغییر یافته است.",
+        "او با دو شمشیر، معجون‌ها و نشانه‌های جادویی مأموریت‌های خطرناک انجام می‌دهد.",
+        "در جهانی پر از تبعیض و انتخاب‌های خاکستری، تلاش می‌کند اصول خودش را حفظ کند."
+      ],
+      "bio_text": "گرالت اهل ریویا یک ویچر است که برای شکار هیولاها آموزش دیده و تغییر یافته است.\nاو با دو شمشیر، معجون‌ها و نشانه‌های جادویی مأموریت‌های خطرناک انجام می‌دهد.\nدر جهانی پر از تبعیض و انتخاب‌های خاکستری، تلاش می‌کند اصول خودش را حفظ کند.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_55_01",
+          "text": "Hmm.",
+          "language": "en",
+          "kind": "verified_short_quote",
+          "reference_url": "https://knowyourmeme.com/memes/geralts-hmm",
+          "usage_permission": "not_verified"
+        },
+        {
+          "temporary_id": "tb_victory_55_02",
+          "text": "قرارداد انجام شد؛ سکه‌ها رو بشمار.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_55_03",
+          "text": "هیولای واقعی همیشه شاخ نداره.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_55_04",
+          "text": "با شمشیر نقره‌ای هم می‌شه بحث رو تموم کرد.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_55_05",
+          "text": "دردسر رو بو کشیده بودم.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_55_06",
+          "text": "این قصه، پایان خوشی برای حریف نداشت.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 56,
+      "temporary_id": "tb_char_56",
+      "name_fa": "کومان (کوروش و ایمان)",
+      "origin": "Kouman / Iranian YouTube",
+      "bio_lines": [
+        "کومان کانال سرگرمی فارسی است که کوروش زراندوز و ایمان دست‌پاک چهره‌های اصلی آن‌اند.",
+        "چالش‌ها، مسابقه‌ها و امتحان‌کردن خوراکی‌های عجیب از موضوع‌های شناخته‌شده ویدیوهای آن‌هاست.",
+        "این کارت در TelBattle هر دو نفر را به‌صورت یک تیم طنزآمیز نشان می‌دهد."
+      ],
+      "bio_text": "کومان کانال سرگرمی فارسی است که کوروش زراندوز و ایمان دست‌پاک چهره‌های اصلی آن‌اند.\nچالش‌ها، مسابقه‌ها و امتحان‌کردن خوراکی‌های عجیب از موضوع‌های شناخته‌شده ویدیوهای آن‌هاست.\nاین کارت در TelBattle هر دو نفر را به‌صورت یک تیم طنزآمیز نشان می‌دهد.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_56_01",
+          "text": "کوروش و ایمان: دو نفر، یک برد!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_56_02",
+          "text": "چالش امروز رو هم رد کردیم.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_56_03",
+          "text": "این دفعه مجازات مال حریفه!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_56_04",
+          "text": "این نتیجه رو توی قسمت بعدی می‌ذاریم.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_56_05",
+          "text": "وقتی کومان تیم باشه، خنده هم همراهشه.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": "این یک کارت دونفره است؛ از تبدیل آن به دو شخصیت مجزا خودداری شود."
+    },
+    {
+      "order": 57,
+      "temporary_id": "tb_char_57",
+      "name_fa": "ناپلئون",
+      "origin": "French history",
+      "bio_lines": [
+        "ناپلئون بناپارت فرمانده نظامی و امپراتور فرانسه در آغاز قرن نوزدهم بود.",
+        "او با لشکرکشی‌ها و اصلاحات سیاسی، اروپا را دگرگون کرد.",
+        "نامش هم با نبوغ نظامی و هم با شکست‌های بزرگ تاریخی گره خورده است."
+      ],
+      "bio_text": "ناپلئون بناپارت فرمانده نظامی و امپراتور فرانسه در آغاز قرن نوزدهم بود.\nاو با لشکرکشی‌ها و اصلاحات سیاسی، اروپا را دگرگون کرد.\nنامش هم با نبوغ نظامی و هم با شکست‌های بزرگ تاریخی گره خورده است.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_57_01",
+          "text": "روی نقشه پیروز می‌شن، نه با آرزو.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_57_02",
+          "text": "امروز یک حرکت کافی بود.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_57_03",
+          "text": "سپاه، یک قدم به پیش!",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_57_04",
+          "text": "حریف مسیر عقب‌نشینی رو دیر پیدا کرد.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_57_05",
+          "text": "تاریخ به حرکت جسورانه جواب می‌ده.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 58,
+      "temporary_id": "tb_char_58",
+      "name_fa": "سولجربوی",
+      "origin": "The Boys",
+      "bio_lines": [
+        "سولجربوی ابرقهرمان قدیمی و بحث‌برانگیز دنیای The Boys است.",
+        "او با قدرت بدنی عظیم و توان انفجاری ویژه شناخته می‌شود.",
+        "رفتار خشن و نگاه متعلق به گذشته‌اش، حضورش را خطرناک و غیرقابل‌پیش‌بینی می‌کند."
+      ],
+      "bio_text": "سولجربوی ابرقهرمان قدیمی و بحث‌برانگیز دنیای The Boys است.\nاو با قدرت بدنی عظیم و توان انفجاری ویژه شناخته می‌شود.\nرفتار خشن و نگاه متعلق به گذشته‌اش، حضورش را خطرناک و غیرقابل‌پیش‌بینی می‌کند.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_58_01",
+          "text": "قهرمان قدیمی هنوز کار می‌کنه.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_58_02",
+          "text": "این ضربه رو برای تاریخ نگه دار.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_58_03",
+          "text": "کسی گفت نسل جدید قوی‌تره؟",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_58_04",
+          "text": "چیزی از میدان باقی مونده؟",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_58_05",
+          "text": "امروز نوبت قدرت قدیمی بود.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 59,
+      "temporary_id": "tb_char_59",
+      "name_fa": "گاس فرینگ",
+      "origin": "Breaking Bad / Better Call Saul",
+      "bio_lines": [
+        "گاس فرینگ تاجر ظاهراً آرام و صاحب رستوران‌های زنجیره‌ای در دنیای بریکینگ بد است.",
+        "پشت رفتار مؤدبانه‌اش شبکه‌ای پیچیده از تجارت غیرقانونی و برنامه‌ریزی پنهان است.",
+        "صبر، انضباط و کنترل احساسات او را به رقیبی بسیار خطرناک تبدیل می‌کند."
+      ],
+      "bio_text": "گاس فرینگ تاجر ظاهراً آرام و صاحب رستوران‌های زنجیره‌ای در دنیای بریکینگ بد است.\nپشت رفتار مؤدبانه‌اش شبکه‌ای پیچیده از تجارت غیرقانونی و برنامه‌ریزی پنهان است.\nصبر، انضباط و کنترل احساسات او را به رقیبی بسیار خطرناک تبدیل می‌کند.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_59_01",
+          "text": "لطفاً نتیجه را با آرامش بپذیرید.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_59_02",
+          "text": "کیفیت از جزئیات شروع می‌شود.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_59_03",
+          "text": "این پیروزی از مدت‌ها پیش برنامه‌ریزی شده بود.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_59_04",
+          "text": "سفارش شما آماده است: شکست کامل.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_59_05",
+          "text": "هیچ حرکتی بدون حساب نیست.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    },
+    {
+      "order": 60,
+      "temporary_id": "tb_char_60",
+      "name_fa": "اسکورپین",
+      "origin": "Mortal Kombat",
+      "bio_lines": [
+        "اسکورپین جنگجوی نقاب‌دار مورتال کامبت و یکی از دشمنان مشهور سابزیرو است.",
+        "او با زنجیر و کونای، قدرت آتش و نیرویی جهنمی به نبرد می‌رود.",
+        "انتقام و سرنوشت خاندان شی‌رای ریو در داستان او جایگاه مهمی دارند."
+      ],
+      "bio_text": "اسکورپین جنگجوی نقاب‌دار مورتال کامبت و یکی از دشمنان مشهور سابزیرو است.\nاو با زنجیر و کونای، قدرت آتش و نیرویی جهنمی به نبرد می‌رود.\nانتقام و سرنوشت خاندان شی‌رای ریو در داستان او جایگاه مهمی دارند.",
+      "victory_lines": [
+        {
+          "temporary_id": "tb_victory_60_01",
+          "text": "Get over here!",
+          "language": "en",
+          "kind": "verified_short_quote",
+          "reference_url": "https://www.imdb.com/title/tt0203701/characters/nm0095460/",
+          "usage_permission": "not_verified"
+        },
+        {
+          "temporary_id": "tb_victory_60_02",
+          "text": "از آتش راه فراری نیست.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_60_03",
+          "text": "زنجیر برگشت؛ حریف نه.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_60_04",
+          "text": "این مبارزه بوی خاکستر می‌ده.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_60_05",
+          "text": "سایه‌ات هم از شعله‌ها پنهان نمی‌شه.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        },
+        {
+          "temporary_id": "tb_victory_60_06",
+          "text": "انتقام این بار دقیق بود.",
+          "language": "fa",
+          "kind": "original_game_line",
+          "reference_url": null,
+          "usage_permission": "original_draft_review"
+        }
+      ],
+      "review_note": ""
+    }
+  ]
+}

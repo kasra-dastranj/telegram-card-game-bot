@@ -498,7 +498,7 @@ function cardDetailSheet(card: CardData): string {
       <div class="card-sheet__content">
         <p class="eyebrow">${escapeHtml(card.rarity.toUpperCase())}${card.origin==="custom" ? " · سفارشی" : ""}</p>
         <h2 dir="auto">${escapeHtml(card.name)}</h2>
-        <p>${escapeHtml(card.biography || "زندگینامه‌ای ثبت نشده است.")}</p>
+        <p class="card-biography">${escapeHtml(card.biography || "زندگینامه‌ای ثبت نشده است.")}</p>
         <div class="card-stat-list">${stats.map(([name, value]) => `<span><small>${name}</small><strong>${value}</strong></span>`).join("")}</div>
         <div class="card-meta"><span>نوع: <b dir="ltr">${escapeHtml(card.card_type || "—")}</b></span><span>Ability: <b>${escapeHtml(card.abilities?.join("، ") || "ندارد")}</b></span></div>
         ${formControls ? `<div class="card-actions"><strong>فرم‌های موجود</strong>${formControls}</div>` : ""}
