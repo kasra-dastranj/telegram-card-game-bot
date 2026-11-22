@@ -26,6 +26,10 @@ TYPES = {'قدرتی': 'POWER_TYPE', 'سرعتی': 'SPEED_TYPE', 'هوشی': 'IQ
 OLD_TRAITS = {'hero': 'Hero', 'funny': 'Funny', 'leader': 'Leader', 'villain': 'Villain',
               'monster': 'animal', 'god': 'Superhuman', 'warrior': 'Martial Artist',
               'assassin': 'Stealthy', 'detective': 'Genius', 'mage': 'Strategist'}
+LEGACY_REFERENCE_PAIRS = {
+    ('active_fights', 'players'), ('battle_states', 'active_fights'),
+    ('round_history', 'active_fights'), ('rare_cards_info', 'cards'),
+}
 
 
 def encoded(value):
@@ -446,10 +450,16 @@ class Replacement:
                  'custom_orders', 'custom_definitions', 'custom_grants', 'custom_match_cards',
                  'rare_card_instances', 'rare_cards_info', 'rare_cards_log', 'card_avatars',
                  'player_avatar_choices', 'retired_card_catalog'}
+        # Older installations can still have these unused tables. Leave their
+        # schema intact and require a separate review if either contains data.
+        for table in ('ability_cooldowns', 'card_wins'):
+            if table in self.present and not self.conn.execute('SELECT 1 FROM ' + quote(table) + ' LIMIT 1').fetchone():
+                known.add(table)
         unknown = [table for table in self.present if 'card_id' in columns(self.conn, table) and table not in known]
         if unknown:
             raise ValueError('Unreviewed card references in tables: ' + ','.join(sorted(unknown)))
         require_quiet(self.conn)
+        existing_violations = {tuple(row) for row in self.conn.execute('PRAGMA foreign_key_check')}
         match = self.identities()
         self.conn.execute('CREATE TABLE IF NOT EXISTS retired_card_catalog '
                           '(card_id TEXT PRIMARY KEY,definition_json TEXT NOT NULL,retired_at TEXT NOT NULL)')
@@ -469,14 +479,18 @@ class Replacement:
         remember_collections(self.conn, sorted({v for c in self.catalog['characters'] for v in c['collections']}))
         if self.conn.execute('SELECT count(*) FROM cards').fetchone()[0] != 60 or self.conn.execute('SELECT count(*) FROM card_variants').fetchone()[0] != 180:
             raise ValueError('Post-import catalog counts differ from 60 characters / 180 forms')
-        violations = list(self.conn.execute('PRAGMA foreign_key_check'))
+        violations = {tuple(row) for row in self.conn.execute('PRAGMA foreign_key_check')}
+        if self.catalog.get('preserve_legacy_references'):
+            violations -= {row for row in existing_violations if (row[0], row[2]) in LEGACY_REFERENCE_PAIRS}
         if violations:
-            raise ValueError('Foreign key violations: ' + str([tuple(v) for v in violations]))
+            raise ValueError('Foreign key violations: ' + str(sorted(violations, key=repr)))
         return {'matches': match, 'created': sum(not c['existing'] for c in self.catalog['characters']),
                 'updated': sum(c['existing'] for c in self.catalog['characters']),
                 'removed': [{'card_id': c['card_id'], 'name': c['name'], 'origin': c['origin'], 'rarity': c['rarity']} for c in self.removed],
                 'affected_users': self.affected_users, 'affected_decks': sorted(self.affected_decks),
                 'changes': self.changes, 'reference_mappings': [json.loads(v) for v in sorted({encoded(v) for v in self.mappings})],
+                'preserve_legacy_references': bool(self.catalog.get('preserve_legacy_references')),
+                'legacy_reference_count': len(existing_violations),
                 'counts': {'characters': 60, 'forms': 180, 'collections': 47, 'traits': 28}}
 
 

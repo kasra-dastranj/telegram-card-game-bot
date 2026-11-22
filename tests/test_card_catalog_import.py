@@ -200,6 +200,54 @@ def test_active_game_and_ambiguous_identity_refuse_import(game):
         preview(game.db_path, load_catalog())
 
 
+def test_legacy_empty_card_tables_survive_import_and_populated_tables_require_review(game, tmp_path):
+    tables = ('ability_cooldowns', 'card_wins')
+    with closing(connect(game)) as conn, conn:
+        for table in tables:
+            conn.execute(f'CREATE TABLE {table}(card_id TEXT REFERENCES cards(card_id))')
+            conn.execute(f"INSERT INTO {table} VALUES('removed')")
+
+    with pytest.raises(ValueError, match='Unreviewed card references in tables: ability_cooldowns,card_wins'):
+        preview(game.db_path, load_catalog())
+
+    with closing(connect(game)) as conn, conn:
+        for table in tables:
+            conn.execute(f'DELETE FROM {table}')
+    install(game, tmp_path)
+    with closing(connect(game)) as conn:
+        for table in tables:
+            assert conn.execute(f'SELECT count(*) FROM {table}').fetchone()[0] == 0
+
+
+def test_only_reviewed_preexisting_foreign_key_violations_can_be_preserved(game, tmp_path, monkeypatch):
+    orphan_round = ("INSERT INTO round_history(fight_id,round_number,challenger_stat,opponent_stat,"
+                    "challenger_value,opponent_value,challenger_total,opponent_total,timestamp) "
+                    "VALUES(?,1,'power','power',3,2,3,2,'old')")
+    with closing(connect(game)) as conn, conn:
+        conn.execute(orphan_round, ('old-fight',))
+        original_violations = {tuple(row) for row in conn.execute('PRAGMA foreign_key_check')}
+    assert original_violations and all(row[0] == 'round_history' for row in original_violations)
+    catalog = load_catalog()
+    with pytest.raises(ValueError, match='Foreign key violations'):
+        preview(game.db_path, catalog)
+    catalog['preserve_legacy_references'] = True
+    plan = preview(game.db_path, catalog)
+    assert plan['legacy_reference_count'] == len(original_violations)
+
+    cleanup = Replacement.cleanup
+    with monkeypatch.context() as patch:
+        def add_new_orphan(replacement):
+            cleanup(replacement)
+            replacement.conn.execute(orphan_round, ('new-fight',))
+        patch.setattr(Replacement, 'cleanup', add_new_orphan)
+        with pytest.raises(ValueError, match='Foreign key violations'):
+            preview(game.db_path, catalog)
+
+    assert apply(game.db_path, catalog, plan['plan_hash'], tmp_path / 'legacy-backup.db', 'test')['applied']
+    with closing(connect(game)) as conn:
+        assert {tuple(row) for row in conn.execute('PRAGMA foreign_key_check')} == original_violations
+
+
 def test_multiple_collections_engine_and_easy_membership(game):
     from systems.easy_questions import evaluate_card
     modes = GameModeSystem(game)

@@ -17,6 +17,8 @@ def main():
     parser.add_argument('--apply-plan')
     parser.add_argument('--backup', type=Path)
     parser.add_argument('--actor')
+    parser.add_argument('--preserve-legacy-references', action='store_true',
+                        help='Preserve reviewed pre-existing orphan rows. New violations still abort the import.')
     args = parser.parse_args()
     if args.apply_plan and not (args.backup and args.actor):
         parser.error('--apply-plan requires --backup and --actor')
@@ -30,6 +32,7 @@ def main():
     if not args.report.resolve().parent.is_dir() or args.report.is_dir():
         parser.error('Report must be a file in an existing directory')
     catalog = load_catalog(args.source, args.csv)
+    catalog['preserve_legacy_references'] = args.preserve_legacy_references
     result = (apply(args.db, catalog, args.apply_plan, args.backup, args.actor) if args.apply_plan
               else preview(args.db, catalog))
     args.report.write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
