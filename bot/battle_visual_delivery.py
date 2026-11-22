@@ -29,18 +29,18 @@ def limited_cache(context, name, limit):
 
 
 @lru_cache(maxsize=24)
-def local_bitmap(path, modified, size):
+def local_bitmap(path, modified, size, preserve_alpha=False):
     if size > 8 * 1024 * 1024:
         raise ValueError('media_size_limit')
-    image = visual.safe_bitmap(Path(path).read_bytes())
+    image = visual.safe_bitmap(Path(path).read_bytes(), preserve_alpha=preserve_alpha)
     image.thumbnail((1200, 1200), Image.Resampling.LANCZOS)
-    return visual.encode(image)
+    return visual.encode(image, preserve_alpha=preserve_alpha)
 
 
-def read_bitmap(path):
+def read_bitmap(path, preserve_alpha=False):
     path = Path(path)
     stat = path.stat()
-    return local_bitmap(str(path.resolve()), stat.st_mtime_ns, stat.st_size)
+    return local_bitmap(str(path.resolve()), stat.st_mtime_ns, stat.st_size, preserve_alpha)
 
 
 def choose_background(arena):
@@ -117,14 +117,14 @@ async def send_arena(context, user_id, key, arena, mode):
         return False
 
 
-async def card_art(handler, context, card):
+async def card_art(handler, context, card, *, preserve_alpha=False):
     if not card:
         return None
     # A form-specific file is preferred; never borrow another form's artwork.
     path = getattr(card, 'image_path', '')
     if path:
         try:
-            return await work(context, read_bitmap, path)
+            return await work(context, read_bitmap, path, preserve_alpha)
         except (OSError, ValueError):
             pass
     rarity = str(getattr(getattr(card, 'rarity', None), 'value', getattr(card, 'rarity', 'normal')))
@@ -135,18 +135,19 @@ async def card_art(handler, context, card):
             file_id = getter(card.card_id, rarity, kind)
             if not file_id:
                 continue
-            if file_id in cache:
-                return cache[file_id]
+            cache_key = (file_id, preserve_alpha)
+            if cache_key in cache:
+                return cache[cache_key]
             remote = await asyncio.wait_for(context.bot.get_file(file_id), timeout=3)
             if remote.file_size and remote.file_size > 8 * 1024 * 1024:
                 continue
             raw = bytes(await asyncio.wait_for(remote.download_as_bytearray(), timeout=3))
             def reduce():
-                bitmap = visual.safe_bitmap(raw)
+                bitmap = visual.safe_bitmap(raw, preserve_alpha=preserve_alpha)
                 bitmap.thumbnail((480, 640), Image.Resampling.LANCZOS)
-                return visual.encode(bitmap)
-            cache[file_id] = await work(context, reduce)
-            return cache[file_id]
+                return visual.encode(bitmap, preserve_alpha=preserve_alpha)
+            cache[cache_key] = await work(context, reduce)
+            return cache[cache_key]
         except Exception:
             continue
     # Older official Normal cards may only have the configured name-based image.
@@ -159,7 +160,7 @@ async def card_art(handler, context, card):
                 try:
                     path = resolver(card)
                     if path:
-                        return await work(context, read_bitmap, path)
+                        return await work(context, read_bitmap, path, preserve_alpha)
                 except (OSError, ValueError, AttributeError):
                     continue
     return None

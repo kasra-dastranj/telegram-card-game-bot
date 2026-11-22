@@ -42,7 +42,7 @@ async def send_claim_card(message, card, config, db):
 def sticker_bytes(raw):
     from PIL import Image, ImageOps
     from bot.battle_visuals import safe_bitmap
-    bitmap = safe_bitmap(raw).convert('RGBA')
+    bitmap = safe_bitmap(raw, preserve_alpha=True)
     bitmap = ImageOps.contain(bitmap, (512, 512), Image.Resampling.LANCZOS)
     stream = BytesIO()
     bitmap.save(stream, 'WEBP', quality=85, method=4)
@@ -68,7 +68,7 @@ async def send_card_sticker(bot, context, card, send_sticker, *, show_details=Tr
         from core.card_media import sticker_path
         from pathlib import Path
         path = sticker_path(card, include_legacy=False)
-        raw = await work(context, Path(path).read_bytes) if path else await card_art(bot, context, card)
+        raw = await work(context, Path(path).read_bytes) if path else await card_art(bot, context, card, preserve_alpha=True)
         if raw:
             image = await work(context, sticker_bytes, raw)
             sticker = BytesIO(image)
