@@ -160,74 +160,6 @@ class PvPHandlersMixin:
     # ==================== PVP HANDLERS - FIXED ====================
 
 
-    async def daily_claim_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """مدیریت دریافت کارت روزانه"""
-        query = update.callback_query
-        await query.answer()
-        
-        # Check panel expiration
-        if not ensure_not_expired(query, self.db, context):
-            await query.answer("⏳ این منو قدیمیه؛ دوباره /start بزن.", show_alert=True)
-            return
-        
-        user_id = query.from_user.id
-        success, card, error, quick_ability = self.game.claim_daily_card_with_ability(user_id)
-        
-        if success and card is None and quick_ability and quick_ability.get("silver_ticket"):
-            await update.effective_message.reply_text("🎟 یک Silver Ticket و ابیلیتی «" + quick_ability["title"] + "» دریافت شد.")
-            return
-        if success and card:
-            rarity_colors = {
-                CardRarity.NORMAL: "🟢",
-                CardRarity.EPIC: "🟣",
-                CardRarity.LEGEND: "🟡"
-            }
-            color = rarity_colors[card.rarity]
-            
-            from bot.card_reward_presentation import send_claim_card
-            image_sent = await send_claim_card(query.message, card, self.config, self.db)
-            
-            # متن اطلاعات کارت
-            text = (
-                f"🎉 **کارت روزانه دریافت شد!**\n\n"
-                f"{color} **{markdown_name(card.name)}** {isolate('(' + card.rarity.value.title() + ')')}\n\n"
-                f"📊 **آمار کارت:**\n"
-                f"💪 قدرت: {card.power}\n"
-                f"⚡ سرعت: {card.speed}\n"
-                f"🧠 آی‌کیو: {card.iq}\n"
-                f"❤️ محبوبیت: {card.popularity}\n"
-                f"🎯 مجموع: {card.get_total_stats()}\n\n"
-                f"✨ **ابیلیتی‌ها:**\n"
-            )
-            
-            for ability in card.abilities:
-                text += f"• {markdown_name(ability)}\n"
-            
-            text += f"\n🎁 {ltr('Ability / Quick')}: {markdown_name(quick_ability['title'])} ×۱"
-            text += "\n🕐 کارت بعدی: پس از نیمه‌شب"
-            
-            if not image_sent:
-                text = f"🎴 (تصویر در دسترس نیست)\n\n" + text
-            
-            keyboard = [
-                [InlineKeyboardButton("🎴 مشاهده کارت‌ها", callback_data="my_cards")],
-                [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main")]
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            
-            await query.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown')
-            
-        else:
-            text = f"⚠ **خطا در دریافت کارت**\n\n{error if error else 'خطای نامشخص!'}"
-            
-            keyboard = [
-                [InlineKeyboardButton("🎴 مشاهده کارت‌ها", callback_data="my_cards")],
-                [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main")]
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            
-            await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
-
 
     async def my_cards_navigation_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Old buttons share the current collection renderer.
@@ -1042,46 +974,8 @@ class PvPHandlersMixin:
             await update.effective_message.reply_text("🎟 یک Silver Ticket و ابیلیتی «" + quick_ability["title"] + "» دریافت شد.")
             return
         if success and card:
-            rarity_colors = {
-                CardRarity.NORMAL: "🟢",
-                CardRarity.EPIC: "🟣",
-                CardRarity.LEGEND: "🟡"
-            }
-            color = rarity_colors[card.rarity]
-            
-            from bot.card_reward_presentation import send_claim_card
-            image_sent = await send_claim_card(query.message, card, self.config, self.db)
-            
-            # متن اطلاعات کارت
-            text = (
-                f"🎉 **کارت روزانه دریافت شد!**\n\n"
-                f"{color} **{markdown_name(card.name)}** {isolate('(' + card.rarity.value.title() + ')')}\n\n"
-                f"📊 **آمار کارت:**\n"
-                f"💪 قدرت: {card.power}\n"
-                f"⚡ سرعت: {card.speed}\n"
-                f"🧠 آی‌کیو: {card.iq}\n"
-                f"❤️ محبوبیت: {card.popularity}\n"
-                f"🎯 مجموع: {card.get_total_stats()}\n\n"
-                f"✨ **ابیلیتی‌ها:**\n"
-            )
-            
-            for ability in card.abilities:
-                text += f"• {markdown_name(ability)}\n"
-            
-            text += f"\n🎁 {ltr('Ability / Quick')}: {markdown_name(quick_ability['title'])} ×۱"
-            text += "\n🕐 کارت بعدی: پس از نیمه‌شب"
-            
-            if not image_sent:
-                text = f"🎴 (تصویر در دسترس نیست)\n\n" + text
-            
-            keyboard = [
-                [InlineKeyboardButton("🎴 مشاهده کارت‌ها", callback_data="my_cards")],
-                [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main")]
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            
-            await query.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown')
-            
+            from bot.card_reward_presentation import send_daily_claim_card
+            await send_daily_claim_card(query.message, card, quick_ability, self.config, self.db)
         else:
             text = f"⚠ **خطا در دریافت کارت**\n\n{error if error else 'خطای نامشخص!'}"
             

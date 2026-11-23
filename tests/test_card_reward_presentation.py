@@ -76,7 +76,14 @@ def test_real_claim_entries_show_biography_and_never_victory_slogan(scene, entry
     rendered = '\n'.join(e[1]['caption'] or '' if e[0] == 'photo' else e[1] if e[0] == 'text' else '' for e in events)
     assert 'داستان من از یه روز بارونی شروع شد.' in rendered
     assert 'این فقط شعار برده!' not in rendered
-    if media == 'photo':
+    if entry != 'silver':
+        assert [event[0] for event in events] == [media, 'text']
+        _, summary, kwargs = events[1]
+        assert '<داستان> & قصه_*' in summary
+        assert summary.index('داستان من') < summary.index('ابیلیتی دریافتی')
+        assert 'آمار کارت' not in summary and 'کارت بعدی' not in summary
+        assert kwargs['parse_mode'] is None
+    elif media == 'photo':
         details = next(e[1] for e in events if e[0] == 'photo')
         assert details['parse_mode'] is None and '<داستان> & قصه_*' in details['caption']
     else:

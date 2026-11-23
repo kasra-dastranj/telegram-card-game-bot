@@ -5,6 +5,7 @@ from contextlib import closing
 
 from telegram import InlineKeyboardButton as Button, InlineKeyboardMarkup as Markup
 from systems import card_avatars
+from bot.navigation import open_text_menu
 
 
 def appearance(bot,user_id,slot):
@@ -81,5 +82,5 @@ async def handle(bot, update, context):
     rows.extend([[Button('💬 شعار برد ایزی', callback_data='easy_victory_menu'), Button('💬 شعار برد دک', callback_data='deck_victory_menu')],
                  [Button('🎙 ویس / متن شعار کارت', callback_data='style_voices')],
                  [Button('🔙 پروفایل', callback_data='easy_profile')]])
-    await query.edit_message_text('🎭 ظاهر و برد\n\nآواتار برد ایزی و دک می‌تواند از پروفایل پیروی کند یا جدا انتخاب شود. '
+    await open_text_menu(query, '🎭 ظاهر و برد\n\nآواتار برد ایزی و دک می‌تواند از پروفایل پیروی کند یا جدا انتخاب شود. '
                                  'انتخاب‌ها و پیش‌نمایش‌ها فقط برای خودت در پیوی‌اند.', reply_markup=Markup(rows))

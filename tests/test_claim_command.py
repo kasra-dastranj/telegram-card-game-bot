@@ -55,15 +55,15 @@ def test_claim_command_uses_same_daily_claim_flow_as_start_menu_button():
 
     handler.game.claim_daily_card_with_ability.assert_called_once_with(1)
     send_image.assert_awaited_once()
-    assert 'داستان قهرمان آزمایشی' in send_image.await_args.args[3]
-    assert 'Ready' not in send_image.await_args.args[3]
+    assert send_image.await_args.args == (message, card.name, handler.config)
     victory_dialog.assert_not_called()
     reply = message.reply_text.await_args
-    assert "کارت روزانه دریافت شد" in reply.args[0]
+    message.reply_text.assert_awaited_once()
     assert "Test Hero" in reply.args[0]
-    assert "Skip" in reply.args[0]
+    assert "داستان قهرمان آزمایشی" in reply.args[0]
+    assert "Skip" not in reply.args[0] and "Ready" not in reply.args[0]
     assert "مشاهده کارت حریف" in reply.args[0]
-    assert reply.kwargs["parse_mode"] == "Markdown"
+    assert reply.kwargs["parse_mode"] is None
 
 
 def test_claim_command_replies_with_cooldown_error_without_callback_query():

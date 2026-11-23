@@ -39,6 +39,20 @@ async def send_claim_card(message, card, config, db):
     return sent
 
 
+async def send_daily_claim_card(message, card, ability, config, db):
+    from core.display_text import isolate
+
+    await send_card_image_safely(message, card.name, config, card=card, db=db)
+    title = ability.get('title') if ability else None
+    footer = f'\n\n🎁 ابیلیتی دریافتی: {isolate(title)} ×۱' if title else ''
+    biography = biography_text(card)
+    limit = 4096 - len(footer.encode('utf-16-le')) // 2
+    parts = text_chunks(biography, limit=limit)
+    if len(parts) > 1:
+        biography = text_chunks(biography, limit=limit - 1)[0].rstrip() + '…'
+    await message.reply_text(biography + footer, parse_mode=None)
+
+
 def sticker_bytes(raw):
     from PIL import Image, ImageOps
     from bot.battle_visuals import safe_bitmap
