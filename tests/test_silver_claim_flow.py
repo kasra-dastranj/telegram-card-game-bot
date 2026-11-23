@@ -13,6 +13,7 @@ from telegram.error import BadRequest
 
 from bot.handlers.progression import handle
 from bot.silver_claim_art import silver_claim_picture
+from bot.silver_sticker_assets import SILVER_STICKERS
 from core.database import DatabaseManager
 from core.models import Card, CardRarity
 from systems.card_inventory_system import CardInventorySystem
@@ -66,7 +67,7 @@ def panel(db, chat_type='private'):
         events.append(('photo', value.read() if hasattr(value, 'read') else value, kwargs.get('caption')))
 
     async def sticker(value, **kwargs):
-        events.append(('sticker', value))
+        events.append(('sticker', value.read() if hasattr(value, 'read') else value))
 
     message = SimpleNamespace(chat=SimpleNamespace(type=chat_type), reply_text=AsyncMock(side_effect=text),
                               reply_photo=AsyncMock(side_effect=photo), reply_sticker=AsyncMock(side_effect=sticker))
@@ -207,7 +208,8 @@ def test_bot_craft_then_use_delivers_art_celebration_actual_epic_media_and_stats
     assert len(state[3]) == 1 and balances(db) == (3, 1)
     use = button(state, 'استفاده از سیلور کلیم')
     click(state, use)
-    assert state[3][1] == ('text', '🎉')
+    pack = ('sticker', SILVER_STICKERS['silver-claim.webp'])
+    assert state[3][1] == pack
     assert state[3][2] == ('sticker', 'epic-sticker')
     assert 'بیوگرافی این کارت هنوز نوشته نشده.' in state[3][3][1]
     reward = state[3][4][1]
@@ -218,11 +220,11 @@ def test_bot_craft_then_use_delivers_art_celebration_actual_epic_media_and_stats
     state[1].callback_query.id = 'another-callback-id'
     click(state, use)
     assert balances(db) == (3, 0)
-    assert state[3].count(('text', '🎉')) == 1 and state[3].count(('sticker', 'epic-sticker')) == 1
+    assert state[3].count(pack) == 1 and state[3].count(('sticker', 'epic-sticker')) == 1
     assert 'قبلاً' in state[3][-1][1]  # The same receipt can recover failed text delivery.
     click(state, button(state, 'مشاهده کارت دریافتی'))
     assert state[3].count(('sticker', 'epic-sticker')) == 2
-    assert state[3].count(('text', '🎉')) == 1
+    assert state[3].count(pack) == 1
     assert CardInventorySystem(db).counts(1, 'tony') == {'legend': 1, 'epic': 1}
 
 
@@ -258,13 +260,20 @@ def test_telegram_delivery_failure_keeps_receipt_and_retry_does_not_spend_again(
     query = state[1].callback_query
     if failure == 'panel':
         query.edit_message_text.side_effect = BadRequest('message deleted')
-    elif failure == 'media':
-        state[1].effective_message.reply_sticker.side_effect = BadRequest('invalid media')
+    elif failure in ('celebration', 'media'):
+        original = state[1].effective_message.reply_sticker.side_effect
+
+        async def fail_sticker(value, **kwargs):
+            if (failure == 'celebration' and hasattr(value, 'read')) or (failure == 'media' and value == 'epic-sticker'):
+                raise BadRequest('offline simulated failure')
+            return await original(value, **kwargs)
+
+        state[1].effective_message.reply_sticker.side_effect = fail_sticker
     else:
         original = state[1].effective_message.reply_text.side_effect
 
         async def fail(value, **kwargs):
-            if (failure == 'celebration' and value == '🎉') or (failure == 'reward' and 'آمار کارت' in value):
+            if 'آمار کارت' in value:
                 raise BadRequest('offline simulated failure')
             return await original(value, **kwargs)
 
@@ -299,3 +308,21 @@ def test_picture_stream_is_independent_and_uses_no_server_asset_files():
         assert Image.open(first).format == 'PNG'
     with silver_claim_picture() as second:
         assert second.tell() == 0 and len(second.read()) < 100_000
+
+
+@pytest.mark.parametrize('entry', ['command', 'button'])
+def test_daily_ticket_uses_its_own_sticker_and_reports_awarded_ability(db, entry):
+    from bot.main import TelegramCardBot
+    from core.game_logic import GameLogic
+
+    configure(db, daily_ticket_percent=100)
+    fixture_bot, update, context, events = panel(db)
+    bot = TelegramCardBot.__new__(TelegramCardBot)
+    bot.db, bot.game, bot.config = db, GameLogic(db), fixture_bot.config
+    bot.is_user_in_channel = AsyncMock(return_value=True)
+    callback = bot.claim_command if entry == 'command' else bot.daily_claim_handler
+    asyncio.run(callback(update, context))
+    assert [event[0] for event in events] == ['sticker', 'text']
+    assert events[0][1] == SILVER_STICKERS['silver-ticket.webp']
+    assert 'Silver Ticket' in events[1][1] and 'ابیلیتی' in events[1][1]
+    assert balances(db) == (1, 0)

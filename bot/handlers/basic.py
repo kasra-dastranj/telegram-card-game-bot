@@ -304,21 +304,13 @@ class BasicHandlersMixin:
                 text += f' · اسکور گروه: {points}'
         markup = None if is_group or subject is not None else InlineKeyboardMarkup(keyboard)
         from systems.avatar_cosmetics import render as render_avatar
-        from io import BytesIO
-        from PIL import Image
+        from bot.card_reward_presentation import black_background_photo
 
         try:
-            with Image.open(BytesIO(render_avatar(self.db, user.id, 'profile'))) as image:
-                avatar = image.convert('RGBA')
-            background = Image.new('RGBA', avatar.size, 'black')
-            background.alpha_composite(avatar)
-            photo = BytesIO()
-            photo.name = 'profile.jpg'
-            background.convert('RGB').save(photo, 'JPEG', quality=95)
-            photo.seek(0)
-            await update.effective_message.reply_photo(
-                photo=photo, caption=text, reply_markup=markup, parse_mode='HTML',
-            )
+            with black_background_photo(render_avatar(self.db, user.id, 'profile'), 'profile.jpg') as photo:
+                await update.effective_message.reply_photo(
+                    photo=photo, caption=text, reply_markup=markup, parse_mode='HTML',
+                )
             return
         except Exception:
             logger.warning('Could not deliver profile avatar', exc_info=True)
@@ -482,7 +474,8 @@ class BasicHandlersMixin:
         success, card, error, quick_ability = self.game.claim_daily_card_with_ability(user_id)
 
         if success and card is None and quick_ability and quick_ability.get("silver_ticket"):
-            await update.effective_message.reply_text("🎟 یک Silver Ticket و ابیلیتی «" + quick_ability["title"] + "» دریافت شد.")
+            from bot.silver_claim_art import send_silver_ticket_reward
+            await send_silver_ticket_reward(message, quick_ability)
             return
         if success and card:
             from bot.card_reward_presentation import send_daily_claim_card

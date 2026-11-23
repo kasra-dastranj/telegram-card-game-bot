@@ -156,13 +156,18 @@ def test_invalid_slogan_preserves_previous_settings(scene, text):
 def test_profile_command_and_callback_offer_settings_without_changing_main_menu(scene):
     bot, update, context, _ = scene
     update.callback_query = None
-    update.effective_message.reply_photo = AsyncMock()
+    sent_images = []
+
+    async def record_photo(*, photo, **kwargs):
+        sent_images.append(photo.getvalue())
+
+    update.effective_message.reply_photo = AsyncMock(side_effect=record_photo)
     asyncio.run(bot.profile_command(update, context))
     profile = update.effective_message.reply_photo.await_args.kwargs
     markup = profile['reply_markup']
     assert any(b.callback_data == 'style_menu' for row in markup.inline_keyboard for b in row)
     assert 'MH_*' in profile['caption']
-    with Image.open(profile['photo']) as image:
+    with Image.open(BytesIO(sent_images[0])) as image:
         assert image.mode == 'RGB'
         assert image.getpixel((0, 0)) == (0, 0, 0)
     context.user_data['easy_victory_draft'] = {'expires_at': time.time() + 600}

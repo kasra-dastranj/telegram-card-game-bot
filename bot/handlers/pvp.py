@@ -971,7 +971,8 @@ class PvPHandlersMixin:
         success, card, error, quick_ability = self.game.claim_daily_card_with_ability(user_id)
         
         if success and card is None and quick_ability and quick_ability.get("silver_ticket"):
-            await update.effective_message.reply_text("🎟 یک Silver Ticket و ابیلیتی «" + quick_ability["title"] + "» دریافت شد.")
+            from bot.silver_claim_art import send_silver_ticket_reward
+            await send_silver_ticket_reward(query.message, quick_ability)
             return
         if success and card:
             from bot.card_reward_presentation import send_daily_claim_card
