@@ -27,6 +27,7 @@ for cid,rarity,color in [('hero','normal','yellow'),('rare','rare','lime')]:
     db.add_card(Card(cid,'قهرمان آزمایشی' if cid=='hero' else 'ریر آزمایشی',CardRarity(rarity),10,20,30,40,[]))
     image=Image.new('RGBA',(1024,1024));ImageDraw.Draw(image).ellipse((260,180,764,850),fill=color)
     output=BytesIO();image.save(output,'PNG')
+    image.save(root/(cid+'-head.png'))
     card_avatars.save_upload(db,cid,'legend' if cid=='hero' else 'rare',output.getvalue(),kind='portrait')
 with sqlite3.connect(db.db_path) as conn:
     conn.execute("UPDATE foundation_settings SET value_json='true' WHERE key='progression_v2_enabled'")
@@ -52,6 +53,24 @@ try{
   await admin.goto(`http://127.0.0.1:${ports.admin}/avatar-items`);
   await admin.locator('#token').fill('synthetic-avatar-ui');await admin.locator('#connect').click();
   await admin.locator('#workspace').waitFor({state:'visible'});
+  for (const [id, title, file] of [
+    ['first-head', 'چهره رایگان اول', 'hero-head.png'],
+    ['second-head', 'چهره رایگان دوم', 'rare-head.png'],
+  ]) {
+    await admin.locator('#newFreeFace').click();
+    await admin.locator('#freeId').fill(id);
+    await admin.locator('#freeTitle').fill(title);
+    const uploaded = admin.waitForResponse(r=>r.url().endsWith('/media') && r.request().method()==='POST');
+    await admin.locator('#freeFile').setInputFiles(path.join(root,file));
+    assert.equal((await uploaded).status(),200);
+    await admin.getByText('فایل آماده شد؛ ذخیرهٔ چهرهٔ رایگان را بزن.').waitFor();
+    await admin.locator('#saveFree').click();
+    await admin.locator('#freeList button').filter({hasText:title}).waitFor();
+  }
+  await admin.locator('#defaultFace').selectOption('first-head');
+  const defaultsSaved=admin.waitForResponse(r=>r.url().endsWith('/defaults') && r.request().method()==='PUT');
+  await admin.locator('#saveDefaults').click();
+  assert.equal((await defaultsSaved).status(),200);
   await admin.locator('#list button').filter({hasText:'قاب طلایی'}).click();
   await admin.locator('#artFile').setInputFiles(path.join(root,'frame.png'));
   await admin.getByText('فایل آماده شد؛ برای ثبت نهایی ذخیرهٔ آیتم را بزن.').waitFor();
@@ -73,6 +92,17 @@ try{
   const base=`http://127.0.0.1:${ports.player}`;
   await page.goto(base+'/?avatar=1');
   await page.getByRole('heading',{name:'ظاهر آواتار',exact:true}).waitFor();
+  assert.equal(await page.locator('.avatar-preview [role="img"]').getAttribute('aria-label'),'آواتار پیش‌فرض بازی');
+  const free = page.locator('.avatar-option').filter({has:page.getByRole('heading',{name:'چهره رایگان دوم',exact:true})});
+  await free.getByRole('button',{name:'انتخاب',exact:true}).click();
+  const freeSaved=page.waitForResponse(r=>r.url().endsWith('/avatar') && r.request().method()==='PUT');
+  await page.locator('[data-action="avatar-save"]').click();
+  const savedFreeResponse=await freeSaved;
+  assert.equal(savedFreeResponse.status(),200);
+  assert.equal((await savedFreeResponse.json()).selections.profile.face.free_face_id,'second-head');
+  await page.reload();
+  await free.getByRole('heading',{name:'چهره رایگان دوم',exact:true}).waitFor();
+  assert.equal(await page.locator('.avatar-preview [role="img"]').getAttribute('aria-label'),'آواتار چهره رایگان دوم');
   const face=page.locator('.avatar-option').filter({has:page.getByRole('heading',{name:'قهرمان آزمایشی',exact:true})});
   await face.getByRole('button',{name:'انتخاب',exact:true}).click();
   await page.locator('[data-action="avatar-tab"][data-value="frame"]').click();

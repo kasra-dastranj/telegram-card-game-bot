@@ -66,6 +66,8 @@ export interface SkinData {
 }
 export interface SkinCollection { ok: boolean; active_skin_id: string | null; skins: SkinData[]; }
 export interface AvatarFace {
+  free_face_id?: string | null;
+  uses_default?: boolean;
   card_id: string | null; rarity: string | null; name: string; image_url: string;
   kind: 'portrait' | 'legacy'; scale: number; offset_x: number; offset_y: number;
 }
@@ -425,7 +427,7 @@ export const api = {
   async avatars(): Promise<AvatarCatalog> { return request('GET', '/avatar'); },
   async saveAvatar(value: AvatarAppearance): Promise<AvatarCatalog> {
     return request('PUT', '/avatar', {slot:value.slot,inherit_profile:value.inherit_profile,
-      card_id:value.face.card_id,rarity:value.face.rarity,frame_id:value.frame.item_id,
+      card_id:value.face.card_id,rarity:value.face.rarity,free_face_id:value.face.uses_default ? null : value.face.free_face_id || null,frame_id:value.frame.item_id,
       background_id:value.background.item_id});
   },
   async customSettings(): Promise<{ quick_friendly_enabled: boolean; order_contact?: string | null }> { return request("GET","/custom/settings"); },
