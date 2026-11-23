@@ -996,3 +996,5 @@ body[data-app-screen="battle"] .battle-screen > * { flex-shrink: 0; }
   .battle-mode,
   .hub-nav button { transition: none; }
 }
+/* Preserve the authored biography's logical lines at every responsive width. */
+.card-biography { white-space: pre-line; }

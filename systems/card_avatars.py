@@ -44,7 +44,7 @@ def _valid_card_in(conn, card_id, rarity):
                         (card_id, rarity)).fetchone() is not None
 
 
-def prepare_image(raw):
+def prepare_image(raw, kind='legacy'):
     if not raw or len(raw) > MAX_UPLOAD:
         raise ValueError('avatar_size_invalid')
     try:
@@ -52,9 +52,17 @@ def prepare_image(raw):
             if image.format not in ('PNG', 'JPEG', 'WEBP') or image.width * image.height > 16_000_000:
                 raise ValueError('avatar_image_invalid')
             image.load()
-            artwork = ImageOps.contain(image.convert('RGBA'), (512, 512), Image.Resampling.LANCZOS)
-            canvas = Image.new('RGBA', (512, 512), (0, 0, 0, 0))
-            canvas.alpha_composite(artwork, ((512 - artwork.width) // 2, (512 - artwork.height) // 2))
+            if kind not in ('legacy','portrait'):
+                raise ValueError('avatar_kind_invalid')
+            image = ImageOps.exif_transpose(image).convert('RGBA')
+            if kind == 'portrait' and image.getchannel('A').getextrema() == (255,255):
+                raise ValueError('سر شخصیت باید پس‌زمینهٔ شفاف داشته باشد.')
+            if image.getchannel('A').getextrema()[1] == 0:
+                raise ValueError('تصویر آواتار کاملاً خالی است.')
+            size = 1024 if kind == 'portrait' else 512
+            artwork = ImageOps.contain(image, (size, size), Image.Resampling.LANCZOS)
+            canvas = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+            canvas.alpha_composite(artwork, ((size - artwork.width) // 2, (size - artwork.height) // 2))
             output = BytesIO()
             canvas.save(output, format='PNG', optimize=True)
             return output.getvalue()
@@ -62,8 +70,8 @@ def prepare_image(raw):
         raise ValueError('avatar_image_invalid') from error
 
 
-def save_upload(db, card_id, rarity, raw):
-    image = prepare_image(raw)
+def save_upload(db, card_id, rarity, raw, kind='legacy'):
+    image = prepare_image(raw, kind)
     root = media_root(db)
     root.mkdir(parents=True, exist_ok=True)
     filename = uuid.uuid4().hex + '.png'
@@ -77,6 +85,8 @@ def save_upload(db, card_id, rarity, raw):
             conn.execute('''INSERT INTO card_avatars(card_id,rarity,filename) VALUES(?,?,?)
                 ON CONFLICT(card_id,rarity) DO UPDATE SET filename=excluded.filename,
                 updated_at=CURRENT_TIMESTAMP''', (card_id, rarity, filename))
+            conn.execute('''INSERT INTO avatar_face_metadata(card_id,rarity,kind) VALUES(?,?,?)
+                ON CONFLICT(card_id,rarity) DO UPDATE SET kind=excluded.kind''',(card_id,rarity,kind))
         except Exception:
             path.unlink(missing_ok=True)
             raise
@@ -127,8 +137,11 @@ def _owned_card_in(db, conn, user_id, card_id, rarity):
 
 
 def choices(db, user_id):
+    with closing(sqlite3.connect(db.db_path)) as conn:
+        disabled={tuple(row) for row in conn.execute('SELECT card_id,rarity FROM avatar_face_metadata WHERE enabled=0')}
     return [item for item in owned_forms(db, user_id)
-            if item['rarity'] in RARITIES and path_for(db, item['card_id'], item['rarity'])]
+            if item['rarity'] in RARITIES and (item['card_id'],item['rarity']) not in disabled
+            and path_for(db, item['card_id'], item['rarity'])]
 
 
 def selected(db, user_id, slot):
@@ -141,6 +154,8 @@ def selected(db, user_id, slot):
     if not row:
         return None
     with closing(sqlite3.connect(db.db_path)) as conn:
+        if conn.execute('SELECT 1 FROM avatar_face_metadata WHERE card_id=? AND rarity=? AND enabled=0',tuple(row)).fetchone():
+            return None
         card = _owned_card_in(db, conn, user_id, row[0], row[1])
     path = path_for(db, row[0], row[1])
     return {'card': card, 'path': path, 'card_id': row[0], 'rarity': row[1]} if card and path else None
@@ -151,11 +166,17 @@ def save_choice(db, user_id, slot, card_id, rarity):
         raise ValueError('avatar_slot_invalid')
     with closing(sqlite3.connect(db.db_path)) as conn, conn:
         ensure_in(conn)
-        if not _owned_card_in(db, conn, user_id, card_id, rarity) or not path_for(db, card_id, rarity):
+        disabled=conn.execute('SELECT 1 FROM avatar_face_metadata WHERE card_id=? AND rarity=? AND enabled=0',(card_id,rarity)).fetchone()
+        if disabled or not _owned_card_in(db, conn, user_id, card_id, rarity) or not path_for(db, card_id, rarity):
             raise ValueError('این آواتار را نداری یا تصویرش هنوز بارگذاری نشده است.')
         conn.execute('''INSERT INTO player_avatar_choices VALUES(?,?,?,?)
             ON CONFLICT(user_id,slot) DO UPDATE SET card_id=excluded.card_id,rarity=excluded.rarity''',
                      (user_id, slot, card_id, rarity))
+        # An explicit choice from the existing bot picker overrides inheritance.
+        if slot != 'profile':
+            from systems.avatar_cosmetics import DEFAULTS
+            conn.execute('''INSERT INTO player_avatar_styles VALUES(?,?,?,?,0) ON CONFLICT(user_id,slot)
+                DO UPDATE SET inherit_profile=0''',(user_id,slot,DEFAULTS['frame'],DEFAULTS['background']))
 
 
 def clear_choice(db, user_id, slot):
@@ -164,13 +185,16 @@ def clear_choice(db, user_id, slot):
         conn.execute('DELETE FROM player_avatar_choices WHERE user_id=? AND slot=?', (user_id, slot))
 
 
-async def send_sticker(bot, context, chat_id, user_id, slot):
+async def send_sticker(bot, context, chat_id, user_id, slot, *, allow_default=True):
     try:
-        choice = selected(bot.db, user_id, slot)
-        if not choice:
-            return False
+        from systems.avatar_cosmetics import render, appearance_in
+        if not allow_default:
+            with closing(sqlite3.connect(bot.db.db_path)) as conn:
+                conn.row_factory=sqlite3.Row
+                if not appearance_in(bot.db,conn,user_id,slot)['face']['card_id']:
+                    return False
         from bot.card_reward_presentation import sticker_bytes
-        sticker = BytesIO(sticker_bytes(choice['path'].read_bytes()))
+        sticker = BytesIO(sticker_bytes(render(bot.db, user_id, slot)))
         sticker.name = 'avatar.webp'
         await context.bot.send_sticker(chat_id=chat_id, sticker=sticker)
         return True

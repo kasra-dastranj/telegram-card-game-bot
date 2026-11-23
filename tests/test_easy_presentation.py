@@ -485,11 +485,15 @@ def test_easy_details_claim_is_atomic_and_other_groups_cannot_consume_it(scene):
 def test_broken_avatar_falls_back_without_losing_easy_winner(scene, monkeypatch, tmp_path):
     from systems import card_avatars
     bot, _, context, events = scene
-    damaged = tmp_path / 'damaged.png'
-    damaged.write_bytes(b'broken avatar file')
-    monkeypatch.setattr(card_avatars, 'selected', lambda *args: {'path': damaged})
+    with sqlite3.connect(bot.db.db_path) as conn:
+        CardInventorySystem.grant_in(conn,1,'hero','legend')
+    output=BytesIO();Image.new('RGBA',(64,64),'yellow').save(output,'PNG')
+    card_avatars.save_upload(bot.db,'hero','legend',output.getvalue())
+    card_avatars.save_choice(bot.db,1,'profile','hero','legend')
+    card_avatars.path_for(bot.db,'hero','legend').write_bytes(b'broken avatar file')
     asyncio.run(easy_victory.announce(bot, context, {'origin_chat_id': -100},
                                     {'winner_ids': [1], 'request_id': 'avatar-fallback'}))
-    assert len(events) == 1 and events[0][0] == 'message'
-    assert 'MH_*' in readable(events[0][1])
-    assert events[0][2]['reply_markup'].inline_keyboard[0][0].callback_data == 'easy_details_avatar-fallback'
+    assert [event[0] for event in events] == ['sticker','message']
+    Image.open(BytesIO(events[0][1])).verify()  # healthy generic avatar fallback
+    assert 'MH_*' in readable(events[-1][1])
+    assert events[-1][2]['reply_markup'].inline_keyboard[0][0].callback_data == 'easy_details_avatar-fallback'

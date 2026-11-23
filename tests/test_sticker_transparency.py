@@ -120,10 +120,10 @@ def test_uploaded_or_fallback_transparency_reaches_real_sticker_sender(tmp_path,
 
 
 def test_selected_avatar_transparency_reaches_telegram(tmp_path, monkeypatch):
-    from systems import card_avatars
+    from systems import card_avatars, avatar_cosmetics
     path = tmp_path / 'avatar.png'
     path.write_bytes(transparent_art(kind='PNG'))
-    monkeypatch.setattr(card_avatars, 'selected', lambda *args: {'path': path})
+    monkeypatch.setattr(avatar_cosmetics, 'render', lambda *args: path.read_bytes())
     context = SimpleNamespace(bot=SimpleNamespace(send_sticker=AsyncMock()))
     assert asyncio.run(card_avatars.send_sticker(SimpleNamespace(db=None), context, -1, 1, 'easy'))
     assert_transparency(context.bot.send_sticker.await_args.kwargs['sticker'].getvalue())

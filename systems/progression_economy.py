@@ -313,6 +313,10 @@ class ProgressionEconomy:
             row=conn.execute('SELECT price FROM skins WHERE skin_id=?',(item[5:],)).fetchone()
             if not row or type(row[0]) is not int or row[0]<0:raise ValueError('invalid_skin_price')
             return row[0],0,'lifetime'
+        if item.startswith('avatar:'):
+            row=conn.execute('SELECT price FROM avatar_cosmetics WHERE item_id=?',(item[7:],)).fetchone()
+            if not row or type(row[0]) is not int or row[0]<0:raise ValueError('item_unavailable')
+            return row[0],0,'lifetime'
         rule=config['shop'].get(item)
         if not rule or not rule['enabled']:raise ValueError('item_unavailable')
         window_key=period_bounds(config,rule['window'])[2] if rule['window']!='none' else 'lifetime'
@@ -327,13 +331,21 @@ class ProgressionEconomy:
             self.refresh_hearts_in(conn,user,config)
             price,count,window=self.price_in(conn,user,item,config)
             self.shop_eligible(conn,user,item,config)
+            if item.startswith('avatar:'):
+                from systems.avatar_cosmetics import validate_purchase_in
+                cosmetic=validate_purchase_in(self.db,conn,user,item[7:])
             key=uuid.uuid4().hex
             conn.execute('INSERT INTO shop_quotes VALUES(?,?,?,?,?,?,?,?,0)',(key,user,item,price,version,count,window,(datetime.now(timezone.utc)+timedelta(minutes=5)).isoformat()))
+            if item.startswith('avatar:'):
+                conn.execute('INSERT INTO avatar_quote_versions VALUES(?,?)',(key,cosmetic['revision']))
             return {'ok':True,'quote_id':key,'item':item,'price':price,'config_version':version}
         return self.run(action)
 
     @staticmethod
     def shop_eligible(conn,user,item,config):
+        if item.startswith('avatar:'):
+            # File readiness is checked with the DB's durable media root by callers.
+            return
         if item.startswith('ability:'):
             ProgressionEconomy.price_in(conn,user,item,config)
             return
@@ -371,6 +383,11 @@ class ProgressionEconomy:
             self.refresh_hearts_in(conn,user,config)
             if quoted_version!=version or (price,count,window)!=self.price_in(conn,user,item,config):raise ValueError('price_changed')
             self.shop_eligible(conn,user,item,config)
+            if item.startswith('avatar:'):
+                from systems.avatar_cosmetics import validate_purchase_in
+                cosmetic=validate_purchase_in(self.db,conn,user,item[7:])
+                cosmetic_quote=conn.execute('SELECT item_revision FROM avatar_quote_versions WHERE quote_id=?',(quote_id,)).fetchone()
+                if not cosmetic_quote or cosmetic_quote[0]!=cosmetic['revision']:raise ValueError('price_changed')
             inventory={item:1};heart_delta=0
             if item.startswith('ability:'):
                 conn.execute('INSERT INTO player_ability_inventory VALUES(?,?,1) ON CONFLICT(user_id,ability_key) DO UPDATE SET quantity=quantity+1',(user,item[8:]))
@@ -384,7 +401,10 @@ class ProgressionEconomy:
                 heart_delta=capacity['max_hearts']-current
             elif item.startswith('skin:'):
                 conn.execute('INSERT INTO player_skins(user_id,skin_id,unlocked_at) VALUES(?,?,?)',(user,item[5:],datetime.now(timezone.utc).isoformat()))
-            result=apply_in(conn,operation,user,'shop','shop_purchase',version,payload={'item':item,'window_key':window},coins=-price,hearts=heart_delta,inventory=inventory,extra={'item':item,'coins_spent':price})
+            elif item.startswith('avatar:'):
+                conn.execute('INSERT INTO player_avatar_items(user_id,item_id,source) VALUES(?,?,?)',(user,item[7:],'shop:'+quote_id))
+            detail={'avatar_revision':cosmetic['revision']} if item.startswith('avatar:') else {}
+            result=apply_in(conn,operation,user,'shop','shop_purchase',version,payload={'item':item,'window_key':window,**detail},coins=-price,hearts=heart_delta,inventory=inventory,extra={'item':item,'coins_spent':price,**detail})
             conn.execute('UPDATE shop_quotes SET used=1 WHERE quote_id=?',(quote_id,))
             return result
         return self.run(action)

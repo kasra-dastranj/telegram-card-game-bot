@@ -85,6 +85,7 @@ class PlayerHubSystem:
             current_xp = total_xp - rules['level_thresholds'][level - 1]
             xp_to_next = (rules['level_thresholds'][level] - rules['level_thresholds'][level - 1]) if level < rules['max_level'] else 0
         return {
+            'avatar': {'image_url': '/api/v1/avatar/render?slot=profile'},
             "progression_v2_enabled": v2, "economy": economy,
             "user_id": user_id,
             "first_name": player.first_name,

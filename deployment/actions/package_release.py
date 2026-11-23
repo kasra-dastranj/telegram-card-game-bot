@@ -17,6 +17,7 @@ ROOT_FILES = {"telegram_bot.py", "game_core.py", "config_loader.py", "requiremen
 CODE_DIRS = {"bot", "core", "systems", "web", "migrations"}
 CATALOG_FILES = {'content/card_catalog_20261121/' + name for name in (
     'telbattle_cards.json', 'telbattle_cards_flat.csv', 'identity_aliases.json', 'trait_translations.json', 'easy_hidden_stats_v1.json')}
+CATALOG_FILES.update('content/card_lore_20261122/'+name for name in ('telbattle_lore.json','identity_mapping.json'))
 
 
 def allowed_path(name):

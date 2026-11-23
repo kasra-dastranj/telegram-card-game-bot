@@ -398,7 +398,7 @@ class Replacement:
     def cleanup(self):
         dependent = ('player_card_stacks', 'player_cards', 'card_cooldowns', 'card_cooldown_settings',
                      'card_missions', 'player_card_missions', 'card_mode_metadata', 'card_media_cache',
-                     'economy_character_rules', 'claim_receipts', 'card_avatars', 'player_avatar_choices',
+                     'economy_character_rules', 'claim_receipts', 'card_avatars', 'avatar_face_metadata', 'player_avatar_choices',
                      'active_skins', 'rare_cards_info')
         for old in self.removed:
             cid = old['card_id']
@@ -449,7 +449,7 @@ class Replacement:
                  'player_card_missions', 'skins', 'active_skins', 'economy_character_rules', 'claim_receipts',
                  'custom_orders', 'custom_definitions', 'custom_grants', 'custom_match_cards',
                  'rare_card_instances', 'rare_cards_info', 'rare_cards_log', 'card_avatars',
-                 'player_avatar_choices', 'retired_card_catalog'}
+                 'player_avatar_choices', 'avatar_face_metadata', 'retired_card_catalog'}
         # Older installations can still have these unused tables. Leave their
         # schema intact and require a separate review if either contains data.
         for table in ('ability_cooldowns', 'card_wins'):

@@ -2,11 +2,14 @@ import Phaser from "phaser";
 import "./styles.css";
 import "./tabletop.css";
 import "./citadel.css";
+import './avatars.css';
+import { avatarLayers } from './avatarView';
+import type { AvatarCatalog, AvatarAppearance, AvatarItem } from './api';
 import { ApiError, api, type CardData, type CardPage, type ClaimStatus, type DeckData, type Difficulty, type FightData, type FusionPreview, type MissionData, type ProfileData, type QuickState, type RoundData, type SkinCollection, type StatKey, type ThreeRoundAbilityState, type ThreeRoundState, type UpgradePreview } from "./api";
 import { BattleScene } from "./BattleScene";
 import { combatCard, duel, playerProgress, portrait, resultCrest, rewardTiles, roundTrack, safe, shopArt, statIcons } from "./presentation";
 
-type Screen = "splash" | "onboarding" | "lobby" | "profileHub" | "collection" | "decks" | "progress" | "shop" | "quickMenu" | "quickWait" | "threeMenu" | "threeWait" | "threeMatch" | "threeResult" | "cards" | "quickMatch" | "quickResult" | "battle" | "result";
+type Screen = "splash" | "onboarding" | "lobby" | "profileHub" | "collection" | "decks" | "progress" | "shop" | "avatars" | "quickMenu" | "quickWait" | "threeMenu" | "threeWait" | "threeMatch" | "threeResult" | "cards" | "quickMatch" | "quickResult" | "battle" | "result";
 
 const state: {
   screen: Screen;
@@ -51,6 +54,10 @@ const state: {
   rewardTicket?: boolean;
   rewardAbility?: { key: string; title: string };
   skinPanel?: { cardId: string; data: SkinCollection };
+  avatars?: AvatarCatalog;
+  avatarDraft?: AvatarAppearance;
+  avatarTab: 'face' | 'frame' | 'background';
+  avatarShop: boolean;
   fusion: { target: "epic" | "legend"; cardIds: string[]; retainedId?: string; preview?: FusionPreview };
 } = {
   screen: "splash",
@@ -69,6 +76,8 @@ const state: {
   collectionQuery: "",
   decks: [],
   missions: [],
+  avatarTab: 'face',
+  avatarShop: false,
   fusion: { target: "epic", cardIds: [] },
 };
 
@@ -199,6 +208,8 @@ function render(): void {
   if (state.screen === "decks") ui.innerHTML = decksTemplate();
   if (state.screen === "progress") ui.innerHTML = progressTemplate();
   if (state.screen === "shop") ui.innerHTML = shopTemplate();
+  if (state.screen === 'shop') ui.querySelector('.hub-scroll')?.insertAdjacentHTML('afterbegin', avatarShopLinks());
+  if (state.screen === 'avatars') ui.innerHTML = avatarsTemplate();
   if (state.screen === "quickMenu") ui.innerHTML = quickMenuTemplate();
   if (state.screen === "quickWait") ui.innerHTML = quickWaitTemplate();
   if (state.screen === "threeMenu") ui.innerHTML = threeMenuTemplate();
@@ -371,7 +382,7 @@ function resourceHud(): string {
   const pending = state.profileStatus === "loading" && !p;
   const value = (amount?: number) => pending ? "…" : amount === undefined ? "—" : amount.toLocaleString("fa-IR");
   return `<header class="hub-hud glass-panel">
-    <button class="hub-avatar" data-action="open-profile" aria-label="نمایش پروفایل ${escapeHtml(p?.first_name || "بازیکن")}">${escapeHtml((p?.first_name || "T").slice(0, 1))}<i aria-hidden="true"></i></button>
+    <button class="hub-avatar" data-action="open-profile" aria-label="نمایش پروفایل ${escapeHtml(p?.first_name || "بازیکن")}">${profileAvatar(p)}<i aria-hidden="true"></i></button>
     <div class="hub-level"><span><span><small>فرمانده</small><strong>${escapeHtml(p?.first_name || "بازیکن")}</strong></span><span><b>LV ${p?.level ?? 1}</b><small>${p?.progression_v2_enabled ? "" : escapeHtml(p?.current_tier ?? "Bronze")}</small></span></span><i><b style="width:${percent}%"></b></i></div>
     <div class="hub-resources">
       <span class="hub-resource hub-heart">${lobbyIcon("heart")}<span><small>جان</small><b dir="ltr">${p ? `${p.hearts}/${p.max_hearts}` : value()}</b></span></span>
@@ -380,6 +391,10 @@ function resourceHud(): string {
       <span class="hub-resource hub-decks">${lobbyIcon("decks")}<span><small>دک</small><b>${value(p?.counts?.decks)}</b></span></span>
     </div>
   </header>${profileStatusNotice()}`;
+}
+
+function profileAvatar(p?: ProfileData): string {
+  return p?.avatar?.image_url ? `<img class="avatar-hud-img" src="${escapeHtml(p.avatar.image_url)}" alt="آواتار بازیکن">` : escapeHtml((p?.first_name || 'T').slice(0,1));
 }
 
 function profileStatusNotice(): string {
@@ -403,7 +418,7 @@ function profileHubTemplate(): string {
       <div class="hub-scroll">
         <header class="hub-title"><div><p class="eyebrow">PLAYER HUB</p><h1>مرکز فرمانده</h1></div>${p?.progression_v2_enabled ? "" : `<span class="tier-badge">${escapeHtml(p?.current_tier ?? "Bronze")} · ${p?.tier_points ?? 0} TP</span>`}</header>
         <article class="profile-card glass-panel">
-          <div class="profile-avatar">${escapeHtml((p?.first_name || "T").slice(0, 1))}</div>
+          <button class="profile-avatar" data-action="open-avatars" aria-label="شخصی‌سازی آواتار">${profileAvatar(p)}</button>
           <div><small>فرمانده</small><h2>${escapeHtml(p?.first_name || "بازیکن")}</h2><p dir="ltr">${p?.username ? `@${escapeHtml(p.username)}` : "TelBattle Player"}</p></div>
           <strong>${(p?.total_score ?? 0).toLocaleString("fa-IR")}<small>امتیاز</small></strong>
         </article>
@@ -483,7 +498,7 @@ function cardDetailSheet(card: CardData): string {
       <div class="card-sheet__content">
         <p class="eyebrow">${escapeHtml(card.rarity.toUpperCase())}${card.origin==="custom" ? " · سفارشی" : ""}</p>
         <h2 dir="auto">${escapeHtml(card.name)}</h2>
-        <p>${escapeHtml(card.biography || "زندگینامه‌ای ثبت نشده است.")}</p>
+        <p class="card-biography">${escapeHtml(card.biography || "زندگینامه‌ای ثبت نشده است.")}</p>
         <div class="card-stat-list">${stats.map(([name, value]) => `<span><small>${name}</small><strong>${value}</strong></span>`).join("")}</div>
         <div class="card-meta"><span>نوع: <b dir="ltr">${escapeHtml(card.card_type || "—")}</b></span><span>Ability: <b>${escapeHtml(card.abilities?.join("، ") || "ندارد")}</b></span></div>
         ${formControls ? `<div class="card-actions"><strong>فرم‌های موجود</strong>${formControls}</div>` : ""}
@@ -565,6 +580,47 @@ function skinsSheet(): string {
   return `<div class="sheet-backdrop" data-action="close-skins"></div><aside class="skins-sheet glass-panel" role="dialog" aria-modal="true" aria-label="پوسته‌های کارت"><header><div><p class="eyebrow">CARD SKINS</p><h2 dir="auto">${escapeHtml(card?.name || "ظاهر کارت")}</h2></div><button class="sheet-close" data-action="close-skins" aria-label="بستن">×</button></header><button class="default-skin ${panel.data.active_skin_id ? "" : "is-active"}" data-action="activate-default-skin" data-card="${escapeHtml(panel.cardId)}">ظاهر پیش‌فرض ${panel.data.active_skin_id ? "" : "· فعال"}</button><div class="skin-list">${items || '<p class="empty-state">هنوز پوسته‌ای برای این کارت ثبت نشده است.</p>'}</div></aside>`;
 }
 
+function avatarShopLinks(): string {
+  return `<div class="avatar-shop-links"><button class="secondary-button" data-action="avatar-shop" data-kind="frame">قاب‌های آواتار</button><button class="secondary-button" data-action="avatar-shop" data-kind="background">پس‌زمینه‌های آواتار</button></div>`;
+}
+
+function avatarsTemplate(): string {
+  const catalog = state.avatars, draft = state.avatarDraft;
+  if (!catalog || !draft) return `<section class="screen hub-screen"><div class="hub-scroll"><h1>ظاهر آواتار</h1><p>در حال دریافت…</p><button data-action="open-avatars">تلاش دوباره</button><button data-action="open-profile">بازگشت</button></div></section>`;
+  const inherited = draft.slot !== 'profile' && draft.inherit_profile;
+  const preview = inherited ? catalog.selections.profile : draft;
+  const available = draft.frame.owned && draft.background.owned;
+  const option = (item: AvatarItem) => {
+    const combination = {...preview,[item.kind]:item};
+    const selected = preview[item.kind].item_id === item.item_id;
+    return `<article class="avatar-option ${selected ? 'is-active' : ''}">${item.ready ? avatarLayers(combination) : '<p>تصویر در حال آماده‌سازی</p>'}<h3>${escapeHtml(item.title)}</h3><p>${item.owned ? item.free ? 'رایگان' : 'در اختیار داری' : `${item.price.toLocaleString('fa-IR')} سکه`}</p><button data-action="avatar-try" data-id="${escapeHtml(item.item_id)}" ${!item.ready || inherited ? 'disabled' : ''}>${item.owned ? 'انتخاب' : 'امتحان روی آواتار من'}</button>${!item.owned && item.for_sale && item.ready ? `<button data-action="v2-quote" data-value="avatar:${escapeHtml(item.item_id)}" ${state.loading || !state.profile?.progression_v2_enabled ? 'disabled' : ''}>خرید</button>` : ''}</article>`;
+  };
+  const options = state.avatarTab === 'face' ? catalog.faces.map(face => `<article class="avatar-option ${draft.face.card_id === face.card_id && draft.face.rarity === face.rarity ? 'is-active' : ''}">${avatarLayers({...preview,face})}<h3>${escapeHtml(face.name)}</h3><button data-action="avatar-face" data-id="${escapeHtml(face.card_id || '')}" data-rarity="${escapeHtml(face.rarity || '')}" ${inherited ? 'disabled' : ''}>انتخاب</button></article>`).join('') : catalog.items.filter(item => item.kind === state.avatarTab).map(option).join('');
+  const quote = state.shopQuote ? `<div class="upgrade-confirm" role="alertdialog" aria-label="تأیید خرید آیتم آواتار"><strong>${escapeHtml(catalog.items.find(item => 'avatar:'+item.item_id === state.shopQuoteItem)?.title || 'آیتم انتخابی')}: ${state.shopQuote.price.toLocaleString('fa-IR')} سکه</strong><p>خرید دائمی است؛ ظاهر انتخاب‌شده با دکمهٔ ذخیره فعال می‌شود.</p><button data-action="v2-buy" ${state.loading ? 'disabled' : ''}>تأیید خرید</button><button data-action="v2-cancel">انصراف</button></div>` : '';
+  return `<section class="screen hub-screen avatar-screen">${resourceHud()}<div class="hub-scroll"><header class="hub-title"><h1>${state.avatarShop ? 'فروشگاه آواتار' : 'ظاهر آواتار'}</h1><button data-action="${state.avatarShop ? 'open-shop' : 'open-profile'}">بازگشت</button></header><div class="avatar-toolbar"><label>نمایش در <select id="avatar-slot">${(['profile','easy','deck'] as const).map(slot => `<option value="${slot}" ${slot === draft.slot ? 'selected' : ''}>${{profile:'پروفایل',easy:'برد ایزی',deck:'برد دک'}[slot]}</option>`).join('')}</select></label><span>${(state.profile?.coins || 0).toLocaleString('fa-IR')} سکه</span></div>${draft.slot !== 'profile' ? `<label class="avatar-inherit"><input id="avatar-inherit" type="checkbox" ${draft.inherit_profile ? 'checked' : ''}>استفاده از آواتار پروفایل</label>` : ''}<div class="avatar-preview">${avatarLayers(preview)}</div><p class="avatar-note">${preview.face.kind === 'legacy' ? 'این تصویر قدیمی قاب دارد؛ پس از جایگزینی با سر شفاف، قاب و پس‌زمینهٔ انتخابی روی آن نمایش داده می‌شوند.' : 'چهره با داشتن کارت Legend یا Rare آزاد می‌شود؛ قاب و پس‌زمینهٔ خریداری‌شده برایت می‌مانند.'}</p>${quote}<div class="avatar-tabs">${(['face','frame','background'] as const).map(tab => `<button class="secondary-button ${state.avatarTab === tab ? 'is-active' : ''}" data-action="avatar-tab" data-value="${tab}">${{face:'چهره',frame:'قاب',background:'پس‌زمینه'}[tab]}</button>`).join('')}</div><div class="avatar-options">${options}</div><button class="avatar-save" data-action="avatar-save" ${state.loading || (!inherited && !available) ? 'disabled' : ''}>${!inherited && !available ? 'برای ذخیره، آیتم آزمایشی را بخر یا عوض کن' : 'ذخیرهٔ آواتار'}</button><p class="avatar-note">شعار برد ایزی و دک از همان تنظیمات قبلی خودت خوانده می‌شود.</p></div>${bottomNav(state.avatarShop ? 'shop' : undefined)}</section>`;
+}
+
+async function openAvatars(shop = false, tab: 'face'|'frame'|'background' = 'face'): Promise<void> {
+  if (state.loading) return;
+  state.screen = 'avatars'; state.avatarShop = shop; state.avatarTab = tab;
+  state.shopQuote = undefined; state.shopQuoteItem = undefined;
+  state.loading = true; render();
+  try { state.avatars = await api.avatars(); state.avatarDraft = {...state.avatars.selections.profile}; }
+  catch (error) { showToast(error instanceof Error ? error.message : 'آواتارها دریافت نشدند'); }
+  finally { state.loading = false; render(); }
+}
+
+async function saveAvatar(): Promise<void> {
+  if (state.loading || !state.avatarDraft) return;
+  state.loading = true; render();
+  try {
+    const draft = state.avatarDraft.inherit_profile ? {...state.avatars!.selections.profile,slot:state.avatarDraft.slot,inherit_profile:true} : state.avatarDraft;
+    state.avatars = await api.saveAvatar(draft); state.avatarDraft = {...state.avatars.selections[draft.slot]};
+    await refreshProfile(); showToast('آواتار ذخیره شد', 'success'); haptic('success');
+  } catch (error) { showToast(error instanceof Error ? error.message : 'ذخیره انجام نشد'); }
+  finally { state.loading = false; render(); }
+}
+
 function economyShopTemplate(): string {
   const economy = state.profile?.economy;
   const labels: Record<string, string> = { upgrade_card: 'کارت ارتقا', silver_ticket: 'Silver Ticket', deck_slot: 'ظرفیت دک', refill: 'پرکردن قلب‌ها', permanent_heart: 'قلب دائمی' };
@@ -591,14 +647,27 @@ async function quoteEconomy(item: string): Promise<void> {
   state.loading = true; render();
   try { state.shopQuote = await api.economyQuote(item); state.shopQuoteItem = item; }
   catch (error) { showToast(error instanceof Error ? error.message : 'قیمت دریافت نشد'); }
-  finally { state.loading = false; render(); }
+  finally {
+    state.loading = false; render();
+    if (state.screen === 'avatars' && state.shopQuote) ui.querySelector('[role="alertdialog"]')?.scrollIntoView({block:'center'});
+  }
 }
 
 async function purchaseEconomy(): Promise<void> {
   if (!state.shopQuote || state.loading) return;
   const item = state.shopQuoteItem;
   state.loading = true; render();
-  try { const result = await api.economyPurchase(state.shopQuote.quote_id); state.profile = result.profile; state.shopQuote = undefined; state.shopQuoteItem = undefined; haptic("success"); showEffect(item === "refill" || item === "permanent_heart" ? "heart" : "reward"); showToast('خرید انجام شد', "success"); }
+  try {
+    const result = await api.economyPurchase(state.shopQuote.quote_id); state.profile = result.profile;
+    state.shopQuote = undefined; state.shopQuoteItem = undefined;
+    if (item?.startsWith('avatar:')) {
+      state.avatars = await api.avatars();
+      if (state.avatarDraft) for (const kind of ['frame','background'] as const) {
+        state.avatarDraft[kind] = state.avatars.items.find(next => next.item_id === state.avatarDraft![kind].item_id) || state.avatars.selections.profile[kind];
+      }
+    }
+    haptic("success"); showEffect(item === "refill" || item === "permanent_heart" ? "heart" : "reward"); showToast('خرید انجام شد', "success");
+  }
   catch (error) { showToast(error instanceof Error ? error.message : 'خرید انجام نشد'); }
   finally { state.loading = false; render(); }
 }
@@ -1720,10 +1789,32 @@ async function submitSoloAbility(abilityKey: string): Promise<void> {
   }
 }
 
+ui.addEventListener('error', event => {
+  const img = event.target;
+  if (!(img instanceof HTMLImageElement)) return;
+  if (img.classList.contains('avatar-head') || img.classList.contains('avatar-legacy')) {
+    const fallback = document.createElement('span'); fallback.className = 'avatar-head-fallback'; fallback.textContent = '●'; img.replaceWith(fallback);
+  } else if (img.classList.contains('avatar-hud-img')) {
+    img.replaceWith(document.createTextNode((state.profile?.first_name || 'T').slice(0,1)));
+  } else if (img.classList.contains('avatar-bg') || img.classList.contains('avatar-frame')) img.hidden = true;
+}, true);
+
 ui.addEventListener("click", (event) => {
   const button = (event.target as HTMLElement).closest<HTMLElement>("[data-action]");
   if (!button || button.hasAttribute("disabled")) return;
   const action = button.dataset.action;
+  if (action === 'open-avatars') void openAvatars();
+  if (action === 'avatar-shop') void openAvatars(true,button.dataset.kind === 'background' ? 'background' : 'frame');
+  if (action === 'avatar-tab') { state.avatarTab = button.dataset.value as typeof state.avatarTab; render(); }
+  if (action === 'avatar-face' && state.avatarDraft && state.avatars) {
+    const face = state.avatars.faces.find(face => (face.card_id || '') === button.dataset.id && (face.rarity || '') === button.dataset.rarity);
+    if (face) state.avatarDraft.face = face; render();
+  }
+  if (action === 'avatar-try' && state.avatarDraft && state.avatars) {
+    const item = state.avatars.items.find(item => item.item_id === button.dataset.id);
+    if (item) state.avatarDraft[item.kind] = item; render();
+  }
+  if (action === 'avatar-save') void saveAvatar();
   if (action === "solo-ability") void submitSoloAbility(button.dataset.value || "");
   haptic();
   if (action === "onboarding-skip") { finishOnboarding(); return; }
@@ -1849,6 +1940,8 @@ ui.addEventListener("input", (event) => {
 
 ui.addEventListener("change", (event) => {
   const select = event.target as HTMLSelectElement;
+  if (select.id === 'avatar-slot' && state.avatars) { state.avatarDraft = {...state.avatars.selections[select.value as AvatarAppearance['slot']]}; state.shopQuote = undefined; render(); }
+  if (select.id === 'avatar-inherit' && state.avatarDraft) { state.avatarDraft.inherit_profile = (event.target as HTMLInputElement).checked; render(); }
   if (select.id === "collection-rarity") {
     state.collectionRarity = select.value;
     void loadCollection(1);
@@ -1897,6 +1990,10 @@ async function boot(): Promise<void> {
   else state.screen = onboardingSeen() ? "lobby" : "onboarding";
   scene.showIdle();
   render();
+  if (!state.incomingInvite && !state.incomingThreeInvite && new URLSearchParams(location.search).get('avatar') === '1') {
+    const category = new URLSearchParams(location.search).get('avatar_shop');
+    await openAvatars(category === 'frame' || category === 'background',category === 'frame' || category === 'background' ? category : 'face'); return;
+  }
   if (!state.incomingInvite && !state.incomingThreeInvite && state.profileStatus === "ready") {
     let pending: string | null = null;
     try { pending = localStorage.getItem(threeStorageKey); } catch { /* Optional storage. */ }

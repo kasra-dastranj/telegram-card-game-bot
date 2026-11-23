@@ -63,6 +63,8 @@ class WebAPI:
         register_rare_admin(self)
         from web.easter_admin_api import register_easter_admin
         register_easter_admin(self)
+        from web.avatar_api import register_avatar_admin
+        register_avatar_admin(self)
 
     def _arena_admin_actor(self, scope='write'):
         """Fail-closed token auth with optional independent high-risk scopes."""
@@ -922,7 +924,7 @@ class WebAPI:
             if not upload:
                 return jsonify(error='image_required'), 400
             try:
-                save_upload(self.db, card_id, rarity, upload.read(8 * 1024 * 1024 + 1))
+                save_upload(self.db, card_id, rarity, upload.read(8 * 1024 * 1024 + 1), request.form.get('kind','legacy'))
             except ValueError as error:
                 return jsonify(error=str(error)), 400
             return jsonify(success=True, message='آواتار این فرم ذخیره شد.'), 200
