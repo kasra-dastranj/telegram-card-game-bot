@@ -4,11 +4,13 @@ import logging
 import os
 from pathlib import Path
 
-from telegram import InlineKeyboardButton as Button, InlineKeyboardMarkup, InputMediaPhoto
+from telegram import InlineKeyboardButton as Button, InlineKeyboardMarkup, InputFile, InputMediaPhoto
+from telegram.error import TelegramError
 
 from bot.battle_visual_delivery import ROOT, limited_cache, read_bitmap, work
 from bot.battle_visuals import resources
 from bot.deck_reports import isolate
+from bot.upgrade_card_sticker_asset import UPGRADE_CARD_STICKER, UPGRADE_CARD_STICKER_NAME
 from bot import shop_visuals
 
 logger = logging.getLogger(__name__)
@@ -160,6 +162,13 @@ async def show_purchase(bot,update,context,result):
         return await text_panel(update,'⚠️ '+error_text(result),back_buttons())
     player = bot.db.get_or_create_player(update.effective_user.id)
     item = result['item']
+    if item == 'upgrade_card' and not result.get('replayed'):
+        try:
+            await update.effective_message.reply_sticker(
+                InputFile(UPGRADE_CARD_STICKER, filename=UPGRADE_CARD_STICKER_NAME)
+            )
+        except TelegramError:
+            logger.warning('Could not send upgrade card purchase sticker')
     name = display_name(bot,item)
     amount = result['coins_spent']
     text = ('این خرید قبلاً ثبت شده؛ دوباره سکه کم نشد.' if result.get('replayed') else '✨ مبارکه، مال تو شد!')
