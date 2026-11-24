@@ -172,6 +172,7 @@ def save_choice(db, user_id, slot, card_id, rarity):
         conn.execute('''INSERT INTO player_avatar_choices VALUES(?,?,?,?)
             ON CONFLICT(user_id,slot) DO UPDATE SET card_id=excluded.card_id,rarity=excluded.rarity''',
                      (user_id, slot, card_id, rarity))
+        conn.execute('DELETE FROM player_avatar_free_choices WHERE user_id=? AND slot=?',(user_id,slot))
         # An explicit choice from the existing bot picker overrides inheritance.
         if slot != 'profile':
             from systems.avatar_cosmetics import DEFAULTS
@@ -183,6 +184,7 @@ def clear_choice(db, user_id, slot):
     with closing(sqlite3.connect(db.db_path)) as conn, conn:
         ensure_in(conn)
         conn.execute('DELETE FROM player_avatar_choices WHERE user_id=? AND slot=?', (user_id, slot))
+        conn.execute('DELETE FROM player_avatar_free_choices WHERE user_id=? AND slot=?',(user_id,slot))
 
 
 async def send_sticker(bot, context, chat_id, user_id, slot, *, allow_default=True):
@@ -191,7 +193,8 @@ async def send_sticker(bot, context, chat_id, user_id, slot, *, allow_default=Tr
         if not allow_default:
             with closing(sqlite3.connect(bot.db.db_path)) as conn:
                 conn.row_factory=sqlite3.Row
-                if not appearance_in(bot.db,conn,user_id,slot)['face']['card_id']:
+                face=appearance_in(bot.db,conn,user_id,slot)['face']
+                if not face['card_id'] and face.get('free_face_id') in (None,'generic'):
                     return False
         from bot.card_reward_presentation import sticker_bytes
         sticker = BytesIO(sticker_bytes(render(bot.db, user_id, slot)))

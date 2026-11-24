@@ -23,6 +23,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from flask import Flask, request, jsonify, send_from_directory, send_file, g
 from PIL import Image, ImageOps
+import urllib3
 from werkzeug.middleware.proxy_fix import ProxyFix
 from game_core import DatabaseManager, CardRarity
 from systems.ai_opponent import AsoAI, DAILY_SOLO_LIMIT
@@ -40,8 +41,10 @@ from systems.card_upgrade_system import CardUpgradeSystem
 from systems.deck_system import DeckSystem
 from systems.player_rewards_system import PlayerRewardsSystem
 from systems.fusion_system import FusionSystem
+from bot.upgrade_card_sticker_asset import UPGRADE_CARD_STICKER, UPGRADE_CARD_STICKER_NAME
 
 logger = logging.getLogger(__name__)
+_telegram_http = urllib3.PoolManager()
 
 # ==================== تنظیمات ====================
 
@@ -926,7 +929,24 @@ def economy_quote():
 @require_auth
 def economy_purchase():
     data = request.get_json(silent=True) or {}
-    return _economy_response(_v2_economy().purchase(g.user_id, str(data.get('quote_id',''))))
+    result = _v2_economy().purchase(g.user_id, str(data.get('quote_id','')))
+    if BOT_TOKEN and result.get('ok') and result.get('item') == 'upgrade_card' and not result.get('replayed'):
+        try:
+            delivery = _telegram_http.request(
+                'POST', f'https://api.telegram.org/bot{BOT_TOKEN}/sendSticker',
+                fields={
+                    'chat_id': str(g.user_id),
+                    'sticker': (UPGRADE_CARD_STICKER_NAME, UPGRADE_CARD_STICKER, 'image/webp'),
+                },
+                timeout=urllib3.Timeout(total=3),
+                retries=False,
+                redirect=False,
+            )
+            if delivery.status != 200:
+                logger.warning('Telegram rejected the Mini App upgrade card purchase sticker')
+        except urllib3.exceptions.HTTPError:
+            logger.warning('Could not send Mini App upgrade card purchase sticker')
+    return _economy_response(result)
 
 
 @app.route('/api/v1/economy/cards/<card_id>/sell/preview', methods=['POST'])

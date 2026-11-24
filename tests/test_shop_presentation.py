@@ -13,6 +13,7 @@ from bot import shop_visuals
 from bot.handlers.progression import handle
 from bot.main import TelegramCardBot
 from bot.shop_presentation import show_catalog
+from bot.upgrade_card_sticker_asset import UPGRADE_CARD_STICKER, UPGRADE_CARD_STICKER_NAME
 from core.database import DatabaseManager
 from systems.progression_config import config_in, save_config_in
 from systems.progression_economy import ProgressionEconomy
@@ -45,9 +46,9 @@ def shop(tmp_path, monkeypatch):
     renderer = Mock(wraps=shop_visuals.render)
     monkeypatch.setattr(shop_visuals,'render',renderer)
 
-    def click(data='v2_shop',uid=1):
+    def click(data='v2_shop',uid=1,*,sticker_error=None):
         message = SimpleNamespace(chat_id=uid,chat=SimpleNamespace(type='private'),message_id=current['id'],reply_photo=AsyncMock(side_effect=photo),
-                                  reply_text=AsyncMock(side_effect=text))
+                                  reply_text=AsyncMock(side_effect=text),reply_sticker=AsyncMock(side_effect=sticker_error))
         query = SimpleNamespace(data=data,from_user=SimpleNamespace(id=uid),message=message,
                                 answer=AsyncMock(),edit_message_text=AsyncMock(),edit_message_reply_markup=AsyncMock())
         update = SimpleNamespace(effective_user=query.from_user,effective_message=message,callback_query=query)
@@ -170,16 +171,25 @@ def test_catalog_shows_real_availability_and_server_still_enforces_it(shop,condi
         assert not any(b.callback_data.startswith('v2_buy_') for r in result.callback_query.edit_message_text.await_args.kwargs['reply_markup'].inline_keyboard for b in r)
 
 
-def test_deleted_board_falls_back_to_text_and_purchase_replay_stays_safe(shop):
+@pytest.mark.parametrize('sticker_error', [None, BadRequest('sticker rejected')])
+def test_upgrade_card_purchase_sends_sticker_once_and_keeps_receipt(shop, sticker_error):
     bot,context,events,click,_ = shop
     click()
     quote = click('v2_quote_upgrade_card')
+    quote.effective_message.reply_sticker.assert_not_awaited()
     callback = buy_button(quote,events)
     context.bot.edit_message_media.side_effect = BadRequest('board deleted')
-    result = click(callback)
+    result = click(callback, sticker_error=sticker_error)
+    result.effective_message.reply_sticker.assert_awaited_once()
+    sticker = result.effective_message.reply_sticker.await_args.args[0]
+    assert sticker.filename == UPGRADE_CARD_STICKER_NAME
+    assert sticker.input_file_content == UPGRADE_CARD_STICKER
+    with Image.open(BytesIO(sticker.input_file_content)) as artwork:
+        assert artwork.format == 'WEBP' and max(artwork.size) == 512
+        assert artwork.getchannel('A').getextrema() == (0, 255)
     assert 'مال تو شد' in result.callback_query.edit_message_text.await_args.args[0]
     assert row(bot.db,'SELECT coins FROM players WHERE user_id=1')[0] == 800
-    click(callback)
+    click(callback).effective_message.reply_sticker.assert_not_awaited()
     assert row(bot.db,'SELECT coins FROM players WHERE user_id=1')[0] == 800
     assert row(bot.db,"SELECT quantity FROM player_economy_items WHERE user_id=1 AND item='upgrade_card'")[0] == 1
 

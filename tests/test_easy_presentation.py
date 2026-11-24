@@ -48,12 +48,18 @@ def test_avatar_slots_profile_group_and_victory_use_uploaded_artwork(scene):
     update.effective_chat = SimpleNamespace(id=1, type='private')
     update.effective_message.reply_photo.reset_mock()
     asyncio.run(bot.profile_command(update, context))
-    assert 'reply_markup' not in update.effective_message.reply_photo.await_args.kwargs
-    buttons = update.effective_message.reply_text.await_args.kwargs['reply_markup'].inline_keyboard
-    update.callback_query = SimpleNamespace(data=buttons[0][0].callback_data, from_user=update.effective_user,
+    update.effective_message.reply_photo.assert_awaited_once()
+    update.effective_message.reply_text.assert_not_awaited()
+    profile = update.effective_message.reply_photo.await_args.kwargs
+    assert 'دک‌ها' in profile['caption']
+    buttons = profile['reply_markup'].inline_keyboard
+    photo_message = SimpleNamespace(photo=(object(),), reply_text=AsyncMock())
+    update.callback_query = SimpleNamespace(data=buttons[0][0].callback_data, from_user=update.effective_user, message=photo_message,
                                            answer=AsyncMock(), edit_message_text=AsyncMock())
     from bot.handlers.customization import handle as customization_menu
     asyncio.run(customization_menu(bot, update, context))
+    photo_message.reply_text.assert_awaited_once()
+    update.callback_query.edit_message_text.assert_not_awaited()
     update.callback_query.data = 'avatar_page_profile_0'
     from bot.handlers.avatar_profile import handle as avatar_menu
     asyncio.run(avatar_menu(bot, update, context))
@@ -150,15 +156,26 @@ def test_invalid_slogan_preserves_previous_settings(scene, text):
 def test_profile_command_and_callback_offer_settings_without_changing_main_menu(scene):
     bot, update, context, _ = scene
     update.callback_query = None
+    sent_images = []
+
+    async def record_photo(*, photo, **kwargs):
+        sent_images.append(photo.getvalue())
+
+    update.effective_message.reply_photo = AsyncMock(side_effect=record_photo)
     asyncio.run(bot.profile_command(update, context))
-    markup = update.message.reply_text.await_args.kwargs['reply_markup']
+    profile = update.effective_message.reply_photo.await_args.kwargs
+    markup = profile['reply_markup']
     assert any(b.callback_data == 'style_menu' for row in markup.inline_keyboard for b in row)
-    assert 'MH\\_\\*' in update.message.reply_text.await_args.args[0]
+    assert 'MH_*' in profile['caption']
+    with Image.open(BytesIO(sent_images[0])) as image:
+        assert image.mode == 'RGB'
+        assert image.getpixel((0, 0)) == (0, 0, 0)
     context.user_data['easy_victory_draft'] = {'expires_at': time.time() + 600}
     update.callback_query = SimpleNamespace(answer=AsyncMock(), edit_message_text=AsyncMock())
     asyncio.run(bot.profile_command(update, context))
     assert 'easy_victory_draft' not in context.user_data
-    assert update.callback_query.edit_message_text.await_count == 1
+    assert update.effective_message.reply_photo.await_count == 2
+    update.callback_query.edit_message_text.assert_not_awaited()
 
 
 def test_picker_paginates_and_scopes_tokens_to_current_user_and_owned_form(scene):

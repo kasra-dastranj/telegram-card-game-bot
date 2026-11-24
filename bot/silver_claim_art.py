@@ -1,8 +1,31 @@
-"""A small native Silver Claim illustration, without external assets or fonts."""
+"""Telegram artwork for Silver Claim and Silver Ticket receipts."""
 from functools import lru_cache
 from io import BytesIO
+import logging
 
 from PIL import Image, ImageDraw, ImageFont
+from telegram.error import TelegramError
+
+from bot.silver_sticker_assets import SILVER_STICKERS
+
+logger = logging.getLogger(__name__)
+
+
+async def send_silver_sticker(message, asset):
+    try:
+        with BytesIO(SILVER_STICKERS[asset]) as sticker:
+            sticker.name = asset
+            await message.reply_sticker(sticker)
+    except TelegramError:
+        logger.warning('Could not send Silver reward sticker: %s', asset)
+
+
+async def send_silver_ticket_reward(message, ability):
+    await send_silver_sticker(message, 'silver-ticket.webp')
+    await message.reply_text(
+        f'🎟 یک Silver Ticket و ابیلیتی «{ability["title"]}» دریافت شد.',
+        parse_mode=None,
+    )
 
 
 def _label(image, text, center, scale, color):

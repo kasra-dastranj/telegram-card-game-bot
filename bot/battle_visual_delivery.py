@@ -130,7 +130,8 @@ async def card_art(handler, context, card, *, preserve_alpha=False):
     rarity = str(getattr(getattr(card, 'rarity', None), 'value', getattr(card, 'rarity', 'normal')))
     getter = getattr(handler.db, 'get_card_variant_media_file_id', None)
     cache = limited_cache(context, '_battle_visual_card_media', 48)
-    for kind in (('photo', 'sticker') if callable(getter) and callable(getattr(context.bot, 'get_file', None)) else ()):
+    bot = getattr(context, 'bot', None)
+    for kind in (('photo', 'sticker') if callable(getter) and callable(getattr(bot, 'get_file', None)) else ()):
         try:
             file_id = getter(card.card_id, rarity, kind)
             if not file_id:
@@ -138,7 +139,7 @@ async def card_art(handler, context, card, *, preserve_alpha=False):
             cache_key = (file_id, preserve_alpha)
             if cache_key in cache:
                 return cache[cache_key]
-            remote = await asyncio.wait_for(context.bot.get_file(file_id), timeout=3)
+            remote = await asyncio.wait_for(bot.get_file(file_id), timeout=3)
             if remote.file_size and remote.file_size > 8 * 1024 * 1024:
                 continue
             raw = bytes(await asyncio.wait_for(remote.download_as_bytearray(), timeout=3))

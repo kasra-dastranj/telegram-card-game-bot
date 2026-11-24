@@ -7,6 +7,7 @@ from systems.player_rewards_system import PlayerRewardsSystem
 from core.display_text import isolate, ltr, ratio, signed
 from bot.player_messages import error_text
 from bot.shop_access import require_private
+from bot.navigation import open_text_menu
 
 LABELS={'upgrade_card':'کارت ارتقا','silver_ticket':'Silver Ticket','deck_slot':'ظرفیت دک','refill':'پرکردن قلب‌ها','permanent_heart':'قلب دائمی'}
 
@@ -61,7 +62,7 @@ async def show_menu(bot,update,context,section='shop',page=0):
         if navigation:keyboard.append(navigation)
         keyboard.append([Button('👤 پروفایل',callback_data='easy_profile')])
     keyboard.append([Button('🔙 منوی اصلی',callback_data='back_to_main')])
-    await update.callback_query.edit_message_text(text,reply_markup=InlineKeyboardMarkup(keyboard))
+    await open_text_menu(update.callback_query, text, reply_markup=InlineKeyboardMarkup(keyboard))
 
 
 async def handle(bot,update,context):
@@ -69,7 +70,8 @@ async def handle(bot,update,context):
     query=update.callback_query
     await query.answer()
     if not enabled(bot.db):
-        await query.edit_message_text('این بخش هنوز فعال نیست؛ از منوی بازی ادامه بده.');return
+        await open_text_menu(query, 'این بخش هنوز فعال نیست؛ از منوی بازی ادامه بده.')
+        return
     user=query.from_user.id;data=query.data;economy=ProgressionEconomy(bot.db)
     if data=='v2_shop':return await show_menu(bot,update,context)
     if data.startswith('v2_cards_'):return await show_menu(bot,update,context,'cards',int(data[9:]))

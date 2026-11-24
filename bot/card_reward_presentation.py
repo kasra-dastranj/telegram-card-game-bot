@@ -1,4 +1,5 @@
 """Post-commit card presentation. Never spends inventory, coins or XP."""
+import asyncio
 from io import BytesIO
 import logging
 
@@ -37,6 +38,55 @@ async def send_claim_card(message, card, config, db):
     for part in remaining:
         await message.reply_text(part)
     return sent
+
+
+def black_background_photo(raw, filename):
+    from PIL import Image
+    from bot.battle_visuals import safe_bitmap
+
+    artwork = safe_bitmap(raw, preserve_alpha=True)
+    background = Image.new('RGBA', artwork.size, 'black')
+    background.alpha_composite(artwork)
+    photo = BytesIO()
+    photo.name = filename
+    background.convert('RGB').save(photo, 'JPEG', quality=95)
+    photo.seek(0)
+    return photo
+
+
+async def send_silver_claim_card(bot, context, message, card):
+    from bot.battle_visual_delivery import card_art, work
+    from telegram.error import TelegramError
+
+    if bot.config.get('image_settings', {}).get('enable_images', False):
+        parts = text_chunks(biography_text(card))
+        try:
+            raw = await card_art(bot, context, card, preserve_alpha=True)
+            if raw:
+                with await work(context, black_background_photo, raw, 'silver-card.jpg') as photo:
+                    await message.reply_photo(photo, caption=parts[0], parse_mode=None)
+        except (OSError, ValueError, asyncio.TimeoutError, TelegramError):
+            logger.warning('Could not deliver Silver Claim card photo', exc_info=True)
+        else:
+            if raw:
+                for part in parts[1:]:
+                    await message.reply_text(part, parse_mode=None)
+                return
+    await send_claim_card(message, card, bot.config, bot.db)
+
+
+async def send_daily_claim_card(message, card, ability, config, db):
+    from core.display_text import isolate
+
+    await send_card_image_safely(message, card.name, config, card=card, db=db)
+    title = ability.get('title') if ability else None
+    footer = f'\n\n🎁 ابیلیتی دریافتی: {isolate(title)} ×۱' if title else ''
+    biography = biography_text(card)
+    limit = 4096 - len(footer.encode('utf-16-le')) // 2
+    parts = text_chunks(biography, limit=limit)
+    if len(parts) > 1:
+        biography = text_chunks(biography, limit=limit - 1)[0].rstrip() + '…'
+    await message.reply_text(biography + footer, parse_mode=None)
 
 
 def sticker_bytes(raw):

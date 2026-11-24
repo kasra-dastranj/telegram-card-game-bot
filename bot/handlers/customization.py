@@ -1,8 +1,18 @@
 """Private home for existing profile/victory cosmetic settings and previews."""
 from io import BytesIO
+import sqlite3
+from contextlib import closing
 
 from telegram import InlineKeyboardButton as Button, InlineKeyboardMarkup as Markup
 from systems import card_avatars
+from bot.navigation import open_text_menu
+
+
+def appearance(bot,user_id,slot):
+    from systems.avatar_cosmetics import appearance_in
+    with closing(sqlite3.connect(bot.db.db_path)) as conn:
+        conn.row_factory=sqlite3.Row
+        return appearance_in(bot.db,conn,user_id,slot)
 
 
 async def handle(bot, update, context):
@@ -17,13 +27,12 @@ async def handle(bot, update, context):
         if slot not in card_avatars.SLOTS:
             return
         from systems.avatar_cosmetics import render
-        choice = card_avatars.selected(bot.db, query.from_user.id, slot)
         if slot == 'profile':
             await query.message.reply_photo(photo=BytesIO(render(bot.db,query.from_user.id,slot)), caption='👤 پیش‌نمایش آواتار پروفایل')
         else:
             await card_avatars.send_sticker(bot, context, query.from_user.id, query.from_user.id, slot)
         if slot == 'profile':
-            message = 'هنوز آواتار پروفایل انتخاب نکرده‌ای.' if not choice else 'آمار و رتبه‌ها هنگام نمایش پروفایل زیر عکس می‌آیند.'
+            message = 'چهرهٔ پروفایل: '+appearance(bot,query.from_user.id,slot)['face']['name']+'\nآمار و رتبه‌ها هنگام نمایش پروفایل زیر عکس می‌آیند.'
         elif slot == 'easy':
             from systems.easy_presentation import read
             slogan = read(bot.db, query.from_user.id).get('slogan')
@@ -66,12 +75,12 @@ async def handle(bot, update, context):
     entry = avatar_button(bot)
     if entry: rows.append([entry])
     for slot, name in (('profile', 'پروفایل'), ('easy', 'برد ایزی'), ('deck', 'برد دک')):
-        choice = card_avatars.selected(bot.db, query.from_user.id, slot)
-        title = choice['card'].name if choice else 'انتخاب نشده'
+        current=appearance(bot,query.from_user.id,slot)
+        title=current['face']['name']+(' · از پروفایل' if current['inherit_profile'] else '')
         rows.append([Button(f'🎭 آواتار {name}: {title}', callback_data=f'avatar_page_{slot}_0'),
                      Button('👁 پیش‌نمایش', callback_data=f'style_preview_{slot}')])
     rows.extend([[Button('💬 شعار برد ایزی', callback_data='easy_victory_menu'), Button('💬 شعار برد دک', callback_data='deck_victory_menu')],
                  [Button('🎙 ویس / متن شعار کارت', callback_data='style_voices')],
                  [Button('🔙 پروفایل', callback_data='easy_profile')]])
-    await query.edit_message_text('🎭 ظاهر و برد\n\nآواتار برد ایزی و دک می‌تواند از پروفایل پیروی کند یا جدا انتخاب شود. '
+    await open_text_menu(query, '🎭 ظاهر و برد\n\nآواتار برد ایزی و دک می‌تواند از پروفایل پیروی کند یا جدا انتخاب شود. '
                                  'انتخاب‌ها و پیش‌نمایش‌ها فقط برای خودت در پیوی‌اند.', reply_markup=Markup(rows))

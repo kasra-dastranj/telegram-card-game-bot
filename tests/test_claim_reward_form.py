@@ -51,18 +51,18 @@ def invoke_claim(db, entry, monkeypatch):
         bot = TelegramCardBot.__new__(TelegramCardBot)
         bot.db, bot.game, bot.config = db, GameLogic(db), {}
         bot.is_user_in_channel = AsyncMock(return_value=True)
-        monkeypatch.setattr('bot.card_reward_presentation.send_card_image_safely', AsyncMock(return_value=True))
+        media = AsyncMock(return_value=True)
+        monkeypatch.setattr('bot.card_reward_presentation.send_card_image_safely', media)
         monkeypatch.setattr('bot.handlers.pvp.ensure_not_expired', lambda *args: True)
         message = SimpleNamespace(reply_text=AsyncMock())
         query = SimpleNamespace(from_user=SimpleNamespace(id=101),message=message,answer=AsyncMock())
         update = SimpleNamespace(effective_user=query.from_user,effective_message=message,callback_query=query)
         asyncio.run((bot.claim_command if entry=='command' else bot.daily_claim_handler)(update,SimpleNamespace()))
-        raw_text = message.reply_text.await_args.args[0]
-        assert '\u2068(Normal)\u2069' in raw_text
-        text = raw_text.translate(str.maketrans('', '', '\u2066\u2068\u2069'))
-        assert 'Tony Soprano** (Normal)' in text and '(Legend)' not in text and '(Epic)' not in text
-        assert '💪 قدرت: 20' in text and '⚡ سرعت: 30' in text and '🧠 آی‌کیو: 40' in text
-        assert '❤️ محبوبیت: 50' in text and 'مجموع: 140' in text and 'normal-ability' in text
+        granted = media.await_args.kwargs['card']
+        assert granted.rarity == CardRarity.NORMAL and 'tony-normal.webp' in granted.image_path
+        message.reply_text.assert_awaited_once()
+        assert 'Tony Soprano' in message.reply_text.await_args.args[0]
+        assert 'ابیلیتی دریافتی' in message.reply_text.await_args.args[0]
 
 
 @pytest.mark.parametrize('entry', ['command','button','miniapp'])

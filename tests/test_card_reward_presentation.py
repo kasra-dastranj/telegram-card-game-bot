@@ -38,10 +38,10 @@ def scene(tmp_path):
     events = []
 
     async def sticker(value, **kwargs):
-        events.append(('sticker', value.getvalue() if isinstance(value, BytesIO) else value))
+        events.append(('sticker', value.read() if hasattr(value, 'read') else value))
 
     async def photo(value, **kwargs):
-        events.append(('photo', kwargs))
+        events.append(('photo', kwargs, value.read() if hasattr(value, 'read') else value))
 
     async def text(value, **kwargs):
         events.append(('text', value, kwargs))
@@ -64,6 +64,14 @@ def test_real_claim_entries_show_biography_and_never_victory_slogan(scene, entry
         with sqlite3.connect(bot.db.db_path) as conn:
             conn.execute('DELETE FROM card_variant_media_cache')
     if entry == 'silver':
+        form = bot.db.get_card_variant('hero', 'epic')
+        if media == 'photo':
+            transparent = Image.new('RGBA', (200, 300), (255, 255, 255, 0))
+            transparent.paste('blue', (35, 35, 165, 265))
+            transparent.save(form['image_path'])
+        else:
+            bot.db.save_card_variant('hero', 'epic', dict(form, image_path=''))
+            bot.db.set_card_variant_media_file_id('hero', 'epic', 'epic-sticker', 'sticker')
         with sqlite3.connect(bot.db.db_path) as conn:
             conn.execute("UPDATE foundation_settings SET value_json='true' WHERE key='progression_v2_enabled'")
             items_in(conn, 1, 'free_silver_claim', 1)
@@ -73,12 +81,25 @@ def test_real_claim_entries_show_biography_and_never_victory_slogan(scene, entry
     else:
         callback = bot.claim_command if entry == 'command' else bot.daily_claim_handler
         asyncio.run(callback(update, context))
+    if entry == 'silver':
+        from bot.silver_sticker_assets import SILVER_STICKERS
+        assert events.pop(0) == ('sticker', SILVER_STICKERS['silver-claim.webp'])
     rendered = '\n'.join(e[1]['caption'] or '' if e[0] == 'photo' else e[1] if e[0] == 'text' else '' for e in events)
     assert 'داستان من از یه روز بارونی شروع شد.' in rendered
     assert 'این فقط شعار برده!' not in rendered
-    if media == 'photo':
-        details = next(e[1] for e in events if e[0] == 'photo')
+    if entry != 'silver':
+        assert [event[0] for event in events] == [media, 'text']
+        _, summary, kwargs = events[1]
+        assert '<داستان> & قصه_*' in summary
+        assert summary.index('داستان من') < summary.index('ابیلیتی دریافتی')
+        assert 'آمار کارت' not in summary and 'کارت بعدی' not in summary
+        assert kwargs['parse_mode'] is None
+    elif media == 'photo':
+        _, details, picture = events[0]
         assert details['parse_mode'] is None and '<داستان> & قصه_*' in details['caption']
+        with Image.open(BytesIO(picture)) as image:
+            assert image.format == 'JPEG' and image.getpixel((0, 0)) == (0, 0, 0)
+            assert image.getpixel((100, 150))[2] > 200
     else:
         index = next(i for i, e in enumerate(events) if e[0] == 'sticker')
         assert 'داستان من' in events[index + 1][1]

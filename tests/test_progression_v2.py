@@ -3,6 +3,7 @@ import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
+from unittest.mock import Mock
 import pytest
 from core.database import DatabaseManager
 from core.models import Card, CardRarity
@@ -582,6 +583,41 @@ def test_miniapp_economy_end_to_end_offline(v2_client,game):
     sold=v2_client.post('/api/v1/economy/cards/deadpool/sell',headers=headers,json={'rarity':'epic','request_key':'api-sell','config_version':preview['config_version']})
     assert sold.status_code==200 and sold.get_json()['coins']==60
     assert v2_client.post('/api/v1/cards/deadpool/upgrade',headers=headers,json={'upgrade_key':'normal_to_epic','request_key':'unsafe'}).status_code==409
+
+
+@pytest.mark.parametrize('delivery_failed', [False, True])
+def test_miniapp_upgrade_card_purchase_sends_sticker_only_once(v2_client, game, monkeypatch, delivery_failed):
+    from bot.upgrade_card_sticker_asset import UPGRADE_CARD_STICKER, UPGRADE_CARD_STICKER_NAME
+    from web import miniapp_api
+
+    telegram = Mock(return_value=SimpleNamespace(status=200))
+    if delivery_failed:
+        telegram.side_effect = miniapp_api.urllib3.exceptions.HTTPError('offline')
+    monkeypatch.setattr(miniapp_api, 'BOT_TOKEN', '12345:test-token')
+    monkeypatch.setattr(miniapp_api._telegram_http, 'request', telegram)
+    headers = {'X-Debug-User-Id': '1'}
+    with sqlite3.connect(game.db_path) as conn:
+        conn.execute('UPDATE players SET coins=1000 WHERE user_id=1')
+
+    quote = v2_client.post('/api/v1/economy/quote', headers=headers, json={'item': 'upgrade_card'}).get_json()
+    telegram.assert_not_called()
+    payload = {'quote_id': quote['quote_id'], 'chat_id': 2}
+    rejected = v2_client.post('/api/v1/economy/purchase', headers={'X-Debug-User-Id': '2'}, json=payload)
+    assert rejected.status_code == 409
+    telegram.assert_not_called()
+
+    bought = v2_client.post('/api/v1/economy/purchase', headers=headers, json=payload)
+    assert bought.status_code == 200 and bought.get_json()['profile']['coins'] == 800
+    telegram.assert_called_once()
+    assert telegram.call_args.args == ('POST', 'https://api.telegram.org/bot12345:test-token/sendSticker')
+    assert telegram.call_args.kwargs['fields'] == {
+        'chat_id': '1',
+        'sticker': (UPGRADE_CARD_STICKER_NAME, UPGRADE_CARD_STICKER, 'image/webp'),
+    }
+    replay = v2_client.post('/api/v1/economy/purchase', headers=headers, json=payload).get_json()
+    assert replay['replayed'] and replay['profile']['coins'] == 800
+    assert ProgressionEconomy(game).inventory(1)['items']['upgrade_card'] == 1
+    telegram.assert_called_once()
 
 
 def test_expired_quick_releases_upgrade_api_without_duplicate_reward(v2_client, game):

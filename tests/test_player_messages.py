@@ -115,9 +115,10 @@ def test_profile_keeps_name_safe_and_current_max_hearts_in_a_single_ltr_fraction
     with sqlite3.connect(bot.db.db_path) as conn:
         conn.execute('UPDATE players SET hearts=2,max_hearts=15 WHERE user_id=1')
     update.callback_query = None
+    update.effective_message.reply_photo = AsyncMock()
     asyncio.run(bot.profile_command(update, context))
-    text = update.message.reply_text.await_args.args[0]
-    assert markdown_name('کسری MH_*') in text and ratio(2, 15) in text
+    text = update.effective_message.reply_photo.await_args.kwargs['caption']
+    assert 'کسری MH_*' in text and ratio(2, 15) in text
     assert '\u2066Level 1\u2069' in text
     assert bot.db.get_or_create_player(1).hearts == 2
 

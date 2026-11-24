@@ -11,7 +11,7 @@ import random
 import sqlite3
 from html import escape
 from datetime import datetime, timedelta
-from core.display_text import isolate, ltr, ratio, signed, markdown_name
+from core.display_text import isolate, ltr, ratio, signed
 from systems.card_collection import (collection_cards, collection_page, custom_collection,
                                      custom_owned_card, custom_gameplay_notice)
 from typing import Optional, List, Dict, Any
@@ -33,6 +33,7 @@ from systems.skins_system import SkinsSystem, SKIN_TYPES
 
 logger = logging.getLogger(__name__)
 
+from bot.navigation import open_text_menu
 from bot.utils import (check_user_started_bot, handle_user_not_started, ensure_text_content,
     get_card_image_path, get_victory_dialog, send_card_image_safely, ensure_not_expired,
     REQUIRED_CHANNEL, PANEL_TIMEOUT)
@@ -270,7 +271,7 @@ class BasicHandlersMixin:
         total_stats = stats.get('total', {'games_played': 0, 'wins': 0, 'losses': 0, 'ties': 0, 'win_rate': 0})
 
         text = (
-            f"👤 **{markdown_name(user.first_name)}**\n\n"
+            f"👤 <b>{escape(isolate(user.first_name))}</b>\n\n"
             f"{level_line}"
             f"📈 XP: {xp_text}\n\n"
             f"💰 سکه: {getattr(player, 'coins', 0):,}\n"
@@ -279,7 +280,7 @@ class BasicHandlersMixin:
             f"🎴 کارت‌ها: {card_counts.get('total', 0)} "
             f"(🟢{card_counts.get('normal',0)} 🟣{card_counts.get('epic',0)} 🟡{card_counts.get('legend',0)} 🔵{card_counts.get('rare',0)})\n"
             f"🃏 دک‌ها: {self.db.count_player_decks(user.id)}\n\n"
-            f"⚔️ **آمار فایت:**\n"
+            f"⚔️ <b>آمار فایت:</b>\n"
             f"  بازی: {total_stats['games_played']}  •  "
             f"برد: {total_stats['wins']}  •  "
             f"باخت: {total_stats['losses']}  •  "
@@ -303,33 +304,20 @@ class BasicHandlersMixin:
                 text += f' · اسکور گروه: {points}'
         markup = None if is_group or subject is not None else InlineKeyboardMarkup(keyboard)
         from systems.avatar_cosmetics import render as render_avatar
+        from bot.card_reward_presentation import black_background_photo
+
         try:
-            avatar = render_avatar(self.db, user.id, 'profile')
+            with black_background_photo(render_avatar(self.db, user.id, 'profile'), 'profile.jpg') as photo:
+                await update.effective_message.reply_photo(
+                    photo=photo, caption=text, reply_markup=markup, parse_mode='HTML',
+                )
+            return
         except Exception:
-            avatar = None
-        if avatar:
-            from io import BytesIO
-            from bot.card_reward_presentation import text_chunks
-            parts = text_chunks(text, limit=900)
-            try:
-                if not is_group:
-                    # Keep menu buttons on a text message: Telegram cannot edit
-                    # a photo into the text menus opened by these callbacks.
-                    await update.effective_message.reply_photo(photo=BytesIO(avatar))
-                    await update.effective_message.reply_text(text, reply_markup=markup, parse_mode='Markdown')
-                    return
-                await update.effective_message.reply_photo(photo=BytesIO(avatar),
-                    caption=parts[0], reply_markup=markup if len(parts) == 1 else None, parse_mode='Markdown')
-                for index, part in enumerate(parts[1:]):
-                    await update.effective_message.reply_text(part, parse_mode='Markdown',
-                        reply_markup=markup if index == len(parts) - 2 else None)
-                return
-            except Exception:
-                logger.warning('Could not deliver profile avatar', exc_info=True)
+            logger.warning('Could not deliver profile avatar', exc_info=True)
         if query:
-            await query.edit_message_text(text, reply_markup=markup, parse_mode='Markdown')
+            await open_text_menu(query, text, reply_markup=markup, parse_mode='HTML')
         else:
-            await update.message.reply_text(text, reply_markup=markup, parse_mode='Markdown')
+            await update.effective_message.reply_text(text, reply_markup=markup, parse_mode='HTML')
 
     async def start_game_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle inline 'شروع بازی' button by invoking the start command flow."""
@@ -486,48 +474,12 @@ class BasicHandlersMixin:
         success, card, error, quick_ability = self.game.claim_daily_card_with_ability(user_id)
 
         if success and card is None and quick_ability and quick_ability.get("silver_ticket"):
-            await update.effective_message.reply_text("🎟 یک Silver Ticket و ابیلیتی «" + quick_ability["title"] + "» دریافت شد.")
+            from bot.silver_claim_art import send_silver_ticket_reward
+            await send_silver_ticket_reward(message, quick_ability)
             return
         if success and card:
-            rarity_colors = {
-                CardRarity.NORMAL: "🟢",
-                CardRarity.EPIC: "🟣",
-                CardRarity.LEGEND: "🟡",
-                CardRarity.RARE: "🔵",
-            }
-            color = rarity_colors.get(card.rarity, "⚪")
-            from bot.card_reward_presentation import send_claim_card
-            image_sent = await send_claim_card(message, card, self.config, self.db)
-
-            text = (
-                f"🎉 **کارت روزانه دریافت شد!**\n\n"
-                f"{color} **{markdown_name(card.name)}** {isolate('(' + card.rarity.value.title() + ')')}\n\n"
-                f"📊 **آمار کارت:**\n"
-                f"💪 قدرت: {card.power}\n"
-                f"⚡ سرعت: {card.speed}\n"
-                f"🧠 آی‌کیو: {card.iq}\n"
-                f"❤️ محبوبیت: {card.popularity}\n"
-                f"🎯 مجموع: {card.get_total_stats()}\n\n"
-                f"✨ **ابیلیتی‌ها:**\n"
-            )
-
-            for ability in card.abilities:
-                text += f"• {markdown_name(ability)}\n"
-            text += f"\n🎁 {ltr('Ability / Quick')}: {markdown_name(quick_ability['title'])} ×۱"
-            text += "\n🕐 کارت بعدی: پس از نیمه‌شب"
-
-            if not image_sent:
-                text = f"🎴 (تصویر در دسترس نیست)\n\n{text}"
-
-            keyboard = [
-                [InlineKeyboardButton("🎴 مشاهده کارت‌ها", callback_data="my_cards")],
-                [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main")]
-            ]
-            await message.reply_text(
-                text,
-                reply_markup=InlineKeyboardMarkup(keyboard),
-                parse_mode='Markdown',
-            )
+            from bot.card_reward_presentation import send_daily_claim_card
+            await send_daily_claim_card(message, card, quick_ability, self.config, self.db)
         else:
             text = f"⚠ **خطا در دریافت کارت**\n\n{error if error else 'خطای نامشخص!'}"
             keyboard = [
@@ -561,13 +513,13 @@ class BasicHandlersMixin:
                 [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
-            await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+            await open_text_menu(query, text, reply_markup=reply_markup, parse_mode='Markdown')
         else:
             # نمایش منوی دسته‌بندی
             keyboard = self._create_my_cards_keyboard(user_id, category="menu", page=1)
             text = f"🎴 **کارت‌های من ({len(cards)} کارت)**\n\nیه دسته رو انتخاب کن:"
             reply_markup = keyboard
-            await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+            await open_text_menu(query, text, reply_markup=reply_markup, parse_mode='Markdown')
 
     def _get_card_bio(self, name: str) -> str:
         bios = {
@@ -678,7 +630,7 @@ class BasicHandlersMixin:
             ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
-        await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
+        await open_text_menu(query, text, reply_markup=reply_markup, parse_mode='HTML')
     
     async def leaderboard_display_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """نمایش لیدربورد با فیلتر"""
@@ -1173,7 +1125,7 @@ class BasicHandlersMixin:
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
-        await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+        await open_text_menu(query, text, reply_markup=reply_markup, parse_mode='Markdown')
 
     # ==================== MYCARDS HANDLERS ====================
     

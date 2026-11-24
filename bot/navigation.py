@@ -9,6 +9,14 @@ from telegram import InlineKeyboardButton as Button, InlineKeyboardMarkup as Mar
 from bot.game_help import catalog, mode_guide
 
 
+async def open_text_menu(query, text, **kwargs):
+    """Open a text menu from a photo or update the current text menu."""
+    message = getattr(query, 'message', None)
+    if getattr(message, 'photo', None):
+        return await message.reply_text(text, **kwargs)
+    return await query.edit_message_text(text, **kwargs)
+
+
 def normalize(text):
     return ' '.join((text or '').translate(str.maketrans({'ي': 'ی', 'ك': 'ک', '\u200c': ' '})).split())
 

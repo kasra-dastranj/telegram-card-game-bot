@@ -44,6 +44,16 @@ def ensure_in(conn):
         PRIMARY KEY(user_id,slot))''')
     conn.execute('''CREATE TABLE IF NOT EXISTS avatar_settings (
         key TEXT PRIMARY KEY,value TEXT NOT NULL)''')
+    conn.execute('''CREATE TABLE IF NOT EXISTS avatar_free_faces (
+        face_id TEXT PRIMARY KEY,title TEXT NOT NULL,filename TEXT,
+        enabled INTEGER NOT NULL DEFAULT 1,sort_order INTEGER NOT NULL DEFAULT 0,
+        scale REAL NOT NULL DEFAULT 1,offset_x REAL NOT NULL DEFAULT 0,
+        offset_y REAL NOT NULL DEFAULT 0,revision INTEGER NOT NULL DEFAULT 1)''')
+    conn.execute('''CREATE TABLE IF NOT EXISTS player_avatar_free_choices (
+        user_id INTEGER NOT NULL,slot TEXT NOT NULL,face_id TEXT NOT NULL,
+        PRIMARY KEY(user_id,slot))''')
+    conn.execute("INSERT OR IGNORE INTO avatar_settings VALUES('face','generic')")
+    conn.execute("INSERT OR IGNORE INTO avatar_free_faces(face_id,title) VALUES('generic','چهرهٔ عمومی داخلی')")
     conn.execute('''CREATE TABLE IF NOT EXISTS avatar_quote_versions (
         quote_id TEXT PRIMARY KEY,item_revision INTEGER NOT NULL)''')
     conn.execute('''CREATE TABLE IF NOT EXISTS avatar_admin_history (
@@ -170,7 +180,7 @@ def save_item(db, actor, data):
                 file_image(db, name, 16)
         # Built-in defaults always remain usable; selling can be disabled separately.
         defaults = dict(conn.execute('SELECT key,value FROM avatar_settings'))
-        if key in set(defaults.values()) | {'silver', 'red', 'khaki', 'blue', 'purple'} and (not data['free'] or not data['enabled']):
+        if key in {defaults[k] for k in DEFAULTS} | {'silver', 'red', 'khaki', 'blue', 'purple'} and (not data['free'] or not data['enabled']):
             raise ValueError('آیتم‌های پیش‌فرض باید رایگان و فعال بمانند.')
         new = dict(item_id=key, kind=kind, title=title.strip(), price=0 if data['free'] else price,
                    free=int(data['free']), enabled=int(data['enabled']), for_sale=int(data['for_sale']),
@@ -196,12 +206,81 @@ def set_defaults(db, actor, data):
     with closing(sqlite3.connect(db.db_path)) as conn, conn:
         conn.row_factory = sqlite3.Row
         conn.execute('BEGIN IMMEDIATE')
+        if 'face' in data:
+            face=free_face_in(conn,data['face'])
+            if not face or not face['enabled'] or not free_face_ready(db,face):
+                raise ValueError('چهرهٔ پیش‌فرض باید فعال و دارای تصویر باشد.')
+            conn.execute("UPDATE avatar_settings SET value=? WHERE key='face'",(face['face_id'],))
         for kind in DEFAULTS:
             item = item_in(conn, data.get(kind))
             if not item or item['kind'] != kind or not item['enabled'] or not item['free'] or not ready(db, item):
                 raise ValueError('پیش‌فرض باید رایگان، فعال و دارای تصویر باشد.')
             conn.execute('UPDATE avatar_settings SET value=? WHERE key=?', (item['item_id'], kind))
         audit_in(conn, actor, {'action': 'defaults', 'value': data})
+
+
+def free_face_in(conn, face_id):
+    if not isinstance(face_id, str):
+        return None
+    cursor=conn.execute('SELECT * FROM avatar_free_faces WHERE face_id=?',(face_id,))
+    row=cursor.fetchone()
+    return dict(zip((d[0] for d in cursor.description),row)) if row else None
+
+
+def free_face_ready(db, face):
+    filename = face['filename']
+    return face['face_id'] == 'generic' or bool(filename and (root(db) / filename).is_file())
+
+
+def save_free_face(db, actor, data):
+    if not isinstance(data, dict):
+        raise ValueError('فرم چهره معتبر نیست.')
+    key = data.get('face_id')
+    if not isinstance(key, str) or not re.fullmatch(r'[a-z][a-z0-9_-]{0,63}', key) or key == 'generic':
+        raise ValueError('شناسهٔ انگلیسی تازه انتخاب کن؛ چهرهٔ داخلی قابل ویرایش نیست.')
+    title = data.get('title')
+    order = data.get('sort_order', 0)
+    if not isinstance(title, str) or not 1 <= len(title.strip()) <= 80 or type(order) is not int or not 0 <= order <= 10000 or type(data.get('enabled')) is not bool:
+        raise ValueError('عنوان، ترتیب یا وضعیت چهره معتبر نیست.')
+    placement={key:data.get(key,1 if key=='scale' else 0) for key in ('scale','offset_x','offset_y')}
+    for field,lo,hi in (('scale',.4,2),('offset_x',-.4,.4),('offset_y',-.4,.4)):
+        value=placement[field]
+        if type(value) not in (int,float) or not math.isfinite(value) or not lo<=value<=hi:
+            raise ValueError('اندازه یا محل چهره معتبر نیست.')
+    image = file_image(db, data.get('filename'), 512)
+    low, high = image.getchannel('A').getextrema()
+    if low == 255 or high == 0:
+        raise ValueError('تصویر سر باید هم طرح قابل‌دیدن و هم فضای شفاف داشته باشد.')
+    with closing(sqlite3.connect(db.db_path)) as conn,conn:
+        conn.execute('BEGIN IMMEDIATE')
+        old=free_face_in(conn,key)
+        if old and data.get('revision') != old['revision']:
+            raise ValueError('این چهره ویرایش شده؛ فهرست را تازه کن.')
+        default=conn.execute("SELECT value FROM avatar_settings WHERE key='face'").fetchone()[0]
+        if key == default and not data['enabled']:
+            raise ValueError('اول یک چهرهٔ دیگر را پیش‌فرض کن، سپس این چهره را غیرفعال کن.')
+        value=dict(face_id=key,title=title.strip(),filename=data['filename'],enabled=int(data['enabled']),
+                   sort_order=order,**placement,revision=old['revision']+1 if old else 1)
+        conn.execute('''INSERT INTO avatar_free_faces VALUES(:face_id,:title,:filename,:enabled,:sort_order,
+            :scale,:offset_x,:offset_y,:revision) ON CONFLICT(face_id) DO UPDATE SET
+            title=excluded.title,filename=excluded.filename,enabled=excluded.enabled,
+            sort_order=excluded.sort_order,scale=excluded.scale,offset_x=excluded.offset_x,
+            offset_y=excluded.offset_y,revision=excluded.revision''',value)
+        audit_in(conn,actor,{'action':'free_face','before':old,'after':value})
+        return value
+
+
+def free_face_value(face):
+    return dict(card_id=None,rarity=None,free_face_id=face['face_id'],name=face['title'],
+                filename=face['filename'],kind='portrait',enabled=face['enabled'],
+                scale=face['scale'],offset_x=face['offset_x'],offset_y=face['offset_y'],revision=face['revision'])
+
+
+def default_face(db,conn):
+    row=conn.execute("SELECT value FROM avatar_settings WHERE key='face'").fetchone()
+    face=free_face_in(conn,row[0] if row else 'generic')
+    if not face or not face['enabled'] or not free_face_ready(db,face):face=free_face_in(conn,'generic')
+    return {**free_face_value(face), 'uses_default': True, 'name': 'پیش‌فرض بازی'}
 
 
 def validate_purchase_in(db, conn, user, key):
@@ -286,9 +365,13 @@ def _face(db, conn, user, slot):
         card = faces._owned_card_in(db,conn,user,*row) if meta['enabled'] else None
         path = faces.path_for(db,*row) if card else None
         if path:
-            return dict(card_id=row[0],rarity=row[1],name=card.name,filename=path.name,**meta)
-    return dict(card_id=None,rarity=None,name='چهرهٔ عمومی',filename=None,kind='portrait',
-                enabled=1,scale=1,offset_x=0,offset_y=0)
+            return dict(card_id=row[0],rarity=row[1],free_face_id=None,name=card.name,filename=path.name,**meta)
+        return default_face(db,conn)
+    chosen=conn.execute('SELECT face_id FROM player_avatar_free_choices WHERE user_id=? AND slot=?',(user,slot)).fetchone()
+    if chosen:
+        face=free_face_in(conn,chosen[0])
+        if face and face['enabled'] and free_face_ready(db,face):return free_face_value(face)
+    return default_face(db,conn)
 
 
 def appearance_in(db, conn, user, slot='profile'):
@@ -297,6 +380,7 @@ def appearance_in(db, conn, user, slot='profile'):
     defaults = dict(conn.execute('SELECT key,value FROM avatar_settings'))
     style = conn.execute('SELECT * FROM player_avatar_styles WHERE user_id=? AND slot=?', (user,slot)).fetchone()
     existing = conn.execute('SELECT 1 FROM player_avatar_choices WHERE user_id=? AND slot=?', (user,slot)).fetchone()
+    existing = existing or conn.execute('SELECT 1 FROM player_avatar_free_choices WHERE user_id=? AND slot=?',(user,slot)).fetchone()
     inherit = slot != 'profile' and (bool(style['inherit_profile']) if style else not existing)
     if inherit:
         result = appearance_in(db,conn,user,'profile')
@@ -323,7 +407,8 @@ def compose(db, appearance, size=512):
             return _cache[key]
     face, frame, bg = (appearance[k] for k in ('face','frame','background'))
     try:
-        path = faces.media_root(db) / face['filename'] if face['filename'] else None
+        folder=root(db) if face.get('free_face_id') else faces.media_root(db)
+        path = folder / face['filename'] if face['filename'] else None
         if path:
             with Image.open(path) as source:
                 head = source.convert('RGBA')
@@ -371,7 +456,9 @@ def asset_url(item,mask=False):
 
 def face_payload(face):
     result={**face,'image_url': '/api/v1/avatar/generic'}
-    if face['card_id']:
+    if face.get('free_face_id'):
+        result['image_url']='/api/v1/avatar/free-face/'+quote(face['free_face_id'],safe='')+'?v='+str(face.get('revision',1))
+    elif face['card_id']:
         result['image_url']='/api/v1/avatar/face/'+quote(face['card_id'],safe='')+'/'+face['rarity']+'?v='+face['filename']
     return result
 
@@ -391,7 +478,11 @@ def catalog(db,user):
         conn.row_factory=sqlite3.Row
         owned={r[0] for r in conn.execute('SELECT item_id FROM player_avatar_items WHERE user_id=?',(user,))}
         items=[item_payload(db,dict(row),row['item_id'] in owned) for row in conn.execute('SELECT * FROM avatar_cosmetics WHERE enabled=1 ORDER BY sort_order,item_id')]
-        portraits=[face_payload(dict(card_id=None,rarity=None,name='چهرهٔ عمومی',filename=None,kind='portrait',enabled=1,scale=1,offset_x=0,offset_y=0,owned=True))]
+        portraits = [face_payload(dict(default_face(db, conn), owned=True))]
+        for row in conn.execute("SELECT * FROM avatar_free_faces WHERE enabled=1 AND face_id!='generic' ORDER BY sort_order,face_id"):
+            face = dict(row)
+            if free_face_ready(db, face):
+                portraits.append(face_payload(dict(free_face_value(face), owned=True)))
         for entry in faces.choices(db,user):
             meta=face_meta_in(conn,entry['card_id'],entry['rarity'])
             if meta['enabled']:
@@ -408,6 +499,10 @@ def save_style(db,user,data):
         raise ValueError('چهرهٔ معتبر انتخاب کن.')
     if data.get('card_id') and data.get('rarity') not in faces.RARITIES:
         raise ValueError('فرم چهره معتبر نیست.')
+    free=data.get('free_face_id')
+    if free is not None and (not isinstance(free,str) or not re.fullmatch(r'[a-z][a-z0-9_-]{0,63}',free)):
+        raise ValueError('چهرهٔ رایگان معتبر انتخاب کن.')
+    if free and data.get('card_id'):raise ValueError('فقط یک چهره انتخاب کن.')
     slot=data['slot']
     with closing(sqlite3.connect(db.db_path)) as conn, conn:
         conn.row_factory=sqlite3.Row
@@ -419,6 +514,13 @@ def save_style(db,user,data):
                     'SELECT 1 FROM player_avatar_items WHERE user_id=? AND item_id=?',(user,item['item_id'])).fetchone():
                 raise ValueError('این قاب یا پس‌زمینه را در اختیار نداری.')
         card,rarity=data.get('card_id'),data.get('rarity')
+        if free:
+            face=free_face_in(conn,free)
+            if not face or not face['enabled'] or not free_face_ready(db,face):raise ValueError('این چهرهٔ رایگان فعال یا آماده نیست.')
+            conn.execute('''INSERT INTO player_avatar_free_choices VALUES(?,?,?) ON CONFLICT(user_id,slot)
+                DO UPDATE SET face_id=excluded.face_id''',(user,slot,free))
+        else:
+            conn.execute('DELETE FROM player_avatar_free_choices WHERE user_id=? AND slot=?',(user,slot))
         if card:
             if not faces._owned_card_in(db,conn,user,card,rarity) or not faces.path_for(db,card,rarity) or not face_meta_in(conn,card,rarity)['enabled']:
                 raise ValueError('این چهره برایت آزاد نیست.')

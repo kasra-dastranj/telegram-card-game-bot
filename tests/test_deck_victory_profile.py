@@ -68,8 +68,9 @@ def test_profile_route_has_no_character_selector_and_saves_only_own_text(scene):
 
 def test_profile_button_cancel_expiry_group_and_deck_easy_drafts(scene):
     bot, update, context = scene
+    update.effective_message.reply_photo = AsyncMock()
     asyncio.run(bot.profile_command(update, context))
-    markup = update.callback_query.edit_message_text.await_args.kwargs['reply_markup']
+    markup = update.effective_message.reply_photo.await_args.kwargs['reply_markup']
     assert any(b.callback_data == 'style_menu' for row in markup.inline_keyboard for b in row)
     for target in ('deck_victory_menu', 'easy_victory_menu'):
         context.user_data['deck_victory_draft'] = {'expires_at': time.time() + 10}
