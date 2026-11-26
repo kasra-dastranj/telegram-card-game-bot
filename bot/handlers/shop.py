@@ -286,16 +286,20 @@ class ShopHandlersMixin:
     # ==================== SHOP HANDLERS ====================
 
     @private_shop
+    async def shop_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        return await self.shop_menu_handler(update, context)
+
+    @private_shop
     async def shop_menu_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """منوی اصلی شاپ"""
+        query = update.callback_query
+        if query:
+            await query.answer()
         from systems.progression_config import enabled
         if enabled(self.db):
             from bot.handlers.progression import show_menu
-            await update.callback_query.answer()
             return await show_menu(self, update, context)
-        query = update.callback_query
-        await query.answer()
-        user_id = query.from_user.id
+        user_id = update.effective_user.id
 
         player = self.db.get_or_create_player(user_id)
         coins = getattr(player, 'coins', 0)
@@ -330,7 +334,10 @@ class ShopHandlersMixin:
             )],
             [InlineKeyboardButton("🔙 منوی اصلی", callback_data="back_to_main")],
         ]
-        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
+        if query:
+            await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
+        else:
+            await update.effective_message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
 
     @private_shop
     async def shop_buy_heart_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):

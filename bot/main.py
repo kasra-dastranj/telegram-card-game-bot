@@ -73,6 +73,7 @@ PRIVATE_CHAT_COMMANDS = [
     BotCommand("profile", "نمایش پروفایل و آمار شخصی"),
     BotCommand("cards", "مشاهده کارت‌های جمع‌آوری شده"),
     BotCommand("claim", "دریافت کارت روزانه رایگان"),
+    BotCommand("shop", "فروشگاه بازی در پیوی"),
     BotCommand("leaderboard", "مشاهده لیست برترین بازیکنان"),
     BotCommand("help", "راهنمای بازی و دستورات"),
     BotCommand("story", "داستان سینماتیک بازی")
@@ -480,6 +481,8 @@ class TelegramCardBot(
         app.add_handler(CommandHandler("cards", self.cards_command))
         app.add_handler(CommandHandler("mycards", self.mycards_command))
         app.add_handler(CommandHandler("claim", self.claim_command))
+        app.add_handler(CommandHandler("shop", self.shop_command))
+        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & filters.Regex(r'^\s*بتل[\s\u200c]+شاپ\s*$'), self.shop_command))
         app.add_handler(CommandHandler("leaderboard", self.leaderboard_command))
         app.add_handler(CommandHandler("fight", self.fight_command))
         app.add_handler(CommandHandler("story", self.story_command))

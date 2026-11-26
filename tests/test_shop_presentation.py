@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, Mock
 from PIL import Image
 import pytest
 from telegram.error import BadRequest
+from telegram import Update, Message
 
 from bot import shop_visuals
 from bot.handlers.progression import handle
@@ -60,6 +61,35 @@ def shop(tmp_path, monkeypatch):
 def row(db,sql,args=()):
     with sqlite3.connect(db.db_path) as conn:
         return conn.execute(sql,args).fetchone()
+
+
+@pytest.mark.parametrize('chat_type', ['private', 'group', 'supergroup'])
+@pytest.mark.parametrize('command', ['/shop', 'بتل شاپ'])
+def test_shop_shortcuts_use_real_routes_and_stay_silent_in_groups(shop, monkeypatch, chat_type, command):
+    bot, context, events, click, _ = shop
+    sent = click()
+    events.clear()
+    monkeypatch.setattr(Message, 'reply_photo', sent.effective_message.reply_photo)
+    monkeypatch.setattr(Message, 'reply_text', sent.effective_message.reply_text)
+    chat_id = 1 if chat_type == 'private' else -100123
+    message = {
+        'message_id': 200, 'date': 1, 'chat': {'id': chat_id, 'type': chat_type},
+        'from': {'id': 1, 'is_bot': False, 'first_name': 'Tester'}, 'text': command,
+    }
+    if command.startswith('/'):
+        message['entities'] = [{'type': 'bot_command', 'offset': 0, 'length': len(command)}]
+    update = Update.de_json({'update_id': 100, 'message': message}, SimpleNamespace(username='TelBattleBot'))
+    routes = []
+    bot.setup_handlers(SimpleNamespace(add_handler=routes.append))
+    route = next(handler for handler in routes if handler.check_update(update))
+    assert route.callback == bot.shop_command
+    asyncio.run(route.callback(update, context))
+    if chat_type == 'private':
+        assert [event[0] for event in events] == ['photo', 'text']
+        buttons = [button.callback_data for row in events[-1][2]['reply_markup'].inline_keyboard for button in row]
+        assert 'v2_quote_upgrade_card' in buttons and 'v2_cards_0' in buttons
+    else:
+        assert events == []
 
 
 def configure(bot,mutate):
