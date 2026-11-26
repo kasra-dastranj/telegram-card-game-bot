@@ -27,6 +27,8 @@ def ensure_custom_schema(conn):
         "CREATE TABLE IF NOT EXISTS custom_match_cards(match_key TEXT NOT NULL,user_id INTEGER NOT NULL,card_id TEXT NOT NULL,snapshot_json TEXT NOT NULL,PRIMARY KEY(match_key,user_id,card_id))",
     ]
     for statement in statements:conn.execute(statement)
+    if 'sticker_media_id' not in {row[1] for row in conn.execute('PRAGMA table_info(custom_definitions)')}:
+        conn.execute('ALTER TABLE custom_definitions ADD COLUMN sticker_media_id TEXT')
     conn.execute("INSERT OR IGNORE INTO foundation_settings VALUES('custom_card_orders_enabled','false')")
     conn.execute("INSERT OR IGNORE INTO foundation_settings VALUES('custom_admin_contact','null')")
 
@@ -91,6 +93,15 @@ def media_root(db):
         if root == public.resolve() or public.resolve() in root.parents:
             raise ValueError('private_media_root_required')
     return root
+
+
+def media_path(db, card_id, kind='photo'):
+    """Resolve private custom media without using an official card's name or cache."""
+    column = 'sticker_media_id' if kind == 'sticker' else 'media_id'
+    with closing(sqlite3.connect(db.db_path)) as conn:
+        row = conn.execute(f'SELECT m.filename FROM custom_definitions d JOIN custom_media m '
+                           f'ON m.media_id=d.{column} WHERE d.card_id=? AND m.removed=0', (card_id,)).fetchone()
+    return str(media_root(db) / row[0]) if row else None
 
 
 class CustomCards:
@@ -169,6 +180,11 @@ class CustomCards:
                 conn.execute('UPDATE cards SET '+','.join(key+'=?' for key in keys if key!='card_id')+' WHERE card_id=?',tuple(value for key,value in values.items() if key!='card_id')+(card_id,))
             media=data.get('media_id')
             if media and not conn.execute('SELECT 1 FROM custom_media WHERE media_id=? AND removed=0',(media,)).fetchone():raise ValueError('invalid_private_media')
+            previous = conn.execute('SELECT sticker_media_id FROM custom_definitions WHERE card_id=?', (card_id,)).fetchone()
+            sticker = data.get('sticker_media_id', previous[0] if previous else None)
+            if sticker:
+                source = conn.execute('SELECT filename FROM custom_media WHERE media_id=? AND removed=0', (sticker,)).fetchone()
+                if not source or not source[0].endswith('.webp'):raise ValueError('invalid_private_sticker')
             metadata=validated['metadata']
             from systems.easy_questions import CORE_STATS, seed_easy_core_stats_in
             prior_metadata = conn.execute(
@@ -185,11 +201,11 @@ class CustomCards:
                 'SELECT hidden_stats FROM card_mode_metadata WHERE card_id=?', (card_id,)
             ).fetchone()[0])
             payload={**raw,'name':display_name,'metadata':metadata}
-            conn.execute("INSERT INTO custom_definitions VALUES(?,?,?,'draft',?,?,?,?) ON CONFLICT(card_id) DO UPDATE SET payload_json=excluded.payload_json,status='pending_review',media_id=excluded.media_id,actor=excluded.actor,updated_at=excluded.updated_at",(card_id,data['order_id'],json.dumps(payload),media,actor,now(),now()))
+            conn.execute("INSERT INTO custom_definitions(card_id,order_id,payload_json,status,media_id,actor,created_at,updated_at,sticker_media_id) VALUES(?,?,?,'draft',?,?,?,?,?) ON CONFLICT(card_id) DO UPDATE SET payload_json=excluded.payload_json,status='pending_review',media_id=excluded.media_id,sticker_media_id=excluded.sticker_media_id,actor=excluded.actor,updated_at=excluded.updated_at",(card_id,data['order_id'],json.dumps(payload),media,actor,now(),now(),sticker))
             conn.execute('UPDATE custom_orders SET card_id=? WHERE order_id=?',(card_id,data['order_id']))
             return {'card_id':card_id,'status':'draft' if action=='create' else 'pending_review'}
         card=data.get('card_id')
-        definition=conn.execute('SELECT order_id,status,media_id FROM custom_definitions WHERE card_id=?',(card,)).fetchone()
+        definition=conn.execute('SELECT order_id,status,media_id,sticker_media_id FROM custom_definitions WHERE card_id=?',(card,)).fetchone()
         if not definition:raise ValueError('custom_card_not_found')
         if action=='status':
             status=data.get('status')
@@ -219,8 +235,9 @@ class CustomCards:
         if action=='remove_image':
             # Logical removal is immediate; physical cleanup only after retention review.
             updated=now()
-            conn.execute('UPDATE custom_definitions SET media_id=NULL,status=\'suspended\',updated_at=? WHERE card_id=?',(updated,card))
-            if definition[2]:conn.execute('UPDATE custom_media SET removed=1 WHERE media_id=?',(definition[2],))
+            conn.execute('UPDATE custom_definitions SET media_id=NULL,sticker_media_id=NULL,status=\'suspended\',updated_at=? WHERE card_id=?',(updated,card))
+            for media in definition[2:]:
+                if media:conn.execute('UPDATE custom_media SET removed=1 WHERE media_id=?',(media,))
             return {'card_id':card,'image_removed':True,'updated_at':updated}
         raise ValueError('invalid_custom_action')
 
@@ -234,7 +251,9 @@ class CustomCards:
                   'revise':{'card_id','card','media_id','expected_updated_at','review_confirmed'},
                   'approve':{'card_id','expected_updated_at','review_confirmed'},
                   'deliver_existing':{'card_id','users','review_confirmed'}}[action]
-        if set(data)!=expected:raise ValueError('invalid_fulfillment')
+        optional = {'sticker_media_id'} if action in ('fulfill', 'revise') else set()
+        if set(data)-optional!=expected:raise ValueError('invalid_fulfillment')
+        sticker_data = {'sticker_media_id': data['sticker_media_id']} if 'sticker_media_id' in data else {}
         if data['review_confirmed'] is not True:raise ValueError('review_required')
         if action in ('revise','approve'):
             row=conn.execute('SELECT order_id,updated_at,status FROM custom_definitions WHERE card_id=?',(data['card_id'],)).fetchone()
@@ -245,7 +264,7 @@ class CustomCards:
                 result={}
             else:
                 result=self._action(conn,actor,'edit',{'order_id':row[0],'card_id':data['card_id'],
-                                                      'card':data['card'],'media_id':data['media_id']},validator)
+                                                      'card':data['card'],'media_id':data['media_id'],**sticker_data},validator)
             if action=='approve' or row[2]=='active':
                 result=self._action(conn,actor,'status',{'card_id':data['card_id'],'status':'active','review_confirmed':True},validator)
             # Existing suspended/draft cards are never silently activated by editing.
@@ -263,7 +282,7 @@ class CustomCards:
         conn.execute("INSERT INTO custom_orders(order_id,buyer_id,rarity,recipients_json,amount,currency,notes,payment_status,card_id,actor,created_at) VALUES(?,?,?,?,?,?,?,'admin_managed',?,?,?)",
                      (order,users[0],rarity,json.dumps(users),'','','تحویل دستی ادمین؛ هماهنگی خارج از پنل',card_id,actor,now()))
         if action=='fulfill':
-            card_id=self._action(conn,actor,'create',{'order_id':order,'card':data['card'],'media_id':data['media_id']},validator)['card_id']
+            card_id=self._action(conn,actor,'create',{'order_id':order,'card':data['card'],'media_id':data['media_id'],**sticker_data},validator)['card_id']
             self._action(conn,actor,'status',{'card_id':card_id,'status':'active','review_confirmed':True},validator)
         granted=self._action(conn,actor,'grant',{'card_id':card_id,'order_id':order,'users':users},validator)
         return {'card_id':card_id,'status':'active','users':users,'fulfillment':'admin_managed',

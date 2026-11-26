@@ -195,14 +195,20 @@ def test_report_keeps_played_rarity_after_active_form_changes_and_restart(quick_
 def test_stale_cached_sticker_falls_back_to_local_sticker(quick_ui, tmp_path):
     handler, context = quick_ui
     image = tmp_path / 'epic.webp'
-    image.write_bytes(b'synthetic media')
+    from PIL import Image
+    Image.new('RGB', (512, 512), 'navy').save(image, 'WEBP')
     handler._resolve_card_media_path = Mock(return_value=str(image))
     context.bot.send_sticker.side_effect = [RuntimeError('stale file_id'), None]
     card = handler.db.get_card_by_id_for_player('alpha', 1)
+    card.image_path = str(image)
     asyncio.run(handler._send_quick_card_preview(context, 1, card))
     assert context.bot.send_sticker.await_count == 2
     assert context.bot.send_sticker.await_args.kwargs['chat_id'] == 1
-    assert context.bot.send_sticker.await_args.kwargs['sticker'].name == str(image)
+    sent = context.bot.send_sticker.await_args.kwargs['sticker']
+    assert sent.name == 'card-epic.webp'
+    from io import BytesIO
+    with Image.open(BytesIO(sent.getvalue())) as rendered:
+        assert max(rendered.size) == 512
     context.bot.send_message.assert_not_awaited()
 
 
@@ -223,11 +229,15 @@ def test_unavailable_media_falls_back_to_card_information_without_stopping_play(
 def test_custom_card_preview_uses_only_private_image_and_not_public_sticker_cache(quick_ui, tmp_path):
     handler, context = quick_ui
     image = tmp_path / 'private.png'
-    image.write_bytes(b'private synthetic media')
+    from PIL import Image
+    Image.new('RGBA', (512, 512), (0, 120, 255, 128)).save(image, 'PNG')
     card = SimpleNamespace(card_id='private-alpha', name='Private', rarity='legend', origin='custom', image_path=str(image))
     handler._resolve_card_media_path = Mock(side_effect=AssertionError('public resolver forbidden'))
-    with patch.object(handler.db, 'get_card_variant_media_file_id', side_effect=AssertionError('public cache forbidden')):
+    with patch.object(handler.db, 'get_card_variant_media_file_id', side_effect=AssertionError('public cache forbidden')), \
+            patch('systems.custom_cards.media_path', return_value=str(image)):
         asyncio.run(handler._send_quick_card_preview(context, 1, card))
-    context.bot.send_sticker.assert_not_awaited()
-    assert context.bot.send_photo.await_args.kwargs['chat_id'] == 1
-    assert context.bot.send_photo.await_args.kwargs['photo'].name == str(image)
+    context.bot.send_photo.assert_not_awaited()
+    assert context.bot.send_sticker.await_args.kwargs['chat_id'] == 1
+    from io import BytesIO
+    sticker = Image.open(BytesIO(context.bot.send_sticker.await_args.kwargs['sticker'].getvalue())).convert('RGBA')
+    assert sticker.getpixel((256, 256))[3] == 128

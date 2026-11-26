@@ -1190,22 +1190,9 @@ class BasicHandlersMixin:
         sender=getattr(query.message,'reply_sticker',None)
         if query.message.chat_id==query.from_user.id and callable(sender):
             if card.origin == 'custom':
-                # Only the current private upload; never use public/name caches.
-                owned = custom_owned_card(self.db, query.from_user.id, card.card_id)
-                if not owned or not owned.image_path:
+                card = custom_owned_card(self.db, query.from_user.id, card.card_id)
+                if not card:
                     return
-                from io import BytesIO
-                from bot.battle_visual_delivery import work, read_bitmap
-                from bot.card_reward_presentation import sticker_bytes
-                try:
-                    raw = await work(context, read_bitmap, owned.image_path, True)
-                    sticker = BytesIO(await work(context, sticker_bytes, raw))
-                    sticker.name = 'custom-card.webp'
-                    from bot.card_sticker_details import button
-                    await sender(sticker, reply_markup=button(owned))
-                except Exception:
-                    logger.warning('Private collection artwork unavailable')
-                return
             from bot.card_reward_presentation import send_card_sticker
             await send_card_sticker(self,context,card,sender)
 

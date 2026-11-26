@@ -58,6 +58,14 @@ async def send_one(bot, context, key, notice):
     card = current(bot, key, notice)
     if not card:
         return
+    if not notice['photo_done'] and callable(getattr(context.bot, 'send_sticker', None)):
+        from bot.card_reward_presentation import send_card_sticker
+        async def send(sticker, **kwargs):
+            if current(bot, key, notice):
+                return await asyncio.wait_for(context.bot.send_sticker(chat_id=notice['user_id'],
+                    sticker=sticker, reply_markup=buttons), timeout=30)
+        if await send_card_sticker(bot, context, card, send, show_details=False, strict=True):
+            if not checkpoint(bot.db, key, notice, photo_done=True):return
     if not notice['photo_done']:
         image = None
         if notice.get('kind') == 'rare':

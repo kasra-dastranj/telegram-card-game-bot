@@ -3,9 +3,12 @@ import re
 from pathlib import Path
 
 
-def sticker_path(card, *, root=None, include_legacy=True):
-    if not card or getattr(card, 'origin', 'official') == 'custom':
+def sticker_path(card, *, root=None, include_legacy=True, db=None):
+    if not card:
         return None
+    if getattr(card, 'origin', 'official') == 'custom':
+        from systems.custom_cards import media_path
+        return media_path(db, card.card_id, 'sticker') if db is not None else None
     name = str(getattr(card, 'name', '') or '').strip()
     if not name:
         return None

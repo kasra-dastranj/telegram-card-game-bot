@@ -101,31 +101,49 @@ def sticker_bytes(raw):
     return stream.getvalue()
 
 
-async def send_card_sticker(bot, context, card, send_sticker, *, show_details=True):
+async def send_card_sticker(bot, context, card, send_sticker, *, show_details=True, strict=False):
     """Deliver one explicit form; never fall back to another form's artwork."""
     from bot.battle_visual_delivery import card_art, work
     from bot.card_sticker_details import button
+    from telegram.error import BadRequest, TelegramError
+    if not card:
+        return False
+    rarity = str(getattr(getattr(card, 'rarity', ''), 'value', getattr(card, 'rarity', '')))
     markup = button(card) if show_details else None
     kwargs = {'reply_markup': markup} if markup else {}
     try:
-        cached = bot.db.get_card_variant_media_file_id(card.card_id, card.rarity.value, 'sticker')
+        cached = (bot.db.get_card_variant_media_file_id(card.card_id, rarity, 'sticker')
+                  if getattr(card, 'origin', 'official') != 'custom' else None)
         if cached:
             await send_sticker(cached, **kwargs)
             return True
-    except Exception:
+    except Exception as error:
+        if strict and isinstance(error, (TelegramError, asyncio.TimeoutError)) and not isinstance(error, BadRequest):
+            raise
         logger.warning('Card sticker cache delivery failed')
     try:
         from core.card_media import sticker_path
         from pathlib import Path
-        path = sticker_path(card, include_legacy=False)
-        raw = await work(context, Path(path).read_bytes) if path else await card_art(bot, context, card, preserve_alpha=True)
-        if raw:
-            image = await work(context, sticker_bytes, raw)
+        path = sticker_path(card, include_legacy=False, db=bot.db)
+        image = None
+        if path:
+            try:
+                raw = await work(context, Path(path).read_bytes)
+                image = await work(context, sticker_bytes, raw)
+            except (OSError, ValueError):
+                logger.warning('Uploaded sticker unavailable; trying this card portrait')
+        if image is None:
+            raw = await card_art(bot, context, card, preserve_alpha=True)
+            if raw:
+                image = await work(context, sticker_bytes, raw)
+        if image:
             sticker = BytesIO(image)
-            sticker.name = 'card-' + card.rarity.value + '.webp'
+            sticker.name = 'card-' + rarity + '.webp'
             await send_sticker(sticker, **kwargs)
             return True
-    except Exception:
+    except Exception as error:
+        if strict and isinstance(error, (TelegramError, asyncio.TimeoutError)) and not isinstance(error, BadRequest):
+            raise
         logger.warning('Card sticker delivery failed')
     return False
 

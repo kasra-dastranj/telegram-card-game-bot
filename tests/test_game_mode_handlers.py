@@ -493,7 +493,7 @@ def test_inline_quick_result_handles_unavailable_media_and_non_winning_results(o
 
     handler._edit_request_panel.assert_not_awaited()
     assert [call.kwargs['chat_id'] for call in context.bot.send_message.await_args_list] == [1, 2]
-    if outcome in ('tie', 'timeout', 'custom'):
+    if outcome in ('tie', 'timeout'):
         handler._send_round_winner_card_media.assert_not_awaited()
     else:
         assert handler._send_round_winner_card_media.await_count == 2

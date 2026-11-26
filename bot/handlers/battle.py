@@ -251,7 +251,7 @@ class BattleHandlersMixin:
     def _resolve_card_sticker_path(self, card) -> Optional[str]:
         """Find the Telegram sticker asset for a card before falling back to card art."""
         from core.card_media import sticker_path
-        return sticker_path(card)
+        return sticker_path(card, db=getattr(self, "db", None))
 
     def _resolve_card_media_path(self, card) -> Optional[str]:
         """Prefer sticker assets, then DB image_path, then configured card image lookup."""
@@ -381,24 +381,10 @@ class BattleHandlersMixin:
 
     async def _send_round_winner_card_media(self, context, chat_id: int, winner_card) -> bool:
         """Send winning card media before the compact round result."""
-        media_path = self._resolve_card_media_path(winner_card)
-        if not media_path or not os.path.exists(media_path):
-            card_name = getattr(winner_card, 'name', 'unknown')
-            logger.warning(f"Round winner media not found for {card_name}: {media_path}")
-            return False
-
-        try:
-            with open(media_path, 'rb') as media:
-                if media_path.lower().endswith('.webp'):
-                    from bot.card_sticker_details import button
-                    await context.bot.send_sticker(chat_id=chat_id, sticker=media, reply_markup=button(winner_card))
-                else:
-                    await context.bot.send_photo(chat_id=chat_id, photo=media)
-            return True
-        except Exception as e:
-            card_name = getattr(winner_card, 'name', 'unknown')
-            logger.warning(f"Failed to send round winner media for {card_name}: {e}")
-            return False
+        from bot.card_reward_presentation import send_card_sticker
+        async def send(sticker, **kwargs):
+            return await context.bot.send_sticker(chat_id=chat_id, sticker=sticker, **kwargs)
+        return await send_card_sticker(self, context, winner_card, send)
 
     async def _init_3round_battle(self, context, fight_id: str, fight, query=None):
         """شروع سیستم ۳ راوندی بعد از انتخاب کارت‌ها"""
@@ -2362,28 +2348,9 @@ class BattleHandlersMixin:
             return
 
         player_name = self._battle_player_name(user_id, "Player")
-        media_path = self._resolve_card_media_path(card)
         try:
-            if media_path and os.path.exists(media_path):
-                with open(media_path, 'rb') as media:
-                    if media_path.lower().endswith('.webp'):
-                        from bot.card_sticker_details import button
-                        await context.bot.send_sticker(chat_id=fight.chat_id, sticker=media, reply_markup=button(card))
-                        await context.bot.send_message(
-                            chat_id=fight.chat_id,
-                            text=f"🎴 {player_name}: {card.name}"
-                        )
-                    else:
-                        await context.bot.send_photo(
-                            chat_id=fight.chat_id,
-                            photo=media,
-                            caption=f"🎴 {player_name}: {card.name}"
-                        )
-            else:
-                await context.bot.send_message(
-                    chat_id=fight.chat_id,
-                    text=f"🎴 {player_name}: {card.name}"
-                )
+            await self._send_round_winner_card_media(context, fight.chat_id, card)
+            await context.bot.send_message(chat_id=fight.chat_id, text=f"🎴 {player_name}: {card.name}")
         except Exception as e:
             logger.warning(f"Failed to send selected round card media for {card.name}: {e}")
 

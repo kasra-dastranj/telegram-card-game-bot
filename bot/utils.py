@@ -198,17 +198,24 @@ async def send_card_image_safely(message, card_name: str, config: Dict, caption:
             return False
         image_path = None
         if card is not None and db is not None:
+            from types import SimpleNamespace
+            from bot.card_reward_presentation import send_card_sticker
+            from core.card_media import sticker_path
+            delivery_context = SimpleNamespace(bot_data={}, bot=message.get_bot() if callable(getattr(message, 'get_bot', None)) else None)
+            prefer_sticker = (getattr(card, 'origin', 'official') == 'custom' or card.rarity.value == 'rare'
+                              or sticker_path(card, include_legacy=False, db=db)
+                              or db.get_card_variant_media_file_id(card.card_id, card.rarity.value, 'sticker'))
+            if prefer_sticker and callable(getattr(message, 'reply_sticker', None)) and await send_card_sticker(SimpleNamespace(db=db, config=config), delivery_context, card, message.reply_sticker):
+                if sticker_caption and caption:
+                    await message.reply_text(caption, parse_mode=caption_parse_mode)
+                return True
+            if getattr(card, 'origin', 'official') == 'custom':
+                return False
             rarity = card.rarity.value
-            for kind in ('sticker', 'photo'):
-                cached = db.get_card_variant_media_file_id(card.card_id, rarity, kind)
-                if cached:
-                    if kind == 'sticker':
-                        await message.reply_sticker(cached, **sticker_kwargs)
-                        if sticker_caption and caption:
-                            await message.reply_text(caption, parse_mode=caption_parse_mode)
-                    else:
-                        await message.reply_photo(cached, caption=caption, parse_mode=caption_parse_mode)
-                    return True
+            cached = db.get_card_variant_media_file_id(card.card_id, rarity, 'photo')
+            if cached:
+                await message.reply_photo(cached, caption=caption, parse_mode=caption_parse_mode)
+                return True
             image_path = card.image_path
             if not image_path:
                 base = db.get_card_by_id(card.card_id)

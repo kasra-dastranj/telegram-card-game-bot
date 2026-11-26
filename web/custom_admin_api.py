@@ -105,6 +105,8 @@ def register_custom_admin(api):
     @auth
     def custom_upload(actor):
         api._arena_rate_limit('custom_upload',10)
+        kind = request.form.get('kind', 'photo')
+        if kind not in ('photo', 'sticker'):raise ValueError('invalid_media_kind')
         upload=request.files.get('image')
         if not upload:return jsonify(error='image_required'),400
         try:
@@ -115,10 +117,15 @@ def register_custom_admin(api):
         try:
             with Image.open(BytesIO(data)) as picture:
                 if picture.format not in ('PNG','JPEG','WEBP') or picture.width*picture.height>16_000_000 or picture.width<1 or picture.height<1:raise ValueError('invalid_image')
-                picture.load();clean=picture.convert('RGB')
+                if getattr(picture, 'is_animated', False):raise ValueError('static_image_required')
+                picture.load();clean=picture.convert('RGBA')
         except (UnidentifiedImageError,OSError,Image.DecompressionBombError):raise ValueError('invalid_image')
-        key=uuid.uuid4().hex;filename=key+'.png';root=media_root(api.db);root.mkdir(parents=True,exist_ok=True)
-        clean.save(root/filename,format='PNG')
+        key=uuid.uuid4().hex;filename=key+('.webp' if kind == 'sticker' else '.png');root=media_root(api.db);root.mkdir(parents=True,exist_ok=True)
+        if kind == 'sticker':
+            from bot.card_reward_presentation import sticker_bytes
+            (root/filename).write_bytes(sticker_bytes(data))
+        else:
+            clean.save(root/filename,format='PNG')
         try:
             with closing(sqlite3.connect(api.db.db_path)) as conn,conn:
                 conn.execute('INSERT INTO custom_media(media_id,filename,actor,created_at) VALUES(?,?,?,?)',(key,filename,actor,now()))
@@ -133,7 +140,7 @@ def register_custom_admin(api):
         with closing(sqlite3.connect(api.db.db_path)) as conn:
             row=conn.execute('SELECT filename FROM custom_media WHERE media_id=? AND removed=0',(media_id,)).fetchone()
         if not row:return jsonify(error='not_found'),404
-        response=send_file(media_root(api.db)/row[0],mimetype='image/png',max_age=0)
+        response=send_file(media_root(api.db)/row[0],mimetype='image/webp' if row[0].endswith('.webp') else 'image/png',max_age=0)
         response.headers['Cache-Control']='private, no-store';return response
 
     @api.app.before_request
