@@ -72,6 +72,15 @@ def test_solo_uses_signed_three_round_effects_in_preview_and_result(client_and_m
     assert result['player_total'] == snapshot['my_values']['power']
 
 
+def test_older_solo_without_arena_snapshot_retains_legacy_boost(client_and_modes, monkeypatch):
+    client, modes = client_and_modes
+    fight_id = ready_solo(client, monkeypatch)
+    modes.db.update_solo_fight(fight_id, arena='power_arena', arena_snapshot=None)
+    snapshot = client.get(f'/api/v1/solo/fights/{fight_id}', headers=headers(101)).get_json()
+    assert snapshot['my_boosts']['power'] == 8
+    assert snapshot['my_values']['power'] == 88
+
+
 def ready_solo(client, monkeypatch):
     monkeypatch.setattr(miniapp.AsoAI, 'select_card', lambda self, db: db.get_card_by_id('three-b'))
     monkeypatch.setattr(miniapp.AsoAI, 'select_stat', lambda self, available, *args: available[0])

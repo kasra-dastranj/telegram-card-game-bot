@@ -1272,8 +1272,9 @@ def _solo_snapshot(fight, user_id):
     aso = AsoAI(fight['difficulty'])
     enabled = arena.get('abilities_enabled', True)
     stats = json.loads(fight['player_current_stats'])
-    preview = stat_preview(quick_modes, battle_system, player_card, ai_card, arena,
-                           stats) if player_card and arena else None
+    preview_arena = arena or dict(ARENAS.get(fight['arena'], {}), arena_id=fight['arena'])
+    preview = stat_preview(quick_modes, battle_system, player_card, ai_card, preview_arena,
+                           stats) if player_card and (arena or fight['arena'] in ARENAS) else None
     boosts = preview['modifiers'] if preview else {}
     used_stats = json.loads(fight['player_used_stats'] or '[]')
     return {
