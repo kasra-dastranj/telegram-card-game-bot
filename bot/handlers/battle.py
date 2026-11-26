@@ -433,7 +433,7 @@ class BattleHandlersMixin:
         arena_mode = self._fight_arena_mode(fight_id)
         for arena_id, info in self._active_arenas(arena_mode).items():
             keyboard.append([InlineKeyboardButton(
-                f"{info['emoji']} {info['name_fa']} — Boost: {info['boost_stat']}",
+                f"{info['emoji']} {info['name_fa']}" + (f" — Boost: {info['boost_stat']}" if info.get('boost_stat') else ""),
                 callback_data=f"arena_pick_{fight_id}_{arena_id}"
             )])
 
@@ -617,7 +617,7 @@ class BattleHandlersMixin:
         
         arena_mode = self._fight_arena_mode(fight_id)
         arena_info = self._arena_runtime_for_fight(fight_id, arena_id, arena_mode)
-        boost_stat = arena_info['boost_stat']
+        boost_stat = arena_info.get('boost_stat')
 
         stat_labels = {
             "power": ("💪", "قدرت"),
@@ -927,7 +927,6 @@ class BattleHandlersMixin:
         import sqlite3 as _sq
 
         arena_info = self._arena_runtime_for_fight(fight_id, arena_id, "three_round")
-        boost_stat = arena_info['boost_stat']
 
         ch_card = self.db.get_card_by_id_for_player(ch_card_id, ch_id) or self.db.get_card_by_id(ch_card_id)
         op_card = self.db.get_card_by_id_for_player(op_card_id, op_id) or self.db.get_card_by_id(op_card_id)
