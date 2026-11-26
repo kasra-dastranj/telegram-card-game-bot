@@ -277,6 +277,12 @@ class WebAPI:
         conn = sqlite3.connect(self.db.db_path)
         try:
             conn.execute('BEGIN IMMEDIATE')
+            previous = conn.execute('SELECT hidden_stats FROM card_mode_metadata WHERE card_id=?', (card_id,)).fetchone()
+            previous_stats = json.loads(previous[0]) if previous else {}
+            shared['hidden_stats'] = {
+                **{key: value for key, value in previous_stats.items() if key in CORE_STATS},
+                **shared['hidden_stats'],
+            }
             remember_card_traits(conn, card_id, shared['traits'])
             remember_collections(conn, shared['series'])
             conn.execute(
@@ -359,6 +365,8 @@ class WebAPI:
                                          (card_id, kind))
             if conn.execute("SELECT 1 FROM sqlite_master WHERE name='catalog_import_runs'").fetchone():
                 conn.execute("INSERT OR IGNORE INTO economy_character_rules(card_id,legend_recipe_tier) VALUES(?,'A')", (card_id,))
+            from systems.easy_questions import seed_easy_core_stats_in
+            seed_easy_core_stats_in(conn, card_id)
             conn.commit()
         except Exception:
             conn.rollback()

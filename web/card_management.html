@@ -172,9 +172,9 @@
             <div class="grid">
               <div class="field"><label for="traits">Traitها</label><select id="traits" class="input" multiple></select><div class="inline-add"><input id="newTrait" class="input" type="text" maxlength="100" placeholder="Trait جدید را بنویسید" aria-label="Trait جدید"><button id="addTraitBtn" class="btn" type="button">افزودن Trait</button></div><span class="hint">با افزودن، Trait در فهرست دائمی ذخیره و خودکار انتخاب می‌شود؛ حتی اگر از همهٔ کارت‌ها برداشته شود، در فهرست می‌ماند. برای ثبت انتخاب‌ها روی کارت، کارت را ذخیره کنید.</span></div>
               <div class="field"><label for="series">مجموعه‌ها</label><textarea id="series" class="input" rows="4" placeholder="هر مجموعه در یک خط"></textarea><label for="seriesOptions">افزودن از مجموعه‌های ثبت‌شده</label><select id="seriesOptions" class="input"><option value="">انتخاب مجموعه…</option></select><span class="hint">نام هر مجموعه را در یک خط بنویسید؛ چند مجموعه و نام تازه مجاز است.</span></div>
-              <div class="group-title">ویژگی‌های مخفی ایزی — مشترک بین سه فرم</div>
+              <div class="group-title">ویژگی‌های ایزی — مشترک بین سه فرم، از ۱ تا ۱۰۰</div>
               <div id="easyStats" class="grid grid-4 field full"></div>
-              <span class="hint field full">این عددها را فقط یک‌بار برای شخصیت وارد کن؛ ذخیره از نورمال، اپیک یا لجند برای هر سه فرم اعمال می‌شود. ویژگی تازه را در «سؤال‌های ایزی‌مود» تعریف کن؛ مقدار خالی ویژگی تازه، صفر است.</span>
+              <span class="hint field full">قدرت، سرعت، هوش و محبوبیت این بخش مستقل از آمار فرم کارت‌اند. مقدار اولیه از لجند ×۱۰ است؛ ریر و سفارشی از فرم خودشان ×۱۰. این عددها را فقط یک‌بار برای شخصیت وارد کن؛ ذخیره از نورمال، اپیک یا لجند برای هر سه فرم اعمال می‌شود. ویژگی تازه را در «سؤال‌های ایزی‌مود» تعریف کن؛ مقدار خالی ویژگی تازه، صفر است.</span>
               <div class="group-title">Passive خودکار Quick</div>
               <div class="field full switch-line"><input id="passiveEnabled" type="checkbox"><label for="passiveEnabled" style="margin:0">این کارت Passive دارد</label></div>
               <fieldset id="passiveFields" class="field full" disabled>
@@ -372,7 +372,7 @@
     }
     function renderEasyStats(values) {
       const labels = state.options.easy_stats || {funny:'بامزگی',scary:'ترسناکی',charisma:'کاریزما',cute:'کیوتی',evil:'شرارت',leadership:'رهبری'};
-      const keys = [...new Set([...Object.keys(labels).filter(key => !['power','speed','iq','popularity'].includes(key)), ...Object.keys(values)])];
+      const keys = [...new Set([...Object.keys(labels), ...Object.keys(values)])];
       $('easyStats').replaceChildren(...keys.map(key => {
         const field = document.createElement('div'), label = document.createElement('label'), input = document.createElement('input');
         label.textContent = labels[key] || key; label.htmlFor = `easy_${key}`;

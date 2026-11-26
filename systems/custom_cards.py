@@ -170,7 +170,20 @@ class CustomCards:
             media=data.get('media_id')
             if media and not conn.execute('SELECT 1 FROM custom_media WHERE media_id=? AND removed=0',(media,)).fetchone():raise ValueError('invalid_private_media')
             metadata=validated['metadata']
+            from systems.easy_questions import CORE_STATS, seed_easy_core_stats_in
+            prior_metadata = conn.execute(
+                'SELECT hidden_stats FROM card_mode_metadata WHERE card_id=?', (card_id,)
+            ).fetchone()
+            prior_stats = json.loads(prior_metadata[0]) if prior_metadata else {}
+            metadata['hidden_stats'] = {
+                **{key: value for key, value in prior_stats.items() if key in CORE_STATS},
+                **metadata['hidden_stats'],
+            }
             conn.execute('INSERT INTO card_mode_metadata VALUES(?,?,?,?,?) ON CONFLICT(card_id) DO UPDATE SET traits=excluded.traits,series=excluded.series,hidden_stats=excluded.hidden_stats,passive=excluded.passive',(card_id,json.dumps(metadata['traits']),metadata['series'],json.dumps(metadata['hidden_stats']),json.dumps(metadata['passive'])))
+            seed_easy_core_stats_in(conn, card_id)
+            metadata['hidden_stats'] = json.loads(conn.execute(
+                'SELECT hidden_stats FROM card_mode_metadata WHERE card_id=?', (card_id,)
+            ).fetchone()[0])
             payload={**raw,'name':display_name,'metadata':metadata}
             conn.execute("INSERT INTO custom_definitions VALUES(?,?,?,'draft',?,?,?,?) ON CONFLICT(card_id) DO UPDATE SET payload_json=excluded.payload_json,status='pending_review',media_id=excluded.media_id,actor=excluded.actor,updated_at=excluded.updated_at",(card_id,data['order_id'],json.dumps(payload),media,actor,now(),now()))
             conn.execute('UPDATE custom_orders SET card_id=? WHERE order_id=?',(card_id,data['order_id']))

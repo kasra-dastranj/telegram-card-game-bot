@@ -28,7 +28,7 @@ from systems.match_rewards_system import MatchRewardsSystem
 from systems.mode_access_system import ModeAccessSystem
 from systems.card_trait_registry import ensure_trait_registry_schema, remember_card_traits
 from systems.easy_questions import (catalog_in as easy_catalog_in, question_pool, evaluate_card,
-                                    DEFAULT_QUESTIONS as EASY_QUESTIONS, default_catalog)
+                                    DEFAULT_QUESTIONS as EASY_QUESTIONS, default_catalog, seed_easy_core_stats_in)
 
 logger = logging.getLogger(__name__)
 
@@ -329,6 +329,7 @@ class GameModeSystem:
                     json.dumps(definition["effect"], ensure_ascii=False),
                 ),
             )
+        seed_easy_core_stats_in(conn)
         conn.commit()
         conn.close()
 
@@ -1103,6 +1104,11 @@ class GameModeSystem:
             raise ValueError("passive_arena_not_found")
         trait_values = list(traits or [])
         with closing(self._connect()) as conn, conn:
+            conn.execute('BEGIN IMMEDIATE')
+            previous = conn.execute('SELECT hidden_stats FROM card_mode_metadata WHERE card_id=?', (card_id,)).fetchone()
+            previous_stats = _loads(previous[0], {}) if previous else {}
+            hidden_stats = {**{key: value for key, value in previous_stats.items() if key in CORE_STATS},
+                            **(hidden_stats or {})}
             from systems.card_collections import stored_collections, remember_collections
             series = stored_collections(collections if collections is not None else series)
             remember_collections(conn, series)
@@ -1125,6 +1131,7 @@ class GameModeSystem:
                     json.dumps(passive_value, ensure_ascii=False),
                 ),
             )
+            seed_easy_core_stats_in(conn, card_id)
 
     def get_card_metadata(self, card_id: str, rarity: Optional[str] = None) -> Dict[str, Any]:
         conn = self._connect()
@@ -1570,8 +1577,6 @@ class GameModeSystem:
         authored = metadata.get("hidden_stats", {})
         if attribute in authored:
             return max(1, min(100, int(authored[attribute])))
-        if attribute in CORE_STATS:
-            return int(getattr(card, attribute))
         if attribute not in {'funny', 'scary', 'charisma', 'cute', 'evil', 'leadership'}:
             return 0  # Newly authored dimensions have no invented random value.
         digest = hashlib.sha256(f"{card.card_id}:{attribute}".encode("utf-8")).digest()

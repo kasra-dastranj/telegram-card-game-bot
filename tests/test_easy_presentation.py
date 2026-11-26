@@ -104,6 +104,8 @@ def scene(tmp_path):
     bot = TelegramCardBot.__new__(TelegramCardBot)
     bot.db, bot.game, bot.config = db, GameLogic(db), {'image_settings': {'enable_images': True}}
     bot.modes = GameModeSystem(db)
+    bot.modes.set_card_metadata('hero', hidden_stats={'power': 40})
+    bot.modes.set_card_metadata('other', hidden_stats={'power': 50})
     bot.is_user_in_channel = AsyncMock(return_value=True)
     user = SimpleNamespace(id=1, first_name='MH_*', username='mh')
     message = SimpleNamespace(text='', reply_text=AsyncMock(), chat=SimpleNamespace(type='private'))

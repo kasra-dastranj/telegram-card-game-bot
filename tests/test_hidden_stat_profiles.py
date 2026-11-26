@@ -6,7 +6,7 @@ import pytest
 
 from core.database import DatabaseManager
 from core.models import Card, CardRarity
-from systems.easy_questions import HIDDEN_STATS, catalog_in, save_catalog_in
+from systems.easy_questions import CORE_STATS, HIDDEN_STATS, catalog_in, save_catalog_in
 from systems.game_mode_system import GameModeSystem
 from systems.hidden_stat_profiles import PREFIX, PROFILE_PATH, apply, encode, load_profile, preview
 from web.web_api import WebAPI
@@ -80,7 +80,9 @@ def test_panel_save_from_one_form_is_shared_by_all_forms(game, selected_form):
     assert response.status_code == 200, response.get_json()
     reopened = GameModeSystem(DatabaseManager(game.db_path))
     for rarity in ('normal', 'epic', 'legend'):
-        assert reopened.get_card_metadata('live-001', rarity)['hidden_stats'] == values
+        assert reopened.get_card_metadata('live-001', rarity)['hidden_stats'] == {
+            **{key: card['hidden_stats'][key] for key in CORE_STATS}, **values,
+        }
         assert reopened._hidden_stat_value(game.get_card_by_id_for_rarity('live-001', rarity), 'funny') == values['funny']
         assert {key: response.get_json()['card']['variants'][('normal','epic','legend').index(rarity)][key]
                 for key in ('power','speed','iq','popularity')} == {key: forms[rarity][key] for key in ('power','speed','iq','popularity')}
