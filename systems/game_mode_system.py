@@ -66,6 +66,20 @@ def normalize_quick_card_type(card_type: Any) -> Optional[str]:
     return _QUICK_CARD_TYPE_ALIASES.get(str(raw or "").strip().upper())
 
 
+def apply_arena_effects(card, arena, values):
+    """Apply the same conditional numeric effects in Quick and three-round play."""
+    card_type = normalize_quick_card_type(getattr(card, "card_type", None))
+    applied = []
+    for effect in arena.get("effects", []):
+        stat = effect.get("stat")
+        if effect.get("card_type") != card_type or stat not in CORE_STATS:
+            continue
+        delta = int(effect.get("delta", 0))
+        values[stat] += delta
+        applied.append({"card_type": card_type, "stat": stat, "delta": delta})
+    return applied
+
+
 QUICK_ARENAS: List[Dict[str, Any]] = [
     {
         "id": "city",
@@ -1015,20 +1029,7 @@ class GameModeSystem:
         base_values = {stat: int(getattr(card, stat)) for stat in CORE_STATS}
         final_values = dict(base_values)
         card_type = normalize_quick_card_type(getattr(card, "card_type", None))
-        applied_arena_effects = []
-        for effect in arena.get("effects", []):
-            if effect.get("card_type") != card_type:
-                continue
-            stat = effect.get("stat")
-            if stat not in CORE_STATS:
-                continue
-            delta = int(effect.get("delta", 0))
-            final_values[stat] += delta
-            applied_arena_effects.append({
-                "card_type": card_type,
-                "stat": stat,
-                "delta": delta,
-            })
+        applied_arena_effects = apply_arena_effects(card, arena, final_values)
 
         passive = self._apply_passive(card, opponent_card, arena, final_values)
         opponent_ability = state.get("ability_choices", {}).get(str(opponent_id), "skip")

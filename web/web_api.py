@@ -379,7 +379,7 @@ class WebAPI:
     @staticmethod
     def _arena_rule_summary(arena):
         rules = arena.get('rules') or {}
-        if arena.get('mode') == 'quick':
+        if arena.get('mode') == 'quick' or (arena.get('mode') == 'three_round' and 'effects' in rules):
             parts = []
             for effect in rules.get('effects', []):
                 sign = '+' if int(effect.get('delta', 0)) >= 0 else ''

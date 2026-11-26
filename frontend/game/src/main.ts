@@ -865,6 +865,26 @@ function threeWaitTemplate(): string {
   </section>`;
 }
 
+function arenaRuleText(arena?: {
+  effects?: Array<{card_type: StatKey; stat: StatKey; delta: number}>;
+  boost_stat?: StatKey; boost_amount?: number; requires_card_type_match?: boolean;
+  abilities_enabled?: boolean; passives_enabled?: boolean;
+}): string {
+  const types: Record<StatKey, string> = {power:'قدرتی',speed:'سرعتی',iq:'هوشی',popularity:'محبوبیتی'};
+  const parts = (arena?.effects || []).map(effect =>
+    `کارت‌های ${types[effect.card_type]}: ${labels[effect.stat].title} <bdi dir="ltr">${effect.delta > 0 ? '+' : ''}${effect.delta}</bdi>`);
+  if (!arena?.effects && arena?.boost_stat && arena.boost_amount) {
+    parts.push(`${arena.requires_card_type_match === false ? 'همهٔ کارت‌ها' : 'کارت‌های '+types[arena.boost_stat]}: ${labels[arena.boost_stat].title} <bdi dir="ltr">+${arena.boost_amount}</bdi>`);
+  }
+  if (arena?.abilities_enabled === false) parts.push('Ability غیرفعال');
+  if (arena?.passives_enabled === false) parts.push('Passive غیرفعال');
+  return parts.join(' · ') || 'بدون تغییر عددی برای نوع کارت‌ها';
+}
+
+function signedModifier(value: number): string {
+  return value < 0 ? `− ${Math.abs(value)}` : `+ ${value}`;
+}
+
 function threeMatchTemplate(): string {
   const match = state.three;
   const mine = match?.rounds_won?.[String(match.user_id)] ?? 0;
@@ -877,9 +897,9 @@ function threeMatchTemplate(): string {
     <header class="quick-match-hud glass-panel"><div><small>نبرد سه‌راندی</small><strong>${match?.arena?.emoji ?? "◇"} ${escapeHtml(match?.arena?.name_fa ?? "میدان")}</strong></div><div class="versus-chip"><span>${mine}</span><i>VS</i><span>${rival}</span></div></header>
     ${roundTrack(match?.round ?? 1)}
     ${duel(match?.my_card, match?.opponent_card, match?.my_values)}
-    <div class="arena-banner"><span>${match?.arena?.emoji ?? "◇"}</span><div><small>ویژگی زمین</small><strong>${match?.arena?.boost_stat ? labels[match.arena.boost_stat].title : "—"}</strong><p>تقویت فقط برای کارت سازگار اعمال می‌شود. با ابیلیتی تغییر زمین، میدان همین راوند و راوندهای بعد عوض می‌شود.</p></div></div>
-    ${last ? `<div class="glass-panel" style="padding:12px;margin:10px 0"><strong>راند ${last.round}: ${last.winner_id === null ? "مساوی" : last.winner_id === match?.user_id ? "برد تو" : "برد حریف"}</strong><p>${myLast ? `${labels[myLast.stat].title} ${myLast.base}${myLast.boost ? ` + ${myLast.boost}` : ""} = ${myLast.total}` : "—"} · ${rivalLast ? `${labels[rivalLast.stat].title} ${rivalLast.base}${rivalLast.boost ? ` + ${rivalLast.boost}` : ""} = ${rivalLast.total}` : "—"}</p></div>` : ""}
-    <div class="decision-panel glass-panel">${match?.phase === "stat_selection" ? threeAbilityTemplate(match) : ""}${match?.phase === "card_selection" || match?.my_stat_locked ? `<div class="choice-locked"><span>✓</span><strong>انتخابت ثبت شد</strong><p>منتظر تصمیم حریف هستیم…</p></div>` : `<div class="decision-title"><small>هر ویژگی فقط یک بار</small><strong>ویژگی راند ${match?.round ?? 1} را انتخاب کن</strong></div><div class="stat-grid quick-stat-grid">${(Object.keys(labels) as StatKey[]).map((key) => `<button class="stat-button ${(match?.my_boosts?.[key] ?? 0) > 0 ? "is-boosted" : ""}" data-action="three-stat" data-value="${key}" ${(match?.available_stats || []).includes(key) && !state.loading ? "" : "disabled"}><span>${labels[key].short}</span><strong>${match?.my_values?.[key] ?? "—"}</strong><small>${labels[key].title}${match?.my_boosts?.[key] ? ` +${match.my_boosts[key]} زمین` : ""}</small></button>`).join("")}</div>`}</div>
+    <div class="arena-banner"><span>${match?.arena?.emoji ?? "◇"}</span><div><small>قانون زمین</small><strong>${escapeHtml(match?.arena?.name_fa ?? 'میدان')}</strong><p>${arenaRuleText(match?.arena)}</p></div></div>
+    ${last ? `<div class="glass-panel" style="padding:12px;margin:10px 0"><strong>راند ${last.round}: ${last.winner_id === null ? "مساوی" : last.winner_id === match?.user_id ? "برد تو" : "برد حریف"}</strong><p>${myLast ? `${labels[myLast.stat].title} ${myLast.base}${myLast.boost ? ` ${signedModifier(myLast.boost)}` : ""} = ${myLast.total}` : "—"} · ${rivalLast ? `${labels[rivalLast.stat].title} ${rivalLast.base}${rivalLast.boost ? ` ${signedModifier(rivalLast.boost)}` : ""} = ${rivalLast.total}` : "—"}</p></div>` : ""}
+    <div class="decision-panel glass-panel">${match?.phase === "stat_selection" ? threeAbilityTemplate(match) : ""}${match?.phase === "card_selection" || match?.my_stat_locked ? `<div class="choice-locked"><span>✓</span><strong>انتخابت ثبت شد</strong><p>منتظر تصمیم حریف هستیم…</p></div>` : `<div class="decision-title"><small>هر ویژگی فقط یک بار</small><strong>ویژگی راند ${match?.round ?? 1} را انتخاب کن</strong></div><div class="stat-grid quick-stat-grid">${(Object.keys(labels) as StatKey[]).map((key) => `<button class="stat-button ${(match?.my_boosts?.[key] ?? 0) > 0 ? "is-boosted" : ""}" data-action="three-stat" data-value="${key}" ${(match?.available_stats || []).includes(key) && !state.loading ? "" : "disabled"}><span>${labels[key].short}</span><strong>${match?.my_values?.[key] ?? "—"}</strong><small>${labels[key].title}${match?.my_boosts?.[key] ? ` ${signedModifier(match.my_boosts[key])} تغییر` : ""}</small></button>`).join("")}</div>`}</div>
   </section>`;
 }
 
@@ -911,7 +931,7 @@ function threeResultTemplate(): string {
     <div class="reward-panel glass-panel"><div><small>برد راندها</small><strong>${mine} — ${rival}</strong></div></div>
     ${rewardTiles(earned)}
     ${playerProgress(state.resultProfile)}
-    ${(report?.rounds || []).map((round) => { const a = round.values[String(match?.user_id)]; const b = round.values[String(match?.opponent_id)]; return `<div class="glass-panel" style="padding:12px;margin-bottom:10px"><strong>راند ${round.round}: ${round.winner_id === null ? "مساوی" : round.winner_id === match?.user_id ? "برد تو" : "برد حریف"}</strong>${round.arena ? `<small> · ${escapeHtml(round.arena.name_fa)}</small>` : ""}<p>تو: ${a ? `${labels[a.stat].title} ${a.base} + ${a.boost} = ${a.total}` : "—"} · حریف: ${b ? `${labels[b.stat].title} ${b.base} + ${b.boost} = ${b.total}` : "—"}</p></div>`; }).join("")}
+    ${(report?.rounds || []).map((round) => { const a = round.values[String(match?.user_id)]; const b = round.values[String(match?.opponent_id)]; return `<div class="glass-panel" style="padding:12px;margin-bottom:10px"><strong>راند ${round.round}: ${round.winner_id === null ? "مساوی" : round.winner_id === match?.user_id ? "برد تو" : "برد حریف"}</strong>${round.arena ? `<small> · ${escapeHtml(round.arena.name_fa)}</small>` : ""}<p>تو: ${a ? `${labels[a.stat].title} ${a.base} ${signedModifier(a.boost)} = ${a.total}` : "—"} · حریف: ${b ? `${labels[b.stat].title} ${b.base} ${signedModifier(b.boost)} = ${b.total}` : "—"}</p></div>`; }).join("")}
     <button class="primary-button" data-action="enter-three">نبرد سه‌راندی دوباره</button><button class="secondary-button" data-action="home">بازگشت به پایگاه</button>
   </section>`;
 }
@@ -953,8 +973,7 @@ function quickMatchTemplate(): string {
     || (quick?.phase === "stat_selection" && quick.my_stat_locked)
   );
   const phaseTitle = quick?.phase === "ability_selection" ? "توانایی تاکتیکی" : quick?.phase === "stat_selection" ? "ویژگی نهایی" : "انتخاب کارت";
-  const cardTypeLabels: Record<StatKey, string> = { power: "قدرتی", speed: "سرعتی", iq: "هوشی", popularity: "محبوبیتی" };
-  const arenaEffects = (arena?.effects || []).map((effect) => `کارت‌های ${cardTypeLabels[effect.card_type]}: ${labels[effect.stat].title} <bdi dir="ltr">${effect.delta > 0 ? "+" : ""}${effect.delta}</bdi>`).join(" · ");
+  const arenaEffects = arenaRuleText(arena);
   return `
     <section class="screen quick-match-screen">
       ${arenaArt(arena?.background_url)}
@@ -1034,15 +1053,16 @@ function battleTemplate(): string {
       </header>
       ${roundTrack(round?.next_round && !round.game_over ? round.next_round : fight?.current_round ?? 1)}
       ${duel(fight?.player_card, fight?.ai_card, fight?.my_values)}
+      <div class="arena-banner"><span>${fight?.arena.emoji ?? '◇'}</span><div><small>قانون زمین</small><strong>${escapeHtml(fight?.arena.name_fa ?? 'میدان')}</strong><p>${arenaRuleText(fight?.arena)}</p></div></div>
       <div class="opponent-callout"><span>ASO</span><p>${round?.aso_dialog ?? fight?.aso_dialog ?? "در حال ورود حریف..."}</p></div>
       <div class="stat-console glass-panel">
         ${fight ? threeAbilityTemplate(fight, "solo-ability") : ""}
-        <div class="console-title"><div><small>حرکت بعدی</small><strong>ویژگی حمله را انتخاب کن</strong></div><span>تقویت زمین: ${fight ? labels[fight.arena.boost_stat]?.title ?? "—" : "—"}</span></div>
+        <div class="console-title"><div><small>حرکت بعدی</small><strong>ویژگی حمله را انتخاب کن</strong></div></div>
         <div class="stat-grid">
           ${(Object.keys(labels) as StatKey[]).map((key) => {
             const value = fight?.my_values?.[key] ?? fight?.player_card[key] ?? 0;
             const enabled = available.includes(key) && !state.loading && !round?.game_over;
-            return `<button class="stat-button ${fight?.arena.boost_stat === key ? "is-boosted" : ""}" data-action="stat" data-value="${key}" ${enabled ? "" : "disabled"}><span>${labels[key].short}</span><strong>${value}</strong><small>${labels[key].title}</small></button>`;
+            return `<button class="stat-button ${(fight?.my_boosts?.[key] ?? 0) > 0 ? "is-boosted" : ""}" data-action="stat" data-value="${key}" ${enabled ? "" : "disabled"}><span>${labels[key].short}</span><strong>${value}</strong><small>${labels[key].title}</small></button>`;
           }).join("")}
         </div>
         ${state.loading ? `<div class="turn-progress"><span></span><p>در حال تحلیل حرکت حریف...</p></div>` : ""}

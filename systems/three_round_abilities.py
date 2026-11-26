@@ -31,6 +31,19 @@ def consume_ability(conn, user_id, key):
         raise ValueError('ability_not_owned')
 
 
+def stat_preview(modes, battles, card, opponent, arena, current_stats):
+    """Recompute arena and passive modifiers without accumulating them across rounds."""
+    base = dict(current_stats)
+    values = {
+        stat: value + battles.calculate_boost(card, arena.get('arena_id', ''), stat, arena)
+        for stat, value in base.items()
+    }
+    # Existing snapshots retain the original single-boost behavior.
+    passive = modes._apply_passive(card, opponent, arena, values) if 'effects' in arena and opponent else None
+    return {'base_values': base, 'final_values': values,
+            'modifiers': {stat: values[stat] - base[stat] for stat in base}, 'passive': passive}
+
+
 def select_arena(registry, exclude_id=None, allow_fallback=True):
     selected = registry.select_for_match(
         'three_round', 'miniapp', exclude_ids=[exclude_id] if exclude_id else None)

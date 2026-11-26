@@ -157,13 +157,21 @@ export interface ThreeRoundAbilityState {
   my_stat_locked?: boolean;
 }
 
+export interface ThreeRoundArena {
+  arena_id: string; name_fa: string; emoji: string;
+  boost_stat?: StatKey; boost_amount?: number; requires_card_type_match?: boolean;
+  effects?: Array<{card_type: StatKey; stat: StatKey; delta: number}>;
+  abilities_enabled?: boolean; passives_enabled?: boolean;
+  version?: number | null; background_url?: string | null;
+}
+
 export interface FightData extends ThreeRoundAbilityState {
   fight_id: string;
   player_card: CardData;
   ai_card: CardData | null;
   ai_name: string;
   aso_dialog: string;
-  arena: { arena_id: string; name_fa: string; boost_stat: StatKey; emoji: string; version?: number | null; background_url?: string | null };
+  arena: ThreeRoundArena;
   current_round: number;
   available_stats: StatKey[];
   my_values?: Record<StatKey, number>;
@@ -276,7 +284,7 @@ export interface ThreeRoundState extends ThreeRoundAbilityState {
   phase?: "card_selection" | "stat_selection" | "completed";
   round?: number;
   deadline?: string | null;
-  arena?: { arena_id: string; name_fa: string; emoji: string; boost_stat: StatKey; boost_amount?: number; background_url?: string | null };
+  arena?: ThreeRoundArena;
   my_card?: CardData | null;
   opponent_card?: CardData | null;
   my_card_locked?: boolean;
