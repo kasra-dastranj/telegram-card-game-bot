@@ -452,7 +452,7 @@ export const api = {
   async economyPurchase(quoteId: string): Promise<{ profile: ProfileData }> {
     return request('POST', '/economy/purchase', { quote_id: quoteId });
   },
-  async silverClaim(requestKey: string): Promise<{ card_id: string; rarity: string; profile: ProfileData }> {
+  async silverClaim(requestKey: string): Promise<{ card_id: string; rarity: string; card: CardData | null; profile: ProfileData }> {
     return request('POST', '/economy/claim/silver', { request_key: requestKey });
   },
   async copyPreview(cardId: string, target: string): Promise<{ ok: boolean; error?: string; required: number; upgrade_cards_required: number; xp: number; config_version: number }> {

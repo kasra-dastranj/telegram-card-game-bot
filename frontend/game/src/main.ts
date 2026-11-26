@@ -39,6 +39,8 @@ const state: {
   collectionSort: string;
   collectionQuery: string;
   detailCard?: CardData;
+  cardDetailSection: "details" | "forms" | "upgrade";
+  silverRewardCard?: CardData;
   pendingUpgrade?: UpgradePreview;
   pendingCopyFusion?: { cardId: string; target: "epic" | "legend"; requestKey?: string; preview?: { required: number; upgrade_cards_required: number; xp: number; config_version: number } };
   shopQuote?: { quote_id: string; price: number };
@@ -74,6 +76,7 @@ const state: {
   collectionRarity: "all",
   collectionSort: "rarity",
   collectionQuery: "",
+  cardDetailSection: "details",
   decks: [],
   missions: [],
   avatarTab: 'face',
@@ -460,7 +463,7 @@ function collectionTemplate(): string {
           <label class="search-field"><span class="sr-only">جستجوی کارت</span><input id="collection-query" value="${escapeHtml(state.collectionQuery)}" placeholder="نام کارت را جستجو کن" autocomplete="off"></label>
           <div>
             <label><span>کمیابی</span><select id="collection-rarity"><option value="all">همه کارت‌ها</option><option value="normal" ${state.collectionRarity === "normal" ? "selected" : ""}>معمولی</option><option value="rare" ${state.collectionRarity === "rare" ? "selected" : ""}>کمیاب</option><option value="epic" ${state.collectionRarity === "epic" ? "selected" : ""}>حماسی</option><option value="legend" ${state.collectionRarity === "legend" ? "selected" : ""}>افسانه‌ای</option></select></label>
-            <label><span>مرتب‌سازی</span><select id="collection-sort"><option value="rarity">Rarity</option><option value="score" ${state.collectionSort === "score" ? "selected" : ""}>امتیاز کل</option><option value="power" ${state.collectionSort === "power" ? "selected" : ""}>قدرت</option><option value="speed" ${state.collectionSort === "speed" ? "selected" : ""}>سرعت</option><option value="iq" ${state.collectionSort === "iq" ? "selected" : ""}>هوش</option><option value="popularity" ${state.collectionSort === "popularity" ? "selected" : ""}>محبوبیت</option><option value="name" ${state.collectionSort === "name" ? "selected" : ""}>نام</option></select></label>
+            <label><span>مرتب‌سازی</span><select id="collection-sort"><option value="rarity">کمیابی</option><option value="score" ${state.collectionSort === "score" ? "selected" : ""}>امتیاز کل</option><option value="power" ${state.collectionSort === "power" ? "selected" : ""}>قدرت</option><option value="speed" ${state.collectionSort === "speed" ? "selected" : ""}>سرعت</option><option value="iq" ${state.collectionSort === "iq" ? "selected" : ""}>هوش</option><option value="popularity" ${state.collectionSort === "popularity" ? "selected" : ""}>محبوبیت</option><option value="name" ${state.collectionSort === "name" ? "selected" : ""}>نام</option></select></label>
           </div>
         </div>
         <div class="collection-grid" aria-live="polite">${state.loading ? skeletons() : cards || '<p class="empty-state">کارتی با این مشخصات پیدا نشد.</p>'}</div>
@@ -477,10 +480,11 @@ function cardDetailSheet(card: CardData): string {
   const pending = state.pendingUpgrade?.card_id === card.card_id ? state.pendingUpgrade : undefined;
   const counts = card.inventory || {};
   const forms = (["normal", "epic", "legend"] as const).filter((rarity) => (counts[rarity] || 0) > 0);
-  const formControls = forms.map((rarity) => `<button class="secondary-button" data-action="activate-card-form" data-value="${rarity}" ${rarity === card.rarity || state.loading ? "disabled" : ""}>${rarity.toUpperCase()} ×${counts[rarity]}${rarity === card.rarity ? " · فعال" : " · انتخاب"}</button>`).join("");
+  const rarityNames = { normal: "نورمال", epic: "اپیک", legend: "لجند" };
+  const formControls = forms.map((rarity) => `<button class="card-form-option ${rarity === card.rarity ? "is-active" : ""}" data-action="activate-card-form" data-value="${rarity}" aria-pressed="${rarity === card.rarity}" ${rarity === card.rarity || state.loading ? "disabled" : ""}><span><strong>${rarityNames[rarity]}</strong><small dir="ltr">${rarity.toUpperCase()} · ×${counts[rarity]}</small></span><b>${rarity === card.rarity ? "فرم فعال ✓" : "فعال کردن"}</b></button>`).join("");
   const copyFusionControls = ([{ source: "normal", target: "epic" }, { source: "epic", target: "legend" }] as const)
     .filter(({ source }) => (counts[source] || 0) > 0)
-    .map(({ source, target }) => `<button class="secondary-button" data-action="ask-copy-fusion" data-value="${target}" ${(!state.profile?.progression_v2_enabled && (counts[source] || 0) < 3) || state.loading ? "disabled" : ""}>${state.profile?.progression_v2_enabled ? "پیش‌نمایش ارتقا: " : "۳ "}${source.toUpperCase()} → ۱ ${target.toUpperCase()}</button>`).join("");
+    .map(({ source, target }) => `<article class="card-upgrade-option"><header><strong>${rarityNames[source]} ← ${rarityNames[target]}</strong><small>موجودی ${rarityNames[source]}: ${counts[source]}</small></header><p>${state.profile?.progression_v2_enabled ? `مصرف نسخه‌های ${rarityNames[source]} برای ساخت یک ${rarityNames[target]}؛ هزینه در مرحلهٔ بعد نمایش داده می‌شود.` : `۳ نسخهٔ ${rarityNames[source]} مصرف می‌شود و یک ${rarityNames[target]} می‌گیری.`}</p><button class="secondary-button" data-action="ask-copy-fusion" data-value="${target}" ${(!state.profile?.progression_v2_enabled && (counts[source] || 0) < 3) || state.loading ? "disabled" : ""}>پیش‌نمایش ارتقا به ${rarityNames[target]}</button></article>`).join("");
   const pendingCopies = state.pendingCopyFusion?.cardId === card.card_id ? state.pendingCopyFusion : undefined;
   const upgradeControl = state.profile?.progression_v2_enabled ? "" : upgrade?.ok
     ? `<button class="primary-button" data-action="preview-upgrade" ${upgrade.blocked_by_match || !upgrade.can_afford || state.loading ? "disabled" : ""}>ارتقا به <b dir="ltr">${escapeHtml(upgrade.to_rarity?.toUpperCase())}</b> · ${Number(upgrade.price || 0).toLocaleString("fa-IR")} سکه</button>
@@ -496,17 +500,19 @@ function cardDetailSheet(card: CardData): string {
       <button class="sheet-close" data-action="close-card-detail" aria-label="بستن">×</button>
       <div class="card-sheet__hero" style="background-image:url('${escapeHtml(card.image_url)}')"></div>
       <div class="card-sheet__content">
-        <p class="eyebrow">${escapeHtml(card.rarity.toUpperCase())}${card.origin==="custom" ? " · سفارشی" : ""}</p>
+        <p class="eyebrow">فرم فعال: <bdi>${escapeHtml(card.rarity.toUpperCase())}</bdi>${card.origin==="custom" ? " · سفارشی" : ""}</p>
         <h2 dir="auto">${escapeHtml(card.name)}</h2>
+        <nav class="card-detail-tabs" aria-label="بخش‌های کارت">${([['details', 'مشخصات'], ['forms', 'فرم فعال'], ['upgrade', 'ارتقا']] as const).map(([section, title]) => `<button data-action="card-detail-section" data-value="${section}" aria-pressed="${state.cardDetailSection === section}" ${state.loading ? "disabled" : ""}>${title}</button>`).join('')}</nav>
+        ${state.cardDetailSection === 'details' ? `<section class="card-detail-panel" aria-label="مشخصات کارت">
         <p class="card-biography">${escapeHtml(card.biography || "زندگینامه‌ای ثبت نشده است.")}</p>
         <div class="card-stat-list">${stats.map(([name, value]) => `<span><small>${name}</small><strong>${value}</strong></span>`).join("")}</div>
         <div class="card-meta"><span>نوع: <b dir="ltr">${escapeHtml(card.card_type || "—")}</b></span><span>Ability: <b>${escapeHtml(card.abilities?.join("، ") || "ندارد")}</b></span></div>
-        ${formControls ? `<div class="card-actions"><strong>فرم‌های موجود</strong>${formControls}</div>` : ""}
-        ${copyFusionControls ? `<div class="card-actions"><strong>ترکیب نسخه‌های یک شخصیت</strong>${copyFusionControls}</div>` : ""}
         ${card.is_in_cooldown ? '<p class="sheet-warning">این کارت در Cooldown است.</p>' : ""}
-        <div class="card-actions">${card.origin!=="custom" ? `<button class="secondary-button" data-action="open-skins" data-id="${escapeHtml(card.card_id)}">ظاهر کارت</button>` : ""}${upgradeControl}${state.profile?.progression_v2_enabled ? forms.map(rarity => `<button class="secondary-button" data-action="preview-sell" data-value="${rarity}">فروش یک ${rarity.toUpperCase()}</button>`).join("") : ""}</div>${state.pendingSale?.cardId === card.card_id ? `<div class="upgrade-confirm"><strong>فروش یک ${state.pendingSale.rarity.toUpperCase()} به ${state.pendingSale.price} سکه؟</strong><p>اگر آخرین نسخه باشد، دک‌های دارای این کارت نامعتبر می‌شوند.</p><button data-action="confirm-sell">تأیید فروش</button><button data-action="cancel-sell">انصراف</button></div>` : ""}
-        ${pendingCopies ? `<div class="upgrade-confirm" role="alertdialog" aria-label="تأیید ترکیب نسخه‌ها"><strong>نسخه‌ها را مصرف کنیم؟</strong><p>${pendingCopies.preview?.required ?? 3} ${pendingCopies.target === "epic" ? "Normal" : "Epic"} همین شخصیت → ۱ ${pendingCopies.target.toUpperCase()}؛ ${pendingCopies.preview?.xp ?? (pendingCopies.target === "epic" ? 15 : 30)} XP${pendingCopies.preview ? ` · ${pendingCopies.preview.upgrade_cards_required} کارت ارتقا` : ""}</p><div><button class="secondary-button" data-action="cancel-copy-fusion">انصراف</button><button class="primary-button" data-action="confirm-copy-fusion" ${state.loading ? "disabled" : ""}>تأیید Fusion</button></div></div>` : ""}
-        ${confirm}
+        ${card.origin!=="custom" ? `<button class="secondary-button" data-action="open-skins" data-id="${escapeHtml(card.card_id)}">ظاهر کارت</button>` : ""}
+        ${state.profile?.progression_v2_enabled && forms.length ? `<section class="card-sale-section"><h3>فروش نسخه‌ها</h3><div class="card-sale-actions">${forms.map(rarity => `<button class="secondary-button" data-action="preview-sell" data-value="${rarity}" ${state.loading ? 'disabled' : ''}>فروش یک ${rarityNames[rarity]}</button>`).join("")}</div></section>` : ""}${state.pendingSale?.cardId === card.card_id ? `<div class="upgrade-confirm"><strong>فروش یک ${state.pendingSale.rarity.toUpperCase()} به ${state.pendingSale.price} سکه؟</strong><p>اگر آخرین نسخه باشد، دک‌های دارای این کارت نامعتبر می‌شوند.</p><button data-action="confirm-sell" ${state.loading ? 'disabled' : ''}>تأیید فروش</button><button data-action="cancel-sell">انصراف</button></div>` : ""}
+        </section>` : state.cardDetailSection === 'forms' ? `<section class="card-detail-panel" aria-label="انتخاب فرم فعال"><h3>با کدام فرم بازی می‌کنی؟</h3><p>یکی از فرم‌های موجودت را فعال کن. نسخه‌ای مصرف نمی‌شود و می‌توانی دوباره تغییرش بدهی.</p><div class="card-form-list">${formControls || '<p>این کارت فقط یک فرم دارد.</p>'}</div></section>` : `<section class="card-detail-panel" aria-label="ارتقای کارت"><h3>ساخت فرم بالاتر</h3><p>نسخه‌های تکراری همین شخصیت را برای ارتقا مصرف می‌کنی. پیش از تأیید، هزینه و نتیجه را می‌بینی.</p><div class="card-upgrade-list">${copyFusionControls || (state.profile?.progression_v2_enabled ? '<p>نسخهٔ نورمال یا اپیک برای ارتقا نداری.</p>' : '')}</div>${upgradeControl}
+        ${pendingCopies ? `<div class="upgrade-confirm" role="alertdialog" aria-label="تأیید ترکیب نسخه‌ها"><strong>نسخه‌ها را مصرف کنیم؟</strong><p>${pendingCopies.preview?.required ?? 3} ${pendingCopies.target === "epic" ? "Normal" : "Epic"} همین شخصیت → ۱ ${pendingCopies.target.toUpperCase()}؛ ${pendingCopies.preview?.xp ?? (pendingCopies.target === "epic" ? 15 : 30)} XP${pendingCopies.preview ? ` · ${pendingCopies.preview.upgrade_cards_required} کارت ارتقا` : ""}</p><div><button class="secondary-button" data-action="cancel-copy-fusion">انصراف</button><button class="primary-button" data-action="confirm-copy-fusion" ${state.loading ? "disabled" : ""}>تأیید و مصرف نسخه‌ها</button></div></div>` : ""}
+        ${confirm}</section>`}
       </div>
     </aside>`;
 }
@@ -547,6 +553,10 @@ function deleteDeckConfirm(): string {
   return `<div class="sheet-backdrop" data-action="cancel-delete-deck"></div><aside class="confirm-dialog glass-panel" role="alertdialog" aria-modal="true" aria-label="تأیید حذف دک"><h2>حذف «${escapeHtml(deck?.deck_name || "دک") }»؟</h2><p>کارت‌ها حذف نمی‌شوند؛ فقط ترکیب دک پاک می‌شود.</p><div><button class="secondary-button" data-action="cancel-delete-deck">انصراف</button><button class="danger-button" data-action="confirm-delete-deck" ${state.loading ? "disabled" : ""}>حذف دک</button></div></aside>`;
 }
 
+function rewardReveal(card?: CardData, ability?: { title: string }): string {
+  return card ? `<article class="reward-reveal glass-panel" aria-label="کارت دریافتی" aria-live="polite"><span style="background-image:url('${escapeHtml(card.image_url)}')" role="img" aria-label="${escapeHtml(card.name)}"></span><div><small>این کارت را گرفتی</small><h2 dir="auto">${escapeHtml(card.name)}</h2><b dir="ltr">${escapeHtml(card.rarity.toUpperCase())}</b>${ability ? `<p>🎁 ابیلیتی مصرفی: ${escapeHtml(ability.title)} ×۱</p>` : ""}</div></article>` : "";
+}
+
 function progressTemplate(): string {
   const claim = state.claimStatus;
   const v2 = state.profile?.progression_v2_enabled;
@@ -563,7 +573,7 @@ function progressTemplate(): string {
     ${resourceHud()}<div class="hub-scroll"><header class="hub-title"><div><p class="eyebrow">PROGRESS</p><h1>پیشرفت و پاداش</h1></div></header>
     ${playerProgress(state.profile)}
     <article class="daily-claim glass-panel"><div><small>${v2 ? "DAILY REWARD" : "DAILY CARD"}</small><h2>${claim?.pool_exhausted ? "کارت Normal موجود نیست" : claim?.can_claim ? `${claimTitle} آماده است` : "پاداش امروز دریافت شده"}</h2><p>${claim?.pool_exhausted ? "فعلاً کاتالوگ کارت Normal ندارد؛ نوبت Claim مصرف نشده است." : claim?.can_claim ? claimDescription : `دریافت بعدی: ${formatDuration(claim?.remaining_seconds)}`}</p></div><button data-action="claim-daily" ${!claim?.can_claim || state.loading ? "disabled" : ""}>${state.loading ? "…" : v2 ? "دریافت پاداش" : "دریافت کارت"}</button></article>
-    ${state.rewardCard ? `<article class="reward-reveal glass-panel"><span style="background-image:url('${escapeHtml(state.rewardCard.image_url)}')"></span><div><small>پاداش تازه</small><h2 dir="auto">${escapeHtml(state.rewardCard.name)}</h2><b dir="ltr">${escapeHtml(state.rewardCard.rarity.toUpperCase())}</b>${state.rewardAbility ? `<p>🎁 ابیلیتی مصرفی: ${escapeHtml(state.rewardAbility.title)} ×۱</p>` : ""}</div></article>` : ""}
+    ${rewardReveal(state.rewardCard, state.rewardAbility)}
     ${state.rewardTicket ? `<article class="mission-card glass-panel"><h2>🎟 یک Silver Ticket دریافت شد</h2><p>ابیلیتی مصرفی: ${escapeHtml(state.rewardAbility?.title)} ×۱</p></article>` : ""}
     <header class="subsection-title"><h2>${state.profile?.progression_v2_enabled ? "مأموریت‌ها" : "مأموریت‌های کارت"}</h2><span>${state.missions.length}</span></header><div class="mission-list">${state.loading ? skeletons() : missions || '<p class="empty-state">برای کارت‌های فعلی مأموریتی ثبت نشده است.</p>'}</div></div>${bottomNav("progress")}
   </section>`;
@@ -641,20 +651,20 @@ function economyShopTemplate(): string {
   const descriptions: Record<string, string> = { upgrade_card: "برای ارتقای کارت‌های واجد شرایط", silver_ticket: "برای دریافت Silver Claim", deck_slot: "افزایش ظرفیت دک", refill: "جان‌های خالی را پر می‌کند", permanent_heart: "حداکثر جان را یک واحد بیشتر می‌کند" };
   const items = Object.entries(economy?.shop || {}).filter(([, config]) => config.enabled).map(([item]) => `<article class="shop-item glass-panel">${shopArt(item)}<div><h2>${labels[item] || escapeHtml(item)}</h2><p>${descriptions[item] || "آیتم موجود در فروشگاه"}</p></div><button data-action="v2-quote" data-value="${escapeHtml(item)}">دیدن قیمت</button></article>`).join('');
   const quote = state.shopQuote ? `<div class="upgrade-confirm" role="alertdialog"><strong>قیمت خرید: ${state.shopQuote.price.toLocaleString('fa-IR')} سکه</strong><p>پس از تأیید از موجودی برداشت می‌شود.</p><button data-action="v2-buy" ${state.loading ? 'disabled' : ''}>تأیید خرید</button><button data-action="v2-cancel">انصراف</button></div>` : '';
-  return `<section class="screen hub-screen shop-screen">${resourceHud()}<div class="hub-scroll"><header class="hub-title"><div><p class="eyebrow">SHOP</p><h1>فروشگاه</h1></div></header><div class="shop-inventory glass-panel"><span>🎟 ${economy?.items.silver_ticket ?? 0} بلیت</span><span>✦ ${economy?.items.upgrade_card ?? 0} کارت ارتقا</span><span>▣ ${economy?.capacity.slots ?? 3} ظرفیت دک</span></div><article class="shop-item shop-item--featured glass-panel">${shopArt("silver_ticket")}<div><h2>Silver Claim</h2><p>${economy?.items.free_silver_claim ?? 0} دریافت رایگان؛ پس از آن با ${economy?.silver_claim_tickets ?? 3} بلیت.</p></div><button data-action="v2-silver" ${state.loading ? 'disabled' : ''}>دریافت Epic</button></article>${quote}<div class="shop-items">${items}</div><p class="section-note">ارتقا و فروش کارت از بخش جزئیات همان کارت انجام می‌شود.</p><button class="secondary-button" data-action="open-collection">دیدن کارت‌ها</button></div>${bottomNav('shop')}</section>`;
+  return `<section class="screen hub-screen shop-screen">${resourceHud()}<div class="hub-scroll"><header class="hub-title"><div><p class="eyebrow">SHOP</p><h1>فروشگاه</h1></div></header><div class="shop-inventory glass-panel"><span>🎟 ${economy?.items.silver_ticket ?? 0} بلیت</span><span>✦ ${economy?.items.upgrade_card ?? 0} کارت ارتقا</span><span>▣ ${economy?.capacity.slots ?? 3} ظرفیت دک</span></div><article class="shop-item shop-item--featured glass-panel">${shopArt("silver_ticket")}<div><h2>Silver Claim</h2><p>${economy?.items.free_silver_claim ?? 0} دریافت رایگان؛ پس از آن با ${economy?.silver_claim_tickets ?? 3} بلیت.</p></div><button data-action="v2-silver" ${state.loading ? 'disabled' : ''}>دریافت Epic</button></article>${rewardReveal(state.silverRewardCard)}${quote}<div class="shop-items">${items}</div><p class="section-note">ارتقا و فروش کارت از بخش جزئیات همان کارت انجام می‌شود.</p><button class="secondary-button" data-action="open-collection">دیدن کارت‌ها</button></div>${bottomNav('shop')}</section>`;
 }
 
 async function askCopyFusion(target: 'epic' | 'legend'): Promise<void> {
   if (!state.detailCard || state.loading) return;
   const cardId = state.detailCard.card_id;
-  if (!state.profile?.progression_v2_enabled) { state.pendingCopyFusion = { cardId, target }; render(); return; }
+  if (!state.profile?.progression_v2_enabled) { state.pendingCopyFusion = { cardId, target }; render(); ui.querySelector('.card-detail-panel .upgrade-confirm')?.scrollIntoView({ block: 'nearest' }); return; }
   state.loading = true; render();
   try {
     const preview = await api.copyPreview(cardId, target);
     if (!preview.ok) throw new Error(preview.error || 'نسخه یا کارت ارتقا کافی نیست؛ دستور Legend باید در تنظیمات ادمین ثبت شود.');
     state.pendingCopyFusion = { cardId, target, preview, requestKey: crypto.randomUUID() };
   } catch (error) { showToast(error instanceof Error ? error.message : 'پیش‌نمایش دریافت نشد'); }
-  finally { state.loading = false; render(); }
+  finally { state.loading = false; render(); ui.querySelector('.card-detail-panel .upgrade-confirm')?.scrollIntoView({ block: 'nearest' }); }
 }
 
 async function quoteEconomy(item: string): Promise<void> {
@@ -688,10 +698,18 @@ async function purchaseEconomy(): Promise<void> {
 
 async function silverClaim(): Promise<void> {
   if (state.loading) return;
+  state.silverRewardCard = undefined;
   state.loading = true; state.silverRequestKey ||= crypto.randomUUID(); render();
-  try { const result = await api.silverClaim(state.silverRequestKey); state.profile = result.profile; state.silverRequestKey = undefined; showEffect("reward"); showToast('یک Epic دریافت شد؛ در کلکسیون ببین.', "success"); }
+  try {
+    const result = await api.silverClaim(state.silverRequestKey);
+    state.profile = result.profile;
+    state.silverRequestKey = undefined;
+    state.silverRewardCard = result.card || undefined;
+    haptic("success"); showEffect("reward");
+    showToast(result.card ? `${result.card.name} · ${result.rarity.toUpperCase()} دریافت شد` : 'کارت Epic دریافت شد', "success");
+  }
   catch (error) { showToast(error instanceof Error ? error.message : 'دریافت Epic انجام نشد'); }
-  finally { state.loading = false; render(); }
+  finally { state.loading = false; render(); ui.querySelector('.shop-screen .reward-reveal')?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
 }
 
 async function previewSale(rarity: string): Promise<void> {
@@ -931,7 +949,7 @@ function threeResultTemplate(): string {
     <div class="reward-panel glass-panel"><div><small>برد راندها</small><strong>${mine} — ${rival}</strong></div></div>
     ${rewardTiles(earned)}
     ${playerProgress(state.resultProfile)}
-    ${(report?.rounds || []).map((round) => { const a = round.values[String(match?.user_id)]; const b = round.values[String(match?.opponent_id)]; return `<div class="glass-panel" style="padding:12px;margin-bottom:10px"><strong>راند ${round.round}: ${round.winner_id === null ? "مساوی" : round.winner_id === match?.user_id ? "برد تو" : "برد حریف"}</strong>${round.arena ? `<small> · ${escapeHtml(round.arena.name_fa)}</small>` : ""}<p>تو: ${a ? `${labels[a.stat].title} ${a.base} ${signedModifier(a.boost)} = ${a.total}` : "—"} · حریف: ${b ? `${labels[b.stat].title} ${b.base} ${signedModifier(b.boost)} = ${b.total}` : "—"}</p></div>`; }).join("")}
+    ${(report?.rounds || []).map((round) => { const a = round.values[String(match?.user_id)]; const b = round.values[String(match?.opponent_id)]; return `<article class="result-breakdown glass-panel"><header><strong>راند ${round.round}: ${round.winner_id === null ? "مساوی" : round.winner_id === match?.user_id ? "برد تو" : "برد حریف"}</strong>${round.arena ? `<small>${escapeHtml(round.arena.name_fa)}</small>` : ""}</header><div class="result-value"><span>تو</span><bdi>${a ? `${labels[a.stat].title}: ${a.base} ${signedModifier(a.boost)} = ${a.total}` : "—"}</bdi></div><div class="result-value"><span>حریف</span><bdi>${b ? `${labels[b.stat].title}: ${b.base} ${signedModifier(b.boost)} = ${b.total}` : "—"}</bdi></div></article>`; }).join("")}
     <button class="primary-button" data-action="enter-three">نبرد سه‌راندی دوباره</button><button class="secondary-button" data-action="home">بازگشت به پایگاه</button>
   </section>`;
 }
@@ -1016,11 +1034,11 @@ function quickResultTemplate(): string {
   const opponent = quick?.opponent_id != null ? report?.breakdown?.[String(quick.opponent_id)] : undefined;
   const earned = report?.rewards?.[String(quick?.user_id)];
   const calculation = mine?.scored_stats && opponent?.scored_stats
-    ? `<details class="glass-panel" style="padding: 12px; margin-bottom: 16px;">
+    ? `<details class="result-breakdown glass-panel">
         <summary>محاسبهٔ امتیاز Quick</summary>
         <p>ویژگی‌های انتخاب‌شده برای هر دو کارت جمع می‌شوند. اثر زمین، Passive و Ability پیش از جمع اعمال شده است.</p>
-        <p>کارت تو: ${mine.scored_stats.map((stat, index) => `${labels[stat].title} ${mine.final_components?.[index] ?? "—"}`).join(" + ")} = ${mine.final_value}</p>
-        <p>کارت حریف: ${opponent.scored_stats.map((stat, index) => `${labels[stat].title} ${opponent.final_components?.[index] ?? "—"}`).join(" + ")} = ${opponent.final_value}</p>
+        <div class="result-value"><span>تو</span><bdi>${mine.scored_stats.map((stat, index) => `${labels[stat].title} ${mine.final_components?.[index] ?? "—"}`).join(" + ")} = ${mine.final_value}</bdi></div>
+        <div class="result-value"><span>حریف</span><bdi>${opponent.scored_stats.map((stat, index) => `${labels[stat].title} ${opponent.final_components?.[index] ?? "—"}`).join(" + ")} = ${opponent.final_value}</bdi></div>
       </details>`
     : "";
   return `
@@ -1200,6 +1218,9 @@ async function openCollection(): Promise<void> {
 }
 
 async function openCardDetail(cardId: string): Promise<void> {
+  state.cardDetailSection = "details";
+  state.pendingUpgrade = undefined;
+  state.pendingSale = undefined;
   state.pendingCopyFusion = undefined;
   const localCard = state.collection?.cards.find((card) => card.card_id === cardId);
   state.detailCard = localCard;
@@ -1868,6 +1889,14 @@ ui.addEventListener("click", (event) => {
   if (action === "open-profile") void openProfileHub();
   if (action === "open-collection") void openCollection();
   if (action === "card-detail") void openCardDetail(button.dataset.id || "");
+  if (action === "card-detail-section" && !state.loading) {
+    const section = button.dataset.value;
+    if (section === 'details' || section === 'forms' || section === 'upgrade') {
+      state.cardDetailSection = section;
+      state.pendingUpgrade = undefined; state.pendingCopyFusion = undefined; state.pendingSale = undefined;
+      render();
+    }
+  }
   if (action === "close-card-detail") { state.detailCard = undefined; state.pendingUpgrade = undefined; state.pendingCopyFusion = undefined; render(); }
   if (action === "preview-upgrade") void previewUpgrade();
   if (action === "cancel-upgrade") { state.pendingUpgrade = undefined; render(); }

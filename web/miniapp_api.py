@@ -915,7 +915,12 @@ def silver_claim():
     data = request.get_json(silent=True) or {}
     if not data.get('request_key'):
         return jsonify({'error':'request_key_required'}), 400
-    return _economy_response(_v2_economy().claim(g.user_id, 'silver', data['request_key']))
+    result = _v2_economy().claim(g.user_id, 'silver', data['request_key'])
+    if result.get('ok'):
+        # A reward can differ from the player's currently active card form.
+        card = db.get_card_by_id_for_rarity(result['card_id'], result['rarity'])
+        result['card'] = card_to_dict(card) if card else None
+    return _economy_response(result)
 
 
 @app.route('/api/v1/economy/quote', methods=['POST'])

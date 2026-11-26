@@ -75,6 +75,7 @@ try {
     await page.locator(".collection-card").first().click();
     await page.getByRole("dialog", { name: "جزئیات کارت" }).waitFor();
     if (await page.locator(".card-stat-list span").count() !== 4) throw new Error("Card details must show four stats");
+    await page.locator('[data-action="card-detail-section"][data-value="upgrade"]').click();
     await page.locator('[data-action="preview-upgrade"]').click();
     await page.getByRole("alertdialog", { name: "تأیید ارتقای کارت" }).waitFor();
     await page.locator('[data-action="confirm-upgrade"]').click();
@@ -100,7 +101,7 @@ try {
     await page.locator('[data-action="hub-progress"]').first().click();
     await page.getByRole("heading", { name: "پیشرفت و پاداش" }).waitFor();
     await page.locator('[data-action="claim-daily"]').click();
-    await page.getByText("پاداش تازه").waitFor();
+    await page.locator('.reward-reveal').waitFor();
     await page.locator('[data-action="claim-mission"]').click();
     await page.getByText("LEGEND", { exact: true }).waitFor();
 
