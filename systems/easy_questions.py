@@ -154,7 +154,14 @@ def question_pool(catalog, traits, series):
                 continue
             pool.append({**template, 'id': template['id'] + ':' + key, mode: label,
                          'text': template['text'].replace('{' + mode + '}', '\u2068' + label + '\u2069')})
-    return pool
+    unique = {}
+    for question in pool:
+        unique.setdefault(question_identity(question), question)
+    return list(unique.values())
+
+
+def question_identity(question):
+    return ' '.join(str(question.get('text') or question.get('id', '')).split()).casefold()
 
 
 def evaluate_card(modes, card, question):

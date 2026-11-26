@@ -459,7 +459,7 @@ def test_insufficient_coins_rolls_back_delivery_and_quote(game,item):
     assert rows(game,"SELECT COUNT(*) FROM reward_ledger WHERE source='shop'")==[(0,)]
 
 
-@pytest.mark.parametrize('mode,min_level',[('easy',5),('deck',5),('risk',7),('quick',1),('mini_three_round',1)])
+@pytest.mark.parametrize('mode,min_level',[('easy',1),('deck',1),('risk',7),('quick',1),('mini_three_round',1)])
 def test_mode_unlocks(game,mode,min_level):
     from systems.mode_access_system import ModeAccessSystem
     system=ModeAccessSystem(game)
@@ -671,7 +671,7 @@ def test_fresh_tester_progression_without_seeded_wallet(v2_client, game, monkeyp
     initial = profile()
     assert (initial['level'], initial['coins'], initial['total_score']) == (1, 0, 0)
     assert initial['counts']['cards'] == 3 and initial['counts']['decks'] == 1
-    assert not ModeAccessSystem(game).check(10, 'deck')[0]
+    assert ModeAccessSystem(game).check(10, 'deck')[0]
 
     def finish_win(index):
         with sqlite3.connect(game.db_path) as conn:

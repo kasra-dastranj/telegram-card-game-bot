@@ -1251,12 +1251,16 @@ class GameModeHandlersMixin:
         if not ok:
             if reason == "already_started":
                 return
+            if reason == 'not_enough_questions':
+                self._cancel_mode_job(context, f"gm-easy-lobby-{request_id}")
             if request:
                 await self._edit_request_panel(
                     context,
                     request,
                     "یکی از بازیکن‌ها در بازی دیگه‌ایه؛ این لابی بسته شد."
                     if reason == 'player_busy' else
+                    f"برای این دست {state['rounds']} سؤال متفاوت لازمه؛ فعلاً {len(state.get('question_pool', []))} سؤال فعال قابل استفاده داریم. یک دست کوتاه‌تر بسازید."
+                    if reason == 'not_enough_questions' else
                     "⏳ وقت لابی تموم شد؛ برای ایزی مود حداقل دو نفر لازمه.",
                 )
             return

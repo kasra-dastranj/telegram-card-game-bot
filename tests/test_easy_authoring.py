@@ -109,16 +109,18 @@ def test_signed_formula_and_selected_values_are_frozen(modes):
 def test_match_catalog_is_frozen_and_disabled_questions_do_not_reappear(modes):
     catalog = default_catalog()
     for q in catalog['questions']:
-        q['enabled'] = q['id'] == 'scary'
+        q['enabled'] = q['id'] in ('scary', 'funny', 'cute')
     saved = save(modes, catalog)
     key = begin(modes, rounds=3)
     before = modes.get_state(key)['question']
-    assert before['id'] == 'scary'
+    assert before['id'] in ('scary', 'funny', 'cute')
     saved['questions'][5].update(text='متن تازه', formula='management')
     save(modes, saved)
     result = modes.resolve_easy_round(key)
-    assert result['state']['question'] == before
-    assert GameModeSystem(modes.db).get_state(key)['question_catalog']['revision'] == 1
+    assert result['state']['question']['id'] != before['id']
+    frozen = GameModeSystem(modes.db).get_state(key)
+    assert frozen['question_catalog']['revision'] == 1
+    assert next(q for q in frozen['question_pool'] if q['id'] == 'scary')['formula'] == 'scary'
 
 
 def test_common_trait_is_required_for_each_player_including_active_form(modes):
@@ -200,3 +202,57 @@ def test_late_selection_is_rejected_without_consuming_the_next_round(modes):
     ok, reason, state = modes.select_easy_card(key, 1, options[0].card_id)
     assert not ok and reason == 'expired' and state['choices'] == {}
     assert modes.resolve_easy_round(key)['round']['entries'] == []
+
+
+@pytest.mark.parametrize('rounds', [3, 10])
+def test_every_round_uses_a_new_question_even_after_restart(modes, rounds):
+    key = begin(modes, rounds=rounds)
+    seen = []
+    for _ in range(rounds):
+        modes = GameModeSystem(modes.db)
+        question = modes.get_state(key)['question']
+        assert question['id'] not in [q['id'] for q in seen]
+        assert question['text'] not in [q['text'] for q in seen]
+        seen.append(question)
+        result = modes.resolve_easy_round(key)
+    assert result['completed'] and len(result['report']['round_history']) == rounds
+
+
+def test_short_catalog_cannot_start_repeating_questions_under_other_ids(modes):
+    catalog = default_catalog()
+    template = catalog['questions'][0]
+    catalog['questions'] = [dict(template, id='a'), dict(template, id='b'), dict(template, id='c')]
+    save(modes, catalog)
+    req = modes.create_easy_lobby(1, -100, 3)
+    assert modes.join_easy_lobby(req['request_id'], 2)[0]
+    ok, reason, state = modes.start_easy_match(req['request_id'])
+    assert not ok and reason == 'not_enough_questions'
+    assert state['phase'] == 'expired' and len(state['question_pool']) == 1
+
+
+def test_legacy_active_match_uses_its_history_to_avoid_repeats(modes):
+    key = begin(modes, rounds=3)
+    state = modes.get_state(key)
+    # Old stored matches have a catalog and history, without a frozen pool.
+    state.pop('question_pool')
+    with modes._connect() as conn:
+        modes._save_state(conn, key, state)
+    for _ in range(3):
+        modes = GameModeSystem(modes.db)
+        result = modes.resolve_easy_round(key)
+    history = result['report']['round_history']
+    assert len({played['question']['id'] for played in history}) == 3
+
+
+def test_legacy_match_with_exhausted_questions_finishes_without_repeating(modes):
+    key = begin(modes, rounds=3)
+    state = modes.get_state(key)
+    state.pop('question_pool')
+    question = default_catalog()['questions'][0]
+    state['question'] = question
+    state['question_catalog']['questions'] = [question]
+    with modes._connect() as conn:
+        modes._save_state(conn, key, state)
+    result = modes.resolve_easy_round(key)
+    assert result['completed'] and result['state']['rounds'] == 1
+    assert len(result['report']['round_history']) == 1
