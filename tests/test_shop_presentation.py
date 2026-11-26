@@ -153,6 +153,18 @@ def test_browsing_uses_current_prices_and_preserves_quotes_money_hearts_and_ledg
     assert row(bot.db,'SELECT COUNT(*) FROM shop_quotes')[0] == 0
 
 
+def test_shop_has_one_combined_avatar_entry(shop, monkeypatch):
+    from urllib.parse import urlsplit, parse_qs
+
+    monkeypatch.setenv('MINIAPP_URL', 'https://example.test/game')
+    _, _, events, click, _ = shop
+    click()
+    markup = next(event[2]['reply_markup'] for event in events if event[0] == 'text')
+    links = [button for row in markup.inline_keyboard for button in row if button.web_app]
+    assert len(links) == 1 and links[0].text == '🖼 آواتار و پس‌زمینه'
+    assert parse_qs(urlsplit(links[0].web_app.url).query)['avatar'] == ['1']
+
+
 @pytest.mark.parametrize('problem',['expired','config_changed','insufficient','foreign'])
 def test_confirmation_failure_does_not_spend_and_keeps_shop_navigation(shop,problem):
     bot,_,events,click,_ = shop

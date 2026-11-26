@@ -132,9 +132,9 @@ async def show_catalog(bot,update,context):
         return await text_panel(update,'فعلاً فروشگاه باز نمی‌شه؛ یه کم دیگه امتحان کن.',back_buttons())
     markup=catalog_buttons(catalog)
     from bot.avatar_links import button as avatar_button
-    links=[avatar_button(bot,'🖼 قاب‌های آواتار','frame'),avatar_button(bot,'🌄 پس‌زمینه‌های آواتار','background')]
-    if all(links):
-        markup=InlineKeyboardMarkup([list(row) for row in markup.inline_keyboard[:-1]]+[links,list(markup.inline_keyboard[-1])])
+    link=avatar_button(bot,'🖼 آواتار و پس‌زمینه','frame')
+    if link:
+        markup=InlineKeyboardMarkup([list(row) for row in markup.inline_keyboard[:-1]]+[[link],list(markup.inline_keyboard[-1])])
     return await show(update,context,dict(catalog,screen='catalog'),catalog_text(catalog),markup)
 
 

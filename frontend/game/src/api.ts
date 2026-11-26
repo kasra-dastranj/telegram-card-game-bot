@@ -360,7 +360,7 @@ function authHeaders(): Record<string, string> {
     : { "X-Debug-User-Id": "1" };
 }
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+async function request<T>(method: string, path: string, body?: unknown, imagesChanged?: () => void): Promise<T> {
   const response = await fetch(API_BASE + path, {
     method,
     headers: { "Content-Type": "application/json", ...authHeaders() },
@@ -371,18 +371,24 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     const payload = data as { error?: string; error_code?: string };
     throw new ApiError(payload.error || "ارتباط با سرور برقرار نشد", response.status, payload.error_code);
   }
-  await resolvePrivateImages(data);
+  // Avatar catalogs can render before their authenticated image downloads finish.
+  const images = resolvePrivateImages(data, imagesChanged);
+  if (imagesChanged) void images.catch(() => imagesChanged());
+  else await images;
   return data as T;
 }
 
 const avatarImages = new Map<string, Promise<string>>();
 window.addEventListener('beforeunload', () => { for (const image of avatarImages.values()) void image.then(URL.revokeObjectURL); });
 
-async function resolvePrivateImages(value: unknown): Promise<void> {
+async function resolvePrivateImages(value: unknown, imagesChanged?: () => void): Promise<void> {
   if (!value || typeof value !== "object") return;
   const item = value as Record<string, unknown>;
+  const children = Object.values(item).filter(part=>part && typeof part === "object")
+    .map(part=>resolvePrivateImages(part, imagesChanged));
   if (typeof item.image_url === 'string' && item.image_url.startsWith('/api/v1/avatar/')) {
     const src = item.image_url;
+    item.image_url = '';
     const key = JSON.stringify(authHeaders()) + src;
     const dynamic = src.includes('/render?');
     const load = async () => {
@@ -394,11 +400,12 @@ async function resolvePrivateImages(value: unknown): Promise<void> {
     try { item.image_url = await (dynamic ? load() : avatarImages.get(key)!); } catch { item.image_url = ''; }
     if (!item.image_url) avatarImages.delete(key);
     if (dynamic && item.image_url) window.setTimeout(() => URL.revokeObjectURL(String(item.image_url)), 120_000);
+    imagesChanged?.();
   }
   if (typeof item.image_url === "string" && item.image_url.startsWith("/api/v1/custom/cards/")) {
     try { const response = await fetch(item.image_url, { headers: authHeaders(), cache:"no-store" }); if (!response.ok) throw Error(); const url = URL.createObjectURL(await response.blob()); item.image_url=url; window.setTimeout(()=>URL.revokeObjectURL(url),60_000); } catch { item.image_url=""; }
   }
-  await Promise.all(Object.values(item).filter(part=>part && typeof part === "object").map(resolvePrivateImages));
+  await Promise.all(children);
 }
 
 async function requestCardAction<T>(path: string, body: Record<string, unknown>): Promise<T> {
@@ -424,7 +431,7 @@ async function requestCardAction<T>(path: string, body: Record<string, unknown>)
 }
 
 export const api = {
-  async avatars(): Promise<AvatarCatalog> { return request('GET', '/avatar'); },
+  async avatars(imagesChanged?: () => void): Promise<AvatarCatalog> { return request('GET', '/avatar', undefined, imagesChanged); },
   async saveAvatar(value: AvatarAppearance): Promise<AvatarCatalog> {
     return request('PUT', '/avatar', {slot:value.slot,inherit_profile:value.inherit_profile,
       card_id:value.face.card_id,rarity:value.face.rarity,free_face_id:value.face.uses_default ? null : value.face.free_face_id || null,frame_id:value.frame.item_id,
