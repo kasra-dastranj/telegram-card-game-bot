@@ -1185,6 +1185,10 @@ class BasicHandlersMixin:
         card_id = query.data.removeprefix("cardinfo_")
         await self._show_card_info(query, card_id, context, answer=True)
 
+    async def card_form_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        from bot.handlers.card_forms import handle
+        return await handle(self, update, context)
+
     async def _send_owned_card_sticker(self, query, context, card):
         # Opening personal card information should never leak custom media into groups.
         sender=getattr(query.message,'reply_sticker',None)
@@ -1196,7 +1200,7 @@ class BasicHandlersMixin:
             from bot.card_reward_presentation import send_card_sticker
             await send_card_sticker(self,context,card,sender)
 
-    async def _show_card_info(self, query, card_id: str, context=None, answer=False):
+    async def _show_card_info(self, query, card_id: str, context=None, answer=False, send_sticker=True):
         """Render a card without re-parsing or mutating the triggering callback."""
         user_id = query.from_user.id
         
@@ -1212,7 +1216,7 @@ class BasicHandlersMixin:
             return
         if answer:
             await query.answer()
-        if context is not None:
+        if context is not None and send_sticker:
             await self._send_owned_card_sticker(query,context,card)
 
         conn = sqlite3.connect(self.db.db_path)
@@ -1262,6 +1266,11 @@ class BasicHandlersMixin:
             [InlineKeyboardButton(fav_text, callback_data=f"toggle_fav_{card_id}")],
         ]
         if context is not None and query.message.chat_id == user_id:
+            if owned_card:
+                from bot.handlers.card_forms import button as form_button
+                choice = form_button(self, context, user_id, owned_card)
+                if choice:
+                    keyboard.append([choice])
             from systems.victory_voices import owned
             if owned(self.db, user_id, card_id):
                 from bot.handlers.legend_voice import button
@@ -1321,7 +1330,7 @@ class BasicHandlersMixin:
         if success:
             await query.answer("✅ وضعیت کارت تغییر کرد!", show_alert=False)
             # بروزرسانی پیام
-            await self._show_card_info(query, card_id)
+            await self._show_card_info(query, card_id, context, send_sticker=False)
         else:
             await query.answer("❌ خطا در تغییر وضعیت!", show_alert=True)
 
