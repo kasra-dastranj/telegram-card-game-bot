@@ -78,7 +78,7 @@ class BasicHandlersMixin:
             if chat_type == 'private':
                 from bot.onboarding import needed, show, resume_invite
                 if needed(self, user.id):
-                    await show(self, update)
+                    await show(self, update, context)
                     return
                 if await resume_invite(self, update, context):
                     return

@@ -226,10 +226,10 @@ def require_auth(f):
 
 
 def _grant_starter_cards(user_id: int):
-    """اگه player هیچ کارتی نداره، ۳ تا کارت starter بده"""
+    """Grant the shared ten-card pack to fresh accounts; returning users use /start."""
     try:
         from systems.starter_cards_system import grant_starter_cards
-        grant_starter_cards(db, user_id)
+        grant_starter_cards(db, user_id, allow_existing=False)
     except Exception as e:
         logger.warning(f"Failed to grant starter cards to {user_id}: {e}")
 
