@@ -480,6 +480,11 @@ class BattleSystem3Rounds:
         arena_info = arena_snapshot or ARENAS.get(arena)
         if not arena_info:
             return 0
+        if "effects" in arena_info:
+            from systems.game_mode_system import apply_arena_effects
+            values = dict.fromkeys(('power', 'speed', 'iq', 'popularity'), 0)
+            apply_arena_effects(card, arena_info, values)
+            return values.get(selected_stat, 0)
         
         boost_stat = arena_info["boost_stat"]
         boost_amount = arena_info["boost_amount"]

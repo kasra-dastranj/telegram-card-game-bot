@@ -76,15 +76,17 @@ def background():
 
 async def text_panel(update, text, markup):
     query = update.callback_query
-    try:
-        await query.edit_message_text(text, reply_markup=markup, parse_mode=None)
-    except Exception:
-        await update.effective_message.reply_text(text, reply_markup=markup, parse_mode=None)
+    if query:
+        try:
+            return await query.edit_message_text(text, reply_markup=markup, parse_mode=None)
+        except Exception:
+            pass
+    await update.effective_message.reply_text(text, reply_markup=markup, parse_mode=None)
 
 
 async def show(update, context, model, text, markup):
     query = update.callback_query
-    message = getattr(query, 'message', None)
+    message = getattr(query, 'message', None) or getattr(update, 'effective_message', None)
     chat_id, control_id = getattr(message,'chat_id',None), getattr(message,'message_id',None)
     telegram_bot = getattr(context,'bot',None)
     # Test doubles / clients without media support keep the full text interface.
@@ -93,7 +95,7 @@ async def show(update, context, model, text, markup):
                and callable(getattr(message,'reply_photo',None))
                and callable(getattr(message,'reply_text',None)))
     if capable:
-        key = (chat_id, control_id, query.from_user.id)
+        key = (chat_id, control_id, update.effective_user.id)
         boards = limited_cache(context,'_shop_boards',128)
         try:
             raw = await work(context,background)
@@ -106,13 +108,14 @@ async def show(update, context, model, text, markup):
                 picture = await message.reply_photo(BytesIO(image))
                 controls = await message.reply_text(text,reply_markup=markup,parse_mode=None)
                 if type(picture.message_id) is int and type(controls.message_id) is int:
-                    boards[(chat_id,controls.message_id,query.from_user.id)] = picture.message_id
+                    boards[(chat_id,controls.message_id,update.effective_user.id)] = picture.message_id
                 # Keep all callbacks on text messages: main/card/mission navigation
                 # needs no changes to support shop photos.
-                try:
-                    await query.edit_message_reply_markup(reply_markup=None)
-                except Exception:
-                    logger.warning('Could not retire previous shop controls')
+                if query:
+                    try:
+                        await query.edit_message_reply_markup(reply_markup=None)
+                    except Exception:
+                        logger.warning('Could not retire previous shop controls')
             return
         except Exception:
             boards.pop(key,None)
@@ -129,9 +132,9 @@ async def show_catalog(bot,update,context):
         return await text_panel(update,'فعلاً فروشگاه باز نمی‌شه؛ یه کم دیگه امتحان کن.',back_buttons())
     markup=catalog_buttons(catalog)
     from bot.avatar_links import button as avatar_button
-    links=[avatar_button(bot,'🖼 قاب‌های آواتار','frame'),avatar_button(bot,'🌄 پس‌زمینه‌های آواتار','background')]
-    if all(links):
-        markup=InlineKeyboardMarkup([list(row) for row in markup.inline_keyboard[:-1]]+[links,list(markup.inline_keyboard[-1])])
+    link=avatar_button(bot,'🖼 آواتار و پس‌زمینه','frame')
+    if link:
+        markup=InlineKeyboardMarkup([list(row) for row in markup.inline_keyboard[:-1]]+[[link],list(markup.inline_keyboard[-1])])
     return await show(update,context,dict(catalog,screen='catalog'),catalog_text(catalog),markup)
 
 

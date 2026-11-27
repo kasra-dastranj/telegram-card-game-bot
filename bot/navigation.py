@@ -109,6 +109,8 @@ async def text(bot, update, context):
         await bot.leaderboard_command(update, context)
     elif action == 'کلیم':
         await bot.claim_command(update, context)
+    elif action == 'شاپ':
+        await bot.shop_command(update, context)
     elif action == 'راهنما':
         await guide(bot, update, context)
     elif not action:

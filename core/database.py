@@ -767,6 +767,8 @@ class DatabaseManager:
             # upgrades use the shared recipe, independently of this legacy tier.
             if conn.execute("SELECT 1 FROM sqlite_master WHERE name='catalog_import_runs'").fetchone():
                 conn.execute("INSERT OR IGNORE INTO economy_character_rules(card_id,legend_recipe_tier) VALUES(?,'A')", (card.card_id,))
+            from systems.easy_questions import seed_easy_core_stats_in
+            seed_easy_core_stats_in(conn, card.card_id)
             conn.commit()
             conn.close()
             self.card_cache.invalidate(f"card_{card.card_id}")

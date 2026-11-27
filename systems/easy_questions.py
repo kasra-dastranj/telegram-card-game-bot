@@ -39,7 +39,7 @@ def formula_terms(expression, stats):
     if not isinstance(expression, str) or len(expression) > 700:
         raise ValueError('فرمول باید نام ویژگی‌ها با جمع یا تفریق باشد.')
     compact = re.sub(r'\s+', '', expression)
-    if not re.fullmatch(KEY_PATTERN + r'(?:[+-]' + KEY_PATTERN + r')*', compact):
+    if not re.fullmatch(r'[+-]?' + KEY_PATTERN + r'(?:[+-]' + KEY_PATTERN + r')*', compact):
         raise ValueError('در فرمول فقط نام ویژگی و علامت + یا - مجاز است.')
     terms = [(1 if sign != '-' else -1, key) for sign, key in re.findall(r'([+-]?)(' + KEY_PATTERN + ')', compact)]
     if len(terms) > 16 or any(key not in stats for _, key in terms):
@@ -75,7 +75,7 @@ def validate_catalog(data):
         if mode != 'none' and not value.strip() and '{' + mode + '}' not in text:
             raise ValueError('برای شرط خودکار، {trait} یا {series} را در متن سؤال بنویس.')
         terms = formula_terms(item.get('formula'), clean_stats)
-        formula = ' '.join((('' if i == 0 else '+ ' if sign == 1 else '- ') + stat)
+        formula = ' '.join((('- ' if sign == -1 else '' if i == 0 else '+ ') + stat)
                            for i, (sign, stat) in enumerate(terms))
         clean_questions.append(dict(id=key, text=text.strip(), formula=formula,
                                     enabled=item['enabled'], filter=mode, filter_value=value.strip()))
@@ -83,6 +83,40 @@ def validate_catalog(data):
     if not any(q['enabled'] and q['filter'] == 'none' for q in clean_questions):
         raise ValueError('حداقل یک سؤال فعال بدون شرط لازم است تا بازی همیشه سؤال داشته باشد.')
     return dict(revision=data['revision'], stats=clean_stats, questions=clean_questions)
+
+
+def seed_easy_core_stats_in(conn, card_id=None):
+    """Fill missing Easy values once, preserving all authored character metadata."""
+    tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    if 'card_mode_metadata' not in tables:
+        return 0
+    rows = conn.execute(
+        """SELECT c.card_id,c.origin,m.hidden_stats,
+                  COALESCE(v.power,c.power),COALESCE(v.speed,c.speed),
+                  COALESCE(v.iq,c.iq),COALESCE(v.popularity,c.popularity)
+           FROM cards c LEFT JOIN card_variants v ON v.card_id=c.card_id AND v.rarity='legend'
+                AND c.origin='official' AND c.rarity!='rare'
+           LEFT JOIN card_mode_metadata m ON m.card_id=c.card_id
+           WHERE (? IS NULL OR c.card_id=?)""", (card_id, card_id)
+    ).fetchall()
+    changed = 0
+    for cid, origin, raw, *values in rows:
+        stats = json.loads(raw or '{}')
+        missing = {key: max(1, min(100, int(value) * 10))
+                   for key, value in zip(CORE_STATS, values) if stats.get(key) in (None, '')}
+        if not missing:
+            continue
+        stats.update(missing)
+        encoded = json.dumps(stats, ensure_ascii=False)
+        conn.execute(
+            """INSERT INTO card_mode_metadata(card_id,hidden_stats) VALUES(?,?)
+               ON CONFLICT(card_id) DO UPDATE SET hidden_stats=excluded.hidden_stats""", (cid, encoded))
+        if origin == 'custom' and 'custom_definitions' in tables:
+            conn.execute(
+                """UPDATE custom_definitions SET payload_json=json_set(payload_json,
+                   '$.metadata.hidden_stats',json(?)) WHERE card_id=?""", (encoded, cid))
+        changed += 1
+    return changed
 
 
 def catalog_in(conn):
@@ -120,7 +154,14 @@ def question_pool(catalog, traits, series):
                 continue
             pool.append({**template, 'id': template['id'] + ':' + key, mode: label,
                          'text': template['text'].replace('{' + mode + '}', '\u2068' + label + '\u2069')})
-    return pool
+    unique = {}
+    for question in pool:
+        unique.setdefault(question_identity(question), question)
+    return list(unique.values())
+
+
+def question_identity(question):
+    return ' '.join(str(question.get('text') or question.get('id', '')).split()).casefold()
 
 
 def evaluate_card(modes, card, question):

@@ -18,7 +18,7 @@
 <label for="formula">فرمول امتیاز کارت</label><input id="formula" class="ltr" maxlength="700" required placeholder="survival + management">
 <p id="formulaPreview" class="hint"></p>
 <div class="row"><select id="stat" aria-label="ویژگی برای فرمول"></select><button id="first" type="button">شروع با این ویژگی</button><button id="plus" type="button">+ اضافه کن</button><button id="minus" type="button">− کم کن</button></div>
-<p class="hint">یک یا چند ویژگی را با + یا - ترکیب کن؛ مثل بقا + مدیریت یا ترسناکی - بامزگی. عدد بزرگ‌تر بهتر است و نتیجهٔ منفی هم معتبر است.</p>
+<p class="hint">یک یا چند ویژگی را با + یا - ترکیب کن؛ مثل بقا + مدیریت یا ترسناکی - بامزگی. برای خنگ‌ترین شخصیت از -iq استفاده کن. عدد بزرگ‌تر بهتر است و نتیجهٔ منفی هم معتبر است.</p>
 <label for="filter">شرط سؤال</label><select id="filter"><option value="none">بدون شرط — پنج کارت تصادفی</option><option value="trait">تریت — انتخاب از همهٔ کارت‌ها</option><option value="series">مجموعه — انتخاب از همهٔ کارت‌ها</option></select>
 <div id="condition" hidden><label for="filterValue">تریت / مجموعهٔ مشخص (اختیاری)</label><input id="filterValue" list="conditions" maxlength="100"><datalist id="conditions"></datalist><p class="hint">خالی بگذار تا سیستم از موارد مشترک بین همهٔ بازیکنان انتخاب کند. در متن از {trait} یا {series} استفاده کن تا نام انتخاب‌شده جایگزین شود. کارت مطابق، اولویت اول دارد؛ سپس فرمول مقایسه می‌شود. کارت‌های نامطابق نیز بین خودشان رتبه می‌گیرند.</p></div>
 <div class="row"><button type="submit">ثبت ویرایش در فهرست این صفحه</button><button id="delete" class="danger" type="button">حذف سؤال از فهرست</button></div>
@@ -78,6 +78,6 @@ $('new').onclick=()=>addQuestion();$('example').onclick=()=>addQuestion(true);
 $('delete').onclick=()=>{if(selected && confirm('این سؤال حذف شود؟ بازی شروع‌شده تغییر نمی‌کند.')){catalog.questions=catalog.questions.filter(q=>q.id!==selected);openQuestion(catalog.questions[0]?.id);message('برای ثبت حذف، فهرست را ذخیره کن.');}};
 $('search').oninput=renderList;$('filter').onchange=updateCondition;$('formula').oninput=preview;
 $('first').onclick=()=>{$('formula').value=$('stat').value;preview();};
-for(const [id,operator] of [['plus','+'],['minus','-']])$(id).onclick=()=>{$('formula').value=$('formula').value.trim()?`${$('formula').value.trim()} ${operator} ${$('stat').value}`:$('stat').value;preview();};
+for(const [id,operator] of [['plus','+'],['minus','-']])$(id).onclick=()=>{$('formula').value=$('formula').value.trim()?`${$('formula').value.trim()} ${operator} ${$('stat').value}`:`${operator==='-'?'- ':''}${$('stat').value}`;preview();};
 $('addStat').onclick=()=>{const key=$('statKey').value.trim(),label=$('statLabel').value.trim();if(!/^[a-z][a-z0-9_]{0,39}$/.test(key)||!label){message('شناسهٔ انگلیسی ساده و نام نمایشی را وارد کن.',true);return;}catalog.stats[key]=label;renderStats();$('statKey').value='';$('statLabel').value='';message('ویژگی در فهرست اضافه شد؛ فهرست را ذخیره کن و عدد کارت‌ها را در پنل کارت بده.');};
 </script></body></html>

@@ -99,6 +99,34 @@ body:is([data-app-screen="quickMatch"],[data-app-screen="threeMatch"],[data-app-
 .card-sheet__hero { background-color: #1c2e44; }.card-sheet__content { padding-bottom: max(20px,env(safe-area-inset-bottom)); }
 .card-stat-list span, .card-meta, .upgrade-confirm, .deck-pick, .fusion-card, .skin-card { border-color: #b58a4c9c; background-color: #07182a; }
 .card-actions { flex-wrap: wrap; }.card-actions button { min-height: 44px; }
+.collection-tools label { font-size: 13px; gap: 7px; }
+.collection-tools > div { gap: 12px; }
+.collection-tools select { min-width: 0; padding-inline: 8px; font-size: 14px; }
+.card-sheet .card-sheet__hero { height: min(28dvh,220px); }
+.card-sheet .card-sheet__content { position: relative; margin-top: -22px; }
+.card-detail-tabs { position: sticky; top: 0; z-index: 2; display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 6px; margin: 8px 0; padding-block: 8px; background: #06101c; }
+.card-detail-tabs button { min-height: 46px; border: 1px solid #98784e; border-radius: 6px; background: #071727; color: #e1d0b2; font: inherit; }
+.card-detail-tabs button[aria-pressed="true"] { background: #423019; border-color: #f4c67a; color: #ffe2a7; box-shadow: inset 0 -3px #f4c67a; }
+.card-detail-panel { display: grid; gap: 14px; text-align: start; }
+.card-detail-panel h3, .card-detail-panel p { margin: 0; }
+.card-detail-panel p { color: #d2c3aa; line-height: 1.9; }
+.card-form-list, .card-upgrade-list { display: grid; gap: 12px; }
+.card-form-option { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px; border: 1px solid #9d7d50; border-radius: 7px; background: #091c2a; color: #ffe2a7; text-align: start; font: inherit; min-height: 76px; }
+.card-form-option span { display: grid; gap: 6px; }
+.card-form-option small { color: #d2c3aa; }
+.card-form-option b { font-size: 13px; }
+.card-form-option.is-active { border-color: #f4c67a; background: #362b1b; opacity: 1; }
+.card-upgrade-option { display: grid; gap: 12px; padding: 14px; border: 1px solid #9d7d50; border-radius: 7px; background: #091c2a; }
+.card-upgrade-option header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
+.card-upgrade-option small { color: #d2c3aa; }
+.card-detail-panel .upgrade-confirm { margin: 0; }
+.card-detail-panel .upgrade-confirm > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.card-detail-panel .upgrade-confirm button { flex: 1; min-height: 44px; }
+.card-sale-section { border-top: 1px solid #9d7d5066; padding-top: 16px; display: grid; gap: 12px; }
+.card-sale-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.card-sale-actions button { flex: 1 1 120px; }
+.reward-reveal { scroll-margin: 16px; }
+.reward-reveal > span { background-size: contain; background-color: #000; }
 .deck-card-strip span, .deck-pick span { border: 1px solid #c59b56; background-color: #162b40; }
 .empty-deck__cards i { border-color: #bc8c4e; background: linear-gradient(#162a40,#06101c); color: #ecc27b; }
 .deck-picker, .skin-list { overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
@@ -144,7 +172,21 @@ body:is([data-app-screen="quickMatch"],[data-app-screen="threeMatch"],[data-app-
 .battle-screen .stat-console { margin-top: 0; }
 
 /* Results, real rewards and progress */
-.result-screen { text-align: center; }
+.result-screen { text-align: center; scrollbar-gutter: stable; }
+/* Results grow vertically inside the scroll view instead of compressing their panels. */
+.result-screen > * { flex-shrink: 0; min-width: 0; }
+.result-screen > .victory-crest,
+.result-screen > .citadel-level,
+.result-screen > .result-breakdown,
+.result-screen > .primary-button,
+.result-screen > .secondary-button { width: 100%; }
+.result-screen > p { line-height: 1.9; overflow-wrap: anywhere; }
+.result-breakdown { padding: 14px; text-align: start; line-height: 1.9; }
+.result-breakdown summary { cursor: pointer; font-weight: 700; min-height: 44px; }
+.result-breakdown p { margin: 8px 0 0; overflow-wrap: anywhere; }
+.result-breakdown header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; }
+.result-breakdown .result-value { display: grid; grid-template-columns: 64px minmax(0,1fr); gap: 8px; padding-top: 8px; }
+.result-value bdi { text-align: end; }
 .victory-crest { position: relative; padding: 10px; border: 1px solid #d4a253; background: linear-gradient(90deg,transparent,#061527ec 14%,#061527ec 86%,transparent); }
 .victory-crest > span { display: block; font-size: 29px; line-height: 1; color: #f9cc76; }.victory-crest p { margin: 0; color: #f6cc7e; font: 700 11px Georgia,serif; letter-spacing: .22em; }
 .victory-crest h2 { margin: 4px 0 0; font-size: clamp(27px,8vw,44px); }
@@ -202,6 +244,10 @@ body:is([data-app-screen="quickMatch"],[data-app-screen="threeMatch"],[data-app-
   .selection-dock { right: 9px; left: 9px; padding: 9px; }.selection-dock .primary-button { min-width: 118px; }
 }
 @media (min-width: 650px) { .shop-items { grid-template-columns: repeat(3,minmax(0,1fr)); }.card-grid { grid-template-columns: repeat(3,minmax(0,1fr)); } }
+@media (orientation: landscape) and (max-height: 560px) {
+  #ui-root:is([data-screen="result"],[data-screen="quickResult"],[data-screen="threeResult"]) { visibility: visible; pointer-events: auto; }
+  #ui-root:is([data-screen="result"],[data-screen="quickResult"],[data-screen="threeResult"]) ~ #orientation-guard { display: none; }
+}
 @media (orientation: landscape) and (max-height: 520px) {
   .quick-match-screen, .battle-screen, .result-screen, .cards-screen, .lobby-screen { display: flex; flex-direction: column; height: 100dvh; overflow-y: auto; }
   .cards-screen { overflow: hidden; }

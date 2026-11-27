@@ -459,7 +459,7 @@ def test_insufficient_coins_rolls_back_delivery_and_quote(game,item):
     assert rows(game,"SELECT COUNT(*) FROM reward_ledger WHERE source='shop'")==[(0,)]
 
 
-@pytest.mark.parametrize('mode,min_level',[('easy',5),('deck',5),('risk',7),('quick',1),('mini_three_round',1)])
+@pytest.mark.parametrize('mode,min_level',[('easy',1),('deck',1),('risk',7),('quick',1),('mini_three_round',1)])
 def test_mode_unlocks(game,mode,min_level):
     from systems.mode_access_system import ModeAccessSystem
     system=ModeAccessSystem(game)
@@ -567,6 +567,30 @@ def v2_client(game,monkeypatch):
     return miniapp.app.test_client()
 
 
+def test_silver_claim_reveals_awarded_form_and_replay_without_granting_twice(v2_client, game):
+    headers = {'X-Debug-User-Id': '1'}
+    for rarity in ('normal', 'epic'):
+        form = game.get_card_variant('deadpool', rarity)
+        game.save_card_variant('deadpool', rarity, dict(form, image_path=rarity + '-portrait.png'))
+    with sqlite3.connect(game.db_path) as conn:
+        items_in(conn, 1, 'free_silver_claim', 1)
+    payload = {'request_key': 'reveal-silver-epic'}
+    response = v2_client.post('/api/v1/economy/claim/silver', headers=headers, json=payload)
+    assert response.status_code == 200
+    reward = response.get_json()
+    assert reward['card_id'] == reward['card']['card_id'] == 'deadpool'
+    assert reward['rarity'] == reward['card']['rarity'] == 'epic'
+    assert reward['card']['power'] == 7
+    assert reward['card']['image_url'] == '/card-images/epic-portrait.png?w=480'
+    # The active collection form is still Normal; the reward must show Epic.
+    assert v2_client.get('/api/v1/cards/deadpool', headers=headers).get_json()['rarity'] == 'normal'
+    replay = v2_client.post('/api/v1/economy/claim/silver', headers=headers, json=payload).get_json()
+    assert replay['replayed'] and replay['card'] == reward['card']
+    with sqlite3.connect(game.db_path) as conn:
+        assert items_in(conn, 1, 'free_silver_claim') == 0
+    assert v2_client.get('/api/v1/cards/deadpool', headers=headers).get_json()['inventory']['epic'] == 1
+
+
 def test_miniapp_economy_end_to_end_offline(v2_client,game):
     headers={'X-Debug-User-Id':'1'}
     with sqlite3.connect(game.db_path) as conn:conn.execute('UPDATE players SET coins=1000 WHERE user_id=1')
@@ -671,7 +695,7 @@ def test_fresh_tester_progression_without_seeded_wallet(v2_client, game, monkeyp
     initial = profile()
     assert (initial['level'], initial['coins'], initial['total_score']) == (1, 0, 0)
     assert initial['counts']['cards'] == 3 and initial['counts']['decks'] == 1
-    assert not ModeAccessSystem(game).check(10, 'deck')[0]
+    assert ModeAccessSystem(game).check(10, 'deck')[0]
 
     def finish_win(index):
         with sqlite3.connect(game.db_path) as conn:

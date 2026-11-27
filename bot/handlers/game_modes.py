@@ -704,31 +704,12 @@ class GameModeHandlersMixin:
         """Send the player's actual form privately, for manual and Random choices."""
         if not card:
             return
-        from bot.card_sticker_details import button
-        markup = button(card)
+        from bot.card_reward_presentation import send_card_sticker
         rarity = getattr(getattr(card, "rarity", None), "value", getattr(card, "rarity", "normal"))
-        if getattr(card, "origin", "official") != "custom":
-            try:
-                cached = self.db.get_card_variant_media_file_id(card.card_id, rarity, "sticker")
-                if cached:
-                    await context.bot.send_sticker(chat_id=user_id, sticker=cached, reply_markup=markup)
-                    return
-            except Exception as exc:
-                logger.warning("Could not send cached Quick card sticker to %s: %s", user_id, exc)
-        try:
-            resolver = getattr(self, "_resolve_card_media_path", None)
-            media_path = (getattr(card, "image_path", None) if getattr(card, "origin", "official") == "custom"
-                          else resolver(card) if callable(resolver) else None)
-            if media_path and os.path.exists(media_path):
-                with open(media_path, "rb") as media:
-                    if media_path.lower().endswith(".webp"):
-                        await context.bot.send_sticker(chat_id=user_id, sticker=media, reply_markup=markup)
-                    else:
-                        await context.bot.send_photo(chat_id=user_id, photo=media,
-                                                     caption=f"🎴 {card.name} ({str(rarity).title()})")
-                return
-        except Exception as exc:
-            logger.warning("Could not send Quick card preview to %s: %s", user_id, exc)
+        async def send(sticker, **kwargs):
+            return await context.bot.send_sticker(chat_id=user_id, sticker=sticker, **kwargs)
+        if await send_card_sticker(self, context, card, send):
+            return
         # Missing artwork must not leave the player choosing without card information.
         text = f"🎴 {bidi_isolate(card.name)} ({bidi_isolate(str(rarity).title())})"
         for stat in ("power", "speed", "iq", "popularity"):
@@ -922,7 +903,7 @@ class GameModeHandlersMixin:
                 logger.warning('Quick victory voice settings unavailable; keeping text')
         for chat_id in dict.fromkeys(targets):
             try:
-                if winner_card and getattr(winner_card, "origin", "official")=="official" and hasattr(self, "_send_round_winner_card_media"):
+                if winner_card and hasattr(self, "_send_round_winner_card_media"):
                     await self._send_round_winner_card_media(context, chat_id, winner_card)
                 if voice_id:
                     from bot.victory_voices import send
@@ -1251,12 +1232,16 @@ class GameModeHandlersMixin:
         if not ok:
             if reason == "already_started":
                 return
+            if reason == 'not_enough_questions':
+                self._cancel_mode_job(context, f"gm-easy-lobby-{request_id}")
             if request:
                 await self._edit_request_panel(
                     context,
                     request,
                     "یکی از بازیکن‌ها در بازی دیگه‌ایه؛ این لابی بسته شد."
                     if reason == 'player_busy' else
+                    f"برای این دست {state['rounds']} سؤال متفاوت لازمه؛ فعلاً {len(state.get('question_pool', []))} سؤال فعال قابل استفاده داریم. یک دست کوتاه‌تر بسازید."
+                    if reason == 'not_enough_questions' else
                     "⏳ وقت لابی تموم شد؛ برای ایزی مود حداقل دو نفر لازمه.",
                 )
             return

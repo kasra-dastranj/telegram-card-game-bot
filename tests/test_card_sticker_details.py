@@ -150,6 +150,7 @@ def test_deck_round_winner_sticker_has_exact_form_button(scene, tmp_path):
     card.image_path = str(path)
     handler = BattleHandlersMixin()
     handler.config = {}
+    handler.db = bot.db
     context.bot = SimpleNamespace(send_sticker=AsyncMock(), send_photo=AsyncMock())
     assert asyncio.run(handler._send_round_winner_card_media(context, -100123, card))
     assert context.bot.send_sticker.await_args.kwargs['reply_markup'] == button(card)

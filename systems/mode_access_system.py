@@ -35,6 +35,8 @@ class ModeAccessSystem:
     def check_in(conn: sqlite3.Connection, user_id: int, mode: str) -> tuple[bool, str]:
         if mode not in DEFAULT_MODE_LEVELS:
             raise ValueError("invalid mode")
+        if mode in ('easy', 'deck'):
+            return True, ""
         row = conn.execute(
             "SELECT min_level FROM mode_unlock_rules WHERE mode=?", (mode,)
         ).fetchone()
@@ -57,6 +59,8 @@ class ModeAccessSystem:
     def min_level(self, mode: str) -> int:
         if mode not in DEFAULT_MODE_LEVELS:
             raise ValueError("invalid mode")
+        if mode in ('easy', 'deck'):
+            return 1
         with closing(sqlite3.connect(self.db.db_path, timeout=15)) as conn:
             from systems.progression_config import enabled_in, config_in
             if enabled_in(conn):

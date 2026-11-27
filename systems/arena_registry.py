@@ -293,7 +293,9 @@ class ArenaRegistry:
             if not isinstance(rules, Mapping):
                 issues.append(self._issue(f"profiles.{mode}.rules", "rules_invalid", "ساختار قواعد مود نامعتبر است."))
                 continue
-            if mode == "quick":
+            if mode == "three_round" and rules.get("disabled_stats"):
+                issues.append(self._issue(f"profiles.{mode}.disabled_stats", "invalid_stat", "بستن ویژگی در سه‌راندی مجاز نیست."))
+            if mode == "quick" or (mode == "three_round" and "effects" in rules):
                 disabled = rules.get("disabled_stats", [])
                 if not isinstance(disabled, list) or any(stat not in CORE_STATS for stat in disabled):
                     issues.append(self._issue(f"profiles.{mode}.disabled_stats", "invalid_stat", "ویژگی غیرفعال نامعتبر است."))
@@ -307,9 +309,9 @@ class ArenaRegistry:
                 else:
                     seen = set()
                     for index, effect in enumerate(effects):
-                        path = f"profiles.quick.effects[{index}]"
+                        path = f"profiles.{mode}.effects[{index}]"
                         if not isinstance(effect, Mapping):
-                            issues.append(self._issue(path, "invalid_quick_effect", "Effect زمین Quick باید یک شیء باشد."))
+                            issues.append(self._issue(path, "invalid_quick_effect", "Effect زمین باید یک شیء باشد."))
                             continue
                         condition = effect.get("condition") or {}
                         if not isinstance(condition, Mapping):
@@ -320,7 +322,7 @@ class ArenaRegistry:
                         try: delta = int(effect.get("delta", 0))
                         except (TypeError, ValueError): delta = 999
                         if effect.get("type", "stat_modifier") != "stat_modifier" or card_type not in CORE_STATS or target not in CORE_STATS or not -10 <= delta <= 10:
-                            issues.append(self._issue(path, "invalid_quick_effect", "Effect زمین Quick نامعتبر است."))
+                            issues.append(self._issue(path, "invalid_quick_effect", "Effect زمین نامعتبر است."))
                         key = (card_type, target, delta)
                         if key in seen:
                             issues.append(self._issue(path, "duplicate_effect", "Effect تکراری است.", "warning"))
@@ -427,7 +429,7 @@ class ArenaRegistry:
             conn.execute("INSERT INTO arena_platform_settings(arena_id,version,platform,enabled,presentation_json) VALUES (?,?,?,?,?)", (arena_id, version, target, int(bool(config.get("enabled"))), json_dumps({k:v for k,v in config.items() if k != "enabled"})))
 
     def _normalise_rules(self, mode: str, rules: Mapping[str, Any]) -> Dict[str, Any]:
-        if mode == "quick":
+        if mode == "quick" or (mode == "three_round" and "effects" in rules):
             effects = []
             for index, effect in enumerate(rules.get("effects") or []):
                 condition = effect.get("condition") or {"card_type": effect.get("card_type")}
@@ -530,7 +532,7 @@ class ArenaRegistry:
         media = self._background_for(data["arena_id"], data["version"], platform)
         rules = profile["rules"]
         result = {"id": data["arena_id"], "arena_id": data["arena_id"], "version": data["version"], "name": data["name_fa"], "name_fa": data["name_fa"], "name_en": data["name_en"], "description_fa": data["description_fa"], "emoji": data["emoji"], "mode": mode, "selection_weight": profile["selection_weight"], "rules": rules, "platform": data["platform"], "background_url": media.get("storage_path") if media else None}
-        if mode == "quick":
+        if mode == "quick" or (mode == "three_round" and "effects" in rules):
             result.update({"effects": [{"card_type": effect["condition"]["card_type"], "stat": effect["target_stat"], "delta": effect["delta"]} for effect in rules["effects"]], "disabled_stats": rules["disabled_stats"], "abilities_enabled": rules["abilities_enabled"], "passives_enabled": rules["passives_enabled"]})
         else:
             result.update(rules)

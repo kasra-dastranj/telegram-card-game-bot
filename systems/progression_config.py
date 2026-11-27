@@ -22,6 +22,8 @@ def effective_config(value):
     value = copy.deepcopy(value)
     if isinstance(value, dict):
         value.setdefault('ability_shop', ability_defaults())
+        if isinstance(value.get('mode_levels'), dict):
+            value['mode_levels'].update(easy=1, deck=1)
     return value
 
 
@@ -36,7 +38,7 @@ def seed_config():
             "silver_claims":int(level in (3,10)), "hearts":int(level in (8,10))}
             for level in range(2,31)},
         "mode_levels":{"quick":1,"three_round":1,"mini_three_round":1,"legacy_pvp":1,
-                       "practice":1,"solo":1,"easy":5,"deck":5,"risk":7},
+                       "practice":1,"solo":1,"easy":1,"deck":1,"risk":7},
         "match":{"quick":{"win":10,"tie":3,"loss":1,"score":1,"loss_hearts":1},
                  "three_round":{"win":15,"tie":5,"loss":3,"score":3,"loss_hearts":1},
                  "deck":{"win":15,"tie":5,"loss":3,"score":3,"loss_hearts":1},

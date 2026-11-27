@@ -22,6 +22,65 @@ def headers(user_id):
     return {"X-Debug-User-Id": str(user_id)}
 
 
+@pytest.mark.parametrize('passives_enabled', [False, True])
+def test_three_round_modifiers_match_quick_and_preview_matches_settlement(client_and_modes, monkeypatch, passives_enabled):
+    client, modes = client_and_modes
+    arena = {
+        'arena_id': 'multi-effects', 'name_fa': 'Multi effects', 'emoji': 'A', 'version': 1,
+        'effects': [{'card_type': 'power', 'stat': 'power', 'delta': -2},
+                    {'card_type': 'power', 'stat': 'speed', 'delta': 3},
+                    {'card_type': 'speed', 'stat': 'power', 'delta': 9}],
+        'abilities_enabled': False, 'passives_enabled': passives_enabled,
+    }
+    monkeypatch.setattr(miniapp.mini_three_round, '_arena', lambda *args, **kwargs: arena)
+    modes.set_card_metadata('three-a', passive={
+        'name': 'Bonus', 'condition': {'opponent_name': 'Hero 202'},
+        'effect': {'stat': 'power', 'delta': 1},
+    })
+    request = post(client, '/api/v1/three-round/invites', 101).get_json()
+    key = request['request_id']
+    assert post(client, f"/api/v1/three-round/invites/{request['invite_token']}/accept", 202).status_code == 200
+    for user, cid in [(101, 'three-a'), (202, 'three-b')]:
+        assert post(client, f'/api/v1/three-round/matches/{key}/card', user, {'card_id': cid}).status_code == 200
+    snapshot = client.get(f'/api/v1/three-round/requests/{key}', headers=headers(101)).get_json()
+    assert snapshot['my_values']['power'] == 78 + int(passives_enabled)
+    assert snapshot['my_values']['speed'] == 73
+    assert not snapshot['abilities'] and not snapshot['abilities_enabled']
+    quick_state = {'players': [101, 202], 'cards': {'101': 'three-a', '202': 'three-b'},
+                   'arena': arena['arena_id'], 'arena_snapshot': dict(arena, mode='quick'), 'ability_choices': {}}
+    assert modes.quick_stat_preview(quick_state, 101)['final_values'] == snapshot['my_values']
+    post(client, f'/api/v1/three-round/matches/{key}/stat', 101, {'stat': 'power'})
+    settled = post(client, f'/api/v1/three-round/matches/{key}/stat', 202, {'stat': 'power'}).get_json()
+    assert settled['last_round']['values']['101']['total'] == snapshot['my_values']['power']
+    assert settled['last_round']['arena']['effects'] == arena['effects']
+
+
+def test_solo_uses_signed_three_round_effects_in_preview_and_result(client_and_modes, monkeypatch):
+    client, modes = client_and_modes
+    fight_id = ready_solo(client, monkeypatch)
+    arena = {'arena_id': 'negative-power', 'name_fa': 'Signed arena', 'emoji': 'A',
+             'effects': [{'card_type': 'power', 'stat': 'power', 'delta': -2},
+                         {'card_type': 'power', 'stat': 'speed', 'delta': 3}],
+             'abilities_enabled': False, 'passives_enabled': False}
+    modes.db.update_solo_fight(fight_id, arena_snapshot=json.dumps(arena))
+    snapshot = client.get(f'/api/v1/solo/fights/{fight_id}', headers=headers(101)).get_json()
+    assert snapshot['ai_card'] is None
+    assert snapshot['my_values']['power'] == 78 and snapshot['my_values']['speed'] == 73
+    assert not snapshot['abilities_enabled'] and not snapshot['abilities']
+    result = solo_round(client, fight_id)
+    assert result['player_boost'] == -2
+    assert result['player_total'] == snapshot['my_values']['power']
+
+
+def test_older_solo_without_arena_snapshot_retains_legacy_boost(client_and_modes, monkeypatch):
+    client, modes = client_and_modes
+    fight_id = ready_solo(client, monkeypatch)
+    modes.db.update_solo_fight(fight_id, arena='power_arena', arena_snapshot=None)
+    snapshot = client.get(f'/api/v1/solo/fights/{fight_id}', headers=headers(101)).get_json()
+    assert snapshot['my_boosts']['power'] == 8
+    assert snapshot['my_values']['power'] == 88
+
+
 def ready_solo(client, monkeypatch):
     monkeypatch.setattr(miniapp.AsoAI, 'select_card', lambda self, db: db.get_card_by_id('three-b'))
     monkeypatch.setattr(miniapp.AsoAI, 'select_stat', lambda self, available, *args: available[0])

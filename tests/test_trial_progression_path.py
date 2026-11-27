@@ -25,7 +25,7 @@ def test_trial_first_upgrade_without_manual_coin_grant(tmp_path):
     gates = ModeAccessSystem(db)
     assert gates.check(101, "quick")[0]
     assert not gates.check(101, "mini_three_round")[0]
-    assert not gates.check(101, "easy")[0]
+    assert gates.check(101, "easy")[0]
     for match_number in range(10):
         with sqlite3.connect(db.db_path) as conn:
             MatchRewardsSystem.award(conn, f"trial-win-{match_number}", "quick", {

@@ -125,7 +125,9 @@ def test_edit_preserves_access_metadata_and_rejects_stale_overwrite(custom):
     assert post(custom,'revise',stale).get_json()['error']=='definition_changed_reload'
     stored=json.loads(definition(custom,card)['payload_json'])
     assert stored['power']==95 and stored['dialogs']==['شعار من']
-    assert stored['metadata']['hidden_stats']=={'survival':80,'management':60}
+    assert stored['metadata']['hidden_stats']=={
+        'survival':80,'management':60,'power':100,'speed':100,'iq':100,'popularity':100,
+    }
     assert stored['metadata']['traits']==['hero','تازه']
     assert count(custom,'custom_grants')==2
     post(custom,'status',{'card_id':card,'status':'suspended'})

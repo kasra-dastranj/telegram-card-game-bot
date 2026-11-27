@@ -28,7 +28,8 @@ from systems.match_rewards_system import MatchRewardsSystem
 from systems.mode_access_system import ModeAccessSystem
 from systems.card_trait_registry import ensure_trait_registry_schema, remember_card_traits
 from systems.easy_questions import (catalog_in as easy_catalog_in, question_pool, evaluate_card,
-                                    DEFAULT_QUESTIONS as EASY_QUESTIONS, default_catalog)
+                                    DEFAULT_QUESTIONS as EASY_QUESTIONS, default_catalog, seed_easy_core_stats_in,
+                                    question_identity)
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,20 @@ def normalize_quick_card_type(card_type: Any) -> Optional[str]:
     """Return the Quick type key used by conditional arena effects."""
     raw = getattr(card_type, "value", card_type)
     return _QUICK_CARD_TYPE_ALIASES.get(str(raw or "").strip().upper())
+
+
+def apply_arena_effects(card, arena, values):
+    """Apply the same conditional numeric effects in Quick and three-round play."""
+    card_type = normalize_quick_card_type(getattr(card, "card_type", None))
+    applied = []
+    for effect in arena.get("effects", []):
+        stat = effect.get("stat")
+        if effect.get("card_type") != card_type or stat not in CORE_STATS:
+            continue
+        delta = int(effect.get("delta", 0))
+        values[stat] += delta
+        applied.append({"card_type": card_type, "stat": stat, "delta": delta})
+    return applied
 
 
 QUICK_ARENAS: List[Dict[str, Any]] = [
@@ -329,6 +344,7 @@ class GameModeSystem:
                     json.dumps(definition["effect"], ensure_ascii=False),
                 ),
             )
+        seed_easy_core_stats_in(conn)
         conn.commit()
         conn.close()
 
@@ -1013,20 +1029,7 @@ class GameModeSystem:
         base_values = {stat: int(getattr(card, stat)) for stat in CORE_STATS}
         final_values = dict(base_values)
         card_type = normalize_quick_card_type(getattr(card, "card_type", None))
-        applied_arena_effects = []
-        for effect in arena.get("effects", []):
-            if effect.get("card_type") != card_type:
-                continue
-            stat = effect.get("stat")
-            if stat not in CORE_STATS:
-                continue
-            delta = int(effect.get("delta", 0))
-            final_values[stat] += delta
-            applied_arena_effects.append({
-                "card_type": card_type,
-                "stat": stat,
-                "delta": delta,
-            })
+        applied_arena_effects = apply_arena_effects(card, arena, final_values)
 
         passive = self._apply_passive(card, opponent_card, arena, final_values)
         opponent_ability = state.get("ability_choices", {}).get(str(opponent_id), "skip")
@@ -1103,6 +1106,11 @@ class GameModeSystem:
             raise ValueError("passive_arena_not_found")
         trait_values = list(traits or [])
         with closing(self._connect()) as conn, conn:
+            conn.execute('BEGIN IMMEDIATE')
+            previous = conn.execute('SELECT hidden_stats FROM card_mode_metadata WHERE card_id=?', (card_id,)).fetchone()
+            previous_stats = _loads(previous[0], {}) if previous else {}
+            hidden_stats = {**{key: value for key, value in previous_stats.items() if key in CORE_STATS},
+                            **(hidden_stats or {})}
             from systems.card_collections import stored_collections, remember_collections
             series = stored_collections(collections if collections is not None else series)
             remember_collections(conn, series)
@@ -1125,6 +1133,7 @@ class GameModeSystem:
                     json.dumps(passive_value, ensure_ascii=False),
                 ),
             )
+            seed_easy_core_stats_in(conn, card_id)
 
     def get_card_metadata(self, card_id: str, rarity: Optional[str] = None) -> Dict[str, Any]:
         conn = self._connect()
@@ -1515,7 +1524,18 @@ class GameModeSystem:
         state["current_round"] = 1
         state["phase"] = "selection"
         state['question_catalog'] = easy_catalog_in(conn)
-        state["question"] = self._choose_easy_question(state["players"], catalog=state['question_catalog'], match_key=request_id)
+        state['question_pool'] = self._easy_question_pool(
+            state['players'], catalog=state['question_catalog'], match_key=request_id)
+        if len(state['question_pool']) < state['rounds']:
+            state['phase'] = 'expired'
+            self._save_state(conn, request_id, state)
+            conn.execute("UPDATE game_requests SET status='expired', updated_at=? WHERE request_id=?",
+                         (_iso(_now()), request_id))
+            conn.commit()
+            conn.close()
+            return False, 'not_enough_questions', state
+        state["question"] = self._choose_easy_question(
+            state["players"], pool=state['question_pool'])
         state["deadline"] = _iso(_now() + timedelta(seconds=EASY_CHOICE_TTL_SECONDS))
         self._save_state(conn, request_id, state)
         conn.execute(
@@ -1559,19 +1579,22 @@ class GameModeSystem:
                              {key: display_series[key] for key in common_series})
 
     def _choose_easy_question(
-        self, players: Iterable[int], previous_id: Optional[str] = None, *, catalog=None, match_key=None
-    ) -> Dict[str, Any]:
-        pool = self._easy_question_pool(players, catalog=catalog, match_key=match_key)
-        choices = [question for question in pool if question["id"] != previous_id]
-        return random.choice(choices or pool)
+        self, players: Iterable[int], previous_id: Optional[str] = None, *, catalog=None, match_key=None,
+        pool=None, previous_questions=()
+    ) -> Optional[Dict[str, Any]]:
+        if pool is None:
+            pool = self._easy_question_pool(players, catalog=catalog, match_key=match_key)
+        used_ids = {question['id'] for question in previous_questions}
+        used_text = {question_identity(question) for question in previous_questions}
+        choices = [question for question in pool if question['id'] not in used_ids
+                   and question['id'] != previous_id and question_identity(question) not in used_text]
+        return random.choice(choices) if choices else None
 
     def _hidden_stat_value(self, card, attribute: str) -> int:
         metadata = getattr(card,"snapshot_metadata",None) or self.get_card_metadata(card.card_id)
         authored = metadata.get("hidden_stats", {})
         if attribute in authored:
             return max(1, min(100, int(authored[attribute])))
-        if attribute in CORE_STATS:
-            return int(getattr(card, attribute))
         if attribute not in {'funny', 'scary', 'charisma', 'cute', 'evil', 'leadership'}:
             return 0  # Newly authored dimensions have no invented random value.
         digest = hashlib.sha256(f"{card.card_id}:{attribute}".encode("utf-8")).digest()
@@ -1701,6 +1724,16 @@ class GameModeSystem:
         }
         state["round_history"].append(round_result)
         completed = state["current_round"] >= state["rounds"]
+        next_question = None
+        if not completed:
+            next_question = self._choose_easy_question(
+                state['players'], catalog=state.setdefault('question_catalog', default_catalog()),
+                match_key=request_id, pool=state.get('question_pool'),
+                previous_questions=[played['question'] for played in state['round_history']])
+        exhausted = not completed and next_question is None
+        if exhausted:
+            state['rounds'] = state['current_round']
+            completed = True
         if completed:
             state["phase"] = "completed"
             participants = {
@@ -1725,9 +1758,7 @@ class GameModeSystem:
             state["report"] = report
         else:
             state["current_round"] += 1
-            previous_id = state["question"]["id"]
-            state["question"] = self._choose_easy_question(state["players"], previous_id,
-                catalog=state.setdefault('question_catalog', default_catalog()), match_key=request_id)
+            state["question"] = next_question
             state["choices"] = {}
             state['choice_scores'] = {}
             state["options"] = {}
@@ -1745,6 +1776,8 @@ class GameModeSystem:
                         or len(persisted.get("round_history", [])) + 1 != len(state["round_history"])):
                     raise ValueError("easy_round_already_resolved")
                 if completed:
+                    if exhausted:
+                        self._save_state(conn, request_id, state)
                     easy_awards = MatchRewardsSystem.easy_awards(sorted(participants), winners, state["choices"]) if len(participants) >= 2 else {}
                     for award in easy_awards.values():
                         award["easy_final"] = {"scores": state["scores"], "participants": sorted(participants)}

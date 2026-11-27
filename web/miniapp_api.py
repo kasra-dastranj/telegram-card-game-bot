@@ -33,7 +33,7 @@ from systems.game_mode_system import GameModeSystem
 from systems.match_activity import ActiveMatchError, BUSY_MESSAGE
 from systems.mini_three_round_system import MiniThreeRoundSystem, MODE as MINI_THREE_ROUND_MODE
 from systems.three_round_abilities import (
-    SOLO_ABILITY_FIELD, ability_definition, available_abilities, consume_ability, select_arena,
+    SOLO_ABILITY_FIELD, ability_definition, available_abilities, consume_ability, select_arena, stat_preview,
 )
 from systems.player_hub_system import PlayerHubSystem
 from systems.shared_foundation import eligible_cards
@@ -915,7 +915,12 @@ def silver_claim():
     data = request.get_json(silent=True) or {}
     if not data.get('request_key'):
         return jsonify({'error':'request_key_required'}), 400
-    return _economy_response(_v2_economy().claim(g.user_id, 'silver', data['request_key']))
+    result = _v2_economy().claim(g.user_id, 'silver', data['request_key'])
+    if result.get('ok'):
+        # A reward can differ from the player's currently active card form.
+        card = db.get_card_by_id_for_rarity(result['card_id'], result['rarity'])
+        result['card'] = card_to_dict(card) if card else None
+    return _economy_response(result)
 
 
 @app.route('/api/v1/economy/quote', methods=['POST'])
@@ -1268,17 +1273,19 @@ def _solo_snapshot(fight, user_id):
     from systems.custom_cards import match_card
     player_card = match_card(db,'solo:'+fight['fight_id'],user_id,fight['player_card_id'])
     revealed = fight['status'] == 'completed' or (used and used['ability_key'] == 'reveal_opponent')
-    ai_card = db.get_card_by_id(fight['ai_card_id']) if revealed else None
+    ai_card = db.get_card_by_id(fight['ai_card_id'])
     aso = AsoAI(fight['difficulty'])
     enabled = arena.get('abilities_enabled', True)
     stats = json.loads(fight['player_current_stats'])
-    boosts = {stat: battle_system.calculate_boost(player_card, fight['arena'], stat, arena or None)
-              for stat in ('power', 'speed', 'iq', 'popularity')} if player_card else {}
+    preview_arena = arena or dict(ARENAS.get(fight['arena'], {}), arena_id=fight['arena'])
+    preview = stat_preview(quick_modes, battle_system, player_card, ai_card, preview_arena,
+                           stats) if player_card and (arena or fight['arena'] in ARENAS) else None
+    boosts = preview['modifiers'] if preview else {}
     used_stats = json.loads(fight['player_used_stats'] or '[]')
     return {
         'fight_id': fight['fight_id'], 'status': fight['status'],
         'player_card': card_to_dict(player_card) if player_card else None,
-        'ai_card': card_to_dict(ai_card) if ai_card else None,
+        'ai_card': card_to_dict(ai_card) if ai_card and revealed else None,
         'ai_name': aso.mode['name'], 'aso_dialog': aso.get_greeting(),
         'arena': arena, 'current_round': fight['current_round'],
         'available_stats': [stat for stat in ('power', 'speed', 'iq', 'popularity') if stat not in used_stats],
@@ -1526,8 +1533,14 @@ def _play_solo_round(conn, user_id, fight_id, player_stat):
     # محاسبه boost از arena
     arena_id = fight["arena"]
     arena_snapshot = json.loads(fight.get("arena_snapshot") or "{}")
-    player_boost = battle_system.calculate_boost(player_card, arena_id, player_stat, arena_snapshot or None)
-    ai_boost = battle_system.calculate_boost(ai_card, arena_id, ai_stat, arena_snapshot or None)
+    if arena_snapshot:
+        player_preview = stat_preview(quick_modes, battle_system, player_card, ai_card, arena_snapshot, player_current)
+        ai_preview = stat_preview(quick_modes, battle_system, ai_card, player_card, arena_snapshot, ai_current)
+        player_boost = player_preview['modifiers'][player_stat]
+        ai_boost = ai_preview['modifiers'][ai_stat]
+    else:
+        player_boost = battle_system.calculate_boost(player_card, arena_id, player_stat)
+        ai_boost = battle_system.calculate_boost(ai_card, arena_id, ai_stat)
 
     player_total = player_base + player_boost
     ai_total = ai_base + ai_boost

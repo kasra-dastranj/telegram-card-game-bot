@@ -94,7 +94,9 @@ def test_detail_has_public_stats_traits_but_never_hidden_easy_values(scene, entr
     assert all(value not in text for value in ('ویژگی‌های Easy','⁨مدیریت⁩','کاریزما'))
     with sqlite3.connect(handler.db.db_path) as conn:
         import json
-        assert json.loads(conn.execute('SELECT hidden_stats FROM card_mode_metadata WHERE card_id=?',(card_id,)).fetchone()[0]) == {'survival':80,'management':60}
+        assert json.loads(conn.execute('SELECT hidden_stats FROM card_mode_metadata WHERE card_id=?',(card_id,)).fetchone()[0]) == {
+            'survival':80,'management':60,'power':100,'speed':100,'iq':100,'popularity':100,
+        }
     assert {b.callback_data for b in buttons(bot)} == {'mycards_custom_1'}
     assert handler.db.get_card_by_id_for_player(card_id, 101) is None
 

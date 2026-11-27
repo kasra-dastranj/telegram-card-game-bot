@@ -39,6 +39,34 @@ def test_seed_is_idempotent_and_preserves_legacy_pools(tmp_path):
     assert power["boost_amount"] == 8
 
 
+def test_three_round_effects_are_independent_and_match_quick_capabilities(tmp_path):
+    registry = ArenaRegistry(DatabaseManager(str(tmp_path / 'three-effects.db')))
+    payload = _quick_payload()
+    payload['profiles']['three_round'] = {
+        'enabled': True, 'selection_weight': 100,
+        'rules': {
+            'effects': [
+                {'condition': {'card_type': 'power'}, 'target_stat': 'power', 'delta': -2},
+                {'condition': {'card_type': 'power'}, 'target_stat': 'speed', 'delta': 3},
+                {'condition': {'card_type': 'iq'}, 'target_stat': 'popularity', 'delta': -1},
+            ],
+            'abilities_enabled': False, 'passives_enabled': False,
+        },
+    }
+    registry.create_draft('three_effects', payload, 'test')
+    registry.publish('three_effects', 'test', 1)
+    quick = registry.snapshot_for_match('three_effects', 'quick')
+    three = registry.snapshot_for_match('three_effects', 'three_round')
+    assert quick['effects'][0]['delta'] == 2
+    assert [effect['delta'] for effect in three['effects']] == [-2, 3, -1]
+    assert three['disabled_stats'] == []
+    assert not three['abilities_enabled'] and not three['passives_enabled']
+    draft = registry.create_next_draft('three_effects', 'test')
+    payload['profiles']['three_round']['rules']['disabled_stats'] = ['power']
+    with pytest.raises(ArenaValidationError):
+        registry.update_draft('three_effects', payload, 'test', draft['draft_revision'])
+
+
 def test_publish_is_versioned_and_existing_snapshot_is_stable(tmp_path):
     registry = ArenaRegistry(DatabaseManager(str(tmp_path / "arena.db")))
     registry.create_draft("storm_city", _quick_payload(), "test")

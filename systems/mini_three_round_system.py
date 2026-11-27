@@ -10,7 +10,7 @@ from typing import Any, Dict, Optional
 from systems.match_rewards_system import MatchRewardsSystem
 from systems.shared_foundation import context_in, require_card_in
 from systems.game_mode_system import ABILITY_DEFINITIONS
-from systems.three_round_abilities import ability_definition, available_abilities, consume_ability, select_arena
+from systems.three_round_abilities import ability_definition, available_abilities, consume_ability, select_arena, stat_preview
 
 
 MODE = "mini_three_round"
@@ -198,15 +198,18 @@ class MiniThreeRoundSystem:
                 first, second = state["players"]
                 entries = {}
                 arena = state["arena"]
-                arena_id = arena["arena_id"]
                 for player_id in (first, second):
                     player_key = str(player_id)
                     chosen_stat = state["stat_choices"][player_key]
                     card = self.db.get_card_by_id_for_player(state["cards"][player_key], player_id)
                     if not card:
                         raise ValueError("card_not_owned")
-                    base = state["current_stats"][player_key][chosen_stat]
-                    boost = self.battle_system.calculate_boost(card, arena_id, chosen_stat, arena)
+                    opponent_id = second if player_id == first else first
+                    opponent = self.db.get_card_by_id_for_player(state["cards"][str(opponent_id)], opponent_id)
+                    preview = stat_preview(self.modes, self.battle_system, card, opponent,
+                                           arena, state["current_stats"][player_key])
+                    base = preview['base_values'][chosen_stat]
+                    boost = preview['modifiers'][chosen_stat]
                     entries[player_key] = {
                         "stat": chosen_stat, "base": base, "boost": boost,
                         "total": base + boost,
@@ -288,9 +291,10 @@ class MiniThreeRoundSystem:
         show_opponent = (state["phase"] == "completed" or
                          (own_ability or {}).get('ability_key') == 'reveal_opponent')
         own_card = self.db.get_card_by_id_for_player(state["cards"][mine], user_id) if mine in state["cards"] else None
-        boosts = ({stat: self.battle_system.calculate_boost(
-            own_card, state["arena"]["arena_id"], stat, state["arena"]
-        ) for stat in STATS} if own_card else {})
+        opponent_card = self.db.get_card_by_id_for_player(state['cards'][opponent], int(opponent)) if opponent in state['cards'] else None
+        preview = stat_preview(self.modes, self.battle_system, own_card, opponent_card, state['arena'],
+                               state['current_stats'][mine]) if own_card else None
+        boosts = preview['modifiers'] if preview else {}
         response.update({
             "phase": state["phase"], "round": state["round"],
             "deadline": state["deadline"], "arena": state["arena"],
@@ -300,7 +304,7 @@ class MiniThreeRoundSystem:
             "opponent_card_selected": opponent in state["cards"],
             "my_stat_locked": mine in state["stat_choices"],
             "opponent_stat_selected": opponent in state["stat_choices"],
-            "my_values": state["current_stats"].get(mine),
+            "my_values": preview['final_values'] if preview else state["current_stats"].get(mine),
             "my_boosts": boosts,
             "available_stats": [stat for stat in STATS if stat not in state["used_stats"][mine]],
             "rounds_won": state["rounds_won"],

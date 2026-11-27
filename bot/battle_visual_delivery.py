@@ -122,11 +122,17 @@ async def card_art(handler, context, card, *, preserve_alpha=False):
         return None
     # A form-specific file is preferred; never borrow another form's artwork.
     path = getattr(card, 'image_path', '')
+    custom = getattr(card, 'origin', 'official') == 'custom'
+    if custom:
+        from systems.custom_cards import media_path
+        path = media_path(handler.db, card.card_id)
     if path:
         try:
             return await work(context, read_bitmap, path, preserve_alpha)
         except (OSError, ValueError):
             pass
+    if custom:
+        return None  # Custom portraits stay private and never borrow an official namesake.
     rarity = str(getattr(getattr(card, 'rarity', None), 'value', getattr(card, 'rarity', 'normal')))
     getter = getattr(handler.db, 'get_card_variant_media_file_id', None)
     cache = limited_cache(context, '_battle_visual_card_media', 48)
