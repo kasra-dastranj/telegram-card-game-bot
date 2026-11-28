@@ -683,7 +683,9 @@ def test_fresh_tester_progression_without_seeded_wallet(v2_client, game, monkeyp
                            power=5, speed=5, iq=5, popularity=5, abilities=['hero']))
     GameModeSystem(game)
     game.get_or_create_player(10, 'offline_tester', 'Tester')
-    assert grant_starter_cards(game, 10) == ['John Wick', 'Heisenberg', 'Rehi']
+    for index in range(10):game.add_card(Card(card_id='starter-extra-'+str(index),name='Starter '+str(index),rarity=CardRarity.NORMAL,power=5,speed=5,iq=5,popularity=5,abilities=[]))
+    monkeypatch.setattr('systems.starter_cards_system.random.sample', lambda pool, size: sorted(pool, key=lambda card: card.card_id not in ('john_wick', 'heisenberg', 'rehi'))[:size])
+    assert len(grant_starter_cards(game, 10)) == 10
     assert grant_starter_cards(game, 10) == []
     headers = {'X-Debug-User-Id': '10'}
 
@@ -694,7 +696,7 @@ def test_fresh_tester_progression_without_seeded_wallet(v2_client, game, monkeyp
 
     initial = profile()
     assert (initial['level'], initial['coins'], initial['total_score']) == (1, 0, 0)
-    assert initial['counts']['cards'] == 3 and initial['counts']['decks'] == 1
+    assert initial['counts']['cards'] == 10 and initial['counts']['decks'] == 1
     assert ModeAccessSystem(game).check(10, 'deck')[0]
 
     def finish_win(index):
@@ -791,9 +793,9 @@ def test_client_operation_key_cannot_poison_match_ledger(game):
 
 def test_starter_cannot_be_reissued_after_selling_every_copy(game):
     from systems.starter_cards_system import grant_starter_cards
-    for key in ('a','b'):game.add_card(Card(card_id=key,name=key,rarity=CardRarity.NORMAL,power=1,speed=1,iq=1,popularity=1,abilities=[]))
+    for key in [str(i) for i in range(10)]:game.add_card(Card(card_id=key,name=key,rarity=CardRarity.NORMAL,power=1,speed=1,iq=1,popularity=1,abilities=[]))
     game.get_or_create_player(10)
-    assert len(grant_starter_cards(game,10))==3
+    assert len(grant_starter_cards(game,10))==10
     assert grant_starter_cards(game,10)==[]
     with sqlite3.connect(game.db_path) as conn:
         conn.execute('DELETE FROM player_cards WHERE user_id=10')

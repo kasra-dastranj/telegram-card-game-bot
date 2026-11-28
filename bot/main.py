@@ -574,6 +574,7 @@ class TelegramCardBot(
         # مدیریت کارت‌ها
         app.add_handler(CallbackQueryHandler(self.mycards_navigation_handler, pattern="^mycards_"))
         app.add_handler(CallbackQueryHandler(self.cardinfo_handler, pattern="^cardinfo_"))
+        app.add_handler(CallbackQueryHandler(self.card_form_handler, pattern="^cf:"))
         app.add_handler(CallbackQueryHandler(self.toggle_favorite_handler, pattern="^toggle_fav_"))
 
         # ==================== فاز ۲: 3-Round Battle ====================
